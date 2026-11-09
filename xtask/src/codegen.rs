@@ -18,7 +18,7 @@ mod code_intelligence;
 mod contract_metadata;
 #[cfg(feature = "host-contracts")]
 mod developer_evidence;
-#[cfg(feature = "product-schemas")]
+#[cfg(feature = "engineering-contracts")]
 mod engineering;
 mod grpc_wire;
 #[cfg(feature = "product-schemas")]
@@ -176,6 +176,12 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         let tree = recorded_result_tree(root)?;
         validate_tree(&tree)?;
         trees.push(("recorded-result".into(), tree));
+        let tree = scientific_worker_tree(root)?;
+        validate_tree(&tree)?;
+        trees.push(("scientific-worker".into(), tree));
+        let tree = reference_exchange_tree(root)?;
+        validate_tree(&tree)?;
+        trees.push(("reference-exchange".into(), tree));
         let tree = engineering_tree(root)?;
         validate_tree(&tree)?;
         trees.push(("engineering".into(), tree));
@@ -265,14 +271,14 @@ fn reference_exchange_tree(_: &Path) -> Result<GeneratedTree> {
     bail!("reference exchange projections require reference-contracts")
 }
 
-#[cfg(feature = "product-schemas")]
+#[cfg(feature = "engineering-contracts")]
 fn engineering_tree(root: &Path) -> Result<GeneratedTree> {
     engineering::generate(root)
 }
 
-#[cfg(not(feature = "product-schemas"))]
+#[cfg(not(feature = "engineering-contracts"))]
 fn engineering_tree(_: &Path) -> Result<GeneratedTree> {
-    bail!("engineering projections require product-schemas")
+    bail!("engineering projections require engineering-contracts")
 }
 
 #[cfg(feature = "host-contracts")]
@@ -470,6 +476,16 @@ fn check_generators(root: &Path, languages: &[Language], only: Option<Target>) -
                 check_result(&mut failures, "recorded-result", recorded_result_tree(root))
             {
                 trees.push(("recorded-result".into(), tree));
+            }
+            if let Some(tree) =
+                check_result(&mut failures, "scientific-worker", scientific_worker_tree(root))
+            {
+                trees.push(("scientific-worker".into(), tree));
+            }
+            if let Some(tree) =
+                check_result(&mut failures, "reference-exchange", reference_exchange_tree(root))
+            {
+                trees.push(("reference-exchange".into(), tree));
             }
             if let Some(tree) = check_result(&mut failures, "engineering", engineering_tree(root)) {
                 trees.push(("engineering".into(), tree));

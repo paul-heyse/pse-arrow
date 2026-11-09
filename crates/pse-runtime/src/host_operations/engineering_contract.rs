@@ -9,11 +9,13 @@ mod inspection;
 mod study;
 pub use inspection::{EngineeringInspectModeling, EngineeringInspectProviders};
 pub use study::{
+    EXPANDED_STUDY_SERVICE, EXPLICIT_STUDY_SERVICE, STUDY_CONTROL_SERVICE,
     EngineeringCohortRelease, EngineeringFreezeStudyCohort, EngineeringObserveStudy,
-    EngineeringPrepareStudy, EngineeringPreparedStudy, EngineeringReadStudyResult,
-    EngineeringRestoreStudy, EngineeringStudyCohortPage, EngineeringStudyHeaderPage,
+    EngineeringPrepareExpandedStudy, EngineeringPrepareExplicitStudy, EngineeringPreparedStudy,
+    EngineeringReadStudyResult, EngineeringRestoreExpandedStudy, EngineeringRestoreExplicitStudy,
+    EngineeringStudyCohortPage, EngineeringStudyHeaderPage,
     EngineeringStudyKey, EngineeringStudyResultPage, EngineeringStudyStatus,
-    EngineeringSubmitStudy,
+    EngineeringSubmitStudy, ExpandedStudyDefinition, ExplicitStudyDefinition, StudyDefinitionContext,
 };
 
 pse_contract::projection_struct! {
@@ -84,8 +86,8 @@ pub fn projection() -> Result<ProjectionGraph, ProjectionError> {
         )?
         .effects(pse_contract::operation_effects::EffectFacts::OBSERVATION)?;
     let service = inspection::service(service, &mut graph)?;
-    let service = study::service(service, &mut graph)?;
     graph.service(service)?;
+    study::services(&mut graph)?;
     Ok(graph)
 }
 
@@ -94,8 +96,18 @@ pub fn projection() -> Result<ProjectionGraph, ProjectionError> {
 /// Missing named owners or effects refuse instead of publishing invented metadata.
 pub fn methods() -> Result<Vec<pse_model::engineering::EngineeringMethodContract>, ProjectionError>
 {
+    method_contracts(&projection()?)
+}
+
+#[cfg(feature = "engineering-service")]
+pub(super) fn explicit_study_methods() -> Result<Vec<pse_model::engineering::EngineeringMethodContract>, ProjectionError> {
+    let mut graph = ProjectionGraph::default();
+    study::explicit_services(&mut graph)?;
+    method_contracts(&graph)
+}
+
+fn method_contracts(graph: &ProjectionGraph) -> Result<Vec<pse_model::engineering::EngineeringMethodContract>, ProjectionError> {
     use pse_contract::boundary_projection::TypeRef;
-    let graph = projection()?;
     let direction = |direction| match direction {
         Direction::Input => "input",
         Direction::Output => "output",

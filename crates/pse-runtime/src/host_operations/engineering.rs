@@ -17,10 +17,19 @@ pub use session::{
 
 /// Complete encoded ceiling for fixed contract, workbench and prepared-study documents.
 #[cfg(feature = "engineering-service")]
-const DOCUMENT_RESPONSE_BYTES: usize = 16 << 20;
+use pse_host::engineering_client::DOCUMENT_RESPONSE_BYTES;
 
 /// Source-generated wire messages, constraints and independent client/service bindings.
+#[cfg(feature = "engineering-service")]
 pub mod generated;
+
+/// Finite model-inspection messages and reflection, available without the service.
+#[cfg(feature = "engineering-inspection")]
+pub mod inspection;
+
+// Own conversions between registry source types and host-owned wire types.
+#[cfg(feature = "engineering-inspection")]
+pub(crate) struct NativeAdapterScope;
 
 #[cfg(feature = "engineering-service")]
 mod rpc;

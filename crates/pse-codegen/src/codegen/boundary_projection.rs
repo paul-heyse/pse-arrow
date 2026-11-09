@@ -39,7 +39,7 @@ mod registry_facets;
 mod source_metadata;
 pub use adapters::{
     AdapterVisibility, NativeViewTarget, native_adapters, native_adapters_retaining_wire,
-    native_adapters_scoped, native_view_adapters,
+    native_adapters_scoped, native_adapters_with_imports, native_view_adapters,
 };
 pub use lazy_probe::{LazyProbeTarget, lazy_decode_probe};
 

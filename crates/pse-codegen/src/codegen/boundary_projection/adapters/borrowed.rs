@@ -60,7 +60,7 @@ pub fn native_view_adapters(
     let source = Generator {
         wire_root: target.wire_root,
         owner_crate: target.owner_crate,
-        retained_wire: false,
+        adoption: Adoption::Strict,
         naming: &naming,
         graph,
     };

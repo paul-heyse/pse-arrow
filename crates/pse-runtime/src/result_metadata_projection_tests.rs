@@ -184,8 +184,7 @@ fn original_attempt_metadata_preserves_signed_time_and_recorded_outcome_without_
     };
     // The protected snapshot contains this native row. Data conversion cannot
     // create ClosedManifest, ResultRead, a protection owner or scientific permission.
-    let wire: pb::CanonicalAttemptMetadata =
-        pse_contract_proto::support::encode_root(original.clone(), "attempt").unwrap();
+    let wire = projection::encode_canonical_attempt_metadata(original.clone()).unwrap();
     let bytes = wire.encode_to_vec();
     let independent = inspect("pse.engineering.v1.CanonicalAttemptMetadata", &bytes)?;
     assert_eq!(independent.field_by_number(3), Some(&Value::U64(u64::MAX)));
@@ -194,8 +193,7 @@ fn original_attempt_metadata_preserves_signed_time_and_recorded_outcome_without_
         independent.field_by_number(12),
         Some(&Value::Bytes(Vec::new()))
     );
-    let restored: canonical_attempts::Row =
-        pse_contract_proto::support::decode_root(wire, "attempt").unwrap();
+    let restored = projection::decode_canonical_attempt_metadata(wire).unwrap();
     assert_eq!(restored, original);
     let native = storage::encode_canonical_attempts(&restored).unwrap();
     assert_eq!(

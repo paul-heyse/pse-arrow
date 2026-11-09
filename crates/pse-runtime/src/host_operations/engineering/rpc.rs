@@ -9,80 +9,22 @@ use super::{
 use crate::CancelSource;
 use connectrpc::{ConnectError, ServiceStream};
 use generated::pb::pse::engineering::v1 as pb;
-use pse_host::{envelope::CliInvocationId, environment::Environment};
-use std::{path::PathBuf, sync::Arc};
+pub use pse_host::engineering_client::EngineeringEndpoint;
+use std::sync::Arc;
 
 mod adoption;
-mod auth;
 mod ingress;
 mod inspection;
 mod outgoing;
 mod responses;
 mod study;
 
-/// Explicitly prepared original service; connecting never launches or rebuilds it.
-#[derive(Clone, Debug)]
-pub struct EngineeringEndpoint {
-    /// Checkout whose managed invocation owns the service payload.
-    pub root: PathBuf,
-    /// Original managed service invocation, independent of a socket's current spelling.
-    pub invocation: CliInvocationId,
-    /// Previously published local socket for that exact incarnation.
-    pub socket: PathBuf,
-    /// Approved checkout environment used to authenticate original kernel membership.
-    pub environment: Environment,
-    /// Prepared original payload image, independently reobserved on every connection.
-    pub artifact: pse_buildinfo::FileObservation,
-    /// Native executable attestation published by the prepared original payload.
-    pub build: pse_ids::ContentHash,
-}
-
-#[derive(Clone)]
-struct AuthenticatedConnector(EngineeringEndpoint);
-impl tower_service::Service<http::Uri> for AuthenticatedConnector {
-    type Response = hyper_util::rt::TokioIo<tokio::net::UnixStream>;
-    type Error = std::io::Error;
-    type Future =
-        std::pin::Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
-    fn poll_ready(
-        &mut self,
-        _: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<Result<(), Self::Error>> {
-        std::task::Poll::Ready(Ok(()))
-    }
-    fn call(&mut self, _: http::Uri) -> Self::Future {
-        let endpoint = self.0.clone();
-        Box::pin(async move {
-            let stream = tokio::net::UnixStream::connect(&endpoint.socket).await?;
-            let peer = stream.peer_cred()?;
-            let pid = peer
-                .pid()
-                .and_then(|pid| u32::try_from(pid).ok())
-                .ok_or_else(|| denied("kernel service PID unavailable"))?;
-            let original = pse_host::managed::supervisor::authenticate_payload_peer(
-                &endpoint.root,
-                &endpoint.invocation,
-                pid,
-                &endpoint.environment,
-            )
-            .await
-            .map_err(|error| denied(&error.to_string()))?;
-            tokio::task::spawn_blocking(move || {
-                auth::authenticate_image(&original, &endpoint.artifact, endpoint.build)
-            })
-            .await
-            .map_err(|error| denied(&format!("payload image observation failed: {error}")))??;
-            Ok(hyper_util::rt::TokioIo::new(stream))
-        })
-    }
-}
-fn denied(message: &str) -> std::io::Error {
-    std::io::Error::new(std::io::ErrorKind::PermissionDenied, message)
-}
-
 /// Independent generated client over authenticated initial and reconnected HTTP/2 channels.
 pub struct EngineeringClient {
     inner: bindings::EngineeringServiceClient<connectrpc::client::SharedHttp2Connection>,
+    explicit: bindings::ExplicitStudyPreparationV2Client<connectrpc::client::SharedHttp2Connection>,
+    expanded: bindings::ExpandedStudyPreparationV2Client<connectrpc::client::SharedHttp2Connection>,
+    study: bindings::StudyControlV2Client<connectrpc::client::SharedHttp2Connection>,
 }
 impl std::fmt::Debug for EngineeringClient {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -97,16 +39,8 @@ impl EngineeringClient {
     /// Missing/replaced/stale original custody and transport failures refuse the connection.
     pub async fn connect(endpoint: EngineeringEndpoint) -> Result<Self, EngineeringServiceError> {
         use sha2::Digest as _;
-        let config = responses::config("http://localhost".parse().map_err(infrastructure)?);
-        let connection = connectrpc::client::Http2Connection::connect_with_connector(
-            AuthenticatedConnector(endpoint),
-            config.base_uri().clone(),
-        )
-        .await
-        .map_err(infrastructure)?
-        .shared(32);
-        let inner = bindings::EngineeringServiceClient::new(connection, config);
-        let client = Self { inner };
+        let (connection, config) = endpoint.connect().await.map_err(infrastructure)?;
+        let client = Self::from_connection(connection, config);
         let response = client
             .describe_contract(pb::EngineeringDescribeRequest::default())
             .await
@@ -119,12 +53,36 @@ impl EngineeringClient {
         }
         Ok(client)
     }
+
+    fn from_connection(
+        connection: connectrpc::client::SharedHttp2Connection,
+        config: connectrpc::client::ClientConfig,
+    ) -> Self {
+        Self {
+            inner: bindings::EngineeringServiceClient::new(connection.clone(), config.clone()),
+            explicit: bindings::ExplicitStudyPreparationV2Client::new(connection.clone(), config.clone()),
+            expanded: bindings::ExpandedStudyPreparationV2Client::new(connection.clone(), config.clone()),
+            study: bindings::StudyControlV2Client::new(connection, config),
+        }
+    }
     /// Use generated bindings for ordinary bounded responses. The operation helpers
     /// select larger response limits only for their original complete-response contract.
     pub fn generated(
         &self,
     ) -> &bindings::EngineeringServiceClient<connectrpc::client::SharedHttp2Connection> {
         &self.inner
+    }
+    /// Generated client for explicit-point preparation and recovery.
+    pub fn explicit_study(&self) -> &bindings::ExplicitStudyPreparationV2Client<connectrpc::client::SharedHttp2Connection> {
+        &self.explicit
+    }
+    /// Generated client for source-expansion preparation and recovery.
+    pub fn expanded_study(&self) -> &bindings::ExpandedStudyPreparationV2Client<connectrpc::client::SharedHttp2Connection> {
+        &self.expanded
+    }
+    /// Generated client for shared Study execution and observations.
+    pub fn study(&self) -> &bindings::StudyControlV2Client<connectrpc::client::SharedHttp2Connection> {
+        &self.study
     }
 }
 
@@ -167,11 +125,32 @@ impl Implementation {
         }
         Ok(())
     }
+
+    fn describe_selected_contract(
+        &self,
+        context: connectrpc::RequestContext,
+        request: connectrpc::ServiceRequest<'_, pb::EngineeringDescribeRequest>,
+        explicit_study: bool,
+    ) -> connectrpc::ServiceResult<AccountedResponse<pb::EngineeringContract>> {
+        self.authenticate(&context)?;
+        crate::engineering_projection::decode_engineering_describe_request(request.to_owned_message())
+            .map_err(study::projection_error)?;
+        let output = if explicit_study {
+            self.engine.describe_study_contract()
+        } else {
+            self.engine.describe_contract()
+        }.map_err(transport)?;
+        Ok(connectrpc::Response::new(AccountedResponse {
+            message: crate::engineering_projection::encode_engineering_contract(output.document)
+                .map_err(study::projection_error)?,
+            reservation: output.owner,
+            maximum_bytes: super::DOCUMENT_RESPONSE_BYTES,
+        }))
+    }
 }
 
 impl bindings::EngineeringService for Implementation {
     inspection::methods!();
-    study::methods!();
     async fn inspect_physical<'a>(
         &'a self,
         context: connectrpc::RequestContext,
@@ -277,18 +256,7 @@ impl bindings::EngineeringService for Implementation {
     ) -> connectrpc::ServiceResult<
         impl connectrpc::Encodable<pb::EngineeringContract> + Send + use<'a>,
     > {
-        self.authenticate(&context)?;
-        crate::engineering_projection::decode_engineering_describe_request(
-            request.to_owned_message(),
-        )
-        .map_err(study::projection_error)?;
-        let output = self.engine.describe_contract().map_err(transport)?;
-        Ok(connectrpc::Response::new(AccountedResponse {
-            message: crate::engineering_projection::encode_engineering_contract(output.document)
-                .map_err(study::projection_error)?,
-            reservation: output.owner,
-            maximum_bytes: super::DOCUMENT_RESPONSE_BYTES,
-        }))
+        self.describe_selected_contract(context, request, false)
     }
     async fn admit_source<'a>(
         &'a self,
@@ -510,6 +478,19 @@ impl bindings::EngineeringService for Implementation {
     }
 }
 
+impl bindings::StudyControlV2 for Implementation {
+    study::control_methods!();
+    async fn describe_study_contract<'a>(
+        &'a self,
+        context: connectrpc::RequestContext,
+        request: connectrpc::ServiceRequest<'_, pb::EngineeringDescribeRequest>,
+    ) -> connectrpc::ServiceResult<
+        impl connectrpc::Encodable<pb::EngineeringContract> + Send + use<'a>,
+    > {
+        self.describe_selected_contract(context, request, true)
+    }
+}
+
 fn check_run_observation_deadline(deadline: Option<std::time::Instant>) -> Result<(), ConnectError> {
     if deadline.is_some_and(|deadline| std::time::Instant::now() >= deadline) {
         return Err(run_observation_deadline_error());
@@ -532,7 +513,6 @@ pub async fn serve(
     policy: LocalAccessPolicy,
     stopping: CancelSource,
 ) -> Result<(), EngineeringServiceError> {
-    use bindings::EngineeringServiceExt as _;
     if policy.maximum_connections == 0 || policy.connection_drain.is_zero() {
         drop(listener);
         let refusal = EngineeringServiceError::Request(
@@ -545,11 +525,16 @@ pub async fn serve(
     }
     let maximum_connections = policy.maximum_connections;
     let connection_drain = policy.connection_drain;
-    let router = Arc::new(Implementation {
+    let implementation = Arc::new(Implementation {
         engine: engine.clone(),
         policy: policy.clone(),
-    })
-    .register(connectrpc::Router::new());
+    });
+    let router = bindings::EngineeringServiceExt::register(
+        implementation.clone(), connectrpc::Router::new(),
+    );
+    let router = bindings::ExplicitStudyPreparationV2Ext::register(implementation.clone(), router);
+    let router = bindings::ExpandedStudyPreparationV2Ext::register(implementation.clone(), router);
+    let router = bindings::StudyControlV2Ext::register(implementation, router);
     let service = connectrpc::ConnectRpcService::new(router).with_limits(ingress::limits());
     let ingress_pool = engine.ingress_pool();
     let mut connections = tokio::task::JoinSet::new();
@@ -652,10 +637,7 @@ fn infrastructure(error: impl std::fmt::Display) -> EngineeringServiceError {
     EngineeringServiceError::Infrastructure(error.to_string())
 }
 fn transport(error: EngineeringServiceError) -> ConnectError {
-    let failure: Result<pb::EngineeringFailure, _> = pse_contract_proto::support::encode_root(
-        super::session::failure(&error),
-        "EngineeringFailure",
-    );
+    let failure = crate::engineering_projection::encode_engineering_failure(super::session::failure(&error));
     let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(&error);
     let mapped = match code {
         Some(

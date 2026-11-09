@@ -962,10 +962,11 @@ RSS or latency promise. The 100,000 population admission ceiling remains unquali
 
 One runtime request/preparation/admission/deployment owner and typed dispatch/finish pairing
 serve immediate and durable hosts. StudyOperation retains its admitted operation membership;
-host-only Shooting refuses projection before effects. Physical request encoding advances
-StudyOperation/StudyRequest to Version8 and the stored definition to 12, with regeneration
-rather than historical reinterpretation. Parameter Fit/Simulation points bind values with
-explicit starts and fresh consistent IC/history.
+host-only Shooting refuses projection before effects. The two engineering Study input
+capabilities in [§21.8](#section-21-8) admit through the same native owner and retain the
+current durable definition. Older scientific inputs require regeneration under the current
+contract. Parameter Fit/Simulation points bind values with explicit starts and fresh consistent
+IC/history.
 
 > Decision: [ADR-0211](../../adr/0211-bounded-worker-publication.md) (proposed; Plan48 F06 target).
 

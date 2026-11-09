@@ -456,22 +456,11 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
-| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `indices` | 1 | `Repeated(Named("ModelingIndexBinding"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
 | `type` | 2 | `Repeated(Named("ModelingTypeArenaNode"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
 | `boundary` | 3 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "accumulator.boundary", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
 | `mode` | 4 | `Named("ModelingAccumulatorMode")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingAccumulatorMode"}` |
 | `tolerance` | 5 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "accumulator.tolerance", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
-
-## `AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem`
-
-Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
-| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "accumulator.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
 
 ## `AuthoredModelingDeclarationsFieldValueAnnotation`
 
@@ -614,21 +603,10 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
 | `type` | 1 | `Optional(Repeated(Named("ModelingTypeArenaNode")))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
-| `indices` | 2 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueBindingIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `indices` | 2 | `Repeated(Named("ModelingIndexBinding"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
 | `expression` | 3 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "binding.expression", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
 | `defined_by` | 4 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "binding.defined_by", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "equation"}` |
 | `domain` | 5 | `Optional(Named("ModelingVariableDomain"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingVariableDomain"}` |
-
-## `AuthoredModelingDeclarationsFieldValueBindingIndicesItem`
-
-Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueBindingIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
-| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "binding.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
 
 ## `AuthoredModelingDeclarationsFieldValueBoundary`
 
@@ -638,18 +616,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
-| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
-
-## `AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem`
-
-Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
-| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "boundary.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
+| `indices` | 1 | `Repeated(Named("ModelingIndexBinding"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
 
 ## `AuthoredModelingDeclarationsFieldValueCardinality`
 
@@ -659,20 +626,9 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
-| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `indices` | 1 | `Repeated(Named("ModelingIndexBinding"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
 | `count` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "cardinality.count", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
 | `member` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "cardinality.member", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
-
-## `AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem`
-
-Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
-| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "cardinality.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
 
 ## `AuthoredModelingDeclarationsFieldValueCollocationScheme`
 
@@ -694,20 +650,9 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
-| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `indices` | 1 | `Repeated(Named("ModelingIndexBinding"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
 | `first` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "complementarity.first", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
 | `second` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "complementarity.second", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
-
-## `AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem`
-
-Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
-| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "complementarity.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
 
 ## `AuthoredModelingDeclarationsFieldValueConnection`
 
@@ -717,20 +662,9 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
-| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueConnectionIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `indices` | 1 | `Repeated(Named("ModelingIndexBinding"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
 | `from` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "connection.from", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
 | `to` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "connection.to", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
-
-## `AuthoredModelingDeclarationsFieldValueConnectionIndicesItem`
-
-Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueConnectionIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
-| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "connection.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
 
 ## `AuthoredModelingDeclarationsFieldValueConstant`
 
@@ -776,21 +710,10 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
-| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueContributionIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `indices` | 1 | `Repeated(Named("ModelingIndexBinding"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
 | `target` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "contribution.target", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
 | `expression` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "contribution.expression", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
 | `role` | 4 | `Named("ModelingContributionRole")` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.extension": "pse.enum", "pse.domain.parameter": "ModelingContributionRole"}` |
-
-## `AuthoredModelingDeclarationsFieldValueContributionIndicesItem`
-
-Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueContributionIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
-| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "contribution.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
 
 ## `AuthoredModelingDeclarationsFieldValueCoordinateMap`
 
@@ -823,19 +746,8 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
-| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `indices` | 1 | `Repeated(Named("ModelingIndexBinding"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
 | `expression` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "coordinate_slot.expression", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
-
-## `AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem`
-
-Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
-| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "coordinate_slot.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
 
 ## `AuthoredModelingDeclarationsFieldValueDataset`
 
@@ -966,7 +878,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
-| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueEquationIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `indices` | 1 | `Repeated(Named("ModelingIndexBinding"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
 | `expression` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "equation.expression", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "equation"}` |
 | `condition` | 3 | `Optional(Named("AuthoredModelingDeclarationsFieldValueEquationCondition"))` | `Both` | `[]` | `{"pse.domain.boundary.shape": "{\"alternatives\":[],\"direction\":\"both\",\"name\":null,\"reserved_names\":[],\"reserved_tags\":[],\"source\":\"crates/pse-schema/src/catalog/modeling.rs\",\"version\":27}", "pse.domain.boundary.tag": "3"}` |
 
@@ -981,17 +893,6 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `variable` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "equation.condition.variable", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
 | `active` | 2 | `Scalar(Bool)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
 
-## `AuthoredModelingDeclarationsFieldValueEquationIndicesItem`
-
-Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueEquationIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
-| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "equation.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
-
 ## `AuthoredModelingDeclarationsFieldValueExchange`
 
 Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueExchange`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
@@ -1000,20 +901,9 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
-| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueExchangeIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `indices` | 1 | `Repeated(Named("ModelingIndexBinding"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
 | `from` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "exchange.from", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
 | `to` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "exchange.to", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
-
-## `AuthoredModelingDeclarationsFieldValueExchangeIndicesItem`
-
-Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueExchangeIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
-| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "exchange.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
 
 ## `AuthoredModelingDeclarationsFieldValueExpectation`
 
@@ -1103,24 +993,13 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
-| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `indices` | 1 | `Repeated(Named("ModelingIndexBinding"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
 | `type` | 2 | `Repeated(Named("ModelingTypeArenaNode"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
 | `axis` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "inventory_balance.axis", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
 | `inventory` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "inventory_balance.inventory", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
 | `flux` | 5 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "inventory_balance.flux", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
 | `tolerance` | 6 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "6", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "inventory_balance.tolerance", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
 | `transfers` | 7 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "7", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
-
-## `AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem`
-
-Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
-| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "inventory_balance.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
 
 ## `AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem`
 
@@ -1141,19 +1020,8 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
-| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueLogicIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `indices` | 1 | `Repeated(Named("ModelingIndexBinding"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
 | `proposition` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "logic.proposition", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "proposition"}` |
-
-## `AuthoredModelingDeclarationsFieldValueLogicIndicesItem`
-
-Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueLogicIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
-| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "logic.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
 
 ## `AuthoredModelingDeclarationsFieldValueOrderedSet`
 
@@ -1163,20 +1031,9 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
-| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `indices` | 1 | `Repeated(Named("ModelingIndexBinding"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
 | `member` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "ordered_set.member", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
 | `weight` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "ordered_set.weight", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
-
-## `AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem`
-
-Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
-| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "ordered_set.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
 
 ## `AuthoredModelingDeclarationsFieldValuePermission`
 
@@ -1199,22 +1056,11 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
-| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `indices` | 1 | `Repeated(Named("ModelingIndexBinding"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
 | `output` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "piecewise.output", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
 | `input` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "piecewise.input", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
 | `abscissa` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "piecewise.abscissa", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
 | `ordinate` | 5 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "5", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "piecewise.ordinate", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
-
-## `AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem`
-
-Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
-| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "piecewise.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
 
 ## `AuthoredModelingDeclarationsFieldValueRealization`
 
@@ -1649,19 +1495,8 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
-| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueStatePortIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `indices` | 1 | `Repeated(Named("ModelingIndexBinding"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
 | `specification` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_port.specification", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
-
-## `AuthoredModelingDeclarationsFieldValueStatePortIndicesItem`
-
-Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueStatePortIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
-| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_port.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
 
 ## `AuthoredModelingDeclarationsFieldValueStateSpecification`
 
@@ -1671,7 +1506,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
-| `indices` | 1 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `indices` | 1 | `Repeated(Named("ModelingIndexBinding"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
 | `extends` | 2 | `Optional(Scalar(String))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_specification.extends", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
 | `supplied` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_specification.supplied", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
 | `coordinates` | 4 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
@@ -1687,30 +1522,8 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
 | `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
-| `indices` | 2 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `indices` | 2 | `Repeated(Named("ModelingIndexBinding"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
 | `target` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_specification.coordinates.target", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
-
-## `AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem`
-
-Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
-| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_specification.coordinates.{0}.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
-
-## `AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem`
-
-Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
-| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_specification.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
 
 ## `AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem`
 
@@ -1721,20 +1534,9 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
 | `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
-| `indices` | 2 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `indices` | 2 | `Repeated(Named("ModelingIndexBinding"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
 | `equation` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_specification.reconstructions.equation", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "equation"}` |
 | `tolerance` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_specification.reconstructions.tolerance", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
-
-## `AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem`
-
-Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
-| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_specification.reconstructions.{0}.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
 
 ## `AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem`
 
@@ -1745,20 +1547,9 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
 | `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
-| `indices` | 2 | `Repeated(Named("AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
+| `indices` | 2 | `Repeated(Named("ModelingIndexBinding"))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.binder": "domain-before-name", "pse.semantic.collection": "{\"maximum\":null,\"minimum\":0,\"order\":\"sequence\",\"unique\":false}"}` |
 | `expression` | 3 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_specification.transports.expression", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
 | `tolerance` | 4 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "4", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_specification.transports.tolerance", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "expression"}` |
-
-## `AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem`
-
-Rust owner: `pse_model::generated::authored::modeling_declarations::AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
-| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.expression.ordinal": "list", "pse.domain.expression.role": "state_specification.transports.{0}.indices.domain", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
 
 ## `AuthoredModelingDeclarationsFieldValueTable`
 
@@ -3038,9 +2829,9 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `intent` | 5 | `Named("NativeSolveIntent")` | `Input` | `[Required]` | `{}` |
 | `backend` | 6 | `Optional(Named("NativeBackend"))` | `Input` | `[]` | `{}` |
 
-## `EngineeringPrepareStudy`
+## `EngineeringPrepareExpandedStudy`
 
-Rust owner: `pse_runtime::host_operations::engineering_contract::study::EngineeringPrepareStudy`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/study.rs`. Interpretation version: 1. Direction: `Input`.
+Rust owner: `pse_runtime::host_operations::engineering_contract::study::EngineeringPrepareExpandedStudy`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/study.rs`. Interpretation version: 2. Direction: `Input`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -3049,7 +2840,22 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `operation` | 1 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
 | `source_operation` | 2 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
 | `expected_source` | 3 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 4096 }]` | `{}` |
-| `request` | 4 | `Named("StudyRequest")` | `Input` | `[Required]` | `{}` |
+| `output` | 4 | `Named("StudyOutputDemand")` | `Input` | `[Required]` | `{}` |
+| `variants` | 5 | `Named("StudyVariants")` | `Input` | `[Required]` | `{}` |
+
+## `EngineeringPrepareExplicitStudy`
+
+Rust owner: `pse_runtime::host_operations::engineering_contract::study::EngineeringPrepareExplicitStudy`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/study.rs`. Interpretation version: 2. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `operation` | 1 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
+| `source_operation` | 2 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
+| `expected_source` | 3 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 4096 }]` | `{}` |
+| `output` | 4 | `Named("StudyOutputDemand")` | `Input` | `[Required]` | `{}` |
+| `points` | 5 | `Repeated(Named("StudyPoint"))` | `Input` | `[Length { min: 0, max: 100000 }]` | `{}` |
 
 ## `EngineeringPreparedSelection`
 
@@ -3132,9 +2938,9 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `end` | 5 | `Scalar(U64)` | `Input` | `[]` | `{}` |
 | `maximum_bytes` | 6 | `Scalar(U64)` | `Input` | `[UnsignedRange { min: 1, max: 16777216 }]` | `{}` |
 
-## `EngineeringRestoreStudy`
+## `EngineeringRestoreExpandedStudy`
 
-Rust owner: `pse_runtime::host_operations::engineering_contract::study::EngineeringRestoreStudy`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/study.rs`. Interpretation version: 1. Direction: `Input`.
+Rust owner: `pse_runtime::host_operations::engineering_contract::study::EngineeringRestoreExpandedStudy`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/study.rs`. Interpretation version: 2. Direction: `Input`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -3142,7 +2948,19 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `operation` | 1 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
 | `expected_preparation` | 2 | `Scalar(ContentHash)` | `Input` | `[Required]` | `{}` |
-| `definition` | 3 | `Named("StudyDefinition")` | `Input` | `[Required]` | `{}` |
+| `definition` | 3 | `Named("ExpandedStudyDefinition")` | `Input` | `[Required]` | `{}` |
+
+## `EngineeringRestoreExplicitStudy`
+
+Rust owner: `pse_runtime::host_operations::engineering_contract::study::EngineeringRestoreExplicitStudy`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/study.rs`. Interpretation version: 2. Direction: `Input`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `operation` | 1 | `Scalar(String)` | `Input` | `[Utf8Bytes { min: 1, max: 128 }]` | `{}` |
+| `expected_preparation` | 2 | `Scalar(ContentHash)` | `Input` | `[Required]` | `{}` |
+| `definition` | 3 | `Named("ExplicitStudyDefinition")` | `Input` | `[Required]` | `{}` |
 
 ## `EngineeringResultPage`
 
@@ -3426,6 +3244,28 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
 
 Allowed canonical members: `["not_requested", "not_computed", "not_applicable", "unsupported", "failed", "unknown", "nonfinite"]`.
+
+## `ExpandedStudyDefinition`
+
+Rust owner: `pse_runtime::host_operations::engineering_contract::study::ExpandedStudyDefinition`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/study.rs`. Interpretation version: 2. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `context` | 1 | `Named("StudyDefinitionContext")` | `Both` | `[Required]` | `{}` |
+| `variants` | 2 | `Named("LazyStudyDefinition")` | `Both` | `[Required]` | `{}` |
+
+## `ExplicitStudyDefinition`
+
+Rust owner: `pse_runtime::host_operations::engineering_contract::study::ExplicitStudyDefinition`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/study.rs`. Interpretation version: 2. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `context` | 1 | `Named("StudyDefinitionContext")` | `Both` | `[Required]` | `{}` |
+| `points` | 2 | `Repeated(Named("StudyPointDefinition"))` | `Both` | `[Length { min: 0, max: 100000 }]` | `{}` |
 
 ## `ExtensionQuantityValue`
 
@@ -4781,6 +4621,17 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `omitted` | 1 | `Set(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
 | `elastic` | 2 | `Map(Scalar(SemanticId), Named("StructuralValue"))` | `Both` | `[]` | `{}` |
+
+## `ModelingIndexBinding`
+
+Rust owner: `pse_model::generated::structures::ModelingIndexBinding`. Source: `crates/pse-schema/src/catalog/modeling.rs`. Interpretation version: 27. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `name` | 1 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1"}` |
+| `domain` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2", "pse.domain.extension": "pse.expr_dsl", "pse.domain.parameter": "static"}` |
 
 ## `ModelingInspection`
 
@@ -7350,9 +7201,9 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 Allowed canonical members: `["require_usable", "allow_seed_only"]`.
 
-## `StudyDefinition`
+## `StudyDefinitionContext`
 
-Rust owner: `pse_runtime::workflow::study::StudyDefinition`. Source: `crates/pse-runtime/src/workflow/study.rs`. Interpretation version: 14. Direction: `Both`.
+Rust owner: `pse_runtime::host_operations::engineering_contract::study::StudyDefinitionContext`. Source: `crates/pse-runtime/src/host_operations/engineering_contract/study.rs`. Interpretation version: 2. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -7363,8 +7214,6 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `version` | 3 | `Named("DocumentVersion14")` | `Both` | `[]` | `{}` |
 | `physical` | 4 | `Named("PhysicalSource")` | `Both` | `[]` | `{}` |
 | `modeling_revision` | 5 | `Scalar(String)` | `Both` | `[]` | `{}` |
-| `variants` | 6 | `Optional(Named("LazyStudyDefinition"))` | `Both` | `[]` | `{}` |
-| `points` | 7 | `Repeated(Named("StudyPointDefinition"))` | `Both` | `[Length { min: 0, max: 100000 }]` | `{}` |
 
 ## `StudyDependency`
 
@@ -7411,17 +7260,6 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
 | `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
-
-## `StudyInputs`
-
-Rust owner: `pse_runtime::workflow::study_variants::StudyInputs`. Source: `crates/pse-runtime/src/workflow/study_variants.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `Explicit (alternative tag 1).value` | 1 | `Repeated(Named("StudyPoint"))` | `Both` | `[Length { min: 0, max: 100000 }]` | `{}` |
-| `Lazy (alternative tag 2).value` | 1 | `Named("StudyVariants")` | `Both` | `[]` | `{}` |
 
 ## `StudyMemberDemand`
 
@@ -7656,18 +7494,6 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
 
 Allowed canonical members: `["pending", "assigned", "completed", "failed", "cancelled"]`.
-
-## `StudyRequest`
-
-Rust owner: `pse_runtime::workflow::study::StudyRequest`. Source: `crates/pse-runtime/src/workflow/study.rs`. Interpretation version: 8. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `version` | 1 | `Named("DocumentVersion8")` | `Both` | `[]` | `{}` |
-| `output` | 2 | `Named("StudyOutputDemand")` | `Both` | `[]` | `{}` |
-| `inputs` | 3 | `Named("StudyInputs")` | `Both` | `[]` | `{}` |
 
 ## `StudyRetryFailure`
 
@@ -8003,13 +7829,30 @@ Allowed canonical members: `["not_feasible", "structural_unavailable", "neighbor
   Owner effects: `Observation`; read only: true; idempotent: true; destructive: false.
 - `InspectProviders`: `Named("EngineeringInspectProviders")` -> `Named("ProviderInspectionPage")`.
   Owner effects: `Observation`; read only: true; idempotent: true; destructive: false.
-- `BrowseStudies`: `Named("StudyWorkbenchRequest")` -> `Named("StudyWorkbenchPage")`.
+
+## Service `ExpandedStudyPreparationV2`
+
+- `PrepareExpandedStudy`: `Named("EngineeringPrepareExpandedStudy")` -> `Named("EngineeringPreparedStudy")`.
+  Owner effects: `SourceAdmission`; read only: false; idempotent: true; destructive: false.
+- `RestoreExpandedStudy`: `Named("EngineeringRestoreExpandedStudy")` -> `Named("EngineeringPreparedStudy")`.
+  Owner effects: `SourceAdmission`; read only: false; idempotent: true; destructive: false.
+- `ReadPreparedExpandedStudy`: `Named("EngineeringOperationKey")` -> `Named("ExpandedStudyDefinition")`.
   Owner effects: `Observation`; read only: true; idempotent: true; destructive: false.
-- `PrepareStudy`: `Named("EngineeringPrepareStudy")` -> `Named("EngineeringPreparedStudy")`.
+
+## Service `ExplicitStudyPreparationV2`
+
+- `PrepareExplicitStudy`: `Named("EngineeringPrepareExplicitStudy")` -> `Named("EngineeringPreparedStudy")`.
   Owner effects: `SourceAdmission`; read only: false; idempotent: true; destructive: false.
-- `RestoreStudy`: `Named("EngineeringRestoreStudy")` -> `Named("EngineeringPreparedStudy")`.
+- `RestoreExplicitStudy`: `Named("EngineeringRestoreExplicitStudy")` -> `Named("EngineeringPreparedStudy")`.
   Owner effects: `SourceAdmission`; read only: false; idempotent: true; destructive: false.
-- `ReadPreparedStudy`: `Named("EngineeringOperationKey")` -> `Named("StudyDefinition")`.
+- `ReadPreparedExplicitStudy`: `Named("EngineeringOperationKey")` -> `Named("ExplicitStudyDefinition")`.
+  Owner effects: `Observation`; read only: true; idempotent: true; destructive: false.
+
+## Service `StudyControlV2`
+
+- `DescribeStudyContract`: `Named("EngineeringDescribeRequest")` -> `Named("EngineeringContract")`.
+  Owner effects: `Observation`; read only: true; idempotent: true; destructive: false.
+- `BrowseStudies`: `Named("StudyWorkbenchRequest")` -> `Named("StudyWorkbenchPage")`.
   Owner effects: `Observation`; read only: true; idempotent: true; destructive: false.
 - `SubmitStudy`: `Named("EngineeringSubmitStudy")` -> `Named("EngineeringStudyStatus")`.
   Owner effects: `NativeExecution`; read only: false; idempotent: true; destructive: false.

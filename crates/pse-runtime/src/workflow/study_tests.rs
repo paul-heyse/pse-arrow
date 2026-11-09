@@ -692,39 +692,6 @@ async fn same_worker_publication_refills_a_study_created_after_actual_idle_disco
 }
 
 #[test]
-fn study_request_codec_unit_excludes_owner_seed_need_and_bare_overlays() {
-    let case = pse_model::generated::identities::DeclarationId::from_bytes([4; 16]);
-    let request = StudyRequest {
-        output: StudyOutputDemand::Full {},
-        version: pse_model::document::Version,
-        inputs: StudyInputs::Explicit(vec![point(case, 7, vec![], StartPolicy::Fresh)]),
-    };
-    let encoded = serde_json::to_value(request).unwrap();
-    assert_eq!(encoded["version"], 8);
-    assert!(
-        encoded["inputs"]["value"][0]["policy"]
-            .get("seed_need")
-            .is_none()
-    );
-    let decoded: StudyRequest = serde_json::from_value(encoded.clone()).unwrap();
-    assert_eq!(serde_json::to_value(decoded).unwrap(), encoded);
-    let mut omitted = encoded.clone();
-    omitted["inputs"]["value"][0]["preparation"]["compiler"]["optimization"]
-        .as_object_mut()
-        .unwrap()
-        .remove("evaluator");
-    assert!(serde_json::from_value::<StudyRequest>(omitted).is_err());
-    for version in [1, 3, 6] {
-        let mut historical = encoded.clone();
-        historical["version"] = serde_json::json!(version);
-        assert!(serde_json::from_value::<StudyRequest>(historical).is_err());
-    }
-    let mut bare = encoded;
-    bare["inputs"]["value"][0]["overlay"] = serde_json::json!({"values":{"x":1}});
-    assert!(serde_json::from_value::<StudyRequest>(bare).is_err());
-}
-
-#[test]
 fn study_variants_codec_unit_retains_explicit_preparation_and_refuses_old_version() {
     let hash = pse_ids::ContentHash::from_bytes([4; 32]);
     let variants = StudyVariants {

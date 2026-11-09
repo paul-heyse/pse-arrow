@@ -1,19 +1,19 @@
 {
   "descriptor_sha256": "281e996d5444e812ceb60b870bd2ce9965946ee6f823e84d6dc1ee845357bb85",
   "inputs": {
-    "Cargo.lock": "11e3ca291bfd99abf325bf0c4470a62dc7135e4773b159283ef298f60e5f9faf",
+    "Cargo.lock": "90fe555f3ebdfac8ebfe04496dc572d22147233b53dfbb5ff394e8fd602a0da0",
     "Cargo.toml": "1f466e904be2d9aff8a716a7885bf340037ef8af3a9538af839a14d18ea26b72",
-    "crates/pse-codegen/src/codegen/boundary_projection.rs": "a82284230b89136b73579d41636a64037de0d205f6765114747c712c1d92a3f6",
+    "crates/pse-codegen/src/codegen/boundary_projection.rs": "9f3f458de203e56fe0eff34db4e82fe69007696044a89097ced9306c94c9bac3",
     "crates/pse-host/proto/buf.lock": "f167aece00cd881df9e57b220d5edeff1343c5020a6caed6b425a213f75991ee",
     "crates/pse-host/proto/buf.yaml": "647235719a93a58593b90d87641e03656ddcae35971f822322dc0e30eac528e0",
     "crates/pse-host/proto/pse/code_intelligence/v1/compiler_facts.proto": "263fafafa9b53cffb155042cf87a2349d2508e2c4320b5d817e0eef588e0db7a",
     "crates/pse-host/proto/pse/code_intelligence/v1/contracts.proto": "a796770f4eaa719945c0baf934f36986cae0270a8b1af3202d91550fcc63f89e",
     "scripts/protobuf-associations.rs": "9612092ad4a1424d391ad3843e1aa74f1d2257b2370f975422f8498fbc7c9a35",
-    "xtask/Cargo.toml": "de256b68157a60bc6bb26365549c5a4396682363e98dca75d4f3f9aa1b3209ff",
+    "xtask/Cargo.toml": "2e035b94ebf15cfa65740b32f72057506fe4afd0c9f022457c8f14266c9708b8",
     "xtask/src/codegen/code_intelligence.rs": "dfc954a7e71b1fd6af37312c4679705fe10188be8ddd6a015bf071586cdfe182",
     "xtask/src/codegen/code_intelligence/associations.rs": "f693bd1f50108d5c8fcf08826f8bf2a46b859da50b4d695e483d3a85cf24e4c2",
-    "xtask/src/codegen/proto_projection.rs": "e84c9b67c85d0036a8ae8a2520ac2563074d8765fd033ba6aefc0d1a1a26bcbc",
-    "xtask/src/codegen/proto_projection/composition.rs": "c483be2b2c6994a62dc7f085cb55dafb28da8262dbc2ef0f54a1398c19bb3148"
+    "xtask/src/codegen/proto_projection.rs": "09f9cc2379787a930ac3cc3e89d199b07d9c43f56987d6f4119062810dbee0fe",
+    "xtask/src/codegen/proto_projection/composition.rs": "db56a7fd7c2b83ede9bb9d51a969bc81165fd542f292553729dae4aad9d7643a"
   },
   "associations": [
     {

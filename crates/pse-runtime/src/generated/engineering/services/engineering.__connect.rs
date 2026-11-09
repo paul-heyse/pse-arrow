@@ -1,277 +1,157 @@
 ///Shorthand for `OwnedView<EngineeringDescribeRequestView<'static>>`.
 pub type OwnedEngineeringDescribeRequestView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringDescribeRequestView<
+    ::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::EngineeringDescribeRequestView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<EngineeringContractView<'static>>`.
 pub type OwnedEngineeringContractView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringContractView<
+    ::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::EngineeringContractView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<EngineeringAdmitSourceView<'static>>`.
 pub type OwnedEngineeringAdmitSourceView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringAdmitSourceView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringAdmitSourceView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<EngineeringSourceOutcomeView<'static>>`.
 pub type OwnedEngineeringSourceOutcomeView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringSourceOutcomeView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringSourceOutcomeView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<EngineeringEditSourceView<'static>>`.
 pub type OwnedEngineeringEditSourceView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringEditSourceView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringEditSourceView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<EngineeringOperationKeyView<'static>>`.
 pub type OwnedEngineeringOperationKeyView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringOperationKeyView<
+    ::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::EngineeringOperationKeyView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<EngineeringInspectSourceView<'static>>`.
 pub type OwnedEngineeringInspectSourceView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringInspectSourceView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringInspectSourceView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<EngineeringDeclarationPageView<'static>>`.
 pub type OwnedEngineeringDeclarationPageView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringDeclarationPageView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringDeclarationPageView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<EngineeringPrepareCaseView<'static>>`.
 pub type OwnedEngineeringPrepareCaseView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringPrepareCaseView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringPrepareCaseView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<EngineeringPreparedSelectionView<'static>>`.
 pub type OwnedEngineeringPreparedSelectionView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringPreparedSelectionView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringPreparedSelectionView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<EngineeringSubmitRunView<'static>>`.
 pub type OwnedEngineeringSubmitRunView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringSubmitRunView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringSubmitRunView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<EngineeringRunStatusView<'static>>`.
 pub type OwnedEngineeringRunStatusView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringRunStatusView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringRunStatusView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<EngineeringRunKeyView<'static>>`.
 pub type OwnedEngineeringRunKeyView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringRunKeyView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringRunKeyView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<EngineeringReadResultView<'static>>`.
 pub type OwnedEngineeringReadResultView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringReadResultView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringReadResultView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<EngineeringResultPageView<'static>>`.
 pub type OwnedEngineeringResultPageView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringResultPageView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringResultPageView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<EngineeringDiscoverPreparationView<'static>>`.
 pub type OwnedEngineeringDiscoverPreparationView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringDiscoverPreparationView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringDiscoverPreparationView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<PreparationDiscoveryReportView<'static>>`.
 pub type OwnedPreparationDiscoveryReportView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::PreparationDiscoveryReportView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::PreparationDiscoveryReportView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<EngineeringReadSourceFileView<'static>>`.
 pub type OwnedEngineeringReadSourceFileView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringReadSourceFileView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringReadSourceFileView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<OriginalSourceFileView<'static>>`.
 pub type OwnedOriginalSourceFileView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::OriginalSourceFileView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::OriginalSourceFileView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<EngineeringInspectPhysicalView<'static>>`.
 pub type OwnedEngineeringInspectPhysicalView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringInspectPhysicalView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringInspectPhysicalView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<PhysicalInspectionDocumentView<'static>>`.
 pub type OwnedPhysicalInspectionDocumentView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::PhysicalInspectionDocumentView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::PhysicalInspectionDocumentView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<EngineeringInspectModelingView<'static>>`.
 pub type OwnedEngineeringInspectModelingView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringInspectModelingView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringInspectModelingView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<ModelingInspectionView<'static>>`.
 pub type OwnedModelingInspectionView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::ModelingInspectionView<
+    crate::host_operations::engineering::inspection::pb::pse::engineering::v1::__buffa::view::ModelingInspectionView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<EngineeringInspectProvidersView<'static>>`.
 pub type OwnedEngineeringInspectProvidersView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringInspectProvidersView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringInspectProvidersView<
         'static,
     >,
 >;
 ///Shorthand for `OwnedView<ProviderInspectionPageView<'static>>`.
 pub type OwnedProviderInspectionPageView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::ProviderInspectionPageView<
-        'static,
-    >,
->;
-///Shorthand for `OwnedView<StudyWorkbenchRequestView<'static>>`.
-pub type OwnedStudyWorkbenchRequestView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyWorkbenchRequestView<
-        'static,
-    >,
->;
-///Shorthand for `OwnedView<StudyWorkbenchPageView<'static>>`.
-pub type OwnedStudyWorkbenchPageView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyWorkbenchPageView<
-        'static,
-    >,
->;
-///Shorthand for `OwnedView<EngineeringPrepareStudyView<'static>>`.
-pub type OwnedEngineeringPrepareStudyView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringPrepareStudyView<
-        'static,
-    >,
->;
-///Shorthand for `OwnedView<EngineeringPreparedStudyView<'static>>`.
-pub type OwnedEngineeringPreparedStudyView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringPreparedStudyView<
-        'static,
-    >,
->;
-///Shorthand for `OwnedView<EngineeringRestoreStudyView<'static>>`.
-pub type OwnedEngineeringRestoreStudyView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringRestoreStudyView<
-        'static,
-    >,
->;
-///Shorthand for `OwnedView<StudyDefinitionView<'static>>`.
-pub type OwnedStudyDefinitionView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyDefinitionView<
-        'static,
-    >,
->;
-///Shorthand for `OwnedView<EngineeringSubmitStudyView<'static>>`.
-pub type OwnedEngineeringSubmitStudyView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringSubmitStudyView<
-        'static,
-    >,
->;
-///Shorthand for `OwnedView<EngineeringStudyStatusView<'static>>`.
-pub type OwnedEngineeringStudyStatusView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyStatusView<
-        'static,
-    >,
->;
-///Shorthand for `OwnedView<EngineeringStudyKeyView<'static>>`.
-pub type OwnedEngineeringStudyKeyView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyKeyView<
-        'static,
-    >,
->;
-///Shorthand for `OwnedView<EngineeringObserveStudyView<'static>>`.
-pub type OwnedEngineeringObserveStudyView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringObserveStudyView<
-        'static,
-    >,
->;
-///Shorthand for `OwnedView<StudyObservationPageView<'static>>`.
-pub type OwnedStudyObservationPageView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyObservationPageView<
-        'static,
-    >,
->;
-///Shorthand for `OwnedView<EngineeringFreezeStudyCohortView<'static>>`.
-pub type OwnedEngineeringFreezeStudyCohortView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringFreezeStudyCohortView<
-        'static,
-    >,
->;
-///Shorthand for `OwnedView<StudyCohortReceiptView<'static>>`.
-pub type OwnedStudyCohortReceiptView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyCohortReceiptView<
-        'static,
-    >,
->;
-///Shorthand for `OwnedView<EngineeringStudyHeaderPageView<'static>>`.
-pub type OwnedEngineeringStudyHeaderPageView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyHeaderPageView<
-        'static,
-    >,
->;
-///Shorthand for `OwnedView<StudyCohortHeaderPageView<'static>>`.
-pub type OwnedStudyCohortHeaderPageView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyCohortHeaderPageView<
-        'static,
-    >,
->;
-///Shorthand for `OwnedView<EngineeringStudyCohortPageView<'static>>`.
-pub type OwnedEngineeringStudyCohortPageView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyCohortPageView<
-        'static,
-    >,
->;
-///Shorthand for `OwnedView<StudyCohortMemberPageView<'static>>`.
-pub type OwnedStudyCohortMemberPageView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyCohortMemberPageView<
-        'static,
-    >,
->;
-///Shorthand for `OwnedView<EngineeringReadStudyResultView<'static>>`.
-pub type OwnedEngineeringReadStudyResultView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringReadStudyResultView<
-        'static,
-    >,
->;
-///Shorthand for `OwnedView<EngineeringStudyResultPageView<'static>>`.
-pub type OwnedEngineeringStudyResultPageView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyResultPageView<
-        'static,
-    >,
->;
-///Shorthand for `OwnedView<EngineeringCohortReleaseView<'static>>`.
-pub type OwnedEngineeringCohortReleaseView = ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringCohortReleaseView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::ProviderInspectionPageView<
         'static,
     >,
 >;
 impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringContract,
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringSourceOutcome,
 >
-for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringContractView<
+for crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringSourceOutcomeView<
     '_,
 > {
     fn encode(
@@ -282,10 +162,10 @@ for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__
     }
 }
 impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringContract,
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringSourceOutcome,
 >
 for ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringContractView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringSourceOutcomeView<
         'static,
     >,
 > {
@@ -311,9 +191,9 @@ for ::buffa::view::OwnedView<
     }
 }
 impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSourceOutcome,
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringDeclarationPage,
 >
-for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringSourceOutcomeView<
+for crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringDeclarationPageView<
     '_,
 > {
     fn encode(
@@ -324,10 +204,10 @@ for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__
     }
 }
 impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSourceOutcome,
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringDeclarationPage,
 >
 for ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringSourceOutcomeView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringDeclarationPageView<
         'static,
     >,
 > {
@@ -353,9 +233,9 @@ for ::buffa::view::OwnedView<
     }
 }
 impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringDeclarationPage,
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringPreparedSelection,
 >
-for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringDeclarationPageView<
+for crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringPreparedSelectionView<
     '_,
 > {
     fn encode(
@@ -366,10 +246,10 @@ for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__
     }
 }
 impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringDeclarationPage,
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringPreparedSelection,
 >
 for ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringDeclarationPageView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringPreparedSelectionView<
         'static,
     >,
 > {
@@ -395,9 +275,9 @@ for ::buffa::view::OwnedView<
     }
 }
 impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPreparedSelection,
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunStatus,
 >
-for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringPreparedSelectionView<
+for crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringRunStatusView<
     '_,
 > {
     fn encode(
@@ -408,10 +288,10 @@ for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__
     }
 }
 impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPreparedSelection,
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunStatus,
 >
 for ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringPreparedSelectionView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringRunStatusView<
         'static,
     >,
 > {
@@ -437,9 +317,9 @@ for ::buffa::view::OwnedView<
     }
 }
 impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunStatus,
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringResultPage,
 >
-for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringRunStatusView<
+for crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringResultPageView<
     '_,
 > {
     fn encode(
@@ -450,10 +330,10 @@ for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__
     }
 }
 impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunStatus,
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringResultPage,
 >
 for ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringRunStatusView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringResultPageView<
         'static,
     >,
 > {
@@ -479,9 +359,9 @@ for ::buffa::view::OwnedView<
     }
 }
 impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringResultPage,
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::PreparationDiscoveryReport,
 >
-for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringResultPageView<
+for crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::PreparationDiscoveryReportView<
     '_,
 > {
     fn encode(
@@ -492,10 +372,10 @@ for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__
     }
 }
 impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringResultPage,
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::PreparationDiscoveryReport,
 >
 for ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringResultPageView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::PreparationDiscoveryReportView<
         'static,
     >,
 > {
@@ -521,9 +401,9 @@ for ::buffa::view::OwnedView<
     }
 }
 impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::PreparationDiscoveryReport,
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::OriginalSourceFile,
 >
-for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::PreparationDiscoveryReportView<
+for crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::OriginalSourceFileView<
     '_,
 > {
     fn encode(
@@ -534,10 +414,10 @@ for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__
     }
 }
 impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::PreparationDiscoveryReport,
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::OriginalSourceFile,
 >
 for ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::PreparationDiscoveryReportView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::OriginalSourceFileView<
         'static,
     >,
 > {
@@ -563,9 +443,9 @@ for ::buffa::view::OwnedView<
     }
 }
 impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::OriginalSourceFile,
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::PhysicalInspectionDocument,
 >
-for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::OriginalSourceFileView<
+for crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::PhysicalInspectionDocumentView<
     '_,
 > {
     fn encode(
@@ -576,10 +456,10 @@ for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__
     }
 }
 impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::OriginalSourceFile,
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::PhysicalInspectionDocument,
 >
 for ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::OriginalSourceFileView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::PhysicalInspectionDocumentView<
         'static,
     >,
 > {
@@ -605,9 +485,9 @@ for ::buffa::view::OwnedView<
     }
 }
 impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::PhysicalInspectionDocument,
+    crate::host_operations::engineering::inspection::pb::pse::engineering::v1::ModelingInspection,
 >
-for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::PhysicalInspectionDocumentView<
+for crate::host_operations::engineering::inspection::pb::pse::engineering::v1::__buffa::view::ModelingInspectionView<
     '_,
 > {
     fn encode(
@@ -618,10 +498,10 @@ for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__
     }
 }
 impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::PhysicalInspectionDocument,
+    crate::host_operations::engineering::inspection::pb::pse::engineering::v1::ModelingInspection,
 >
 for ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::PhysicalInspectionDocumentView<
+    crate::host_operations::engineering::inspection::pb::pse::engineering::v1::__buffa::view::ModelingInspectionView<
         'static,
     >,
 > {
@@ -647,9 +527,9 @@ for ::buffa::view::OwnedView<
     }
 }
 impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::ModelingInspection,
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::ProviderInspectionPage,
 >
-for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::ModelingInspectionView<
+for crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::ProviderInspectionPageView<
     '_,
 > {
     fn encode(
@@ -660,472 +540,10 @@ for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__
     }
 }
 impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::ModelingInspection,
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::ProviderInspectionPage,
 >
 for ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::ModelingInspectionView<
-        'static,
-    >,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self.reborrow(), codec)
-    }
-    /// An `OwnedView` still holds the buffer it was decoded from, so
-    /// its large fields can be handed to the response body by
-    /// reference count instead of copied. The bare view impl above
-    /// cannot do this: it has borrows but no buffer to name.
-    fn encode_segments(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::connectrpc::EncodedBody, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body_segments(
-            self.reborrow(),
-            self.bytes(),
-            codec,
-        )
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::ProviderInspectionPage,
->
-for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::ProviderInspectionPageView<
-    '_,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self, codec)
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::ProviderInspectionPage,
->
-for ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::ProviderInspectionPageView<
-        'static,
-    >,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self.reborrow(), codec)
-    }
-    /// An `OwnedView` still holds the buffer it was decoded from, so
-    /// its large fields can be handed to the response body by
-    /// reference count instead of copied. The bare view impl above
-    /// cannot do this: it has borrows but no buffer to name.
-    fn encode_segments(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::connectrpc::EncodedBody, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body_segments(
-            self.reborrow(),
-            self.bytes(),
-            codec,
-        )
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyWorkbenchPage,
->
-for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyWorkbenchPageView<
-    '_,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self, codec)
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyWorkbenchPage,
->
-for ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyWorkbenchPageView<
-        'static,
-    >,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self.reborrow(), codec)
-    }
-    /// An `OwnedView` still holds the buffer it was decoded from, so
-    /// its large fields can be handed to the response body by
-    /// reference count instead of copied. The bare view impl above
-    /// cannot do this: it has borrows but no buffer to name.
-    fn encode_segments(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::connectrpc::EncodedBody, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body_segments(
-            self.reborrow(),
-            self.bytes(),
-            codec,
-        )
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPreparedStudy,
->
-for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringPreparedStudyView<
-    '_,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self, codec)
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPreparedStudy,
->
-for ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringPreparedStudyView<
-        'static,
-    >,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self.reborrow(), codec)
-    }
-    /// An `OwnedView` still holds the buffer it was decoded from, so
-    /// its large fields can be handed to the response body by
-    /// reference count instead of copied. The bare view impl above
-    /// cannot do this: it has borrows but no buffer to name.
-    fn encode_segments(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::connectrpc::EncodedBody, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body_segments(
-            self.reborrow(),
-            self.bytes(),
-            codec,
-        )
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyDefinition,
->
-for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyDefinitionView<
-    '_,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self, codec)
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyDefinition,
->
-for ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyDefinitionView<
-        'static,
-    >,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self.reborrow(), codec)
-    }
-    /// An `OwnedView` still holds the buffer it was decoded from, so
-    /// its large fields can be handed to the response body by
-    /// reference count instead of copied. The bare view impl above
-    /// cannot do this: it has borrows but no buffer to name.
-    fn encode_segments(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::connectrpc::EncodedBody, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body_segments(
-            self.reborrow(),
-            self.bytes(),
-            codec,
-        )
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyStatus,
->
-for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyStatusView<
-    '_,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self, codec)
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyStatus,
->
-for ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyStatusView<
-        'static,
-    >,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self.reborrow(), codec)
-    }
-    /// An `OwnedView` still holds the buffer it was decoded from, so
-    /// its large fields can be handed to the response body by
-    /// reference count instead of copied. The bare view impl above
-    /// cannot do this: it has borrows but no buffer to name.
-    fn encode_segments(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::connectrpc::EncodedBody, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body_segments(
-            self.reborrow(),
-            self.bytes(),
-            codec,
-        )
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyObservationPage,
->
-for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyObservationPageView<
-    '_,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self, codec)
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyObservationPage,
->
-for ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyObservationPageView<
-        'static,
-    >,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self.reborrow(), codec)
-    }
-    /// An `OwnedView` still holds the buffer it was decoded from, so
-    /// its large fields can be handed to the response body by
-    /// reference count instead of copied. The bare view impl above
-    /// cannot do this: it has borrows but no buffer to name.
-    fn encode_segments(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::connectrpc::EncodedBody, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body_segments(
-            self.reborrow(),
-            self.bytes(),
-            codec,
-        )
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyCohortReceipt,
->
-for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyCohortReceiptView<
-    '_,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self, codec)
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyCohortReceipt,
->
-for ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyCohortReceiptView<
-        'static,
-    >,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self.reborrow(), codec)
-    }
-    /// An `OwnedView` still holds the buffer it was decoded from, so
-    /// its large fields can be handed to the response body by
-    /// reference count instead of copied. The bare view impl above
-    /// cannot do this: it has borrows but no buffer to name.
-    fn encode_segments(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::connectrpc::EncodedBody, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body_segments(
-            self.reborrow(),
-            self.bytes(),
-            codec,
-        )
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyCohortHeaderPage,
->
-for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyCohortHeaderPageView<
-    '_,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self, codec)
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyCohortHeaderPage,
->
-for ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyCohortHeaderPageView<
-        'static,
-    >,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self.reborrow(), codec)
-    }
-    /// An `OwnedView` still holds the buffer it was decoded from, so
-    /// its large fields can be handed to the response body by
-    /// reference count instead of copied. The bare view impl above
-    /// cannot do this: it has borrows but no buffer to name.
-    fn encode_segments(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::connectrpc::EncodedBody, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body_segments(
-            self.reborrow(),
-            self.bytes(),
-            codec,
-        )
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyCohortMemberPage,
->
-for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyCohortMemberPageView<
-    '_,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self, codec)
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyCohortMemberPage,
->
-for ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyCohortMemberPageView<
-        'static,
-    >,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self.reborrow(), codec)
-    }
-    /// An `OwnedView` still holds the buffer it was decoded from, so
-    /// its large fields can be handed to the response body by
-    /// reference count instead of copied. The bare view impl above
-    /// cannot do this: it has borrows but no buffer to name.
-    fn encode_segments(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::connectrpc::EncodedBody, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body_segments(
-            self.reborrow(),
-            self.bytes(),
-            codec,
-        )
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyResultPage,
->
-for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyResultPageView<
-    '_,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self, codec)
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyResultPage,
->
-for ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyResultPageView<
-        'static,
-    >,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self.reborrow(), codec)
-    }
-    /// An `OwnedView` still holds the buffer it was decoded from, so
-    /// its large fields can be handed to the response body by
-    /// reference count instead of copied. The bare view impl above
-    /// cannot do this: it has borrows but no buffer to name.
-    fn encode_segments(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::connectrpc::EncodedBody, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body_segments(
-            self.reborrow(),
-            self.bytes(),
-            codec,
-        )
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringCohortRelease,
->
-for crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringCohortReleaseView<
-    '_,
-> {
-    fn encode(
-        &self,
-        codec: ::connectrpc::CodecFormat,
-    ) -> ::std::result::Result<::buffa::bytes::Bytes, ::connectrpc::ConnectError> {
-        ::connectrpc::__codegen::encode_view_body(self, codec)
-    }
-}
-impl ::connectrpc::Encodable<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringCohortRelease,
->
-for ::buffa::view::OwnedView<
-    crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringCohortReleaseView<
+    crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::ProviderInspectionPageView<
         'static,
     >,
 > {
@@ -1248,84 +666,6 @@ pub const ENGINEERING_SERVICE_INSPECT_PROVIDERS_SPEC: ::connectrpc::Spec = ::con
         ::connectrpc::StreamType::Unary,
     )
     .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
-/// Static [`Spec`](::connectrpc::Spec) for the `BrowseStudies` RPC, as seen by the server; the generated client passes it with [`origin`](::connectrpc::Spec::origin) `Client` (compare across sides with [`Spec::same_method`](::connectrpc::Spec::same_method)).
-pub const ENGINEERING_SERVICE_BROWSE_STUDIES_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::server(
-        "/pse.engineering.v1.EngineeringService/BrowseStudies",
-        ::connectrpc::StreamType::Unary,
-    )
-    .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
-/// Static [`Spec`](::connectrpc::Spec) for the `PrepareStudy` RPC, as seen by the server; the generated client passes it with [`origin`](::connectrpc::Spec::origin) `Client` (compare across sides with [`Spec::same_method`](::connectrpc::Spec::same_method)).
-pub const ENGINEERING_SERVICE_PREPARE_STUDY_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::server(
-        "/pse.engineering.v1.EngineeringService/PrepareStudy",
-        ::connectrpc::StreamType::Unary,
-    )
-    .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
-/// Static [`Spec`](::connectrpc::Spec) for the `RestoreStudy` RPC, as seen by the server; the generated client passes it with [`origin`](::connectrpc::Spec::origin) `Client` (compare across sides with [`Spec::same_method`](::connectrpc::Spec::same_method)).
-pub const ENGINEERING_SERVICE_RESTORE_STUDY_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::server(
-        "/pse.engineering.v1.EngineeringService/RestoreStudy",
-        ::connectrpc::StreamType::Unary,
-    )
-    .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
-/// Static [`Spec`](::connectrpc::Spec) for the `ReadPreparedStudy` RPC, as seen by the server; the generated client passes it with [`origin`](::connectrpc::Spec::origin) `Client` (compare across sides with [`Spec::same_method`](::connectrpc::Spec::same_method)).
-pub const ENGINEERING_SERVICE_READ_PREPARED_STUDY_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::server(
-        "/pse.engineering.v1.EngineeringService/ReadPreparedStudy",
-        ::connectrpc::StreamType::Unary,
-    )
-    .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
-/// Static [`Spec`](::connectrpc::Spec) for the `SubmitStudy` RPC, as seen by the server; the generated client passes it with [`origin`](::connectrpc::Spec::origin) `Client` (compare across sides with [`Spec::same_method`](::connectrpc::Spec::same_method)).
-pub const ENGINEERING_SERVICE_SUBMIT_STUDY_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::server(
-        "/pse.engineering.v1.EngineeringService/SubmitStudy",
-        ::connectrpc::StreamType::Unary,
-    )
-    .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
-/// Static [`Spec`](::connectrpc::Spec) for the `StudyStatus` RPC, as seen by the server; the generated client passes it with [`origin`](::connectrpc::Spec::origin) `Client` (compare across sides with [`Spec::same_method`](::connectrpc::Spec::same_method)).
-pub const ENGINEERING_SERVICE_STUDY_STATUS_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::server(
-        "/pse.engineering.v1.EngineeringService/StudyStatus",
-        ::connectrpc::StreamType::Unary,
-    )
-    .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
-/// Static [`Spec`](::connectrpc::Spec) for the `CancelStudy` RPC, as seen by the server; the generated client passes it with [`origin`](::connectrpc::Spec::origin) `Client` (compare across sides with [`Spec::same_method`](::connectrpc::Spec::same_method)).
-pub const ENGINEERING_SERVICE_CANCEL_STUDY_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::server(
-        "/pse.engineering.v1.EngineeringService/CancelStudy",
-        ::connectrpc::StreamType::Unary,
-    )
-    .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
-/// Static [`Spec`](::connectrpc::Spec) for the `ObserveStudy` RPC, as seen by the server; the generated client passes it with [`origin`](::connectrpc::Spec::origin) `Client` (compare across sides with [`Spec::same_method`](::connectrpc::Spec::same_method)).
-pub const ENGINEERING_SERVICE_OBSERVE_STUDY_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::server(
-        "/pse.engineering.v1.EngineeringService/ObserveStudy",
-        ::connectrpc::StreamType::ServerStream,
-    )
-    .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
-/// Static [`Spec`](::connectrpc::Spec) for the `FreezeStudyCohort` RPC, as seen by the server; the generated client passes it with [`origin`](::connectrpc::Spec::origin) `Client` (compare across sides with [`Spec::same_method`](::connectrpc::Spec::same_method)).
-pub const ENGINEERING_SERVICE_FREEZE_STUDY_COHORT_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::server(
-        "/pse.engineering.v1.EngineeringService/FreezeStudyCohort",
-        ::connectrpc::StreamType::Unary,
-    )
-    .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
-/// Static [`Spec`](::connectrpc::Spec) for the `ReadStudyHeaders` RPC, as seen by the server; the generated client passes it with [`origin`](::connectrpc::Spec::origin) `Client` (compare across sides with [`Spec::same_method`](::connectrpc::Spec::same_method)).
-pub const ENGINEERING_SERVICE_READ_STUDY_HEADERS_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::server(
-        "/pse.engineering.v1.EngineeringService/ReadStudyHeaders",
-        ::connectrpc::StreamType::Unary,
-    )
-    .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
-/// Static [`Spec`](::connectrpc::Spec) for the `ReadStudyMembers` RPC, as seen by the server; the generated client passes it with [`origin`](::connectrpc::Spec::origin) `Client` (compare across sides with [`Spec::same_method`](::connectrpc::Spec::same_method)).
-pub const ENGINEERING_SERVICE_READ_STUDY_MEMBERS_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::server(
-        "/pse.engineering.v1.EngineeringService/ReadStudyMembers",
-        ::connectrpc::StreamType::Unary,
-    )
-    .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
-/// Static [`Spec`](::connectrpc::Spec) for the `ReadStudyResult` RPC, as seen by the server; the generated client passes it with [`origin`](::connectrpc::Spec::origin) `Client` (compare across sides with [`Spec::same_method`](::connectrpc::Spec::same_method)).
-pub const ENGINEERING_SERVICE_READ_STUDY_RESULT_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::server(
-        "/pse.engineering.v1.EngineeringService/ReadStudyResult",
-        ::connectrpc::StreamType::Unary,
-    )
-    .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
-/// Static [`Spec`](::connectrpc::Spec) for the `ReleaseStudyCohort` RPC, as seen by the server; the generated client passes it with [`origin`](::connectrpc::Spec::origin) `Client` (compare across sides with [`Spec::same_method`](::connectrpc::Spec::same_method)).
-pub const ENGINEERING_SERVICE_RELEASE_STUDY_COHORT_SPEC: ::connectrpc::Spec = ::connectrpc::Spec::server(
-        "/pse.engineering.v1.EngineeringService/ReleaseStudyCohort",
-        ::connectrpc::StreamType::Unary,
-    )
-    .with_idempotency_level(::connectrpc::IdempotencyLevel::Unknown);
 /// Server trait for EngineeringService.
 ///
 /// # Implementing handlers
@@ -1391,12 +731,12 @@ pub trait EngineeringService: Send + Sync + 'static {
         ctx: ::connectrpc::RequestContext,
         request: ::connectrpc::ServiceRequest<
             '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringDescribeRequest,
+            ::pse_host::engineering_client::pb::pse::engineering::v1::EngineeringDescribeRequest,
         >,
     ) -> impl ::std::future::Future<
         Output = ::connectrpc::ServiceResult<
             impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringContract,
+                ::pse_host::engineering_client::pb::pse::engineering::v1::EngineeringContract,
             > + Send + use<'a, Self>,
         >,
     > + Send;
@@ -1414,12 +754,12 @@ pub trait EngineeringService: Send + Sync + 'static {
         ctx: ::connectrpc::RequestContext,
         request: ::connectrpc::ServiceRequest<
             '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringAdmitSource,
+            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringAdmitSource,
         >,
     ) -> impl ::std::future::Future<
         Output = ::connectrpc::ServiceResult<
             impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSourceOutcome,
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringSourceOutcome,
             > + Send + use<'a, Self>,
         >,
     > + Send;
@@ -1437,12 +777,12 @@ pub trait EngineeringService: Send + Sync + 'static {
         ctx: ::connectrpc::RequestContext,
         request: ::connectrpc::ServiceRequest<
             '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringEditSource,
+            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringEditSource,
         >,
     ) -> impl ::std::future::Future<
         Output = ::connectrpc::ServiceResult<
             impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSourceOutcome,
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringSourceOutcome,
             > + Send + use<'a, Self>,
         >,
     > + Send;
@@ -1460,12 +800,12 @@ pub trait EngineeringService: Send + Sync + 'static {
         ctx: ::connectrpc::RequestContext,
         request: ::connectrpc::ServiceRequest<
             '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringOperationKey,
+            ::pse_host::engineering_client::pb::pse::engineering::v1::EngineeringOperationKey,
         >,
     ) -> impl ::std::future::Future<
         Output = ::connectrpc::ServiceResult<
             impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSourceOutcome,
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringSourceOutcome,
             > + Send + use<'a, Self>,
         >,
     > + Send;
@@ -1483,12 +823,12 @@ pub trait EngineeringService: Send + Sync + 'static {
         ctx: ::connectrpc::RequestContext,
         request: ::connectrpc::ServiceRequest<
             '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectSource,
+            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectSource,
         >,
     ) -> impl ::std::future::Future<
         Output = ::connectrpc::ServiceResult<
             impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringDeclarationPage,
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringDeclarationPage,
             > + Send + use<'a, Self>,
         >,
     > + Send;
@@ -1506,12 +846,12 @@ pub trait EngineeringService: Send + Sync + 'static {
         ctx: ::connectrpc::RequestContext,
         request: ::connectrpc::ServiceRequest<
             '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPrepareCase,
+            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringPrepareCase,
         >,
     ) -> impl ::std::future::Future<
         Output = ::connectrpc::ServiceResult<
             impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPreparedSelection,
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringPreparedSelection,
             > + Send + use<'a, Self>,
         >,
     > + Send;
@@ -1529,12 +869,12 @@ pub trait EngineeringService: Send + Sync + 'static {
         ctx: ::connectrpc::RequestContext,
         request: ::connectrpc::ServiceRequest<
             '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSubmitRun,
+            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringSubmitRun,
         >,
     ) -> impl ::std::future::Future<
         Output = ::connectrpc::ServiceResult<
             impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunStatus,
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunStatus,
             > + Send + use<'a, Self>,
         >,
     > + Send;
@@ -1552,12 +892,12 @@ pub trait EngineeringService: Send + Sync + 'static {
         ctx: ::connectrpc::RequestContext,
         request: ::connectrpc::ServiceRequest<
             '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunKey,
+            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunKey,
         >,
     ) -> impl ::std::future::Future<
         Output = ::connectrpc::ServiceResult<
             impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunStatus,
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunStatus,
             > + Send + use<'a, Self>,
         >,
     > + Send;
@@ -1575,12 +915,12 @@ pub trait EngineeringService: Send + Sync + 'static {
         ctx: ::connectrpc::RequestContext,
         request: ::connectrpc::ServiceRequest<
             '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunKey,
+            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunKey,
         >,
     ) -> impl ::std::future::Future<
         Output = ::connectrpc::ServiceResult<
             impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunStatus,
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunStatus,
             > + Send + use<'a, Self>,
         >,
     > + Send;
@@ -1598,12 +938,12 @@ pub trait EngineeringService: Send + Sync + 'static {
         ctx: ::connectrpc::RequestContext,
         request: ::connectrpc::ServiceRequest<
             '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringReadResult,
+            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringReadResult,
         >,
     ) -> impl ::std::future::Future<
         Output = ::connectrpc::ServiceResult<
             impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringResultPage,
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringResultPage,
             > + Send + use<'a, Self>,
         >,
     > + Send;
@@ -1619,13 +959,13 @@ pub trait EngineeringService: Send + Sync + 'static {
         ctx: ::connectrpc::RequestContext,
         request: ::connectrpc::ServiceRequest<
             '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunKey,
+            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunKey,
         >,
     ) -> impl ::std::future::Future<
         Output = ::connectrpc::ServiceResult<
             ::connectrpc::ServiceStream<
                 impl ::connectrpc::Encodable<
-                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunStatus,
+                    crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunStatus,
                 > + Send + use<Self>,
             >,
         >,
@@ -1644,12 +984,12 @@ pub trait EngineeringService: Send + Sync + 'static {
         ctx: ::connectrpc::RequestContext,
         request: ::connectrpc::ServiceRequest<
             '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringDiscoverPreparation,
+            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringDiscoverPreparation,
         >,
     ) -> impl ::std::future::Future<
         Output = ::connectrpc::ServiceResult<
             impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::PreparationDiscoveryReport,
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::PreparationDiscoveryReport,
             > + Send + use<'a, Self>,
         >,
     > + Send;
@@ -1667,12 +1007,12 @@ pub trait EngineeringService: Send + Sync + 'static {
         ctx: ::connectrpc::RequestContext,
         request: ::connectrpc::ServiceRequest<
             '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringReadSourceFile,
+            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringReadSourceFile,
         >,
     ) -> impl ::std::future::Future<
         Output = ::connectrpc::ServiceResult<
             impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::OriginalSourceFile,
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::OriginalSourceFile,
             > + Send + use<'a, Self>,
         >,
     > + Send;
@@ -1690,12 +1030,12 @@ pub trait EngineeringService: Send + Sync + 'static {
         ctx: ::connectrpc::RequestContext,
         request: ::connectrpc::ServiceRequest<
             '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectPhysical,
+            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectPhysical,
         >,
     ) -> impl ::std::future::Future<
         Output = ::connectrpc::ServiceResult<
             impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::PhysicalInspectionDocument,
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::PhysicalInspectionDocument,
             > + Send + use<'a, Self>,
         >,
     > + Send;
@@ -1713,12 +1053,12 @@ pub trait EngineeringService: Send + Sync + 'static {
         ctx: ::connectrpc::RequestContext,
         request: ::connectrpc::ServiceRequest<
             '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectModeling,
+            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectModeling,
         >,
     ) -> impl ::std::future::Future<
         Output = ::connectrpc::ServiceResult<
             impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::ModelingInspection,
+                crate::host_operations::engineering::inspection::pb::pse::engineering::v1::ModelingInspection,
             > + Send + use<'a, Self>,
         >,
     > + Send;
@@ -1736,311 +1076,12 @@ pub trait EngineeringService: Send + Sync + 'static {
         ctx: ::connectrpc::RequestContext,
         request: ::connectrpc::ServiceRequest<
             '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectProviders,
+            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectProviders,
         >,
     ) -> impl ::std::future::Future<
         Output = ::connectrpc::ServiceResult<
             impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::ProviderInspectionPage,
-            > + Send + use<'a, Self>,
-        >,
-    > + Send;
-    /// Handle the BrowseStudies RPC.
-    ///
-    /// `'a` lets the response body borrow from `&self` (e.g. server-resident state).
-    ///
-    /// `request` is borrowed from the request body and is valid for the
-    /// duration of the call; message fields are read directly on it
-    /// (zero-copy). The response cannot borrow from `request` — use
-    /// `.to_owned_message()` (or copy the specific fields) for anything
-    /// returned, stored, or moved into `tokio::spawn`.
-    fn browse_studies<'a>(
-        &'a self,
-        ctx: ::connectrpc::RequestContext,
-        request: ::connectrpc::ServiceRequest<
-            '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyWorkbenchRequest,
-        >,
-    ) -> impl ::std::future::Future<
-        Output = ::connectrpc::ServiceResult<
-            impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyWorkbenchPage,
-            > + Send + use<'a, Self>,
-        >,
-    > + Send;
-    /// Handle the PrepareStudy RPC.
-    ///
-    /// `'a` lets the response body borrow from `&self` (e.g. server-resident state).
-    ///
-    /// `request` is borrowed from the request body and is valid for the
-    /// duration of the call; message fields are read directly on it
-    /// (zero-copy). The response cannot borrow from `request` — use
-    /// `.to_owned_message()` (or copy the specific fields) for anything
-    /// returned, stored, or moved into `tokio::spawn`.
-    fn prepare_study<'a>(
-        &'a self,
-        ctx: ::connectrpc::RequestContext,
-        request: ::connectrpc::ServiceRequest<
-            '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPrepareStudy,
-        >,
-    ) -> impl ::std::future::Future<
-        Output = ::connectrpc::ServiceResult<
-            impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPreparedStudy,
-            > + Send + use<'a, Self>,
-        >,
-    > + Send;
-    /// Handle the RestoreStudy RPC.
-    ///
-    /// `'a` lets the response body borrow from `&self` (e.g. server-resident state).
-    ///
-    /// `request` is borrowed from the request body and is valid for the
-    /// duration of the call; message fields are read directly on it
-    /// (zero-copy). The response cannot borrow from `request` — use
-    /// `.to_owned_message()` (or copy the specific fields) for anything
-    /// returned, stored, or moved into `tokio::spawn`.
-    fn restore_study<'a>(
-        &'a self,
-        ctx: ::connectrpc::RequestContext,
-        request: ::connectrpc::ServiceRequest<
-            '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRestoreStudy,
-        >,
-    ) -> impl ::std::future::Future<
-        Output = ::connectrpc::ServiceResult<
-            impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPreparedStudy,
-            > + Send + use<'a, Self>,
-        >,
-    > + Send;
-    /// Handle the ReadPreparedStudy RPC.
-    ///
-    /// `'a` lets the response body borrow from `&self` (e.g. server-resident state).
-    ///
-    /// `request` is borrowed from the request body and is valid for the
-    /// duration of the call; message fields are read directly on it
-    /// (zero-copy). The response cannot borrow from `request` — use
-    /// `.to_owned_message()` (or copy the specific fields) for anything
-    /// returned, stored, or moved into `tokio::spawn`.
-    fn read_prepared_study<'a>(
-        &'a self,
-        ctx: ::connectrpc::RequestContext,
-        request: ::connectrpc::ServiceRequest<
-            '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringOperationKey,
-        >,
-    ) -> impl ::std::future::Future<
-        Output = ::connectrpc::ServiceResult<
-            impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyDefinition,
-            > + Send + use<'a, Self>,
-        >,
-    > + Send;
-    /// Handle the SubmitStudy RPC.
-    ///
-    /// `'a` lets the response body borrow from `&self` (e.g. server-resident state).
-    ///
-    /// `request` is borrowed from the request body and is valid for the
-    /// duration of the call; message fields are read directly on it
-    /// (zero-copy). The response cannot borrow from `request` — use
-    /// `.to_owned_message()` (or copy the specific fields) for anything
-    /// returned, stored, or moved into `tokio::spawn`.
-    fn submit_study<'a>(
-        &'a self,
-        ctx: ::connectrpc::RequestContext,
-        request: ::connectrpc::ServiceRequest<
-            '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSubmitStudy,
-        >,
-    ) -> impl ::std::future::Future<
-        Output = ::connectrpc::ServiceResult<
-            impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyStatus,
-            > + Send + use<'a, Self>,
-        >,
-    > + Send;
-    /// Handle the StudyStatus RPC.
-    ///
-    /// `'a` lets the response body borrow from `&self` (e.g. server-resident state).
-    ///
-    /// `request` is borrowed from the request body and is valid for the
-    /// duration of the call; message fields are read directly on it
-    /// (zero-copy). The response cannot borrow from `request` — use
-    /// `.to_owned_message()` (or copy the specific fields) for anything
-    /// returned, stored, or moved into `tokio::spawn`.
-    fn study_status<'a>(
-        &'a self,
-        ctx: ::connectrpc::RequestContext,
-        request: ::connectrpc::ServiceRequest<
-            '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyKey,
-        >,
-    ) -> impl ::std::future::Future<
-        Output = ::connectrpc::ServiceResult<
-            impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyStatus,
-            > + Send + use<'a, Self>,
-        >,
-    > + Send;
-    /// Handle the CancelStudy RPC.
-    ///
-    /// `'a` lets the response body borrow from `&self` (e.g. server-resident state).
-    ///
-    /// `request` is borrowed from the request body and is valid for the
-    /// duration of the call; message fields are read directly on it
-    /// (zero-copy). The response cannot borrow from `request` — use
-    /// `.to_owned_message()` (or copy the specific fields) for anything
-    /// returned, stored, or moved into `tokio::spawn`.
-    fn cancel_study<'a>(
-        &'a self,
-        ctx: ::connectrpc::RequestContext,
-        request: ::connectrpc::ServiceRequest<
-            '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyKey,
-        >,
-    ) -> impl ::std::future::Future<
-        Output = ::connectrpc::ServiceResult<
-            impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyStatus,
-            > + Send + use<'a, Self>,
-        >,
-    > + Send;
-    /// Handle the ObserveStudy RPC.
-    ///
-    /// `request` is borrowed from the request body and is valid for the
-    /// duration of the call (until the response stream is returned);
-    /// message fields are read directly on it (zero-copy). Data the
-    /// returned stream needs must be copied out or converted via
-    /// `.to_owned_message()`.
-    fn observe_study(
-        &self,
-        ctx: ::connectrpc::RequestContext,
-        request: ::connectrpc::ServiceRequest<
-            '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringObserveStudy,
-        >,
-    ) -> impl ::std::future::Future<
-        Output = ::connectrpc::ServiceResult<
-            ::connectrpc::ServiceStream<
-                impl ::connectrpc::Encodable<
-                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyObservationPage,
-                > + Send + use<Self>,
-            >,
-        >,
-    > + Send;
-    /// Handle the FreezeStudyCohort RPC.
-    ///
-    /// `'a` lets the response body borrow from `&self` (e.g. server-resident state).
-    ///
-    /// `request` is borrowed from the request body and is valid for the
-    /// duration of the call; message fields are read directly on it
-    /// (zero-copy). The response cannot borrow from `request` — use
-    /// `.to_owned_message()` (or copy the specific fields) for anything
-    /// returned, stored, or moved into `tokio::spawn`.
-    fn freeze_study_cohort<'a>(
-        &'a self,
-        ctx: ::connectrpc::RequestContext,
-        request: ::connectrpc::ServiceRequest<
-            '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringFreezeStudyCohort,
-        >,
-    ) -> impl ::std::future::Future<
-        Output = ::connectrpc::ServiceResult<
-            impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyCohortReceipt,
-            > + Send + use<'a, Self>,
-        >,
-    > + Send;
-    /// Handle the ReadStudyHeaders RPC.
-    ///
-    /// `'a` lets the response body borrow from `&self` (e.g. server-resident state).
-    ///
-    /// `request` is borrowed from the request body and is valid for the
-    /// duration of the call; message fields are read directly on it
-    /// (zero-copy). The response cannot borrow from `request` — use
-    /// `.to_owned_message()` (or copy the specific fields) for anything
-    /// returned, stored, or moved into `tokio::spawn`.
-    fn read_study_headers<'a>(
-        &'a self,
-        ctx: ::connectrpc::RequestContext,
-        request: ::connectrpc::ServiceRequest<
-            '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyHeaderPage,
-        >,
-    ) -> impl ::std::future::Future<
-        Output = ::connectrpc::ServiceResult<
-            impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyCohortHeaderPage,
-            > + Send + use<'a, Self>,
-        >,
-    > + Send;
-    /// Handle the ReadStudyMembers RPC.
-    ///
-    /// `'a` lets the response body borrow from `&self` (e.g. server-resident state).
-    ///
-    /// `request` is borrowed from the request body and is valid for the
-    /// duration of the call; message fields are read directly on it
-    /// (zero-copy). The response cannot borrow from `request` — use
-    /// `.to_owned_message()` (or copy the specific fields) for anything
-    /// returned, stored, or moved into `tokio::spawn`.
-    fn read_study_members<'a>(
-        &'a self,
-        ctx: ::connectrpc::RequestContext,
-        request: ::connectrpc::ServiceRequest<
-            '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyCohortPage,
-        >,
-    ) -> impl ::std::future::Future<
-        Output = ::connectrpc::ServiceResult<
-            impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyCohortMemberPage,
-            > + Send + use<'a, Self>,
-        >,
-    > + Send;
-    /// Handle the ReadStudyResult RPC.
-    ///
-    /// `'a` lets the response body borrow from `&self` (e.g. server-resident state).
-    ///
-    /// `request` is borrowed from the request body and is valid for the
-    /// duration of the call; message fields are read directly on it
-    /// (zero-copy). The response cannot borrow from `request` — use
-    /// `.to_owned_message()` (or copy the specific fields) for anything
-    /// returned, stored, or moved into `tokio::spawn`.
-    fn read_study_result<'a>(
-        &'a self,
-        ctx: ::connectrpc::RequestContext,
-        request: ::connectrpc::ServiceRequest<
-            '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringReadStudyResult,
-        >,
-    ) -> impl ::std::future::Future<
-        Output = ::connectrpc::ServiceResult<
-            impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyResultPage,
-            > + Send + use<'a, Self>,
-        >,
-    > + Send;
-    /// Handle the ReleaseStudyCohort RPC.
-    ///
-    /// `'a` lets the response body borrow from `&self` (e.g. server-resident state).
-    ///
-    /// `request` is borrowed from the request body and is valid for the
-    /// duration of the call; message fields are read directly on it
-    /// (zero-copy). The response cannot borrow from `request` — use
-    /// `.to_owned_message()` (or copy the specific fields) for anything
-    /// returned, stored, or moved into `tokio::spawn`.
-    fn release_study_cohort<'a>(
-        &'a self,
-        ctx: ::connectrpc::RequestContext,
-        request: ::connectrpc::ServiceRequest<
-            '_,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringOperationKey,
-        >,
-    ) -> impl ::std::future::Future<
-        Output = ::connectrpc::ServiceResult<
-            impl ::connectrpc::Encodable<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringCohortRelease,
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::ProviderInspectionPage,
             > + Send + use<'a, Self>,
         >,
     > + Send;
@@ -2084,7 +1125,7 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                     ::connectrpc::view_handler_fn(move |
                         ctx,
                         req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringDescribeRequestView<
+                            ::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::EngineeringDescribeRequestView<
                                 'static,
                             >,
                         >,
@@ -2093,12 +1134,12 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                         let svc = ::std::sync::Arc::clone(&svc);
                         async move {
                             let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringDescribeRequest,
+                                ::pse_host::engineering_client::pb::pse::engineering::v1::EngineeringDescribeRequest,
                             >::from_parts(req.reborrow(), req.bytes());
                             svc.describe_contract(ctx, sreq)
                                 .await?
                                 .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringContract,
+                                    ::pse_host::engineering_client::pb::pse::engineering::v1::EngineeringContract,
                                 >(format)
                         }
                     })
@@ -2113,7 +1154,7 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                     ::connectrpc::view_handler_fn(move |
                         ctx,
                         req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringAdmitSourceView<
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringAdmitSourceView<
                                 'static,
                             >,
                         >,
@@ -2122,12 +1163,12 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                         let svc = ::std::sync::Arc::clone(&svc);
                         async move {
                             let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringAdmitSource,
+                                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringAdmitSource,
                             >::from_parts(req.reborrow(), req.bytes());
                             svc.admit_source(ctx, sreq)
                                 .await?
                                 .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSourceOutcome,
+                                    crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringSourceOutcome,
                                 >(format)
                         }
                     })
@@ -2142,7 +1183,7 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                     ::connectrpc::view_handler_fn(move |
                         ctx,
                         req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringEditSourceView<
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringEditSourceView<
                                 'static,
                             >,
                         >,
@@ -2151,12 +1192,12 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                         let svc = ::std::sync::Arc::clone(&svc);
                         async move {
                             let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringEditSource,
+                                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringEditSource,
                             >::from_parts(req.reborrow(), req.bytes());
                             svc.edit_source(ctx, sreq)
                                 .await?
                                 .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSourceOutcome,
+                                    crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringSourceOutcome,
                                 >(format)
                         }
                     })
@@ -2171,7 +1212,7 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                     ::connectrpc::view_handler_fn(move |
                         ctx,
                         req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringOperationKeyView<
+                            ::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::EngineeringOperationKeyView<
                                 'static,
                             >,
                         >,
@@ -2180,12 +1221,12 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                         let svc = ::std::sync::Arc::clone(&svc);
                         async move {
                             let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringOperationKey,
+                                ::pse_host::engineering_client::pb::pse::engineering::v1::EngineeringOperationKey,
                             >::from_parts(req.reborrow(), req.bytes());
                             svc.source_status(ctx, sreq)
                                 .await?
                                 .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSourceOutcome,
+                                    crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringSourceOutcome,
                                 >(format)
                         }
                     })
@@ -2200,7 +1241,7 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                     ::connectrpc::view_handler_fn(move |
                         ctx,
                         req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringInspectSourceView<
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringInspectSourceView<
                                 'static,
                             >,
                         >,
@@ -2209,12 +1250,12 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                         let svc = ::std::sync::Arc::clone(&svc);
                         async move {
                             let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectSource,
+                                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectSource,
                             >::from_parts(req.reborrow(), req.bytes());
                             svc.inspect_source(ctx, sreq)
                                 .await?
                                 .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringDeclarationPage,
+                                    crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringDeclarationPage,
                                 >(format)
                         }
                     })
@@ -2229,7 +1270,7 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                     ::connectrpc::view_handler_fn(move |
                         ctx,
                         req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringPrepareCaseView<
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringPrepareCaseView<
                                 'static,
                             >,
                         >,
@@ -2238,12 +1279,12 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                         let svc = ::std::sync::Arc::clone(&svc);
                         async move {
                             let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPrepareCase,
+                                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringPrepareCase,
                             >::from_parts(req.reborrow(), req.bytes());
                             svc.prepare_case(ctx, sreq)
                                 .await?
                                 .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPreparedSelection,
+                                    crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringPreparedSelection,
                                 >(format)
                         }
                     })
@@ -2258,7 +1299,7 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                     ::connectrpc::view_handler_fn(move |
                         ctx,
                         req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringSubmitRunView<
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringSubmitRunView<
                                 'static,
                             >,
                         >,
@@ -2267,12 +1308,12 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                         let svc = ::std::sync::Arc::clone(&svc);
                         async move {
                             let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSubmitRun,
+                                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringSubmitRun,
                             >::from_parts(req.reborrow(), req.bytes());
                             svc.submit_run(ctx, sreq)
                                 .await?
                                 .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunStatus,
+                                    crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunStatus,
                                 >(format)
                         }
                     })
@@ -2287,7 +1328,7 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                     ::connectrpc::view_handler_fn(move |
                         ctx,
                         req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringRunKeyView<
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringRunKeyView<
                                 'static,
                             >,
                         >,
@@ -2296,12 +1337,12 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                         let svc = ::std::sync::Arc::clone(&svc);
                         async move {
                             let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunKey,
+                                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunKey,
                             >::from_parts(req.reborrow(), req.bytes());
                             svc.run_status(ctx, sreq)
                                 .await?
                                 .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunStatus,
+                                    crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunStatus,
                                 >(format)
                         }
                     })
@@ -2316,7 +1357,7 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                     ::connectrpc::view_handler_fn(move |
                         ctx,
                         req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringRunKeyView<
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringRunKeyView<
                                 'static,
                             >,
                         >,
@@ -2325,12 +1366,12 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                         let svc = ::std::sync::Arc::clone(&svc);
                         async move {
                             let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunKey,
+                                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunKey,
                             >::from_parts(req.reborrow(), req.bytes());
                             svc.cancel_run(ctx, sreq)
                                 .await?
                                 .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunStatus,
+                                    crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunStatus,
                                 >(format)
                         }
                     })
@@ -2345,7 +1386,7 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                     ::connectrpc::view_handler_fn(move |
                         ctx,
                         req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringReadResultView<
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringReadResultView<
                                 'static,
                             >,
                         >,
@@ -2354,12 +1395,12 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                         let svc = ::std::sync::Arc::clone(&svc);
                         async move {
                             let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringReadResult,
+                                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringReadResult,
                             >::from_parts(req.reborrow(), req.bytes());
                             svc.read_result(ctx, sreq)
                                 .await?
                                 .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringResultPage,
+                                    crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringResultPage,
                                 >(format)
                         }
                     })
@@ -2369,7 +1410,7 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
             .route_view_server_stream::<
                 _,
                 _,
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunStatus,
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunStatus,
             >(
                 ENGINEERING_SERVICE_SERVICE_NAME,
                 "ObserveRun",
@@ -2378,7 +1419,7 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                     move |
                         ctx,
                         req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringRunKeyView<
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringRunKeyView<
                                 'static,
                             >,
                         >|
@@ -2386,7 +1427,7 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                         let svc = ::std::sync::Arc::clone(&svc);
                         async move {
                             let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunKey,
+                                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunKey,
                             >::from_parts(req.reborrow(), req.bytes());
                             svc.observe_run(ctx, sreq).await
                         }
@@ -2402,7 +1443,7 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                     ::connectrpc::view_handler_fn(move |
                         ctx,
                         req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringDiscoverPreparationView<
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringDiscoverPreparationView<
                                 'static,
                             >,
                         >,
@@ -2411,12 +1452,12 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                         let svc = ::std::sync::Arc::clone(&svc);
                         async move {
                             let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringDiscoverPreparation,
+                                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringDiscoverPreparation,
                             >::from_parts(req.reborrow(), req.bytes());
                             svc.discover_preparation(ctx, sreq)
                                 .await?
                                 .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::PreparationDiscoveryReport,
+                                    crate::host_operations::engineering::generated::broad::pse::engineering::v1::PreparationDiscoveryReport,
                                 >(format)
                         }
                     })
@@ -2431,7 +1472,7 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                     ::connectrpc::view_handler_fn(move |
                         ctx,
                         req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringReadSourceFileView<
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringReadSourceFileView<
                                 'static,
                             >,
                         >,
@@ -2440,12 +1481,12 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                         let svc = ::std::sync::Arc::clone(&svc);
                         async move {
                             let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringReadSourceFile,
+                                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringReadSourceFile,
                             >::from_parts(req.reborrow(), req.bytes());
                             svc.read_source_file(ctx, sreq)
                                 .await?
                                 .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::OriginalSourceFile,
+                                    crate::host_operations::engineering::generated::broad::pse::engineering::v1::OriginalSourceFile,
                                 >(format)
                         }
                     })
@@ -2460,7 +1501,7 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                     ::connectrpc::view_handler_fn(move |
                         ctx,
                         req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringInspectPhysicalView<
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringInspectPhysicalView<
                                 'static,
                             >,
                         >,
@@ -2469,12 +1510,12 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                         let svc = ::std::sync::Arc::clone(&svc);
                         async move {
                             let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectPhysical,
+                                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectPhysical,
                             >::from_parts(req.reborrow(), req.bytes());
                             svc.inspect_physical(ctx, sreq)
                                 .await?
                                 .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::PhysicalInspectionDocument,
+                                    crate::host_operations::engineering::generated::broad::pse::engineering::v1::PhysicalInspectionDocument,
                                 >(format)
                         }
                     })
@@ -2489,7 +1530,7 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                     ::connectrpc::view_handler_fn(move |
                         ctx,
                         req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringInspectModelingView<
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringInspectModelingView<
                                 'static,
                             >,
                         >,
@@ -2498,12 +1539,12 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                         let svc = ::std::sync::Arc::clone(&svc);
                         async move {
                             let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectModeling,
+                                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectModeling,
                             >::from_parts(req.reborrow(), req.bytes());
                             svc.inspect_modeling(ctx, sreq)
                                 .await?
                                 .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::ModelingInspection,
+                                    crate::host_operations::engineering::inspection::pb::pse::engineering::v1::ModelingInspection,
                                 >(format)
                         }
                     })
@@ -2518,7 +1559,7 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                     ::connectrpc::view_handler_fn(move |
                         ctx,
                         req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringInspectProvidersView<
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringInspectProvidersView<
                                 'static,
                             >,
                         >,
@@ -2527,394 +1568,18 @@ impl<S: EngineeringService> EngineeringServiceExt for S {
                         let svc = ::std::sync::Arc::clone(&svc);
                         async move {
                             let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectProviders,
+                                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectProviders,
                             >::from_parts(req.reborrow(), req.bytes());
                             svc.inspect_providers(ctx, sreq)
                                 .await?
                                 .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::ProviderInspectionPage,
+                                    crate::host_operations::engineering::generated::broad::pse::engineering::v1::ProviderInspectionPage,
                                 >(format)
                         }
                     })
                 },
             )
             .with_spec(ENGINEERING_SERVICE_INSPECT_PROVIDERS_SPEC)
-            .route_view(
-                ENGINEERING_SERVICE_SERVICE_NAME,
-                "BrowseStudies",
-                {
-                    let svc = ::std::sync::Arc::clone(&self);
-                    ::connectrpc::view_handler_fn(move |
-                        ctx,
-                        req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyWorkbenchRequestView<
-                                'static,
-                            >,
-                        >,
-                        format|
-                    {
-                        let svc = ::std::sync::Arc::clone(&svc);
-                        async move {
-                            let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyWorkbenchRequest,
-                            >::from_parts(req.reborrow(), req.bytes());
-                            svc.browse_studies(ctx, sreq)
-                                .await?
-                                .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyWorkbenchPage,
-                                >(format)
-                        }
-                    })
-                },
-            )
-            .with_spec(ENGINEERING_SERVICE_BROWSE_STUDIES_SPEC)
-            .route_view(
-                ENGINEERING_SERVICE_SERVICE_NAME,
-                "PrepareStudy",
-                {
-                    let svc = ::std::sync::Arc::clone(&self);
-                    ::connectrpc::view_handler_fn(move |
-                        ctx,
-                        req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringPrepareStudyView<
-                                'static,
-                            >,
-                        >,
-                        format|
-                    {
-                        let svc = ::std::sync::Arc::clone(&svc);
-                        async move {
-                            let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPrepareStudy,
-                            >::from_parts(req.reborrow(), req.bytes());
-                            svc.prepare_study(ctx, sreq)
-                                .await?
-                                .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPreparedStudy,
-                                >(format)
-                        }
-                    })
-                },
-            )
-            .with_spec(ENGINEERING_SERVICE_PREPARE_STUDY_SPEC)
-            .route_view(
-                ENGINEERING_SERVICE_SERVICE_NAME,
-                "RestoreStudy",
-                {
-                    let svc = ::std::sync::Arc::clone(&self);
-                    ::connectrpc::view_handler_fn(move |
-                        ctx,
-                        req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringRestoreStudyView<
-                                'static,
-                            >,
-                        >,
-                        format|
-                    {
-                        let svc = ::std::sync::Arc::clone(&svc);
-                        async move {
-                            let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRestoreStudy,
-                            >::from_parts(req.reborrow(), req.bytes());
-                            svc.restore_study(ctx, sreq)
-                                .await?
-                                .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPreparedStudy,
-                                >(format)
-                        }
-                    })
-                },
-            )
-            .with_spec(ENGINEERING_SERVICE_RESTORE_STUDY_SPEC)
-            .route_view(
-                ENGINEERING_SERVICE_SERVICE_NAME,
-                "ReadPreparedStudy",
-                {
-                    let svc = ::std::sync::Arc::clone(&self);
-                    ::connectrpc::view_handler_fn(move |
-                        ctx,
-                        req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringOperationKeyView<
-                                'static,
-                            >,
-                        >,
-                        format|
-                    {
-                        let svc = ::std::sync::Arc::clone(&svc);
-                        async move {
-                            let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringOperationKey,
-                            >::from_parts(req.reborrow(), req.bytes());
-                            svc.read_prepared_study(ctx, sreq)
-                                .await?
-                                .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyDefinition,
-                                >(format)
-                        }
-                    })
-                },
-            )
-            .with_spec(ENGINEERING_SERVICE_READ_PREPARED_STUDY_SPEC)
-            .route_view(
-                ENGINEERING_SERVICE_SERVICE_NAME,
-                "SubmitStudy",
-                {
-                    let svc = ::std::sync::Arc::clone(&self);
-                    ::connectrpc::view_handler_fn(move |
-                        ctx,
-                        req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringSubmitStudyView<
-                                'static,
-                            >,
-                        >,
-                        format|
-                    {
-                        let svc = ::std::sync::Arc::clone(&svc);
-                        async move {
-                            let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSubmitStudy,
-                            >::from_parts(req.reborrow(), req.bytes());
-                            svc.submit_study(ctx, sreq)
-                                .await?
-                                .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyStatus,
-                                >(format)
-                        }
-                    })
-                },
-            )
-            .with_spec(ENGINEERING_SERVICE_SUBMIT_STUDY_SPEC)
-            .route_view(
-                ENGINEERING_SERVICE_SERVICE_NAME,
-                "StudyStatus",
-                {
-                    let svc = ::std::sync::Arc::clone(&self);
-                    ::connectrpc::view_handler_fn(move |
-                        ctx,
-                        req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyKeyView<
-                                'static,
-                            >,
-                        >,
-                        format|
-                    {
-                        let svc = ::std::sync::Arc::clone(&svc);
-                        async move {
-                            let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyKey,
-                            >::from_parts(req.reborrow(), req.bytes());
-                            svc.study_status(ctx, sreq)
-                                .await?
-                                .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyStatus,
-                                >(format)
-                        }
-                    })
-                },
-            )
-            .with_spec(ENGINEERING_SERVICE_STUDY_STATUS_SPEC)
-            .route_view(
-                ENGINEERING_SERVICE_SERVICE_NAME,
-                "CancelStudy",
-                {
-                    let svc = ::std::sync::Arc::clone(&self);
-                    ::connectrpc::view_handler_fn(move |
-                        ctx,
-                        req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyKeyView<
-                                'static,
-                            >,
-                        >,
-                        format|
-                    {
-                        let svc = ::std::sync::Arc::clone(&svc);
-                        async move {
-                            let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyKey,
-                            >::from_parts(req.reborrow(), req.bytes());
-                            svc.cancel_study(ctx, sreq)
-                                .await?
-                                .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyStatus,
-                                >(format)
-                        }
-                    })
-                },
-            )
-            .with_spec(ENGINEERING_SERVICE_CANCEL_STUDY_SPEC)
-            .route_view_server_stream::<
-                _,
-                _,
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyObservationPage,
-            >(
-                ENGINEERING_SERVICE_SERVICE_NAME,
-                "ObserveStudy",
-                ::connectrpc::view_streaming_handler_fn({
-                    let svc = ::std::sync::Arc::clone(&self);
-                    move |
-                        ctx,
-                        req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringObserveStudyView<
-                                'static,
-                            >,
-                        >|
-                    {
-                        let svc = ::std::sync::Arc::clone(&svc);
-                        async move {
-                            let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringObserveStudy,
-                            >::from_parts(req.reborrow(), req.bytes());
-                            svc.observe_study(ctx, sreq).await
-                        }
-                    }
-                }),
-            )
-            .with_spec(ENGINEERING_SERVICE_OBSERVE_STUDY_SPEC)
-            .route_view(
-                ENGINEERING_SERVICE_SERVICE_NAME,
-                "FreezeStudyCohort",
-                {
-                    let svc = ::std::sync::Arc::clone(&self);
-                    ::connectrpc::view_handler_fn(move |
-                        ctx,
-                        req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringFreezeStudyCohortView<
-                                'static,
-                            >,
-                        >,
-                        format|
-                    {
-                        let svc = ::std::sync::Arc::clone(&svc);
-                        async move {
-                            let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringFreezeStudyCohort,
-                            >::from_parts(req.reborrow(), req.bytes());
-                            svc.freeze_study_cohort(ctx, sreq)
-                                .await?
-                                .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyCohortReceipt,
-                                >(format)
-                        }
-                    })
-                },
-            )
-            .with_spec(ENGINEERING_SERVICE_FREEZE_STUDY_COHORT_SPEC)
-            .route_view(
-                ENGINEERING_SERVICE_SERVICE_NAME,
-                "ReadStudyHeaders",
-                {
-                    let svc = ::std::sync::Arc::clone(&self);
-                    ::connectrpc::view_handler_fn(move |
-                        ctx,
-                        req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyHeaderPageView<
-                                'static,
-                            >,
-                        >,
-                        format|
-                    {
-                        let svc = ::std::sync::Arc::clone(&svc);
-                        async move {
-                            let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyHeaderPage,
-                            >::from_parts(req.reborrow(), req.bytes());
-                            svc.read_study_headers(ctx, sreq)
-                                .await?
-                                .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyCohortHeaderPage,
-                                >(format)
-                        }
-                    })
-                },
-            )
-            .with_spec(ENGINEERING_SERVICE_READ_STUDY_HEADERS_SPEC)
-            .route_view(
-                ENGINEERING_SERVICE_SERVICE_NAME,
-                "ReadStudyMembers",
-                {
-                    let svc = ::std::sync::Arc::clone(&self);
-                    ::connectrpc::view_handler_fn(move |
-                        ctx,
-                        req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyCohortPageView<
-                                'static,
-                            >,
-                        >,
-                        format|
-                    {
-                        let svc = ::std::sync::Arc::clone(&svc);
-                        async move {
-                            let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyCohortPage,
-                            >::from_parts(req.reborrow(), req.bytes());
-                            svc.read_study_members(ctx, sreq)
-                                .await?
-                                .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyCohortMemberPage,
-                                >(format)
-                        }
-                    })
-                },
-            )
-            .with_spec(ENGINEERING_SERVICE_READ_STUDY_MEMBERS_SPEC)
-            .route_view(
-                ENGINEERING_SERVICE_SERVICE_NAME,
-                "ReadStudyResult",
-                {
-                    let svc = ::std::sync::Arc::clone(&self);
-                    ::connectrpc::view_handler_fn(move |
-                        ctx,
-                        req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringReadStudyResultView<
-                                'static,
-                            >,
-                        >,
-                        format|
-                    {
-                        let svc = ::std::sync::Arc::clone(&svc);
-                        async move {
-                            let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringReadStudyResult,
-                            >::from_parts(req.reborrow(), req.bytes());
-                            svc.read_study_result(ctx, sreq)
-                                .await?
-                                .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyResultPage,
-                                >(format)
-                        }
-                    })
-                },
-            )
-            .with_spec(ENGINEERING_SERVICE_READ_STUDY_RESULT_SPEC)
-            .route_view(
-                ENGINEERING_SERVICE_SERVICE_NAME,
-                "ReleaseStudyCohort",
-                {
-                    let svc = ::std::sync::Arc::clone(&self);
-                    ::connectrpc::view_handler_fn(move |
-                        ctx,
-                        req: ::buffa::view::OwnedView<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringOperationKeyView<
-                                'static,
-                            >,
-                        >,
-                        format|
-                    {
-                        let svc = ::std::sync::Arc::clone(&svc);
-                        async move {
-                            let sreq = ::connectrpc::ServiceRequest::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringOperationKey,
-                            >::from_parts(req.reborrow(), req.bytes());
-                            svc.release_study_cohort(ctx, sreq)
-                                .await?
-                                .encode::<
-                                    crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringCohortRelease,
-                                >(format)
-                        }
-                    })
-                },
-            )
-            .with_spec(ENGINEERING_SERVICE_RELEASE_STUDY_COHORT_SPEC)
     }
 }
 /// Type-inference marker used by [`Router::add_service`](::connectrpc::Router::add_service).
@@ -3067,84 +1732,6 @@ impl<T: EngineeringService> ::connectrpc::Dispatcher for EngineeringServiceServe
                         .with_spec(ENGINEERING_SERVICE_INSPECT_PROVIDERS_SPEC),
                 )
             }
-            "BrowseStudies" => {
-                Some(
-                    ::connectrpc::dispatcher::codegen::MethodDescriptor::unary(false)
-                        .with_spec(ENGINEERING_SERVICE_BROWSE_STUDIES_SPEC),
-                )
-            }
-            "PrepareStudy" => {
-                Some(
-                    ::connectrpc::dispatcher::codegen::MethodDescriptor::unary(false)
-                        .with_spec(ENGINEERING_SERVICE_PREPARE_STUDY_SPEC),
-                )
-            }
-            "RestoreStudy" => {
-                Some(
-                    ::connectrpc::dispatcher::codegen::MethodDescriptor::unary(false)
-                        .with_spec(ENGINEERING_SERVICE_RESTORE_STUDY_SPEC),
-                )
-            }
-            "ReadPreparedStudy" => {
-                Some(
-                    ::connectrpc::dispatcher::codegen::MethodDescriptor::unary(false)
-                        .with_spec(ENGINEERING_SERVICE_READ_PREPARED_STUDY_SPEC),
-                )
-            }
-            "SubmitStudy" => {
-                Some(
-                    ::connectrpc::dispatcher::codegen::MethodDescriptor::unary(false)
-                        .with_spec(ENGINEERING_SERVICE_SUBMIT_STUDY_SPEC),
-                )
-            }
-            "StudyStatus" => {
-                Some(
-                    ::connectrpc::dispatcher::codegen::MethodDescriptor::unary(false)
-                        .with_spec(ENGINEERING_SERVICE_STUDY_STATUS_SPEC),
-                )
-            }
-            "CancelStudy" => {
-                Some(
-                    ::connectrpc::dispatcher::codegen::MethodDescriptor::unary(false)
-                        .with_spec(ENGINEERING_SERVICE_CANCEL_STUDY_SPEC),
-                )
-            }
-            "ObserveStudy" => {
-                Some(
-                    ::connectrpc::dispatcher::codegen::MethodDescriptor::server_streaming()
-                        .with_spec(ENGINEERING_SERVICE_OBSERVE_STUDY_SPEC),
-                )
-            }
-            "FreezeStudyCohort" => {
-                Some(
-                    ::connectrpc::dispatcher::codegen::MethodDescriptor::unary(false)
-                        .with_spec(ENGINEERING_SERVICE_FREEZE_STUDY_COHORT_SPEC),
-                )
-            }
-            "ReadStudyHeaders" => {
-                Some(
-                    ::connectrpc::dispatcher::codegen::MethodDescriptor::unary(false)
-                        .with_spec(ENGINEERING_SERVICE_READ_STUDY_HEADERS_SPEC),
-                )
-            }
-            "ReadStudyMembers" => {
-                Some(
-                    ::connectrpc::dispatcher::codegen::MethodDescriptor::unary(false)
-                        .with_spec(ENGINEERING_SERVICE_READ_STUDY_MEMBERS_SPEC),
-                )
-            }
-            "ReadStudyResult" => {
-                Some(
-                    ::connectrpc::dispatcher::codegen::MethodDescriptor::unary(false)
-                        .with_spec(ENGINEERING_SERVICE_READ_STUDY_RESULT_SPEC),
-                )
-            }
-            "ReleaseStudyCohort" => {
-                Some(
-                    ::connectrpc::dispatcher::codegen::MethodDescriptor::unary(false)
-                        .with_spec(ENGINEERING_SERVICE_RELEASE_STUDY_COHORT_SPEC),
-                )
-            }
             _ => None,
         }
     }
@@ -3165,21 +1752,21 @@ impl<T: EngineeringService> ::connectrpc::Dispatcher for EngineeringServiceServe
                 let svc = ::std::sync::Arc::clone(&self.inner);
                 Box::pin(async move {
                     let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringDescribeRequest,
+                        ::pse_host::engineering_client::pb::pse::engineering::v1::EngineeringDescribeRequest,
                     >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringDescribeRequestView<
+                    let req: ::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::EngineeringDescribeRequestView<
                         '_,
                     > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
                         &body,
                         ctx.decode_options(),
                     )?;
                     let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringDescribeRequest,
+                        ::pse_host::engineering_client::pb::pse::engineering::v1::EngineeringDescribeRequest,
                     >::from_parts(&req, &body);
                     svc.describe_contract(ctx, req)
                         .await?
                         .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringContract,
+                            ::pse_host::engineering_client::pb::pse::engineering::v1::EngineeringContract,
                         >(format)
                 })
             }
@@ -3187,21 +1774,21 @@ impl<T: EngineeringService> ::connectrpc::Dispatcher for EngineeringServiceServe
                 let svc = ::std::sync::Arc::clone(&self.inner);
                 Box::pin(async move {
                     let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringAdmitSource,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringAdmitSource,
                     >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringAdmitSourceView<
+                    let req: crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringAdmitSourceView<
                         '_,
                     > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
                         &body,
                         ctx.decode_options(),
                     )?;
                     let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringAdmitSource,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringAdmitSource,
                     >::from_parts(&req, &body);
                     svc.admit_source(ctx, req)
                         .await?
                         .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSourceOutcome,
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringSourceOutcome,
                         >(format)
                 })
             }
@@ -3209,21 +1796,21 @@ impl<T: EngineeringService> ::connectrpc::Dispatcher for EngineeringServiceServe
                 let svc = ::std::sync::Arc::clone(&self.inner);
                 Box::pin(async move {
                     let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringEditSource,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringEditSource,
                     >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringEditSourceView<
+                    let req: crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringEditSourceView<
                         '_,
                     > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
                         &body,
                         ctx.decode_options(),
                     )?;
                     let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringEditSource,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringEditSource,
                     >::from_parts(&req, &body);
                     svc.edit_source(ctx, req)
                         .await?
                         .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSourceOutcome,
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringSourceOutcome,
                         >(format)
                 })
             }
@@ -3231,21 +1818,21 @@ impl<T: EngineeringService> ::connectrpc::Dispatcher for EngineeringServiceServe
                 let svc = ::std::sync::Arc::clone(&self.inner);
                 Box::pin(async move {
                     let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringOperationKey,
+                        ::pse_host::engineering_client::pb::pse::engineering::v1::EngineeringOperationKey,
                     >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringOperationKeyView<
+                    let req: ::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::EngineeringOperationKeyView<
                         '_,
                     > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
                         &body,
                         ctx.decode_options(),
                     )?;
                     let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringOperationKey,
+                        ::pse_host::engineering_client::pb::pse::engineering::v1::EngineeringOperationKey,
                     >::from_parts(&req, &body);
                     svc.source_status(ctx, req)
                         .await?
                         .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSourceOutcome,
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringSourceOutcome,
                         >(format)
                 })
             }
@@ -3253,21 +1840,21 @@ impl<T: EngineeringService> ::connectrpc::Dispatcher for EngineeringServiceServe
                 let svc = ::std::sync::Arc::clone(&self.inner);
                 Box::pin(async move {
                     let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectSource,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectSource,
                     >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringInspectSourceView<
+                    let req: crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringInspectSourceView<
                         '_,
                     > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
                         &body,
                         ctx.decode_options(),
                     )?;
                     let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectSource,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectSource,
                     >::from_parts(&req, &body);
                     svc.inspect_source(ctx, req)
                         .await?
                         .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringDeclarationPage,
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringDeclarationPage,
                         >(format)
                 })
             }
@@ -3275,21 +1862,21 @@ impl<T: EngineeringService> ::connectrpc::Dispatcher for EngineeringServiceServe
                 let svc = ::std::sync::Arc::clone(&self.inner);
                 Box::pin(async move {
                     let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPrepareCase,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringPrepareCase,
                     >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringPrepareCaseView<
+                    let req: crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringPrepareCaseView<
                         '_,
                     > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
                         &body,
                         ctx.decode_options(),
                     )?;
                     let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPrepareCase,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringPrepareCase,
                     >::from_parts(&req, &body);
                     svc.prepare_case(ctx, req)
                         .await?
                         .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPreparedSelection,
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringPreparedSelection,
                         >(format)
                 })
             }
@@ -3297,21 +1884,21 @@ impl<T: EngineeringService> ::connectrpc::Dispatcher for EngineeringServiceServe
                 let svc = ::std::sync::Arc::clone(&self.inner);
                 Box::pin(async move {
                     let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSubmitRun,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringSubmitRun,
                     >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringSubmitRunView<
+                    let req: crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringSubmitRunView<
                         '_,
                     > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
                         &body,
                         ctx.decode_options(),
                     )?;
                     let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSubmitRun,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringSubmitRun,
                     >::from_parts(&req, &body);
                     svc.submit_run(ctx, req)
                         .await?
                         .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunStatus,
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunStatus,
                         >(format)
                 })
             }
@@ -3319,21 +1906,21 @@ impl<T: EngineeringService> ::connectrpc::Dispatcher for EngineeringServiceServe
                 let svc = ::std::sync::Arc::clone(&self.inner);
                 Box::pin(async move {
                     let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunKey,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunKey,
                     >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringRunKeyView<
+                    let req: crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringRunKeyView<
                         '_,
                     > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
                         &body,
                         ctx.decode_options(),
                     )?;
                     let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunKey,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunKey,
                     >::from_parts(&req, &body);
                     svc.run_status(ctx, req)
                         .await?
                         .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunStatus,
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunStatus,
                         >(format)
                 })
             }
@@ -3341,21 +1928,21 @@ impl<T: EngineeringService> ::connectrpc::Dispatcher for EngineeringServiceServe
                 let svc = ::std::sync::Arc::clone(&self.inner);
                 Box::pin(async move {
                     let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunKey,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunKey,
                     >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringRunKeyView<
+                    let req: crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringRunKeyView<
                         '_,
                     > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
                         &body,
                         ctx.decode_options(),
                     )?;
                     let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunKey,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunKey,
                     >::from_parts(&req, &body);
                     svc.cancel_run(ctx, req)
                         .await?
                         .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunStatus,
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunStatus,
                         >(format)
                 })
             }
@@ -3363,21 +1950,21 @@ impl<T: EngineeringService> ::connectrpc::Dispatcher for EngineeringServiceServe
                 let svc = ::std::sync::Arc::clone(&self.inner);
                 Box::pin(async move {
                     let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringReadResult,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringReadResult,
                     >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringReadResultView<
+                    let req: crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringReadResultView<
                         '_,
                     > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
                         &body,
                         ctx.decode_options(),
                     )?;
                     let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringReadResult,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringReadResult,
                     >::from_parts(&req, &body);
                     svc.read_result(ctx, req)
                         .await?
                         .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringResultPage,
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringResultPage,
                         >(format)
                 })
             }
@@ -3385,21 +1972,21 @@ impl<T: EngineeringService> ::connectrpc::Dispatcher for EngineeringServiceServe
                 let svc = ::std::sync::Arc::clone(&self.inner);
                 Box::pin(async move {
                     let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringDiscoverPreparation,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringDiscoverPreparation,
                     >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringDiscoverPreparationView<
+                    let req: crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringDiscoverPreparationView<
                         '_,
                     > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
                         &body,
                         ctx.decode_options(),
                     )?;
                     let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringDiscoverPreparation,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringDiscoverPreparation,
                     >::from_parts(&req, &body);
                     svc.discover_preparation(ctx, req)
                         .await?
                         .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::PreparationDiscoveryReport,
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::PreparationDiscoveryReport,
                         >(format)
                 })
             }
@@ -3407,21 +1994,21 @@ impl<T: EngineeringService> ::connectrpc::Dispatcher for EngineeringServiceServe
                 let svc = ::std::sync::Arc::clone(&self.inner);
                 Box::pin(async move {
                     let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringReadSourceFile,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringReadSourceFile,
                     >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringReadSourceFileView<
+                    let req: crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringReadSourceFileView<
                         '_,
                     > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
                         &body,
                         ctx.decode_options(),
                     )?;
                     let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringReadSourceFile,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringReadSourceFile,
                     >::from_parts(&req, &body);
                     svc.read_source_file(ctx, req)
                         .await?
                         .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::OriginalSourceFile,
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::OriginalSourceFile,
                         >(format)
                 })
             }
@@ -3429,21 +2016,21 @@ impl<T: EngineeringService> ::connectrpc::Dispatcher for EngineeringServiceServe
                 let svc = ::std::sync::Arc::clone(&self.inner);
                 Box::pin(async move {
                     let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectPhysical,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectPhysical,
                     >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringInspectPhysicalView<
+                    let req: crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringInspectPhysicalView<
                         '_,
                     > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
                         &body,
                         ctx.decode_options(),
                     )?;
                     let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectPhysical,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectPhysical,
                     >::from_parts(&req, &body);
                     svc.inspect_physical(ctx, req)
                         .await?
                         .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::PhysicalInspectionDocument,
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::PhysicalInspectionDocument,
                         >(format)
                 })
             }
@@ -3451,21 +2038,21 @@ impl<T: EngineeringService> ::connectrpc::Dispatcher for EngineeringServiceServe
                 let svc = ::std::sync::Arc::clone(&self.inner);
                 Box::pin(async move {
                     let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectModeling,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectModeling,
                     >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringInspectModelingView<
+                    let req: crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringInspectModelingView<
                         '_,
                     > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
                         &body,
                         ctx.decode_options(),
                     )?;
                     let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectModeling,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectModeling,
                     >::from_parts(&req, &body);
                     svc.inspect_modeling(ctx, req)
                         .await?
                         .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::ModelingInspection,
+                            crate::host_operations::engineering::inspection::pb::pse::engineering::v1::ModelingInspection,
                         >(format)
                 })
             }
@@ -3473,285 +2060,21 @@ impl<T: EngineeringService> ::connectrpc::Dispatcher for EngineeringServiceServe
                 let svc = ::std::sync::Arc::clone(&self.inner);
                 Box::pin(async move {
                     let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectProviders,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectProviders,
                     >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringInspectProvidersView<
+                    let req: crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringInspectProvidersView<
                         '_,
                     > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
                         &body,
                         ctx.decode_options(),
                     )?;
                     let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectProviders,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectProviders,
                     >::from_parts(&req, &body);
                     svc.inspect_providers(ctx, req)
                         .await?
                         .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::ProviderInspectionPage,
-                        >(format)
-                })
-            }
-            "BrowseStudies" => {
-                let svc = ::std::sync::Arc::clone(&self.inner);
-                Box::pin(async move {
-                    let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyWorkbenchRequest,
-                    >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyWorkbenchRequestView<
-                        '_,
-                    > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
-                        &body,
-                        ctx.decode_options(),
-                    )?;
-                    let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyWorkbenchRequest,
-                    >::from_parts(&req, &body);
-                    svc.browse_studies(ctx, req)
-                        .await?
-                        .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyWorkbenchPage,
-                        >(format)
-                })
-            }
-            "PrepareStudy" => {
-                let svc = ::std::sync::Arc::clone(&self.inner);
-                Box::pin(async move {
-                    let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPrepareStudy,
-                    >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringPrepareStudyView<
-                        '_,
-                    > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
-                        &body,
-                        ctx.decode_options(),
-                    )?;
-                    let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPrepareStudy,
-                    >::from_parts(&req, &body);
-                    svc.prepare_study(ctx, req)
-                        .await?
-                        .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPreparedStudy,
-                        >(format)
-                })
-            }
-            "RestoreStudy" => {
-                let svc = ::std::sync::Arc::clone(&self.inner);
-                Box::pin(async move {
-                    let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRestoreStudy,
-                    >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringRestoreStudyView<
-                        '_,
-                    > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
-                        &body,
-                        ctx.decode_options(),
-                    )?;
-                    let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRestoreStudy,
-                    >::from_parts(&req, &body);
-                    svc.restore_study(ctx, req)
-                        .await?
-                        .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPreparedStudy,
-                        >(format)
-                })
-            }
-            "ReadPreparedStudy" => {
-                let svc = ::std::sync::Arc::clone(&self.inner);
-                Box::pin(async move {
-                    let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringOperationKey,
-                    >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringOperationKeyView<
-                        '_,
-                    > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
-                        &body,
-                        ctx.decode_options(),
-                    )?;
-                    let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringOperationKey,
-                    >::from_parts(&req, &body);
-                    svc.read_prepared_study(ctx, req)
-                        .await?
-                        .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyDefinition,
-                        >(format)
-                })
-            }
-            "SubmitStudy" => {
-                let svc = ::std::sync::Arc::clone(&self.inner);
-                Box::pin(async move {
-                    let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSubmitStudy,
-                    >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringSubmitStudyView<
-                        '_,
-                    > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
-                        &body,
-                        ctx.decode_options(),
-                    )?;
-                    let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSubmitStudy,
-                    >::from_parts(&req, &body);
-                    svc.submit_study(ctx, req)
-                        .await?
-                        .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyStatus,
-                        >(format)
-                })
-            }
-            "StudyStatus" => {
-                let svc = ::std::sync::Arc::clone(&self.inner);
-                Box::pin(async move {
-                    let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyKey,
-                    >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyKeyView<
-                        '_,
-                    > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
-                        &body,
-                        ctx.decode_options(),
-                    )?;
-                    let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyKey,
-                    >::from_parts(&req, &body);
-                    svc.study_status(ctx, req)
-                        .await?
-                        .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyStatus,
-                        >(format)
-                })
-            }
-            "CancelStudy" => {
-                let svc = ::std::sync::Arc::clone(&self.inner);
-                Box::pin(async move {
-                    let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyKey,
-                    >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyKeyView<
-                        '_,
-                    > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
-                        &body,
-                        ctx.decode_options(),
-                    )?;
-                    let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyKey,
-                    >::from_parts(&req, &body);
-                    svc.cancel_study(ctx, req)
-                        .await?
-                        .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyStatus,
-                        >(format)
-                })
-            }
-            "FreezeStudyCohort" => {
-                let svc = ::std::sync::Arc::clone(&self.inner);
-                Box::pin(async move {
-                    let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringFreezeStudyCohort,
-                    >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringFreezeStudyCohortView<
-                        '_,
-                    > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
-                        &body,
-                        ctx.decode_options(),
-                    )?;
-                    let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringFreezeStudyCohort,
-                    >::from_parts(&req, &body);
-                    svc.freeze_study_cohort(ctx, req)
-                        .await?
-                        .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyCohortReceipt,
-                        >(format)
-                })
-            }
-            "ReadStudyHeaders" => {
-                let svc = ::std::sync::Arc::clone(&self.inner);
-                Box::pin(async move {
-                    let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyHeaderPage,
-                    >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyHeaderPageView<
-                        '_,
-                    > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
-                        &body,
-                        ctx.decode_options(),
-                    )?;
-                    let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyHeaderPage,
-                    >::from_parts(&req, &body);
-                    svc.read_study_headers(ctx, req)
-                        .await?
-                        .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyCohortHeaderPage,
-                        >(format)
-                })
-            }
-            "ReadStudyMembers" => {
-                let svc = ::std::sync::Arc::clone(&self.inner);
-                Box::pin(async move {
-                    let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyCohortPage,
-                    >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyCohortPageView<
-                        '_,
-                    > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
-                        &body,
-                        ctx.decode_options(),
-                    )?;
-                    let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyCohortPage,
-                    >::from_parts(&req, &body);
-                    svc.read_study_members(ctx, req)
-                        .await?
-                        .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyCohortMemberPage,
-                        >(format)
-                })
-            }
-            "ReadStudyResult" => {
-                let svc = ::std::sync::Arc::clone(&self.inner);
-                Box::pin(async move {
-                    let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringReadStudyResult,
-                    >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringReadStudyResultView<
-                        '_,
-                    > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
-                        &body,
-                        ctx.decode_options(),
-                    )?;
-                    let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringReadStudyResult,
-                    >::from_parts(&req, &body);
-                    svc.read_study_result(ctx, req)
-                        .await?
-                        .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyResultPage,
-                        >(format)
-                })
-            }
-            "ReleaseStudyCohort" => {
-                let svc = ::std::sync::Arc::clone(&self.inner);
-                Box::pin(async move {
-                    let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringOperationKey,
-                    >(request.encoded()?, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringOperationKeyView<
-                        '_,
-                    > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
-                        &body,
-                        ctx.decode_options(),
-                    )?;
-                    let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringOperationKey,
-                    >::from_parts(&req, &body);
-                    svc.release_study_cohort(ctx, req)
-                        .await?
-                        .encode::<
-                            crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringCohortRelease,
+                            crate::host_operations::engineering::generated::broad::pse::engineering::v1::ProviderInspectionPage,
                         >(format)
                 })
             }
@@ -3775,48 +2098,22 @@ impl<T: EngineeringService> ::connectrpc::Dispatcher for EngineeringServiceServe
                 let svc = ::std::sync::Arc::clone(&self.inner);
                 Box::pin(async move {
                     let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunKey,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunKey,
                     >(request, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringRunKeyView<
+                    let req: crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringRunKeyView<
                         '_,
                     > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
                         &body,
                         ctx.decode_options(),
                     )?;
                     let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunKey,
+                        crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunKey,
                     >::from_parts(&req, &body);
                     let resp = svc.observe_run(ctx, req).await?;
                     Ok(
                         resp
                             .map_body(|s| ::connectrpc::dispatcher::codegen::encode_response_stream::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunStatus,
-                                _,
-                                _,
-                            >(s, format)),
-                    )
-                })
-            }
-            "ObserveStudy" => {
-                let svc = ::std::sync::Arc::clone(&self.inner);
-                Box::pin(async move {
-                    let body = ::connectrpc::dispatcher::codegen::request_proto_bytes::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringObserveStudy,
-                    >(request, format)?;
-                    let req: crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringObserveStudyView<
-                        '_,
-                    > = ::connectrpc::dispatcher::codegen::decode_borrowed_request_view(
-                        &body,
-                        ctx.decode_options(),
-                    )?;
-                    let req = ::connectrpc::ServiceRequest::<
-                        crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringObserveStudy,
-                    >::from_parts(&req, &body);
-                    let resp = svc.observe_study(ctx, req).await?;
-                    Ok(
-                        resp
-                            .map_body(|s| ::connectrpc::dispatcher::codegen::encode_response_stream::<
-                                crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyObservationPage,
+                                crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunStatus,
                                 _,
                                 _,
                             >(s, format)),
@@ -3941,11 +2238,11 @@ where
     /// Call the DescribeContract RPC. Sends a request to /pse.engineering.v1.EngineeringService/DescribeContract.
     pub async fn describe_contract(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringDescribeRequest,
+        request: ::pse_host::engineering_client::pb::pse::engineering::v1::EngineeringDescribeRequest,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringContractView<
+                ::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::EngineeringContractView<
                     'static,
                 >,
             >,
@@ -3961,12 +2258,12 @@ where
     /// Call the DescribeContract RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
     pub async fn describe_contract_with_options(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringDescribeRequest,
+        request: ::pse_host::engineering_client::pb::pse::engineering::v1::EngineeringDescribeRequest,
         options: ::connectrpc::client::CallOptions,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringContractView<
+                ::pse_host::engineering_client::pb::pse::engineering::v1::__buffa::view::EngineeringContractView<
                     'static,
                 >,
             >,
@@ -3986,11 +2283,11 @@ where
     /// Call the AdmitSource RPC. Sends a request to /pse.engineering.v1.EngineeringService/AdmitSource.
     pub async fn admit_source(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringAdmitSource,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringAdmitSource,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringSourceOutcomeView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringSourceOutcomeView<
                     'static,
                 >,
             >,
@@ -4006,12 +2303,12 @@ where
     /// Call the AdmitSource RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
     pub async fn admit_source_with_options(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringAdmitSource,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringAdmitSource,
         options: ::connectrpc::client::CallOptions,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringSourceOutcomeView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringSourceOutcomeView<
                     'static,
                 >,
             >,
@@ -4031,11 +2328,11 @@ where
     /// Call the EditSource RPC. Sends a request to /pse.engineering.v1.EngineeringService/EditSource.
     pub async fn edit_source(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringEditSource,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringEditSource,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringSourceOutcomeView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringSourceOutcomeView<
                     'static,
                 >,
             >,
@@ -4051,12 +2348,12 @@ where
     /// Call the EditSource RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
     pub async fn edit_source_with_options(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringEditSource,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringEditSource,
         options: ::connectrpc::client::CallOptions,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringSourceOutcomeView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringSourceOutcomeView<
                     'static,
                 >,
             >,
@@ -4076,11 +2373,11 @@ where
     /// Call the SourceStatus RPC. Sends a request to /pse.engineering.v1.EngineeringService/SourceStatus.
     pub async fn source_status(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringOperationKey,
+        request: ::pse_host::engineering_client::pb::pse::engineering::v1::EngineeringOperationKey,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringSourceOutcomeView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringSourceOutcomeView<
                     'static,
                 >,
             >,
@@ -4096,12 +2393,12 @@ where
     /// Call the SourceStatus RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
     pub async fn source_status_with_options(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringOperationKey,
+        request: ::pse_host::engineering_client::pb::pse::engineering::v1::EngineeringOperationKey,
         options: ::connectrpc::client::CallOptions,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringSourceOutcomeView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringSourceOutcomeView<
                     'static,
                 >,
             >,
@@ -4121,11 +2418,11 @@ where
     /// Call the InspectSource RPC. Sends a request to /pse.engineering.v1.EngineeringService/InspectSource.
     pub async fn inspect_source(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectSource,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectSource,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringDeclarationPageView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringDeclarationPageView<
                     'static,
                 >,
             >,
@@ -4141,12 +2438,12 @@ where
     /// Call the InspectSource RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
     pub async fn inspect_source_with_options(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectSource,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectSource,
         options: ::connectrpc::client::CallOptions,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringDeclarationPageView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringDeclarationPageView<
                     'static,
                 >,
             >,
@@ -4166,11 +2463,11 @@ where
     /// Call the PrepareCase RPC. Sends a request to /pse.engineering.v1.EngineeringService/PrepareCase.
     pub async fn prepare_case(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPrepareCase,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringPrepareCase,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringPreparedSelectionView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringPreparedSelectionView<
                     'static,
                 >,
             >,
@@ -4186,12 +2483,12 @@ where
     /// Call the PrepareCase RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
     pub async fn prepare_case_with_options(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPrepareCase,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringPrepareCase,
         options: ::connectrpc::client::CallOptions,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringPreparedSelectionView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringPreparedSelectionView<
                     'static,
                 >,
             >,
@@ -4211,11 +2508,11 @@ where
     /// Call the SubmitRun RPC. Sends a request to /pse.engineering.v1.EngineeringService/SubmitRun.
     pub async fn submit_run(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSubmitRun,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringSubmitRun,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringRunStatusView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringRunStatusView<
                     'static,
                 >,
             >,
@@ -4231,12 +2528,12 @@ where
     /// Call the SubmitRun RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
     pub async fn submit_run_with_options(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSubmitRun,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringSubmitRun,
         options: ::connectrpc::client::CallOptions,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringRunStatusView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringRunStatusView<
                     'static,
                 >,
             >,
@@ -4256,11 +2553,11 @@ where
     /// Call the RunStatus RPC. Sends a request to /pse.engineering.v1.EngineeringService/RunStatus.
     pub async fn run_status(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunKey,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunKey,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringRunStatusView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringRunStatusView<
                     'static,
                 >,
             >,
@@ -4276,12 +2573,12 @@ where
     /// Call the RunStatus RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
     pub async fn run_status_with_options(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunKey,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunKey,
         options: ::connectrpc::client::CallOptions,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringRunStatusView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringRunStatusView<
                     'static,
                 >,
             >,
@@ -4301,11 +2598,11 @@ where
     /// Call the CancelRun RPC. Sends a request to /pse.engineering.v1.EngineeringService/CancelRun.
     pub async fn cancel_run(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunKey,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunKey,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringRunStatusView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringRunStatusView<
                     'static,
                 >,
             >,
@@ -4321,12 +2618,12 @@ where
     /// Call the CancelRun RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
     pub async fn cancel_run_with_options(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunKey,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunKey,
         options: ::connectrpc::client::CallOptions,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringRunStatusView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringRunStatusView<
                     'static,
                 >,
             >,
@@ -4346,11 +2643,11 @@ where
     /// Call the ReadResult RPC. Sends a request to /pse.engineering.v1.EngineeringService/ReadResult.
     pub async fn read_result(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringReadResult,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringReadResult,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringResultPageView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringResultPageView<
                     'static,
                 >,
             >,
@@ -4366,12 +2663,12 @@ where
     /// Call the ReadResult RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
     pub async fn read_result_with_options(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringReadResult,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringReadResult,
         options: ::connectrpc::client::CallOptions,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringResultPageView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringResultPageView<
                     'static,
                 >,
             >,
@@ -4391,11 +2688,11 @@ where
     /// Call the ObserveRun RPC. Sends a request to /pse.engineering.v1.EngineeringService/ObserveRun.
     pub async fn observe_run(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunKey,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunKey,
     ) -> Result<
         ::connectrpc::client::ServerStream<
             T::ResponseBody,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringRunStatusView<
+            crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringRunStatusView<
                 'static,
             >,
         >,
@@ -4410,12 +2707,12 @@ where
     /// Call the ObserveRun RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
     pub async fn observe_run_with_options(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRunKey,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringRunKey,
         options: ::connectrpc::client::CallOptions,
     ) -> Result<
         ::connectrpc::client::ServerStream<
             T::ResponseBody,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringRunStatusView<
+            crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::EngineeringRunStatusView<
                 'static,
             >,
         >,
@@ -4434,11 +2731,11 @@ where
     /// Call the DiscoverPreparation RPC. Sends a request to /pse.engineering.v1.EngineeringService/DiscoverPreparation.
     pub async fn discover_preparation(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringDiscoverPreparation,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringDiscoverPreparation,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::PreparationDiscoveryReportView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::PreparationDiscoveryReportView<
                     'static,
                 >,
             >,
@@ -4454,12 +2751,12 @@ where
     /// Call the DiscoverPreparation RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
     pub async fn discover_preparation_with_options(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringDiscoverPreparation,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringDiscoverPreparation,
         options: ::connectrpc::client::CallOptions,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::PreparationDiscoveryReportView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::PreparationDiscoveryReportView<
                     'static,
                 >,
             >,
@@ -4479,11 +2776,11 @@ where
     /// Call the ReadSourceFile RPC. Sends a request to /pse.engineering.v1.EngineeringService/ReadSourceFile.
     pub async fn read_source_file(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringReadSourceFile,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringReadSourceFile,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::OriginalSourceFileView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::OriginalSourceFileView<
                     'static,
                 >,
             >,
@@ -4499,12 +2796,12 @@ where
     /// Call the ReadSourceFile RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
     pub async fn read_source_file_with_options(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringReadSourceFile,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringReadSourceFile,
         options: ::connectrpc::client::CallOptions,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::OriginalSourceFileView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::OriginalSourceFileView<
                     'static,
                 >,
             >,
@@ -4524,11 +2821,11 @@ where
     /// Call the InspectPhysical RPC. Sends a request to /pse.engineering.v1.EngineeringService/InspectPhysical.
     pub async fn inspect_physical(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectPhysical,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectPhysical,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::PhysicalInspectionDocumentView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::PhysicalInspectionDocumentView<
                     'static,
                 >,
             >,
@@ -4544,12 +2841,12 @@ where
     /// Call the InspectPhysical RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
     pub async fn inspect_physical_with_options(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectPhysical,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectPhysical,
         options: ::connectrpc::client::CallOptions,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::PhysicalInspectionDocumentView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::PhysicalInspectionDocumentView<
                     'static,
                 >,
             >,
@@ -4569,11 +2866,11 @@ where
     /// Call the InspectModeling RPC. Sends a request to /pse.engineering.v1.EngineeringService/InspectModeling.
     pub async fn inspect_modeling(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectModeling,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectModeling,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::ModelingInspectionView<
+                crate::host_operations::engineering::inspection::pb::pse::engineering::v1::__buffa::view::ModelingInspectionView<
                     'static,
                 >,
             >,
@@ -4589,12 +2886,12 @@ where
     /// Call the InspectModeling RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
     pub async fn inspect_modeling_with_options(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectModeling,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectModeling,
         options: ::connectrpc::client::CallOptions,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::ModelingInspectionView<
+                crate::host_operations::engineering::inspection::pb::pse::engineering::v1::__buffa::view::ModelingInspectionView<
                     'static,
                 >,
             >,
@@ -4614,11 +2911,11 @@ where
     /// Call the InspectProviders RPC. Sends a request to /pse.engineering.v1.EngineeringService/InspectProviders.
     pub async fn inspect_providers(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectProviders,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectProviders,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::ProviderInspectionPageView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::ProviderInspectionPageView<
                     'static,
                 >,
             >,
@@ -4634,12 +2931,12 @@ where
     /// Call the InspectProviders RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
     pub async fn inspect_providers_with_options(
         &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringInspectProviders,
+        request: crate::host_operations::engineering::generated::broad::pse::engineering::v1::EngineeringInspectProviders,
         options: ::connectrpc::client::CallOptions,
     ) -> Result<
         ::connectrpc::client::UnaryResponse<
             ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::ProviderInspectionPageView<
+                crate::host_operations::engineering::generated::broad::pse::engineering::v1::__buffa::view::ProviderInspectionPageView<
                     'static,
                 >,
             >,
@@ -4650,589 +2947,6 @@ where
                 &self.transport,
                 &self.config,
                 ENGINEERING_SERVICE_INSPECT_PROVIDERS_SPEC
-                    .with_origin(::connectrpc::SpecOrigin::Client),
-                request,
-                options,
-            )
-            .await
-    }
-    /// Call the BrowseStudies RPC. Sends a request to /pse.engineering.v1.EngineeringService/BrowseStudies.
-    pub async fn browse_studies(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyWorkbenchRequest,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyWorkbenchPageView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        self.browse_studies_with_options(
-                request,
-                ::connectrpc::client::CallOptions::default(),
-            )
-            .await
-    }
-    /// Call the BrowseStudies RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
-    pub async fn browse_studies_with_options(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::StudyWorkbenchRequest,
-        options: ::connectrpc::client::CallOptions,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyWorkbenchPageView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        ::connectrpc::client::call_unary(
-                &self.transport,
-                &self.config,
-                ENGINEERING_SERVICE_BROWSE_STUDIES_SPEC
-                    .with_origin(::connectrpc::SpecOrigin::Client),
-                request,
-                options,
-            )
-            .await
-    }
-    /// Call the PrepareStudy RPC. Sends a request to /pse.engineering.v1.EngineeringService/PrepareStudy.
-    pub async fn prepare_study(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPrepareStudy,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringPreparedStudyView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        self.prepare_study_with_options(
-                request,
-                ::connectrpc::client::CallOptions::default(),
-            )
-            .await
-    }
-    /// Call the PrepareStudy RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
-    pub async fn prepare_study_with_options(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPrepareStudy,
-        options: ::connectrpc::client::CallOptions,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringPreparedStudyView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        ::connectrpc::client::call_unary(
-                &self.transport,
-                &self.config,
-                ENGINEERING_SERVICE_PREPARE_STUDY_SPEC
-                    .with_origin(::connectrpc::SpecOrigin::Client),
-                request,
-                options,
-            )
-            .await
-    }
-    /// Call the RestoreStudy RPC. Sends a request to /pse.engineering.v1.EngineeringService/RestoreStudy.
-    pub async fn restore_study(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRestoreStudy,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringPreparedStudyView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        self.restore_study_with_options(
-                request,
-                ::connectrpc::client::CallOptions::default(),
-            )
-            .await
-    }
-    /// Call the RestoreStudy RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
-    pub async fn restore_study_with_options(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringRestoreStudy,
-        options: ::connectrpc::client::CallOptions,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringPreparedStudyView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        ::connectrpc::client::call_unary(
-                &self.transport,
-                &self.config,
-                ENGINEERING_SERVICE_RESTORE_STUDY_SPEC
-                    .with_origin(::connectrpc::SpecOrigin::Client),
-                request,
-                options,
-            )
-            .await
-    }
-    /// Call the ReadPreparedStudy RPC. Sends a request to /pse.engineering.v1.EngineeringService/ReadPreparedStudy.
-    pub async fn read_prepared_study(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringOperationKey,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyDefinitionView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        self.read_prepared_study_with_options(
-                request,
-                ::connectrpc::client::CallOptions::default(),
-            )
-            .await
-    }
-    /// Call the ReadPreparedStudy RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
-    pub async fn read_prepared_study_with_options(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringOperationKey,
-        options: ::connectrpc::client::CallOptions,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyDefinitionView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        ::connectrpc::client::call_unary(
-                &self.transport,
-                &self.config,
-                ENGINEERING_SERVICE_READ_PREPARED_STUDY_SPEC
-                    .with_origin(::connectrpc::SpecOrigin::Client),
-                request,
-                options,
-            )
-            .await
-    }
-    /// Call the SubmitStudy RPC. Sends a request to /pse.engineering.v1.EngineeringService/SubmitStudy.
-    pub async fn submit_study(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSubmitStudy,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyStatusView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        self.submit_study_with_options(
-                request,
-                ::connectrpc::client::CallOptions::default(),
-            )
-            .await
-    }
-    /// Call the SubmitStudy RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
-    pub async fn submit_study_with_options(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringSubmitStudy,
-        options: ::connectrpc::client::CallOptions,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyStatusView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        ::connectrpc::client::call_unary(
-                &self.transport,
-                &self.config,
-                ENGINEERING_SERVICE_SUBMIT_STUDY_SPEC
-                    .with_origin(::connectrpc::SpecOrigin::Client),
-                request,
-                options,
-            )
-            .await
-    }
-    /// Call the StudyStatus RPC. Sends a request to /pse.engineering.v1.EngineeringService/StudyStatus.
-    pub async fn study_status(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyKey,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyStatusView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        self.study_status_with_options(
-                request,
-                ::connectrpc::client::CallOptions::default(),
-            )
-            .await
-    }
-    /// Call the StudyStatus RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
-    pub async fn study_status_with_options(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyKey,
-        options: ::connectrpc::client::CallOptions,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyStatusView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        ::connectrpc::client::call_unary(
-                &self.transport,
-                &self.config,
-                ENGINEERING_SERVICE_STUDY_STATUS_SPEC
-                    .with_origin(::connectrpc::SpecOrigin::Client),
-                request,
-                options,
-            )
-            .await
-    }
-    /// Call the CancelStudy RPC. Sends a request to /pse.engineering.v1.EngineeringService/CancelStudy.
-    pub async fn cancel_study(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyKey,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyStatusView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        self.cancel_study_with_options(
-                request,
-                ::connectrpc::client::CallOptions::default(),
-            )
-            .await
-    }
-    /// Call the CancelStudy RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
-    pub async fn cancel_study_with_options(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyKey,
-        options: ::connectrpc::client::CallOptions,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyStatusView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        ::connectrpc::client::call_unary(
-                &self.transport,
-                &self.config,
-                ENGINEERING_SERVICE_CANCEL_STUDY_SPEC
-                    .with_origin(::connectrpc::SpecOrigin::Client),
-                request,
-                options,
-            )
-            .await
-    }
-    /// Call the ObserveStudy RPC. Sends a request to /pse.engineering.v1.EngineeringService/ObserveStudy.
-    pub async fn observe_study(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringObserveStudy,
-    ) -> Result<
-        ::connectrpc::client::ServerStream<
-            T::ResponseBody,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyObservationPageView<
-                'static,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        self.observe_study_with_options(
-                request,
-                ::connectrpc::client::CallOptions::default(),
-            )
-            .await
-    }
-    /// Call the ObserveStudy RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
-    pub async fn observe_study_with_options(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringObserveStudy,
-        options: ::connectrpc::client::CallOptions,
-    ) -> Result<
-        ::connectrpc::client::ServerStream<
-            T::ResponseBody,
-            crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyObservationPageView<
-                'static,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        ::connectrpc::client::call_server_stream(
-                &self.transport,
-                &self.config,
-                ENGINEERING_SERVICE_OBSERVE_STUDY_SPEC
-                    .with_origin(::connectrpc::SpecOrigin::Client),
-                request,
-                options,
-            )
-            .await
-    }
-    /// Call the FreezeStudyCohort RPC. Sends a request to /pse.engineering.v1.EngineeringService/FreezeStudyCohort.
-    pub async fn freeze_study_cohort(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringFreezeStudyCohort,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyCohortReceiptView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        self.freeze_study_cohort_with_options(
-                request,
-                ::connectrpc::client::CallOptions::default(),
-            )
-            .await
-    }
-    /// Call the FreezeStudyCohort RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
-    pub async fn freeze_study_cohort_with_options(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringFreezeStudyCohort,
-        options: ::connectrpc::client::CallOptions,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyCohortReceiptView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        ::connectrpc::client::call_unary(
-                &self.transport,
-                &self.config,
-                ENGINEERING_SERVICE_FREEZE_STUDY_COHORT_SPEC
-                    .with_origin(::connectrpc::SpecOrigin::Client),
-                request,
-                options,
-            )
-            .await
-    }
-    /// Call the ReadStudyHeaders RPC. Sends a request to /pse.engineering.v1.EngineeringService/ReadStudyHeaders.
-    pub async fn read_study_headers(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyHeaderPage,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyCohortHeaderPageView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        self.read_study_headers_with_options(
-                request,
-                ::connectrpc::client::CallOptions::default(),
-            )
-            .await
-    }
-    /// Call the ReadStudyHeaders RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
-    pub async fn read_study_headers_with_options(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyHeaderPage,
-        options: ::connectrpc::client::CallOptions,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyCohortHeaderPageView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        ::connectrpc::client::call_unary(
-                &self.transport,
-                &self.config,
-                ENGINEERING_SERVICE_READ_STUDY_HEADERS_SPEC
-                    .with_origin(::connectrpc::SpecOrigin::Client),
-                request,
-                options,
-            )
-            .await
-    }
-    /// Call the ReadStudyMembers RPC. Sends a request to /pse.engineering.v1.EngineeringService/ReadStudyMembers.
-    pub async fn read_study_members(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyCohortPage,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyCohortMemberPageView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        self.read_study_members_with_options(
-                request,
-                ::connectrpc::client::CallOptions::default(),
-            )
-            .await
-    }
-    /// Call the ReadStudyMembers RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
-    pub async fn read_study_members_with_options(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringStudyCohortPage,
-        options: ::connectrpc::client::CallOptions,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::StudyCohortMemberPageView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        ::connectrpc::client::call_unary(
-                &self.transport,
-                &self.config,
-                ENGINEERING_SERVICE_READ_STUDY_MEMBERS_SPEC
-                    .with_origin(::connectrpc::SpecOrigin::Client),
-                request,
-                options,
-            )
-            .await
-    }
-    /// Call the ReadStudyResult RPC. Sends a request to /pse.engineering.v1.EngineeringService/ReadStudyResult.
-    pub async fn read_study_result(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringReadStudyResult,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyResultPageView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        self.read_study_result_with_options(
-                request,
-                ::connectrpc::client::CallOptions::default(),
-            )
-            .await
-    }
-    /// Call the ReadStudyResult RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
-    pub async fn read_study_result_with_options(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringReadStudyResult,
-        options: ::connectrpc::client::CallOptions,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringStudyResultPageView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        ::connectrpc::client::call_unary(
-                &self.transport,
-                &self.config,
-                ENGINEERING_SERVICE_READ_STUDY_RESULT_SPEC
-                    .with_origin(::connectrpc::SpecOrigin::Client),
-                request,
-                options,
-            )
-            .await
-    }
-    /// Call the ReleaseStudyCohort RPC. Sends a request to /pse.engineering.v1.EngineeringService/ReleaseStudyCohort.
-    pub async fn release_study_cohort(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringOperationKey,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringCohortReleaseView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        self.release_study_cohort_with_options(
-                request,
-                ::connectrpc::client::CallOptions::default(),
-            )
-            .await
-    }
-    /// Call the ReleaseStudyCohort RPC with explicit per-call options. Options override [`ClientConfig`](::connectrpc::client::ClientConfig) defaults.
-    pub async fn release_study_cohort_with_options(
-        &self,
-        request: crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringOperationKey,
-        options: ::connectrpc::client::CallOptions,
-    ) -> Result<
-        ::connectrpc::client::UnaryResponse<
-            ::buffa::view::OwnedView<
-                crate::host_operations::engineering::generated::pb::pse::engineering::v1::__buffa::view::EngineeringCohortReleaseView<
-                    'static,
-                >,
-            >,
-        >,
-        ::connectrpc::ConnectError,
-    > {
-        ::connectrpc::client::call_unary(
-                &self.transport,
-                &self.config,
-                ENGINEERING_SERVICE_RELEASE_STUDY_COHORT_SPEC
                     .with_origin(::connectrpc::SpecOrigin::Client),
                 request,
                 options,

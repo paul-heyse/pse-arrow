@@ -482,6 +482,7 @@ mod tests {
             Some(&Value::String("original-policy".into()))
         );
     }
+    #[cfg(feature = "engineering-service")]
     #[test]
     fn recorded_selection_imported_world_keeps_native_callbacks_in_the_owning_pool() {
         use buffa::Message as _;

@@ -152,12 +152,12 @@ below still owns current integration and receiving evidence.
 
 | ID | Finding and scenario | Disposition | Work owner | Required evidence |
 | --- | --- | --- | --- | --- |
-| F01 | [Index-binding identity](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f01) · S01 | scheduled | [66b B01/B05](66b-contracts-generation-and-interpretation.md#b01--deliver-useful-generation-closures-and-reproducible-bootstrap) | One generated item and shared rule. A rule local to one occurrence stays local. |
-| F02 | [Engineering compilation reach](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f02) · S02 | scheduled | [66b B01](66b-contracts-generation-and-interpretation.md#b01--deliver-useful-generation-closures-and-reproducible-bootstrap) | Source-forward generation and separate ordinary, service and independent-reader closures. E02 and F04/F05 receive actual consumers. |
-| F03 | [Study input capabilities](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f03) · S02 | scheduled | [66a A01](66a-scientific-operations-and-product-semantics.md#packages) | B01/B03 generate both roots. C02 and F05 exercise both with exact restore and reconnect. |
-| F04 | [Worker protocol mirrors](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f04) · S03/S04 | scheduled | [66b B03](66b-contracts-generation-and-interpretation.md#b03--finish-finite-source-to-consumer-migrations) | Native-derived demand and handle. C03 refuses stale or incompatible sessions and D04 verifies supported derivative actions. |
-| F05 | [Native preparation and admission](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f05) · S03 | scheduled | [66d D01/D02](66d-mathematical-representation-and-numerical-execution.md#packages) | One routed preparation with exact class demands and witness lifetime. C receives it in fitting and shooting. |
-| F06 | [Launch and finish failures](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f06) · S04 | scheduled | [66c C03](66c-preparation-execution-and-service-lifecycles.md#c03--close-performing-owners-and-worker-sessions) | Refusal and independent finish failure survive actual drain through C02/C05 and E06. |
+| F01 | [Index-binding identity](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f01) · S01 | resolved | [66b B01/B05](66b-contracts-generation-and-interpretation.md#b01--deliver-useful-generation-closures-and-reproducible-bootstrap) | One generated item with 19 references. The selected registry and modeling tests preserve occurrence roles, ordinals and local grammar. |
+| F02 | [Engineering compilation reach](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f02) · S02 | verification pending | [66b B01](66b-contracts-generation-and-interpretation.md#b01--deliver-useful-generation-closures-and-reproducible-bootstrap) | Source-forward generation and the independent host compile passed. Verify the ordinary, inspection-only and performing consumers on the final sources. |
+| F03 | [Study input capabilities](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f03) · S02 | verification pending | [66a A01](66a-scientific-operations-and-product-semantics.md#packages) | Both current capabilities generate. C02 and F05 exercise both with exact restore and reconnect and refuse the retired methods. |
+| F04 | [Worker protocol mirrors](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f04) · S03/S04 | verification pending | [66b B03](66b-contracts-generation-and-interpretation.md#b03--finish-finite-source-to-consumer-migrations) | The native-derived worker replaces the retired wire. Verify stale and incompatible session refusal and supported derivative actions. |
+| F05 | [Native preparation and admission](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f05) · S03 | verification pending | [66d D01/D02](66d-mathematical-representation-and-numerical-execution.md#packages) | Selected adapter controls passed. Verify the shared witness lifetime and the fitting and shooting consumers. |
+| F06 | [Launch and finish failures](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f06) · S04 | verification pending | [66c C03](66c-preparation-execution-and-service-lifecycles.md#c03--close-performing-owners-and-worker-sessions) | Verify that refusal and independent finish failure survive actual drain through the current supervisor. |
 
 ## Dependency order and useful intermediate deliveries
 
@@ -185,8 +185,10 @@ scientific and developer journeys.
 
 On implementation resumption, use isolated worktrees only for genuinely concurrent changes,
 integrating coherent declarations, generators, callers, tests and deletions on main. Preserve
-candidate work until integrated or deliberately superseded. Product execution is paused at the
-[November 8 checkpoint](#66af-checkpoint--november-8).
+candidate work until integrated or deliberately superseded. The
+[November 8 checkpoint](#66af-checkpoint--november-8) records where the preceding product
+qualification stopped. The [shared-contract cutover](#shared-contract-cutover--november-8)
+owns the subsequent implementation and verification.
 
 ## Decisions and authorization boundaries
 
@@ -215,6 +217,39 @@ routes before dependent implementation.
 | [RC03](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#rc03) | Adopt the native projection's derivative-order tags in a revised private protocol and replace both managed images together. | [ADR-0240](../adr/0240-prepared-local-scientific-workers.md), blueprint §9.11. |
 
 ## Verification, current outcome and cleanup handoff
+
+### Shared-contract cutover — November 8
+
+The maintainer authorized the shared engineering and solver contract cutover before
+full simulation qualification. The modeling registry now owns one index-binding value.
+The engineering source graph derives separate compiled inspection, explicit Study and
+full service capabilities, with common messages at the existing independent host owner.
+The two versioned Study procedures use one native admission and preparation identity.
+The private scientific worker consumes the checked native demand and uses its native
+session handle. Fitting and shooting use the same structural-witness admission.
+The run supervisor joins started native work on refusal and retains independent
+finish failures.
+
+The registry and first source-only engineering generators completed. The first
+engineering run began with the preceding service adapters on disk. The three selected
+schema and modeling tests passed with zero failures and complete settlement under
+`pse test pse-schema pse-modeling --lib -F force-validate` with the index-binding
+filter set (`01a1bea5-b422-7585-8f21-1e301fdbfb85`). The independent
+host compiler-unit inspection `01a1be92-e92e-715b-9f7e-32050d208da3` found no
+`pse-runtime` unit for `pse-host --lib -F engineering-client`. The four selected
+`pse-backend-native` adapter and route controls passed with zero failures and complete
+settlement in `01a1be7c-02c1-7384-824f-f8735f666937`. They cover callback demand,
+continuation suitability, conditional derivatives and refusal of an unlinked backend.
+
+The generated worlds have distinct descriptor and Rust emission sets. The independent
+`pse check pse-host --lib -F engineering-client` completed with zero failures. The
+generator selects one runtime-owned conversion scope for adapters between externally
+owned native and wire types. The combined Study request and RPCs, their JSON schemas,
+the unused Study legacy enum, and the predecessor worker wire are removed. The final
+consumer compile, targeted functional controls, and authenticated Study and worker
+journeys remain open.
+Full simulation qualification stays behind that cutover. The source-review finding
+rows retain the required evidence and their owning packages.
 
 ### 66a–f checkpoint — November 8
 

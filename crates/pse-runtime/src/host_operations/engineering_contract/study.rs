@@ -2,28 +2,49 @@
 // Copyright (c) 2026 Paul Heyse
 //! Typed crossings to original study admission, creation, observation and protected cohorts.
 
-use pse_contract::boundary_projection::{Direction, LocalRule};
+use pse_contract::boundary_projection::{Direction, LocalRule, ProjectionError, ProjectionGraph, Service};
+use pse_contract::operation_effects::EffectFacts;
 use pse_ids::ContentHash;
-use pse_model::engineering::{EngineeringFailure, EngineeringSourceSelection, OPERATION_ID_RULE};
+use pse_model::document::Version;
+use pse_model::engineering::{EngineeringContract, EngineeringDescribeRequest, EngineeringFailure, EngineeringOperationKey, EngineeringSourceSelection, OPERATION_ID_RULE};
 use pse_model::generated::identities::StudyId;
+use crate::workflow::{
+    LazyStudyDefinition, PhysicalSource, ResearchSource, STUDY_DEFINITION_VERSION, StudyDefinition,
+    StudyOutputDemand, StudyPoint, StudyPointDefinition, StudyVariants, WorkflowError,
+};
 
-pse_contract::projection_struct! {
-    /// Admit the complete native study vocabulary against one exact retained source.
+macro_rules! prepare_request {
+    ($name:ident, $wire:literal, $member:ident: $inputs:ty, [$($rule:expr),*]) => {
+        pse_contract::projection_struct! {
+    /// Admit one Study input capability against its exact retained source.
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     #[serde(deny_unknown_fields)]
-    pub struct EngineeringPrepareStudy {
-        projection: { name: "EngineeringPrepareStudy", rust_path: crate::host_operations::engineering_contract::EngineeringPrepareStudy,
-            version: 1, direction: Direction::Input, reserved_tags: [], reserved_names: [] };
+    pub struct $name {
+        projection: { name: $wire, rust_path: crate::host_operations::engineering_contract::$name,
+            version: 2, direction: Direction::Input, reserved_tags: [], reserved_names: [] };
         /// Original operation retaining this admission independently of its waiters.
         pub operation: String => { tag: 1, direction: Direction::Input, rules: [OPERATION_ID_RULE] };
         /// Original admitted source operation.
         pub source_operation: String => { tag: 2, direction: Direction::Input, rules: [OPERATION_ID_RULE] };
         /// Exact immutable local parent, never a latest-name selection.
         pub expected_source: String => { tag: 3, direction: Direction::Input, rules: [pse_model::engineering::LOCAL_REVISION_RULE] };
-        /// Actual native request: explicit or lazy and every serializable operation family.
-        pub request: crate::workflow::StudyRequest => { tag: 4, direction: Direction::Input, rules: [LocalRule::Required] };
+        /// Original summary and occurrence-detail demand.
+        pub output: StudyOutputDemand => { tag: 4, direction: Direction::Input, rules: [LocalRule::Required] };
+        /// Selected input capability.
+        pub $member: $inputs => { tag: 5, direction: Direction::Input, rules: [$($rule),*] };
     }
+        }
+    };
 }
+
+prepare_request!(
+    EngineeringPrepareExplicitStudy, "EngineeringPrepareExplicitStudy", points: Vec<StudyPoint>,
+    [LocalRule::Length { min: 0, max: crate::workflow::MAXIMUM_STUDY_POINTS as u64 }]
+);
+prepare_request!(
+    EngineeringPrepareExpandedStudy, "EngineeringPrepareExpandedStudy", variants: StudyVariants,
+    [LocalRule::Required]
+);
 
 pse_contract::projection_struct! {
     /// Immutable native admitted definition selection, without unbounded occurrence materialization.
@@ -43,19 +64,123 @@ pse_contract::projection_struct! {
     }
 }
 
-pse_contract::projection_struct! {
+macro_rules! restore_request {
+    ($name:ident, $wire:literal, $definition:ty) => {
+        pse_contract::projection_struct! {
     /// Retain an exact original portable definition for interrupted native creation reconciliation.
     #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
     #[serde(deny_unknown_fields)]
-    pub struct EngineeringRestoreStudy {
-        projection: { name: "EngineeringRestoreStudy", rust_path: crate::host_operations::engineering_contract::EngineeringRestoreStudy,
-            version: 1, direction: Direction::Input, reserved_tags: [], reserved_names: [] };
+    pub struct $name {
+        projection: { name: $wire, rust_path: crate::host_operations::engineering_contract::$name,
+            version: 2, direction: Direction::Input, reserved_tags: [], reserved_names: [] };
         /// New local retention operation, not a new scientific execution identity.
         pub operation: String => { tag: 1, direction: Direction::Input, rules: [OPERATION_ID_RULE] };
         /// Original complete immutable preparation, not a mutable name.
         pub expected_preparation: ContentHash => { tag: 2, direction: Direction::Input, rules: [LocalRule::Required] };
         /// Actual source-owned portable definition. Original native start revalidates its full context.
-        pub definition: crate::workflow::StudyDefinition => { tag: 3, direction: Direction::Input, rules: [LocalRule::Required] };
+        pub definition: $definition => { tag: 3, direction: Direction::Input, rules: [LocalRule::Required] };
+    }
+        }
+    };
+}
+
+restore_request!(EngineeringRestoreExplicitStudy, "EngineeringRestoreExplicitStudy", ExplicitStudyDefinition);
+restore_request!(EngineeringRestoreExpandedStudy, "EngineeringRestoreExpandedStudy", ExpandedStudyDefinition);
+
+pse_contract::projection_struct! {
+    /// Shared immutable source context of the two portable preparation capabilities.
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    pub struct StudyDefinitionContext {
+        projection: { name: "StudyDefinitionContext", rust_path: crate::host_operations::engineering_contract::StudyDefinitionContext,
+            version: 2, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
+        /// Original research ancestry.
+        pub research: Option<ResearchSource> => { tag: 1, direction: Direction::Both, rules: [] };
+        /// Exact historical source context selected before admission.
+        pub context: Option<pse_operations::canonical_contexts::ContextSelection> => { tag: 2, direction: Direction::Both, rules: [] };
+        /// Interpretation of the original native durable document.
+        pub version: Version<STUDY_DEFINITION_VERSION> => { tag: 3, direction: Direction::Both, rules: [] };
+        /// Original physical source bundle.
+        pub physical: PhysicalSource => { tag: 4, direction: Direction::Both, rules: [] };
+        /// Exact immutable canonical modeling revision.
+        pub modeling_revision: String => { tag: 5, direction: Direction::Both, rules: [] };
+    }
+}
+
+impl StudyDefinitionContext {
+    fn split(value: StudyDefinition) -> (Self, Option<LazyStudyDefinition>, Vec<StudyPointDefinition>) {
+        let StudyDefinition { research, context, version, physical, modeling_revision, variants, points } = value;
+        (Self { research, context, version, physical, modeling_revision }, variants, points)
+    }
+
+    fn join(self, variants: Option<LazyStudyDefinition>, points: Vec<StudyPointDefinition>) -> StudyDefinition {
+        let Self { research, context, version, physical, modeling_revision } = self;
+        StudyDefinition { research, context, version, physical, modeling_revision, variants, points }
+    }
+}
+
+pse_contract::projection_struct! {
+    /// Exact prepared explicit points, without any inline authoring contract.
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    pub struct ExplicitStudyDefinition {
+        projection: { name: "ExplicitStudyDefinition", rust_path: crate::host_operations::engineering_contract::ExplicitStudyDefinition,
+            version: 2, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
+        /// Original context and interpretation.
+        pub context: StudyDefinitionContext => { tag: 1, direction: Direction::Both, rules: [LocalRule::Required] };
+        /// Exact original admitted points in order.
+        pub points: Vec<StudyPointDefinition> => { tag: 2, direction: Direction::Both,
+            rules: [LocalRule::Length { min: 0, max: crate::workflow::MAXIMUM_STUDY_POINTS as u64 }] };
+    }
+}
+
+pse_contract::projection_struct! {
+    /// Exact prepared source expansion and selected occurrences.
+    #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+    #[serde(deny_unknown_fields)]
+    pub struct ExpandedStudyDefinition {
+        projection: { name: "ExpandedStudyDefinition", rust_path: crate::host_operations::engineering_contract::ExpandedStudyDefinition,
+            version: 2, direction: Direction::Both, reserved_tags: [], reserved_names: [] };
+        /// Original context and interpretation.
+        pub context: StudyDefinitionContext => { tag: 1, direction: Direction::Both, rules: [LocalRule::Required] };
+        /// Exact original parent-qualified expansion.
+        pub variants: LazyStudyDefinition => { tag: 2, direction: Direction::Both, rules: [LocalRule::Required] };
+    }
+}
+
+impl From<ExplicitStudyDefinition> for StudyDefinition {
+    fn from(value: ExplicitStudyDefinition) -> Self {
+        value.context.join(None, value.points)
+    }
+}
+
+impl From<ExpandedStudyDefinition> for StudyDefinition {
+    fn from(value: ExpandedStudyDefinition) -> Self {
+        value.context.join(Some(value.variants), Vec::new())
+    }
+}
+
+impl TryFrom<StudyDefinition> for ExplicitStudyDefinition {
+    type Error = WorkflowError;
+
+    fn try_from(value: StudyDefinition) -> Result<Self, Self::Error> {
+        let (context, variants, points) = StudyDefinitionContext::split(value);
+        if variants.is_some() {
+            return Err(crate::workflow::contract("study was prepared by source expansion"));
+        }
+        Ok(Self { context, points })
+    }
+}
+
+impl TryFrom<StudyDefinition> for ExpandedStudyDefinition {
+    type Error = WorkflowError;
+
+    fn try_from(value: StudyDefinition) -> Result<Self, Self::Error> {
+        let (context, variants, points) = StudyDefinitionContext::split(value);
+        let Some(variants) = variants.filter(|_| points.is_empty()) else {
+            return Err(crate::workflow::contract("study was not prepared by source expansion"));
+        };
+        Ok(Self { context, variants })
     }
 }
 
@@ -226,28 +351,40 @@ pse_contract::projection_struct! {
     }
 }
 
-pub(super) fn service(
-    service: pse_contract::boundary_projection::Service,
-    graph: &mut pse_contract::boundary_projection::ProjectionGraph,
-) -> Result<
-    pse_contract::boundary_projection::Service,
-    pse_contract::boundary_projection::ProjectionError,
-> {
-    use pse_contract::operation_effects::EffectFacts;
-    use pse_model::engineering::EngineeringOperationKey;
-    service
+/// Versioned source-owned explicit preparation procedure group.
+pub const EXPLICIT_STUDY_SERVICE: &str = "ExplicitStudyPreparationV2";
+/// Versioned source-owned expansion preparation procedure group.
+pub const EXPANDED_STUDY_SERVICE: &str = "ExpandedStudyPreparationV2";
+/// Versioned source-owned shared Study control procedure group.
+pub const STUDY_CONTROL_SERVICE: &str = "StudyControlV2";
+
+pub(super) fn services(graph: &mut ProjectionGraph) -> Result<(), ProjectionError> {
+    explicit_services(graph)?;
+    let expanded = Service::new(EXPANDED_STUDY_SERVICE)
+        .unary::<EngineeringPrepareExpandedStudy, EngineeringPreparedStudy>(graph, "PrepareExpandedStudy")?
+        .effects(EffectFacts::SOURCE_ADMISSION)?
+        .unary::<EngineeringRestoreExpandedStudy, EngineeringPreparedStudy>(graph, "RestoreExpandedStudy")?
+        .effects(EffectFacts::SOURCE_ADMISSION)?
+        .unary::<EngineeringOperationKey, ExpandedStudyDefinition>(graph, "ReadPreparedExpandedStudy")?
+        .effects(EffectFacts::OBSERVATION)?;
+    graph.service(expanded)
+}
+
+pub(super) fn explicit_services(graph: &mut ProjectionGraph) -> Result<(), ProjectionError> {
+    let explicit = Service::new(EXPLICIT_STUDY_SERVICE)
+        .unary::<EngineeringPrepareExplicitStudy, EngineeringPreparedStudy>(graph, "PrepareExplicitStudy")?
+        .effects(EffectFacts::SOURCE_ADMISSION)?
+        .unary::<EngineeringRestoreExplicitStudy, EngineeringPreparedStudy>(graph, "RestoreExplicitStudy")?
+        .effects(EffectFacts::SOURCE_ADMISSION)?
+        .unary::<EngineeringOperationKey, ExplicitStudyDefinition>(graph, "ReadPreparedExplicitStudy")?
+        .effects(EffectFacts::OBSERVATION)?;
+    graph.service(explicit)?;
+    let control = Service::new(STUDY_CONTROL_SERVICE)
+        .unary::<EngineeringDescribeRequest, EngineeringContract>(graph, "DescribeStudyContract")?
+        .effects(EffectFacts::OBSERVATION)?
         .unary::<crate::workflow::StudyWorkbenchRequest, crate::workflow::StudyWorkbenchPage>(
             graph,
             "BrowseStudies",
-        )?
-        .effects(EffectFacts::OBSERVATION)?
-        .unary::<EngineeringPrepareStudy, EngineeringPreparedStudy>(graph, "PrepareStudy")?
-        .effects(EffectFacts::SOURCE_ADMISSION)?
-        .unary::<EngineeringRestoreStudy, EngineeringPreparedStudy>(graph, "RestoreStudy")?
-        .effects(EffectFacts::SOURCE_ADMISSION)?
-        .unary::<EngineeringOperationKey, crate::workflow::StudyDefinition>(
-            graph,
-            "ReadPreparedStudy",
         )?
         .effects(EffectFacts::OBSERVATION)?
         .unary::<EngineeringSubmitStudy, EngineeringStudyStatus>(graph, "SubmitStudy")?
@@ -282,5 +419,6 @@ pub(super) fn service(
         .effects(EffectFacts {
             idempotent: true,
             ..EffectFacts::RETENTION_RELEASE
-        })
+        })?;
+    graph.service(control)
 }

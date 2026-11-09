@@ -166,6 +166,7 @@ pub use study_variants::{
     LazyStudyDefinition, SelectedStudyVariant, SourceChoice, StudyInputs, StudyVariants,
 };
 mod study;
+pub(crate) use study::STUDY_DEFINITION_VERSION;
 mod study_issuance;
 pub use study_issuance::{IssuedStudyIdentity, StudyCreationRequest};
 mod study_diagnostics;
@@ -188,7 +189,7 @@ pub use pse_model::generated::{
 pub use study::{
     AdmittedStudy, LocalStudy, MAXIMUM_STUDY_POINTS, PackageSources, PointAttemptOutcome,
     PointOutcome, PointStatus, StudyCancel, StudyDefinition, StudyHandle, StudyPlan, StudyPoint,
-    StudyPointDefinition, StudyPointPolicy, StudyRequest, StudyResults, StudyStatus,
+    StudyPointDefinition, StudyPointPolicy, StudyResults, StudyStatus,
 };
 pub use study_operations::{
     AdmittedHorizonValues, ArrivalDocument, CaseOperation, ControllerMove, ControllerOperation,

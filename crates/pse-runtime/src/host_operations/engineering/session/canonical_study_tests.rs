@@ -9,17 +9,17 @@
 
 use super::*;
 use crate::host_operations::engineering_contract::{
-    EngineeringPrepareStudy, EngineeringRestoreStudy, EngineeringStudyKey, EngineeringSubmitStudy,
+    EngineeringPrepareExplicitStudy, EngineeringRestoreExplicitStudy, EngineeringStudyKey,
+    EngineeringSubmitStudy,
 };
 
 #[cfg(feature = "solver-kinsol")]
 #[tokio::test]
 async fn engineering_queued_study_lost_ack_survives_frontend_retirement_and_refuses_rebinding() {
     use crate::workflow::{
-        CaseOperation, StudyInputs, StudyOutputDemand, StudyPoint, StudyPointPolicy, StudyRequest,
+        CaseOperation, StudyDefinition, StudyOutputDemand, StudyPoint, StudyPointPolicy,
     };
     use pse_model::{
-        document::Version,
         generated::enums::ModelingAnalysisRoute,
         study::{OccurrenceKey, StartPolicy},
     };
@@ -45,14 +45,12 @@ async fn engineering_queued_study_lost_ack_survives_frontend_retirement_and_refu
         .unwrap()
         .declaration;
     let preparation = service
-        .prepare_study(EngineeringPrepareStudy {
+        .prepare_explicit_study(EngineeringPrepareExplicitStudy {
             operation: "prepared-original-study".into(),
             source_operation: source.operation,
             expected_source: source.local_revision,
-            request: StudyRequest {
-                version: Version,
-                output: StudyOutputDemand::Full {},
-                inputs: StudyInputs::Explicit(vec![StudyPoint {
+            output: StudyOutputDemand::Full {},
+            points: vec![StudyPoint {
                     operation: crate::workflow::OperationRequest::DeclaredCase(CaseOperation {
                         case: case.into(),
                         route: ModelingAnalysisRoute::Steady,
@@ -73,13 +71,12 @@ async fn engineering_queued_study_lost_ack_survives_frontend_retirement_and_refu
                         start: StartPolicy::Fresh,
                         attempt_limit: 1,
                     },
-                }]),
-            },
+                }],
         })
         .await
         .unwrap();
     let retained = service
-        .prepared_study_definition(&EngineeringOperationKey {
+        .read_prepared_explicit_study(&EngineeringOperationKey {
             operation: preparation.operation.clone(),
         })
         .await
@@ -141,11 +138,14 @@ async fn engineering_queued_study_lost_ack_survives_frontend_retirement_and_refu
     // never change the meaning of the original persisted submit envelope.
     let mut changed_definition = retained.value.clone();
     changed_definition.points[0].policy.attempt_limit += 1;
-    let changed_identity =
-        pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &changed_definition).unwrap();
+    let changed_identity = pse_ids::document::of(
+        pse_ids::Frame::DurableStudyRequestV5,
+        &StudyDefinition::from(changed_definition.clone()),
+    )
+    .unwrap();
     assert_ne!(changed_identity, submitted.expected_preparation);
     reader
-        .restore_study(EngineeringRestoreStudy {
+        .restore_explicit_study(EngineeringRestoreExplicitStudy {
             operation: preparation.operation,
             expected_preparation: changed_identity,
             definition: changed_definition,

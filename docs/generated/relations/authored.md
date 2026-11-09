@@ -439,7 +439,7 @@ Version: 27. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.binding.type.item.children` | `List` | false | `payload` | — | — |
 | `value.binding.type.item.children.item` | `UInt32` | false | `payload` | — | — |
 | `value.binding.indices` | `List` | false | `payload` | — | — |
-| `value.binding.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.binding.indices.item` | `Struct ModelingIndexBinding` | false | `payload` | — | — |
 | `value.binding.indices.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.binding.indices.item.domain` | `expr_dsl:static` | false | `payload` | — | — |
 | `value.binding.expression` | `expr_dsl:static` | true | `payload` | — | — |
@@ -513,7 +513,7 @@ Version: 27. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.coordinate_map.validity` | `expr_dsl:predicate` | true | `payload` | — | — |
 | `value.coordinate_slot` | `Struct` | true | `payload` | — | — |
 | `value.coordinate_slot.indices` | `List` | false | `payload` | — | — |
-| `value.coordinate_slot.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.coordinate_slot.indices.item` | `Struct ModelingIndexBinding` | false | `payload` | — | — |
 | `value.coordinate_slot.indices.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.coordinate_slot.indices.item.domain` | `expr_dsl:static` | false | `payload` | — | — |
 | `value.coordinate_slot.expression` | `expr_dsl:expression` | false | `payload` | — | — |
@@ -619,19 +619,19 @@ Version: 27. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.reference_translation.provenance.lineage.item.path.item` | `Utf8` | false | `payload` | — | — |
 | `value.boundary` | `Struct` | true | `payload` | — | — |
 | `value.boundary.indices` | `List` | false | `payload` | — | — |
-| `value.boundary.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.boundary.indices.item` | `Struct ModelingIndexBinding` | false | `payload` | — | — |
 | `value.boundary.indices.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.boundary.indices.item.domain` | `expr_dsl:static` | false | `payload` | — | — |
 | `value.exchange` | `Struct` | true | `payload` | — | — |
 | `value.exchange.indices` | `List` | false | `payload` | — | — |
-| `value.exchange.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.exchange.indices.item` | `Struct ModelingIndexBinding` | false | `payload` | — | — |
 | `value.exchange.indices.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.exchange.indices.item.domain` | `expr_dsl:static` | false | `payload` | — | — |
 | `value.exchange.from` | `expr_dsl:expression` | false | `payload` | — | — |
 | `value.exchange.to` | `expr_dsl:expression` | false | `payload` | — | — |
 | `value.equation` | `Struct` | true | `payload` | — | — |
 | `value.equation.indices` | `List` | false | `payload` | — | — |
-| `value.equation.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.equation.indices.item` | `Struct ModelingIndexBinding` | false | `payload` | — | — |
 | `value.equation.indices.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.equation.indices.item.domain` | `expr_dsl:static` | false | `payload` | — | — |
 | `value.equation.expression` | `expr_dsl:equation` | false | `payload` | — | — |
@@ -640,21 +640,21 @@ Version: 27. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.equation.condition.active` | `Boolean` | false | `payload` | — | — |
 | `value.ordered_set` | `Struct` | true | `payload` | — | — |
 | `value.ordered_set.indices` | `List` | false | `payload` | — | — |
-| `value.ordered_set.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.ordered_set.indices.item` | `Struct ModelingIndexBinding` | false | `payload` | — | — |
 | `value.ordered_set.indices.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.ordered_set.indices.item.domain` | `expr_dsl:static` | false | `payload` | — | — |
 | `value.ordered_set.member` | `expr_dsl:expression` | false | `payload` | — | — |
 | `value.ordered_set.weight` | `expr_dsl:expression` | false | `payload` | — | — |
 | `value.cardinality` | `Struct` | true | `payload` | — | — |
 | `value.cardinality.indices` | `List` | false | `payload` | — | — |
-| `value.cardinality.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.cardinality.indices.item` | `Struct ModelingIndexBinding` | false | `payload` | — | — |
 | `value.cardinality.indices.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.cardinality.indices.item.domain` | `expr_dsl:static` | false | `payload` | — | — |
 | `value.cardinality.count` | `expr_dsl:expression` | false | `payload` | — | — |
 | `value.cardinality.member` | `expr_dsl:expression` | false | `payload` | — | — |
 | `value.piecewise` | `Struct` | true | `payload` | — | — |
 | `value.piecewise.indices` | `List` | false | `payload` | — | — |
-| `value.piecewise.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.piecewise.indices.item` | `Struct ModelingIndexBinding` | false | `payload` | — | — |
 | `value.piecewise.indices.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.piecewise.indices.item.domain` | `expr_dsl:static` | false | `payload` | — | — |
 | `value.piecewise.output` | `expr_dsl:expression` | false | `payload` | — | — |
@@ -663,13 +663,13 @@ Version: 27. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.piecewise.ordinate` | `expr_dsl:expression` | false | `payload` | — | — |
 | `value.logic` | `Struct` | true | `payload` | — | — |
 | `value.logic.indices` | `List` | false | `payload` | — | — |
-| `value.logic.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.logic.indices.item` | `Struct ModelingIndexBinding` | false | `payload` | — | — |
 | `value.logic.indices.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.logic.indices.item.domain` | `expr_dsl:static` | false | `payload` | — | — |
 | `value.logic.proposition` | `expr_dsl:proposition` | false | `payload` | — | — |
 | `value.complementarity` | `Struct` | true | `payload` | — | — |
 | `value.complementarity.indices` | `List` | false | `payload` | — | — |
-| `value.complementarity.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.complementarity.indices.item` | `Struct ModelingIndexBinding` | false | `payload` | — | — |
 | `value.complementarity.indices.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.complementarity.indices.item.domain` | `expr_dsl:static` | false | `payload` | — | — |
 | `value.complementarity.first` | `expr_dsl:expression` | false | `payload` | — | — |
@@ -1492,7 +1492,7 @@ Version: 27. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.guard.predicate` | `expr_dsl:predicate` | false | `payload` | — | — |
 | `value.accumulator` | `Struct` | true | `payload` | — | — |
 | `value.accumulator.indices` | `List` | false | `payload` | — | — |
-| `value.accumulator.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.accumulator.indices.item` | `Struct ModelingIndexBinding` | false | `payload` | — | — |
 | `value.accumulator.indices.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.accumulator.indices.item.domain` | `expr_dsl:static` | false | `payload` | — | — |
 | `value.accumulator.type` | `List` | false | `payload` | — | — |
@@ -1511,7 +1511,7 @@ Version: 27. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.accumulator.tolerance` | `expr_dsl:expression` | false | `payload` | — | — |
 | `value.contribution` | `Struct` | true | `payload` | — | — |
 | `value.contribution.indices` | `List` | false | `payload` | — | — |
-| `value.contribution.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.contribution.indices.item` | `Struct ModelingIndexBinding` | false | `payload` | — | — |
 | `value.contribution.indices.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.contribution.indices.item.domain` | `expr_dsl:static` | false | `payload` | — | — |
 | `value.contribution.target` | `expr_dsl:expression` | false | `payload` | — | — |
@@ -1519,7 +1519,7 @@ Version: 27. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.contribution.role` | `enum:ModelingContributionRole` | false | `payload` | — | — |
 | `value.state_specification` | `Struct` | true | `payload` | — | — |
 | `value.state_specification.indices` | `List` | false | `payload` | — | — |
-| `value.state_specification.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.state_specification.indices.item` | `Struct ModelingIndexBinding` | false | `payload` | — | — |
 | `value.state_specification.indices.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.state_specification.indices.item.domain` | `expr_dsl:static` | false | `payload` | — | — |
 | `value.state_specification.extends` | `expr_dsl:expression` | true | `payload` | — | — |
@@ -1528,7 +1528,7 @@ Version: 27. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.state_specification.coordinates.item` | `Struct` | false | `payload` | — | — |
 | `value.state_specification.coordinates.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.state_specification.coordinates.item.indices` | `List` | false | `payload` | — | — |
-| `value.state_specification.coordinates.item.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.state_specification.coordinates.item.indices.item` | `Struct ModelingIndexBinding` | false | `payload` | — | — |
 | `value.state_specification.coordinates.item.indices.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.state_specification.coordinates.item.indices.item.domain` | `expr_dsl:static` | false | `payload` | — | — |
 | `value.state_specification.coordinates.item.target` | `expr_dsl:expression` | false | `payload` | — | — |
@@ -1536,7 +1536,7 @@ Version: 27. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.state_specification.reconstructions.item` | `Struct` | false | `payload` | — | — |
 | `value.state_specification.reconstructions.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.state_specification.reconstructions.item.indices` | `List` | false | `payload` | — | — |
-| `value.state_specification.reconstructions.item.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.state_specification.reconstructions.item.indices.item` | `Struct ModelingIndexBinding` | false | `payload` | — | — |
 | `value.state_specification.reconstructions.item.indices.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.state_specification.reconstructions.item.indices.item.domain` | `expr_dsl:static` | false | `payload` | — | — |
 | `value.state_specification.reconstructions.item.equation` | `expr_dsl:equation` | false | `payload` | — | — |
@@ -1545,20 +1545,20 @@ Version: 27. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.state_specification.transports.item` | `Struct` | false | `payload` | — | — |
 | `value.state_specification.transports.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.state_specification.transports.item.indices` | `List` | false | `payload` | — | — |
-| `value.state_specification.transports.item.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.state_specification.transports.item.indices.item` | `Struct ModelingIndexBinding` | false | `payload` | — | — |
 | `value.state_specification.transports.item.indices.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.state_specification.transports.item.indices.item.domain` | `expr_dsl:static` | false | `payload` | — | — |
 | `value.state_specification.transports.item.expression` | `expr_dsl:expression` | false | `payload` | — | — |
 | `value.state_specification.transports.item.tolerance` | `expr_dsl:expression` | false | `payload` | — | — |
 | `value.state_port` | `Struct` | true | `payload` | — | — |
 | `value.state_port.indices` | `List` | false | `payload` | — | — |
-| `value.state_port.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.state_port.indices.item` | `Struct ModelingIndexBinding` | false | `payload` | — | — |
 | `value.state_port.indices.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.state_port.indices.item.domain` | `expr_dsl:static` | false | `payload` | — | — |
 | `value.state_port.specification` | `expr_dsl:expression` | false | `payload` | — | — |
 | `value.inventory_balance` | `Struct` | true | `payload` | — | — |
 | `value.inventory_balance.indices` | `List` | false | `payload` | — | — |
-| `value.inventory_balance.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.inventory_balance.indices.item` | `Struct ModelingIndexBinding` | false | `payload` | — | — |
 | `value.inventory_balance.indices.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.inventory_balance.indices.item.domain` | `expr_dsl:static` | false | `payload` | — | — |
 | `value.inventory_balance.type` | `List` | false | `payload` | — | — |
@@ -1582,7 +1582,7 @@ Version: 27. Snapshot class: `model`. Primary key: `declaration_id`.
 | `value.inventory_balance.transfers.item.expression` | `expr_dsl:expression` | false | `payload` | — | — |
 | `value.connection` | `Struct` | true | `payload` | — | — |
 | `value.connection.indices` | `List` | false | `payload` | — | — |
-| `value.connection.indices.item` | `Struct` | false | `payload` | — | — |
+| `value.connection.indices.item` | `Struct ModelingIndexBinding` | false | `payload` | — | — |
 | `value.connection.indices.item.name` | `Utf8` | false | `payload` | — | — |
 | `value.connection.indices.item.domain` | `expr_dsl:static` | false | `payload` | — | — |
 | `value.connection.from` | `expr_dsl:expression` | false | `payload` | — | — |

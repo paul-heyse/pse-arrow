@@ -81,22 +81,37 @@ impl BoundaryProjectionError {
 }
 
 /// Mechanical native-to-wire correspondence; root validation remains explicit.
-pub trait NativeInto<W> {
+/// A local scope permits the crossing owner to pair types from two dependencies.
+pub trait NativeInto<W, Scope = ()> {
     /// Convert the actual selected native value.
     fn into_wire(self, path: &str) -> Result<W, AdapterError>;
 }
 /// Checked mechanical wire-to-native correspondence, excluding sealed observations.
-pub trait NativeFrom<W>: Sized {
+pub trait NativeFrom<W, Scope = ()>: Sized {
     /// Construct only this actual declared data value.
     fn from_wire(wire: W, path: &str) -> Result<Self, AdapterError>;
 }
 
 /// Apply one actual native mechanical conversion.
 pub fn native_into<N: NativeInto<W>, W>(value: N, path: &str) -> Result<W, AdapterError> {
+    native_into_in_scope::<N, W, ()>(value, path)
+}
+/// Apply the crossing owner's mechanical conversion.
+pub fn native_into_in_scope<N: NativeInto<W, Scope>, W, Scope>(
+    value: N,
+    path: &str,
+) -> Result<W, AdapterError> {
     value.into_wire(path)
 }
 /// Apply one checked actual native inverse.
 pub fn native_from<N: NativeFrom<W>, W>(value: W, path: &str) -> Result<N, AdapterError> {
+    native_from_in_scope::<N, W, ()>(value, path)
+}
+/// Apply the crossing owner's checked mechanical inverse.
+pub fn native_from_in_scope<N: NativeFrom<W, Scope>, W, Scope>(
+    value: W,
+    path: &str,
+) -> Result<N, AdapterError> {
     N::from_wire(value, path)
 }
 /// Attribute a child field using the shared native path convention.
@@ -153,10 +168,20 @@ pub fn encode_root<N: NativeInto<W> + ValidateProjection, W: protovalidate_buffa
     native: N,
     path: &str,
 ) -> Result<W, BoundaryProjectionError> {
+    encode_root_in_scope::<N, W, ()>(native, path)
+}
+
+/// Validate and convert an outgoing root under its crossing owner's scope.
+pub fn encode_root_in_scope<N, W, Scope>(native: N, path: &str) -> Result<W, BoundaryProjectionError>
+where
+    N: NativeInto<W, Scope> + ValidateProjection,
+    W: protovalidate_buffa::Validate,
+{
     native
         .validate_projection()
         .map_err(BoundaryProjectionError::OutgoingNative)?;
-    let wire = native_into(native, path).map_err(BoundaryProjectionError::OutgoingAdoption)?;
+    let wire = native_into_in_scope::<N, W, Scope>(native, path)
+        .map_err(BoundaryProjectionError::OutgoingAdoption)?;
     wire.validate()
         .map_err(BoundaryProjectionError::OutgoingWire)?;
     Ok(wire)
@@ -167,8 +192,17 @@ pub fn decode_root<N: NativeFrom<W> + ValidateProjection, W: protovalidate_buffa
     wire: W,
     path: &str,
 ) -> Result<N, BoundaryProjectionError> {
+    decode_root_in_scope::<N, W, ()>(wire, path)
+}
+
+/// Validate and adopt an incoming root under its crossing owner's scope.
+pub fn decode_root_in_scope<N, W, Scope>(wire: W, path: &str) -> Result<N, BoundaryProjectionError>
+where
+    N: NativeFrom<W, Scope> + ValidateProjection,
+    W: protovalidate_buffa::Validate,
+{
     wire.validate()?;
-    let native: N = native_from(wire, path)?;
+    let native = native_from_in_scope::<N, W, Scope>(wire, path)?;
     native.validate_projection().map_err(AdapterError::from)?;
     Ok(native)
 }
@@ -268,12 +302,12 @@ impl NativeFrom<u32> for f32 {
         Ok(Self::from_bits(wire))
     }
 }
-impl<T: NativeInto<W>, W> NativeInto<W> for Box<T> {
+impl<T: NativeInto<W, Scope>, W, Scope> NativeInto<W, Scope> for Box<T> {
     fn into_wire(self, path: &str) -> Result<W, AdapterError> {
         (*self).into_wire(path)
     }
 }
-impl<T: NativeFrom<W>, W> NativeFrom<W> for Box<T> {
+impl<T: NativeFrom<W, Scope>, W, Scope> NativeFrom<W, Scope> for Box<T> {
     fn from_wire(wire: W, path: &str) -> Result<Self, AdapterError> {
         T::from_wire(wire, path).map(Box::new)
     }

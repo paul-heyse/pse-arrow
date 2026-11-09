@@ -98,7 +98,27 @@ pub fn native_adapters_scoped(
     owner_crate: &str,
     visibility: AdapterVisibility,
 ) -> Result<String, ProjectionCodegenError> {
-    generate(graph, roots, wire_root, owner_crate, false, visibility)
+    generate(graph, roots, &[], wire_root, owner_crate, Adoption::Strict, visibility)
+}
+
+/// Emit one strict adapter owner, using the native conversions already published
+/// for the imported roots and their closures under the same Rust wire type owners.
+/// `scope` names a local marker in the consuming crate that owns those conversions.
+///
+/// # Errors
+/// Invalid roots, duplicate root ownership or unavailable native conversion refuse.
+pub fn native_adapters_with_imports(
+    graph: &ProjectionGraph,
+    roots: &[&str],
+    imported_roots: &[&str],
+    wire_root: &str,
+    owner_crate: &str,
+    scope: &str,
+    visibility: AdapterVisibility,
+) -> Result<String, ProjectionCodegenError> {
+    syn::parse_str::<syn::Path>(scope)
+        .map_err(|e| error(format!("invalid native conversion scope path: {e}")))?;
+    generate(graph, roots, imported_roots, wire_root, owner_crate, Adoption::Scoped(scope), visibility)
 }
 
 /// Emit known-field adoption only for a caller that retains the complete original wire
@@ -113,19 +133,28 @@ pub fn native_adapters_retaining_wire(
     generate(
         graph,
         roots,
+        &[],
         wire_root,
         owner_crate,
-        true,
+        Adoption::RetainedWire,
         AdapterVisibility::Parent,
     )
+}
+
+#[derive(Clone, Copy)]
+enum Adoption<'a> {
+    Strict,
+    RetainedWire,
+    Scoped(&'a str),
 }
 
 fn generate(
     graph: &ProjectionGraph,
     roots: &[&str],
+    imported_roots: &[&str],
     wire_root: &str,
     owner_crate: &str,
-    retained_wire: bool,
+    adoption: Adoption<'_>,
     visibility: AdapterVisibility,
 ) -> Result<String, ProjectionCodegenError> {
     syn::parse_str::<syn::Path>(wire_root)
@@ -133,6 +162,13 @@ fn generate(
     let mut selected = BTreeSet::new();
     for name in roots {
         select(graph, name, &mut selected)?;
+    }
+    let mut imported = BTreeSet::new();
+    for name in imported_roots {
+        select(graph, name, &mut imported)?;
+    }
+    if let Some(name) = imported_roots.iter().find(|name| roots.contains(name)) {
+        return Err(error(format!("native adapter root {name} already has a publication owner")));
     }
     for name in &selected {
         let owner = &graph.definitions()[name];
@@ -174,12 +210,12 @@ fn generate(
     let generator = Generator {
         wire_root,
         owner_crate,
-        retained_wire,
+        adoption,
         naming: &naming,
         graph,
     };
     let mut out = String::new();
-    for name in &selected {
+    for name in selected.difference(&imported) {
         generator.owner(&graph.definitions()[name], &mut out)?;
     }
     for name in roots {
@@ -189,19 +225,30 @@ fn generate(
         let method = snake_case(name);
         let visibility = visibility.rust();
         if definition.construction == ConstructionRole::ObservationOnly {
+            let convert = match adoption {
+                Adoption::Scoped(_) => generator.named_conversion("into", &wire),
+                _ => "native_into".into(),
+            };
             let _ = writeln!(
                 out,
-                "/// Observe `{name}` without consuming native custody or constructing native authority.\n{visibility} fn encode_{method}(native: &{native}) -> Result<{wire}, BoundaryProjectionError> {{ pse_contract::boundary_projection::ValidateProjection::validate_projection(native).map_err(BoundaryProjectionError::OutgoingNative)?; let wire: {wire} = native_into(native, {name:?}).map_err(BoundaryProjectionError::OutgoingAdoption)?; protovalidate_buffa::Validate::validate(&wire).map_err(BoundaryProjectionError::OutgoingWire)?; Ok(wire) }}\n"
+                "/// Observe `{name}` without consuming native custody or constructing native authority.\n{visibility} fn encode_{method}(native: &{native}) -> Result<{wire}, BoundaryProjectionError> {{ pse_contract::boundary_projection::ValidateProjection::validate_projection(native).map_err(BoundaryProjectionError::OutgoingNative)?; let wire: {wire} = {convert}(native, {name:?}).map_err(BoundaryProjectionError::OutgoingAdoption)?; protovalidate_buffa::Validate::validate(&wire).map_err(BoundaryProjectionError::OutgoingWire)?; Ok(wire) }}\n"
             );
             continue;
         }
+        let (encode_root, decode_root) = match adoption {
+            Adoption::Scoped(scope) => (
+                format!("encode_root_in_scope::<_, _, {scope}>"),
+                format!("decode_root_in_scope::<_, _, {scope}>"),
+            ),
+            _ => ("encode_root".into(), "decode_root".into()),
+        };
         let _ = writeln!(
             out,
-            "/// Encode the actual native `{name}` and validate outgoing local rules.\n{visibility} fn encode_{method}(native: {native}) -> Result<{wire}, BoundaryProjectionError> {{ encode_root(native, {name:?}) }}\n"
+            "/// Encode the actual native `{name}` and validate outgoing local rules.\n{visibility} fn encode_{method}(native: {native}) -> Result<{wire}, BoundaryProjectionError> {{ {encode_root}(native, {name:?}) }}\n"
         );
         let _ = writeln!(
             out,
-            "/// Adopt known `{name}` meaning under this package's declared unknown-field policy.\n{visibility} fn decode_{method}(wire: {wire}) -> Result<{native}, BoundaryProjectionError> {{ decode_root(wire, {name:?}) }}\n"
+            "/// Adopt known `{name}` meaning under this package's declared unknown-field policy.\n{visibility} fn decode_{method}(wire: {wire}) -> Result<{native}, BoundaryProjectionError> {{ {decode_root}(wire, {name:?}) }}\n"
         );
     }
     // Import only mechanics actually used by this graph. A glob would also import the
@@ -219,8 +266,12 @@ fn generate(
         "unknown_fields",
         "native_into",
         "native_from",
+        "native_into_in_scope",
+        "native_from_in_scope",
         "encode_root",
         "decode_root",
+        "encode_root_in_scope",
+        "decode_root_in_scope",
         "items",
         "from_items",
         "unique_pairs",
@@ -367,17 +418,24 @@ fn select_type(
 struct Generator<'a> {
     wire_root: &'a str,
     owner_crate: &'a str,
-    retained_wire: bool,
+    adoption: Adoption<'a>,
     naming: &'a buffa_codegen::context::CodeGenContext<'a>,
     graph: &'a ProjectionGraph,
 }
 
 impl Generator<'_> {
     fn unknown_guard(&self, value: &str, path: &str) -> String {
-        if self.retained_wire {
+        if matches!(self.adoption, Adoption::RetainedWire) {
             String::new()
         } else {
             format!("unknown_fields(&{value}.__buffa_unknown_fields, {path})?;")
+        }
+    }
+
+    fn named_conversion(&self, direction: &str, wire: &str) -> String {
+        match self.adoption {
+            Adoption::Scoped(scope) => format!("native_{direction}_in_scope::<_, {wire}, {scope}>"),
+            _ => format!("native_{direction}::<_, {wire}>"),
         }
     }
     fn native(&self, owner: &Definition) -> Result<String, ProjectionCodegenError> {
@@ -525,6 +583,10 @@ impl Generator<'_> {
         let native = self.native(owner)?;
         let message = vec![owner.name.clone()];
         let wire = self.wire(&message);
+        let trait_args = match self.adoption {
+            Adoption::Scoped(scope) => format!("{wire}, {scope}"),
+            _ => wire.clone(),
+        };
         match &owner.shape {
             Shape::Record(fields) => {
                 let bindings = fields
@@ -570,7 +632,7 @@ impl Generator<'_> {
                 if observation {
                     let _ = writeln!(
                         out,
-                        "impl NativeInto<{wire}> for &{native} {{ fn into_wire(self, path: &str) -> Result<{wire}, AdapterError> {{ {layout} let ({bindings}) = {extract}; Ok({wire} {{ {encode} ..Default::default() }}) }} }}"
+                        "impl NativeInto<{trait_args}> for &{native} {{ fn into_wire(self, path: &str) -> Result<{wire}, AdapterError> {{ {layout} let ({bindings}) = {extract}; Ok({wire} {{ {encode} ..Default::default() }}) }} }}"
                     );
                     return Ok(());
                 }
@@ -578,11 +640,11 @@ impl Generator<'_> {
                 let unknown = self.unknown_guard("wire", "path");
                 let _ = writeln!(
                     out,
-                    "impl NativeInto<{wire}> for {native} {{ fn into_wire(self, path: &str) -> Result<{wire}, AdapterError> {{ {layout} let ({bindings}) = {extract}; Ok({wire} {{ {encode} ..Default::default() }}) }} }}"
+                    "impl NativeInto<{trait_args}> for {native} {{ fn into_wire(self, path: &str) -> Result<{wire}, AdapterError> {{ {layout} let ({bindings}) = {extract}; Ok({wire} {{ {encode} ..Default::default() }}) }} }}"
                 );
                 let _ = writeln!(
                     out,
-                    "impl NativeFrom<{wire}> for {native} {{ fn from_wire(wire: {wire}, path: &str) -> Result<Self, AdapterError> {{ {unknown} {layout} let fields = {decode}; pse_contract::boundary_projection::{accessor}::from_projection_fields(fields).map_err(|error| error.at(path)) }} }}"
+                    "impl NativeFrom<{trait_args}> for {native} {{ fn from_wire(wire: {wire}, path: &str) -> Result<Self, AdapterError> {{ {unknown} {layout} let fields = {decode}; pse_contract::boundary_projection::{accessor}::from_projection_fields(fields).map_err(|error| error.at(path)) }} }}"
                 );
             }
             Shape::Alternatives(alternatives) => {
@@ -593,7 +655,7 @@ impl Generator<'_> {
                 );
                 let _ = writeln!(
                     out,
-                    "impl NativeInto<{wire}> for {native} {{ fn into_wire(self, path: &str) -> Result<{wire}, AdapterError> {{ let value = self;"
+                    "impl NativeInto<{trait_args}> for {native} {{ fn into_wire(self, path: &str) -> Result<{wire}, AdapterError> {{ let value = self;"
                 );
                 for alternative in alternatives {
                     let layout = self.layout(
@@ -640,7 +702,7 @@ impl Generator<'_> {
                 let unknown = self.unknown_guard("wire", "path");
                 let _ = writeln!(
                     out,
-                    "impl NativeFrom<{wire}> for {native} {{ fn from_wire(wire: {wire}, path: &str) -> Result<Self, AdapterError> {{ {unknown} match wire.kind.ok_or_else(|| refused(path, AdapterFailure::UnknownAlternative, \"required alternative is absent\"))? {{"
+                    "impl NativeFrom<{trait_args}> for {native} {{ fn from_wire(wire: {wire}, path: &str) -> Result<Self, AdapterError> {{ {unknown} match wire.kind.ok_or_else(|| refused(path, AdapterFailure::UnknownAlternative, \"required alternative is absent\"))? {{"
                 );
                 for alternative in alternatives {
                     let layout = self.layout(
@@ -658,7 +720,7 @@ impl Generator<'_> {
                     let tag = alternative.tag;
                     let alternative_name = &alternative.name;
                     let unknown = self.unknown_guard("wire", "path");
-                    let (binding, unpack) = if self.retained_wire && alternative.fields.is_empty() {
+                    let (binding, unpack) = if matches!(self.adoption, Adoption::RetainedWire) && alternative.fields.is_empty() {
                         ("_", "")
                     } else {
                         ("wire", "let wire = *wire;")
@@ -674,11 +736,11 @@ impl Generator<'_> {
                 let unknown = self.unknown_guard("wire", "path");
                 let _ = writeln!(
                     out,
-                    "impl NativeInto<{wire}> for {native} {{ fn into_wire(self, _: &str) -> Result<{wire}, AdapterError> {{ Ok({wire} {{ value: self.as_str().into(), ..Default::default() }}) }} }}"
+                    "impl NativeInto<{trait_args}> for {native} {{ fn into_wire(self, _: &str) -> Result<{wire}, AdapterError> {{ Ok({wire} {{ value: self.as_str().into(), ..Default::default() }}) }} }}"
                 );
                 let _ = writeln!(
                     out,
-                    "impl NativeFrom<{wire}> for {native} {{ fn from_wire(wire: {wire}, path: &str) -> Result<Self, AdapterError> {{ {unknown} wire.value.parse::<Self>().map_err(|_| refused(path, AdapterFailure::UnknownAlternative, \"unknown canonical source vocabulary member\")) }} }}"
+                    "impl NativeFrom<{trait_args}> for {native} {{ fn from_wire(wire: {wire}, path: &str) -> Result<Self, AdapterError> {{ {unknown} wire.value.parse::<Self>().map_err(|_| refused(path, AdapterFailure::UnknownAlternative, \"unknown canonical source vocabulary member\")) }} }}"
                 );
             }
         }
@@ -711,10 +773,8 @@ impl Generator<'_> {
                 } else {
                     value.to_owned()
                 };
-                let converted = format!(
-                    "native_into::<_, {}>({value}, {path})?",
-                    self.wire(std::slice::from_ref(name))
-                );
+                let convert = self.named_conversion("into", &self.wire(std::slice::from_ref(name)));
+                let converted = format!("{convert}({value}, {path})?");
                 if raw {
                     converted
                 } else {
@@ -848,10 +908,8 @@ impl Generator<'_> {
                 } else {
                     format!("required({value}.into_option(), {path})?")
                 };
-                format!(
-                    "native_from::<_, {}>({actual}, {path})?",
-                    self.wire(std::slice::from_ref(name))
-                )
+                let convert = self.named_conversion("from", &self.wire(std::slice::from_ref(name)));
+                format!("{convert}({actual}, {path})?")
             }
             TypeRef::Optional(inner) => {
                 let input = if matches!(inner.as_ref(), TypeRef::Scalar(_)) {

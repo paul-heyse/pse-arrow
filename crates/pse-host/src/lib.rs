@@ -33,6 +33,12 @@ pub mod diagnostic_tools;
 pub mod discovery;
 pub mod doctor;
 pub mod envelope;
+/// Independent authenticated explicit Study client.
+#[cfg(feature = "engineering-client")]
+pub mod engineering_client;
+/// Wire types shared by independent Study and modeling inspection consumers.
+#[cfg(feature = "engineering-types")]
+pub mod engineering_types;
 pub mod environment;
 pub mod extraction;
 pub mod fixtures;

@@ -261,11 +261,20 @@ functional -- sh scripts/source-change-codegen reference-exchange` emitted the n
 degeneracy result from the passive model declarations with the predecessor
 runtime adapters still present. No product runtime was compiled for that stage.
 The runtime continues to own contextual reference admission and scientific
-receiving. The default runtime exercises the passive inspection producer. Its wire
-round-trip controls still select the engineering service feature because the generated
-messages and adapters belong to that world. Broader source-forward engineering inspection
-bootstrap remains open until that projection has an independent generation closure.
+receiving. The default runtime exercises the passive inspection producer. The
+engineering cutover moves its wire round-trip controls and native adapters to
+`engineering-inspection`. That feature imports only the common generated types from
+`pse-host/engineering-types`. The separate `engineering-client` selection adds the
+explicit Study and Study control stubs. The broad runtime service imports the same
+types and adds the expanded Study and performing engineering surface.
 [Reference generator](../../xtask/src/codegen/reference_exchange.rs)
+
+`sh scripts/source-change-codegen engineering` under `scripts/pse-env --` selects
+the source-owned engineering graph without either engineering receiving feature.
+It publishes the shared, inspection, explicit Study and full worlds from the same
+admitted descriptor graph. Each world owns its Rust emission and exact imports.
+The aggregate route collects the separate reference and worker generators alongside
+engineering. [Engineering generator](../../xtask/src/codegen/engineering.rs)
 
 Change one `ModelingInspection` field while the former service adapters still exist.
 Build the extractor from the source owners, emit the new closure, then compile both
@@ -425,4 +434,6 @@ dependency-usage projection in one complete descriptor. Buf resolves the graph-d
 during staging, then the generator substitutes the complete source-owned definitions before
 publication and validation. The shared context, location and library profile use the same
 generated adapters across their callers. The targeted generator ran successfully. Native
-receiving and the separate source-forward `ModelingInspection` closure remain open.
+receiving remains open for the broader population. The coordinator tracks the separate
+source-forward `ModelingInspection` closure in the
+[shared-contract cutover](66-integrated-simulation-target.md#shared-contract-cutover--november-8).

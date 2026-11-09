@@ -220,7 +220,6 @@ macro_rules! for_each_boundary_document {
             (IdasSettings, pse_backend_native::dynamics::IdasSettings, "idas-settings", Both, Native),
             (AdjointSettings, pse_backend_native::dynamics::AdjointSettings, "adjoint-settings", Both, Native),
             (StudyDefinition, pse_runtime::workflow::StudyDefinition, "study-definition", Both, Native),
-            (StudyRequest, pse_runtime::workflow::StudyRequest, "study-request", Both, Native),
             (DesignRequest, pse_runtime::workflow::sampling::DesignRequest, "design-request", Both, Native),
             (DesignAttribution, pse_runtime::workflow::sampling::DesignAttribution, "design-attribution", Output, Native),
             (DesignExport, pse_runtime::workflow::sampling::DesignExport, "design-export", Output, Native),

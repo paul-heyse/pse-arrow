@@ -48,8 +48,6 @@ macro_rules! admission_unary {
         }
     };
 }
-pub(super) use admission_unary;
-
 macro_rules! original_unary {
     ($method:ident, $native:ident) => {
         async fn $method<'a>(
@@ -73,7 +71,69 @@ macro_rules! original_unary {
 }
 pub(super) use original_unary;
 
-macro_rules! methods {
+macro_rules! read_preparation {
+    ($method:ident, $output:ident, $encode:ident) => {
+        async fn $method<'a>(
+            &'a self,
+            context: connectrpc::RequestContext,
+            request: connectrpc::ServiceRequest<'_, pb::EngineeringOperationKey>,
+        ) -> connectrpc::ServiceResult<
+            impl connectrpc::Encodable<pb::$output> + Send + use<'a>,
+        > {
+            self.authenticate(&context)?;
+            let input = crate::engineering_projection::decode_engineering_operation_key(
+                request.to_owned_message(),
+            ).map_err(study::projection_error)?;
+            let output = self.engine.$method(&input).await.map_err(transport)?;
+            Ok(connectrpc::Response::new(study::accounted(
+                output,
+                crate::engineering_projection::$encode,
+            )?))
+        }
+    };
+}
+
+impl bindings::ExplicitStudyPreparationV2 for Implementation {
+    admission_unary!(
+        prepare_explicit_study,
+        EngineeringPrepareExplicitStudy,
+        decode_engineering_prepare_explicit_study,
+        prepare_explicit_study
+    );
+    admission_unary!(
+        restore_explicit_study,
+        EngineeringRestoreExplicitStudy,
+        decode_engineering_restore_explicit_study,
+        restore_explicit_study
+    );
+    read_preparation!(
+        read_prepared_explicit_study,
+        ExplicitStudyDefinition,
+        encode_explicit_study_definition
+    );
+}
+
+impl bindings::ExpandedStudyPreparationV2 for Implementation {
+    admission_unary!(
+        prepare_expanded_study,
+        EngineeringPrepareExpandedStudy,
+        decode_engineering_prepare_expanded_study,
+        prepare_expanded_study
+    );
+    admission_unary!(
+        restore_expanded_study,
+        EngineeringRestoreExpandedStudy,
+        decode_engineering_restore_expanded_study,
+        restore_expanded_study
+    );
+    read_preparation!(
+        read_prepared_expanded_study,
+        ExpandedStudyDefinition,
+        encode_expanded_study_definition
+    );
+}
+
+macro_rules! control_methods {
     () => {
         study::owned_unary!(
             browse_studies,
@@ -82,18 +142,6 @@ macro_rules! methods {
             decode_study_workbench_request,
             browse_studies,
             encode_study_workbench_page
-        );
-        study::admission_unary!(
-            prepare_study,
-            EngineeringPrepareStudy,
-            decode_engineering_prepare_study,
-            prepare_study
-        );
-        study::admission_unary!(
-            restore_study,
-            EngineeringRestoreStudy,
-            decode_engineering_restore_study,
-            restore_study
         );
         study::owned_unary!(
             submit_study,
@@ -129,28 +177,6 @@ macro_rules! methods {
             study_cohort_members,
             encode_study_cohort_member_page
         );
-
-        async fn read_prepared_study<'a>(
-            &'a self,
-            context: connectrpc::RequestContext,
-            request: connectrpc::ServiceRequest<'_, pb::EngineeringOperationKey>,
-        ) -> connectrpc::ServiceResult<
-            impl connectrpc::Encodable<pb::StudyDefinition> + Send + use<'a>,
-        > {
-            self.authenticate(&context)?;
-            let request = request.to_owned_message();
-            let input = crate::engineering_projection::decode_engineering_operation_key(request)
-                .map_err(study::projection_error)?;
-            let output = self
-                .engine
-                .prepared_study_definition(&input)
-                .await
-                .map_err(transport)?;
-            Ok(connectrpc::Response::new(study::accounted(
-                output,
-                crate::engineering_projection::encode_study_definition,
-            )?))
-        }
 
         async fn observe_study(
             &self,
@@ -212,7 +238,7 @@ macro_rules! methods {
         }
     };
 }
-pub(super) use methods;
+pub(super) use control_methods;
 
 pub(super) fn accounted<N, M>(
     output: crate::host_operations::engineering::EngineeringStudyOutput<N>,

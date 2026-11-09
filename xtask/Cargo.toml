@@ -55,6 +55,8 @@ full-codegen = [
   "native-abi",
   "evidence-tools",
   "host-contracts",
+  "scientific-worker-contracts",
+  "reference-contracts",
 ]
 host-contracts = ["dep:pse-host"]
 # Passive recorded-result declarations do not depend on their runtime consumers.
@@ -99,19 +101,20 @@ physical-admission = [
   "dep:pse-rules",
   "dep:thiserror",
 ]
-product-schemas = [
+engineering-contracts = [
   "recorded-result-contracts",
-  "scientific-worker-contracts",
-  "reference-contracts",
+  "dep:pse-model",
+  "dep:pse-operations",
+  "dep:pse-runtime",
+]
+product-schemas = [
+  "engineering-contracts",
   "evidence-tools",
   "dep:pse-compiler",
   "dep:pse-admission",
   "dep:pse-authoring",
   "dep:pse-engine",
   "dep:pse-backend-native",
-  "dep:pse-runtime",
-  "dep:pse-model",
-  "dep:pse-operations",
 ]
 package-fixtures = ["physical-admission", "product-schemas", "dep:parquet"]
 property-coolprop = [

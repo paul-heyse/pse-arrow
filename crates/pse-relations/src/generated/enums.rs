@@ -70,12 +70,11 @@ pub use pse_model::generated::r#enums::{
     RowActivity, ScaleKind, ScientificArtifactFamily, ScientificArtifactKind,
     SensitivityCorrector, Severity, ShootingMethod, SnapshotClass, SpralOrdering,
     SpralPivot, SpralScaling, Stability, StateSign, StatementKind, StructuralScopeKind,
-    StudyAvailability, StudyContinuationPermission, StudyEffectState, StudyLegacyKind,
-    StudyLifecycle, StudyPointState, StudyResultRole, StudyRetryFailure, StudySeedNeed,
-    StudySeedRole, StudySeedUnavailable, StudyStartKind, StudyState,
-    StudyUnavailableSeedPolicy, SubjectRule, TaskMetricsScope, TearMethod, TearPolicy,
-    TimeCoordinateKind, TrajectoryTermination, TrialPolicy, TruthValue,
-    WeightNormalization, WithheldReason,
+    StudyAvailability, StudyContinuationPermission, StudyEffectState, StudyLifecycle,
+    StudyPointState, StudyResultRole, StudyRetryFailure, StudySeedNeed, StudySeedRole,
+    StudySeedUnavailable, StudyStartKind, StudyState, StudyUnavailableSeedPolicy,
+    SubjectRule, TaskMetricsScope, TearMethod, TearPolicy, TimeCoordinateKind,
+    TrajectoryTermination, TrialPolicy, TruthValue, WeightNormalization, WithheldReason,
 };
 impl crate::columnar::ArrowValue for AccuracyCriterionStatus {
     fn append(
@@ -7076,35 +7075,6 @@ impl crate::columnar::ArrowValue for StudyEffectState {
             .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
                 field: stringify!(StudyEffectState).to_owned(),
                 enumeration: stringify!(StudyEffectState).to_owned(),
-                value: match error {
-                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
-                        value
-                    }
-                },
-            })
-    }
-}
-impl crate::columnar::ArrowValue for StudyLegacyKind {
-    fn append(
-        &self,
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, Some(self.as_str()))
-    }
-    fn append_null(
-        output: &mut dyn arrow_array::builder::ArrayBuilder,
-    ) -> Result<(), crate::RelationError> {
-        crate::columnar::append_string(output, None)
-    }
-    fn read(
-        input: &dyn arrow_array::Array,
-        index: usize,
-    ) -> Result<Self, crate::RelationError> {
-        crate::columnar::read_string(input, index)?
-            .parse()
-            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
-                field: stringify!(StudyLegacyKind).to_owned(),
-                enumeration: stringify!(StudyLegacyKind).to_owned(),
                 value: match error {
                     pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
                         value

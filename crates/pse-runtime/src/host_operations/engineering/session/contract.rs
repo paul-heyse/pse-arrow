@@ -25,14 +25,35 @@ impl EngineeringService {
     pub(in crate::host_operations::engineering) fn describe_contract(
         &self,
     ) -> Result<ContractOutput, EngineeringServiceError> {
+        self.describe_contract_world(
+            &self.contract,
+            super::super::generated::DESCRIPTORS,
+            crate::host_operations::engineering_contract::methods,
+        )
+    }
+
+    pub(in crate::host_operations::engineering) fn describe_study_contract(
+        &self,
+    ) -> Result<ContractOutput, EngineeringServiceError> {
+        self.describe_contract_world(
+            &self.explicit_study_contract,
+            pse_host::engineering_client::DESCRIPTORS,
+            crate::host_operations::engineering_contract::explicit_study_methods,
+        )
+    }
+
+    fn describe_contract_world(
+        &self,
+        cache: &Mutex<Option<Arc<PreparedContract>>>,
+        descriptor: &[u8],
+        methods: impl FnOnce() -> Result<Vec<EngineeringMethodContract>, pse_contract::boundary_projection::ProjectionError>,
+    ) -> Result<ContractOutput, EngineeringServiceError> {
         use sha2::Digest as _;
-        let mut prepared = self
-            .contract
+        let mut prepared = cache
             .lock()
             .map_err(|_| infrastructure("prepared contract lock poisoned"))?;
         let math = self.runtime.preparation_services();
         if prepared.is_none() {
-            let descriptor = super::super::generated::DESCRIPTORS;
             // Graph construction is source-static, but still belongs to this
             // service's actual allocation before any graph/response copy.
             let scratch_extent = descriptor
@@ -44,7 +65,7 @@ impl EngineeringService {
                 .math()
                 .reserve("engineering:contract-source-graph", scratch_extent)
                 .map_err(owner)?;
-            let methods = crate::host_operations::engineering_contract::methods().map_err(owner)?;
+            let methods = methods().map_err(owner)?;
             let method_extent = methods.iter().try_fold(
                 methods
                     .capacity()

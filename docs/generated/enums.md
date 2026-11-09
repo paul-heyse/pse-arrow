@@ -2864,12 +2864,6 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `unknown` | `` | false |
 | `idempotent` | `` | false |
 
-## `StudyLegacyKind`
-
-| Member | IDAES name | Deprecated |
-|---|---|---|
-| `legacy_unavailable` | `` | false |
-
 ## `StudyLifecycle`
 
 | Member | IDAES name | Deprecated |

@@ -5,12 +5,14 @@
 use super::*;
 use crate::host_operations::engineering_contract::{
     EngineeringCohortRelease, EngineeringFreezeStudyCohort, EngineeringObserveStudy,
-    EngineeringPrepareStudy, EngineeringPreparedStudy, EngineeringReadStudyResult,
-    EngineeringRestoreStudy, EngineeringStudyCohortPage, EngineeringStudyHeaderPage,
-    EngineeringStudyResultPage, EngineeringStudyStatus, EngineeringSubmitStudy,
+    EngineeringPrepareExpandedStudy, EngineeringPrepareExplicitStudy, EngineeringPreparedStudy,
+    EngineeringReadStudyResult, EngineeringRestoreExpandedStudy, EngineeringRestoreExplicitStudy,
+    EngineeringStudyCohortPage, EngineeringStudyHeaderPage, EngineeringStudyResultPage,
+    EngineeringStudyStatus, EngineeringSubmitStudy, ExpandedStudyDefinition, ExplicitStudyDefinition,
 };
 use crate::workflow::{
-    FrozenStudyCohort, IssuedStudyIdentity, StudyCreationRequest, StudyDefinition,
+    FrozenStudyCohort, IssuedStudyIdentity, StudyCreationRequest, StudyDefinition, StudyInputs,
+    StudyOutputDemand, WorkflowError,
 };
 
 #[derive(Debug)]
@@ -171,21 +173,56 @@ impl EngineeringService {
         })
     }
 
-    /// Admit the full actual StudyRequest vocabulary against one exact native source.
+    /// Admit explicit points against one exact native source.
     /// # Errors
     /// Original admission, source/context, finite resource and conflicting-request failures propagate.
-    pub async fn prepare_study(
+    pub async fn prepare_explicit_study(
         self: &Arc<Self>,
-        input: EngineeringPrepareStudy,
+        input: EngineeringPrepareExplicitStudy,
     ) -> Result<EngineeringPreparedStudy, EngineeringServiceError> {
         input.validate_projection().map_err(owner)?;
-        if input.operation == input.source_operation {
+        self.prepare_study(
+            input.operation,
+            input.source_operation,
+            input.expected_source,
+            input.output,
+            StudyInputs::Explicit(input.points),
+        ).await
+    }
+
+    /// Admit selected source expansion against one exact native source.
+    /// # Errors
+    /// Original admission, source/context, finite resource and conflicting-request failures propagate.
+    pub async fn prepare_expanded_study(
+        self: &Arc<Self>,
+        input: EngineeringPrepareExpandedStudy,
+    ) -> Result<EngineeringPreparedStudy, EngineeringServiceError> {
+        input.validate_projection().map_err(owner)?;
+        self.prepare_study(
+            input.operation,
+            input.source_operation,
+            input.expected_source,
+            input.output,
+            StudyInputs::Lazy(Box::new(input.variants)),
+        ).await
+    }
+
+    async fn prepare_study(
+        self: &Arc<Self>,
+        operation_key: String,
+        source_operation: String,
+        expected_source: String,
+        output: StudyOutputDemand,
+        inputs: StudyInputs,
+    ) -> Result<EngineeringPreparedStudy, EngineeringServiceError> {
+        if operation_key == source_operation {
             return Err(request(
                 "study preparation cannot depend on its own operation",
             ));
         }
-        let source = self.operation(&input.source_operation, Kind::Source)?;
-        let extent = crate::workflow::bounded_study_document_extent(&input.request, 16 << 20)
+        let source = self.operation(&source_operation, Kind::Source)?;
+        let intent = (&source_operation, &expected_source, &output, &inputs);
+        let extent = crate::workflow::bounded_study_document_extent(&intent, 16 << 20)
             .map_err(owner)?;
         let reservation = self
             .shared
@@ -197,7 +234,7 @@ impl EngineeringService {
                     .ok_or_else(|| resource("study request extent overflow"))?,
             )
             .map_err(owner)?;
-        let (operation, fresh) = self.issue(&input.operation, Kind::StudyPreparation, &input)?;
+        let (operation, fresh) = self.issue(&operation_key, Kind::StudyPreparation, &intent)?;
         if fresh {
             let service = self.clone();
             let original = operation.clone();
@@ -207,7 +244,7 @@ impl EngineeringService {
                 else {
                     return Err(request("study source admission is unavailable"));
                 };
-                if package.revision_id() != input.expected_source {
+                if package.revision_id() != expected_source {
                     return Err(request(
                         "study preparation names another exact source parent",
                     ));
@@ -215,8 +252,8 @@ impl EngineeringService {
                 let admitted = package
                     .admit_study(
                         &service.runtime.execution_services(),
-                        &input.request.inputs,
-                        &input.request.output,
+                        &inputs,
+                        &output,
                         &original.cancel,
                     )
                     .await
@@ -242,7 +279,7 @@ impl EngineeringService {
                     )
                     .map_err(owner)?;
                 let selection = EngineeringPreparedStudy {
-                    operation: input.operation,
+                    operation: operation_key,
                     source: Some(selection),
                     preparation: identity,
                     occurrences: u64::try_from(definition.point_count()).map_err(owner)?,
@@ -263,19 +300,39 @@ impl EngineeringService {
         }
     }
 
-    /// Return the complete actual portable definition for exact original recovery.
-    /// Complete responses exceeding the declared wire allowance refuse before cloning.
+    /// Return the exact original prepared explicit points.
     /// # Errors
-    /// Missing admission, changed operation kind or resource/extent refusal propagates.
-    pub async fn prepared_study_definition(
+    /// Missing admission, a different capability or resource/extent refusal propagates.
+    pub async fn read_prepared_explicit_study(
         &self,
         key: &EngineeringOperationKey,
-    ) -> Result<EngineeringStudyOutput<StudyDefinition>, EngineeringServiceError> {
+    ) -> Result<EngineeringStudyOutput<ExplicitStudyDefinition>, EngineeringServiceError> {
+        self.read_prepared_study(key, false).await
+    }
+
+    /// Return the exact original prepared source expansion.
+    /// # Errors
+    /// Missing admission, a different capability or resource/extent refusal propagates.
+    pub async fn read_prepared_expanded_study(
+        &self,
+        key: &EngineeringOperationKey,
+    ) -> Result<EngineeringStudyOutput<ExpandedStudyDefinition>, EngineeringServiceError> {
+        self.read_prepared_study(key, true).await
+    }
+
+    async fn read_prepared_study<T: TryFrom<StudyDefinition, Error = WorkflowError>>(
+        &self,
+        key: &EngineeringOperationKey,
+        expanded: bool,
+    ) -> Result<EngineeringStudyOutput<T>, EngineeringServiceError> {
         key.validate_projection().map_err(owner)?;
         let operation = self.operation(&key.operation, Kind::StudyPreparation)?;
         let Outcome::PreparedStudy(prepared) = operation.completed().await? else {
             return Err(request("original native study preparation is unavailable"));
         };
+        if prepared.definition.variants.is_some() != expanded {
+            return Err(request("original study preparation has a different input capability"));
+        }
         let extent = crate::workflow::bounded_study_document_extent(
             &prepared.definition,
             super::super::DOCUMENT_RESPONSE_BYTES,
@@ -293,32 +350,50 @@ impl EngineeringService {
             )
             .map_err(owner)?;
         Ok(EngineeringStudyOutput {
-            value: prepared.definition.clone(),
+            value: T::try_from(prepared.definition.clone()).map_err(owner)?,
             owner: Arc::new((prepared, encoding)),
             maximum_bytes: super::super::DOCUMENT_RESPONSE_BYTES,
         })
     }
 
-    /// Retain exact original portable science for native interrupted-creation reconciliation.
-    /// This is retention, not proof of execution eligibility: native start rechecks the complete
-    /// canonical source, physical context, bindings, numerical policy and seed prerequisites.
+    /// Retain an exact original explicit preparation for interrupted creation.
     /// # Errors
     /// Changed immutable identity, invalid native roles or resource refusal propagates.
-    pub async fn restore_study(
+    pub async fn restore_explicit_study(
         self: &Arc<Self>,
-        input: EngineeringRestoreStudy,
+        input: EngineeringRestoreExplicitStudy,
     ) -> Result<EngineeringPreparedStudy, EngineeringServiceError> {
         input.validate_projection().map_err(owner)?;
-        input.definition.validate_roles().map_err(owner)?;
+        self.restore_study(input.operation, input.expected_preparation, input.definition.into()).await
+    }
+
+    /// Retain an exact original source expansion for interrupted creation.
+    /// # Errors
+    /// Changed immutable identity, invalid native roles or resource refusal propagates.
+    pub async fn restore_expanded_study(
+        self: &Arc<Self>,
+        input: EngineeringRestoreExpandedStudy,
+    ) -> Result<EngineeringPreparedStudy, EngineeringServiceError> {
+        input.validate_projection().map_err(owner)?;
+        self.restore_study(input.operation, input.expected_preparation, input.definition.into()).await
+    }
+
+    async fn restore_study(
+        self: &Arc<Self>,
+        operation_key: String,
+        expected_preparation: ContentHash,
+        definition: StudyDefinition,
+    ) -> Result<EngineeringPreparedStudy, EngineeringServiceError> {
+        definition.validate_roles().map_err(owner)?;
         let identity =
-            pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &input.definition)
+            pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &definition)
                 .map_err(owner)?;
-        if identity != input.expected_preparation {
+        if identity != expected_preparation {
             return Err(request(
                 "portable study differs from the exact original immutable preparation",
             ));
         }
-        let extent = crate::workflow::bounded_study_document_extent(&input.definition, 128 << 20)
+        let extent = crate::workflow::bounded_study_document_extent(&definition, 128 << 20)
             .map_err(owner)?;
         let reservation = self
             .shared
@@ -330,16 +405,20 @@ impl EngineeringService {
                     .ok_or_else(|| resource("restored study extent overflow"))?,
             )
             .map_err(owner)?;
-        let (operation, fresh) = self.issue(&input.operation, Kind::StudyPreparation, &input)?;
+        let (operation, fresh) = self.issue(
+            &operation_key,
+            Kind::StudyPreparation,
+            &(expected_preparation, &definition),
+        )?;
         if fresh {
             operation.publish(Outcome::PreparedStudy(Arc::new(PreparedStudy {
                 selection: EngineeringPreparedStudy {
-                    operation: input.operation,
+                    operation: operation_key,
                     source: None,
                     preparation: identity,
-                    occurrences: u64::try_from(input.definition.point_count()).map_err(owner)?,
+                    occurrences: u64::try_from(definition.point_count()).map_err(owner)?,
                 },
-                definition: input.definition,
+                definition,
                 _owner: reservation,
             })))?;
         }

@@ -9,6 +9,7 @@ use buffa_codegen::{
 #[cfg(any(
     feature = "product-schemas",
     feature = "host-contracts",
+    feature = "recorded-result-contracts",
     feature = "scientific-worker-contracts",
     feature = "reference-contracts"
 ))]
@@ -124,6 +125,7 @@ impl Suppliers {
     #[cfg(any(
         feature = "product-schemas",
         feature = "host-contracts",
+        feature = "recorded-result-contracts",
         feature = "scientific-worker-contracts",
         feature = "reference-contracts"
     ))]

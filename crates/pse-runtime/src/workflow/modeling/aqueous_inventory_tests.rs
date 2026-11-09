@@ -1381,7 +1381,7 @@ async fn aqueous_integrated_original_native_outcome_survives_protected_export_an
         .decode(encoded)
         .unwrap();
     let world = Arc::new(
-        DescriptorPool::decode(crate::host_operations::engineering::generated::DESCRIPTORS)
+        DescriptorPool::decode(crate::recorded_result_projection::DESCRIPTORS)
             .unwrap(),
     );
     let message = world

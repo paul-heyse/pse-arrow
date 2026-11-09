@@ -385,7 +385,6 @@ pub(super) fn register(b: &mut RegistryBuilder) {
     );
     enumeration(b, "StudyAvailability", ["none", "partial", "complete"]);
     enumeration(b, "StudyLifecycle", ["active", "terminal", "cancelled"]);
-    enumeration(b, "StudyLegacyKind", ["legacy_unavailable"]);
     enumeration(b, "StudyRetryFailure", ["transient", "deterministic"]);
     enumeration(
         b,

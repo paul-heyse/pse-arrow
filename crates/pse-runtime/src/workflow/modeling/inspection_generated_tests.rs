@@ -4,8 +4,7 @@
 
 use super::*;
 use crate::{
-    engineering_projection as codec,
-    host_operations::engineering::generated::pb::pse::engineering::v1 as pb,
+    host_operations::engineering::inspection::{self as codec, types as pb},
     workflow::OperationSource,
 };
 use buffa::Message as _;
@@ -36,8 +35,7 @@ async fn generated_inspection_original_fixture_inputs_preserve_presence_bits_and
     let wire = codec::encode_modeling_inspection(document).unwrap();
     let bytes = wire.encode_to_vec();
     let world = std::sync::Arc::new(
-        DescriptorPool::decode(crate::host_operations::engineering::generated::DESCRIPTORS)
-            .unwrap(),
+        DescriptorPool::decode(codec::DESCRIPTORS).unwrap(),
     );
     let message = world
         .message_index("pse.engineering.v1.ModelingInspection")

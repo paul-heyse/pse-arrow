@@ -320,7 +320,7 @@ async fn ordinary_costed_exchanger_preserves_support_period_and_protected_view()
             }
             let metadata_bytes = base64::engine::general_purpose::STANDARD.decode(
                 &schema.metadata()[crate::workflow::result_selection::SELECTION_METADATA_KEY]).unwrap();
-            let world = Arc::new(DescriptorPool::decode(crate::host_operations::engineering::generated::DESCRIPTORS).unwrap());
+            let world = Arc::new(DescriptorPool::decode(crate::recorded_result_projection::DESCRIPTORS).unwrap());
             let message = world.message_index("pse.engineering.v1.RecordedResultSelection").unwrap();
             let metadata = DynamicMessage::decode(world, message, &metadata_bytes).unwrap();
             for (tag, text) in [(1, run_key.as_str()), (2, attempt_key.as_str()), (3, relation)] {

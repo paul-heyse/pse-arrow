@@ -20,7 +20,7 @@ pub mod pse {
         use super::*;
         pub mod v1 {
             use super::*;
-            use crate::host_operations::engineering::generated::pb::pse::engineering::v1::*;
+            use crate::host_operations::engineering::generated::broad::pse::engineering::v1::*;
             include!("pse.engineering.v1.mod.rs");
         }
     }

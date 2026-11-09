@@ -85,6 +85,7 @@ pub(super) fn projection(
 /// Publish one actual generation closure. Callers can derive additional consumers
 /// from its descriptor set and original configuration before transferring it here.
 #[cfg(any(
+    feature = "engineering-contracts",
     feature = "product-schemas",
     feature = "host-contracts",
     feature = "scientific-worker-contracts",
@@ -123,8 +124,8 @@ pub(super) fn publish_projection_owned(
         generator_symbol,
     } = target;
     ensure!(
-        output.generation.targets() == [file],
-        "projection publication target differs from its admitted generation"
+        output.generation.targets().first().is_some_and(|name| name == file),
+        "primary projection publication target differs from its admitted generation"
     );
     for warning in &output.generation.warnings {
         eprintln!("{package} (Buffa): {warning}");
@@ -205,6 +206,7 @@ pub(super) fn publish_projection_owned(
 }
 
 #[cfg(any(
+    feature = "engineering-contracts",
     feature = "product-schemas",
     feature = "host-contracts",
     feature = "scientific-worker-contracts",

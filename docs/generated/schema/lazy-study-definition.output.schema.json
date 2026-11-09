@@ -1679,7 +1679,7 @@
         "indices": {
           "description": "indices",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem"
+            "$ref": "#/$defs/ModelingIndexBinding"
           },
           "type": "array"
         },
@@ -1705,25 +1705,6 @@
         "boundary",
         "mode",
         "tolerance"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueAccumulatorIndicesItem": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "domain": {
-          "description": "domain",
-          "type": "string"
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "domain"
       ],
       "type": "object"
     },
@@ -2232,7 +2213,7 @@
         "indices": {
           "description": "indices",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueBindingIndicesItem"
+            "$ref": "#/$defs/ModelingIndexBinding"
           },
           "type": "array"
         },
@@ -2256,25 +2237,6 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueBindingIndicesItem": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "domain": {
-          "description": "domain",
-          "type": "string"
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "domain"
-      ],
-      "type": "object"
-    },
     "AuthoredModelingDeclarationsFieldValueBoundary": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
@@ -2282,32 +2244,13 @@
         "indices": {
           "description": "indices",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem"
+            "$ref": "#/$defs/ModelingIndexBinding"
           },
           "type": "array"
         }
       },
       "required": [
         "indices"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueBoundaryIndicesItem": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "domain": {
-          "description": "domain",
-          "type": "string"
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "domain"
       ],
       "type": "object"
     },
@@ -2322,7 +2265,7 @@
         "indices": {
           "description": "indices",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem"
+            "$ref": "#/$defs/ModelingIndexBinding"
           },
           "type": "array"
         },
@@ -2335,25 +2278,6 @@
         "indices",
         "count",
         "member"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueCardinalityIndicesItem": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "domain": {
-          "description": "domain",
-          "type": "string"
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "domain"
       ],
       "type": "object"
     },
@@ -2394,7 +2318,7 @@
         "indices": {
           "description": "indices",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem"
+            "$ref": "#/$defs/ModelingIndexBinding"
           },
           "type": "array"
         },
@@ -2410,25 +2334,6 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueComplementarityIndicesItem": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "domain": {
-          "description": "domain",
-          "type": "string"
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "domain"
-      ],
-      "type": "object"
-    },
     "AuthoredModelingDeclarationsFieldValueConnection": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
@@ -2440,7 +2345,7 @@
         "indices": {
           "description": "indices",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueConnectionIndicesItem"
+            "$ref": "#/$defs/ModelingIndexBinding"
           },
           "type": "array"
         },
@@ -2453,25 +2358,6 @@
         "indices",
         "from",
         "to"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueConnectionIndicesItem": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "domain": {
-          "description": "domain",
-          "type": "string"
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "domain"
       ],
       "type": "object"
     },
@@ -2564,7 +2450,7 @@
         "indices": {
           "description": "indices",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueContributionIndicesItem"
+            "$ref": "#/$defs/ModelingIndexBinding"
           },
           "type": "array"
         },
@@ -2582,25 +2468,6 @@
         "target",
         "expression",
         "role"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueContributionIndicesItem": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "domain": {
-          "description": "domain",
-          "type": "string"
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "domain"
       ],
       "type": "object"
     },
@@ -2670,7 +2537,7 @@
         "indices": {
           "description": "indices",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem"
+            "$ref": "#/$defs/ModelingIndexBinding"
           },
           "type": "array"
         }
@@ -2678,25 +2545,6 @@
       "required": [
         "indices",
         "expression"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueCoordinateSlotIndicesItem": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "domain": {
-          "description": "domain",
-          "type": "string"
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "domain"
       ],
       "type": "object"
     },
@@ -3026,7 +2874,7 @@
         "indices": {
           "description": "indices",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueEquationIndicesItem"
+            "$ref": "#/$defs/ModelingIndexBinding"
           },
           "type": "array"
         }
@@ -3057,25 +2905,6 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueEquationIndicesItem": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "domain": {
-          "description": "domain",
-          "type": "string"
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "domain"
-      ],
-      "type": "object"
-    },
     "AuthoredModelingDeclarationsFieldValueExchange": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
@@ -3087,7 +2916,7 @@
         "indices": {
           "description": "indices",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueExchangeIndicesItem"
+            "$ref": "#/$defs/ModelingIndexBinding"
           },
           "type": "array"
         },
@@ -3100,25 +2929,6 @@
         "indices",
         "from",
         "to"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueExchangeIndicesItem": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "domain": {
-          "description": "domain",
-          "type": "string"
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "domain"
       ],
       "type": "object"
     },
@@ -3367,7 +3177,7 @@
         "indices": {
           "description": "indices",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem"
+            "$ref": "#/$defs/ModelingIndexBinding"
           },
           "type": "array"
         },
@@ -3405,25 +3215,6 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueInventoryBalanceIndicesItem": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "domain": {
-          "description": "domain",
-          "type": "string"
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "domain"
-      ],
-      "type": "object"
-    },
     "AuthoredModelingDeclarationsFieldValueInventoryBalanceTransfersItem": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
@@ -3450,7 +3241,7 @@
         "indices": {
           "description": "indices",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueLogicIndicesItem"
+            "$ref": "#/$defs/ModelingIndexBinding"
           },
           "type": "array"
         },
@@ -3465,25 +3256,6 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueLogicIndicesItem": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "domain": {
-          "description": "domain",
-          "type": "string"
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "domain"
-      ],
-      "type": "object"
-    },
     "AuthoredModelingDeclarationsFieldValueOrderedSet": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
@@ -3491,7 +3263,7 @@
         "indices": {
           "description": "indices",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem"
+            "$ref": "#/$defs/ModelingIndexBinding"
           },
           "type": "array"
         },
@@ -3508,25 +3280,6 @@
         "indices",
         "member",
         "weight"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueOrderedSetIndicesItem": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "domain": {
-          "description": "domain",
-          "type": "string"
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "domain"
       ],
       "type": "object"
     },
@@ -3573,7 +3326,7 @@
         "indices": {
           "description": "indices",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem"
+            "$ref": "#/$defs/ModelingIndexBinding"
           },
           "type": "array"
         },
@@ -3596,25 +3349,6 @@
         "input",
         "abscissa",
         "ordinate"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValuePiecewiseIndicesItem": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "domain": {
-          "description": "domain",
-          "type": "string"
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "domain"
       ],
       "type": "object"
     },
@@ -4909,7 +4643,7 @@
         "indices": {
           "description": "indices",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStatePortIndicesItem"
+            "$ref": "#/$defs/ModelingIndexBinding"
           },
           "type": "array"
         },
@@ -4921,25 +4655,6 @@
       "required": [
         "indices",
         "specification"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueStatePortIndicesItem": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "domain": {
-          "description": "domain",
-          "type": "string"
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "domain"
       ],
       "type": "object"
     },
@@ -4964,7 +4679,7 @@
         "indices": {
           "description": "indices",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem"
+            "$ref": "#/$defs/ModelingIndexBinding"
           },
           "type": "array"
         },
@@ -5004,7 +4719,7 @@
         "indices": {
           "description": "indices",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem"
+            "$ref": "#/$defs/ModelingIndexBinding"
           },
           "type": "array"
         },
@@ -5024,44 +4739,6 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueStateSpecificationCoordinatesItemIndicesItem": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "domain": {
-          "description": "domain",
-          "type": "string"
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "domain"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueStateSpecificationIndicesItem": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "domain": {
-          "description": "domain",
-          "type": "string"
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "domain"
-      ],
-      "type": "object"
-    },
     "AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItem": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
@@ -5073,7 +4750,7 @@
         "indices": {
           "description": "indices",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem"
+            "$ref": "#/$defs/ModelingIndexBinding"
           },
           "type": "array"
         },
@@ -5094,25 +4771,6 @@
       ],
       "type": "object"
     },
-    "AuthoredModelingDeclarationsFieldValueStateSpecificationReconstructionsItemIndicesItem": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "domain": {
-          "description": "domain",
-          "type": "string"
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "domain"
-      ],
-      "type": "object"
-    },
     "AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItem": {
       "additionalProperties": false,
       "description": "A row or nested value projected from the registry declaration.",
@@ -5124,7 +4782,7 @@
         "indices": {
           "description": "indices",
           "items": {
-            "$ref": "#/$defs/AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem"
+            "$ref": "#/$defs/ModelingIndexBinding"
           },
           "type": "array"
         },
@@ -5142,25 +4800,6 @@
         "indices",
         "expression",
         "tolerance"
-      ],
-      "type": "object"
-    },
-    "AuthoredModelingDeclarationsFieldValueStateSpecificationTransportsItemIndicesItem": {
-      "additionalProperties": false,
-      "description": "A row or nested value projected from the registry declaration.",
-      "properties": {
-        "domain": {
-          "description": "domain",
-          "type": "string"
-        },
-        "name": {
-          "description": "name",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "domain"
       ],
       "type": "object"
     },
@@ -9824,6 +9463,25 @@
         "upper"
       ],
       "type": "string"
+    },
+    "ModelingIndexBinding": {
+      "additionalProperties": false,
+      "description": "A row or nested value projected from the registry declaration.",
+      "properties": {
+        "domain": {
+          "description": "domain",
+          "type": "string"
+        },
+        "name": {
+          "description": "name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "domain"
+      ],
+      "type": "object"
     },
     "ModelingIntegerRange": {
       "additionalProperties": false,

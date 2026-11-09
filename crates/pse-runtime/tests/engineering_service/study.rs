@@ -17,8 +17,9 @@ use pse_runtime::{
     engineering_projection as codec,
     host_operations::engineering_contract::*,
     workflow::{
-        CaseOperation, OperationRequest, PointOverlay, PreparationSettings, StudyDefinition,
-        StudyInputs, StudyOutputDemand, StudyPoint, StudyPointPolicy, StudyRequest,
+        CaseOperation, OperationRequest, OperationSource, PointOverlay, PreparationSettings,
+        SelectedStudyVariant, SourceChoice, SourceDelta, StudyDefinition, StudyOutputDemand,
+        StudyPoint, StudyPointPolicy, StudyVariants,
     },
 };
 
@@ -31,7 +32,9 @@ struct Handoff {
     source: pse_model::engineering::EngineeringSourceSelection,
     submitted: EngineeringSubmitStudy,
     cancelled: EngineeringSubmitStudy,
-    definition: StudyDefinition,
+    definition: ExplicitStudyDefinition,
+    expanded: EngineeringPreparedStudy,
+    expanded_definition: ExpandedStudyDefinition,
     queued: pse_operations::canonical_studies::StudySummary,
     cancelled_queued: pse_operations::canonical_studies::StudySummary,
     retired_capture: String,
@@ -98,7 +101,7 @@ pub(super) async fn status(
 ) -> EngineeringStudyStatus {
     codec::decode_engineering_study_status(
         client
-            .generated()
+            .study()
             .study_status(codec::encode_engineering_study_key(key(submitted)).unwrap())
             .await
             .unwrap()
@@ -112,7 +115,7 @@ pub(super) async fn submit(
 ) -> EngineeringStudyStatus {
     codec::decode_engineering_study_status(
         client
-            .generated()
+            .study()
             .submit_study(codec::encode_engineering_submit_study(input).unwrap())
             .await
             .unwrap()
@@ -173,7 +176,7 @@ pub(super) async fn freeze(
     };
     codec::decode_study_cohort_receipt(
         client
-            .generated()
+            .study()
             .freeze_study_cohort(codec::encode_engineering_freeze_study_cohort(input).unwrap())
             .await
             .unwrap()
@@ -198,6 +201,25 @@ async fn phase_submit() {
     gate_is(false);
     let endpoint = endpoint();
     let frontend = endpoint.invocation.clone();
+    let independent = pse_host::engineering_client::ExplicitStudyClient::connect(endpoint.clone())
+        .await
+        .unwrap();
+    let (transport, config) = endpoint.clone().connect().await.unwrap();
+    for retired in [
+        "/pse.engineering.v1.EngineeringService/PrepareStudy",
+        "/pse.engineering.v1.EngineeringService/ReadPreparedStudy",
+        "/pse.engineering.v1.EngineeringService/RestoreStudy",
+    ] {
+        let response = connectrpc::client::call_unary::<_, _, pb::EngineeringPreparedStudyView<'static>>(
+            &transport,
+            &config,
+            connectrpc::Spec::client(retired, connectrpc::StreamType::Unary),
+            pb::EngineeringDescribeRequest::default(),
+            connectrpc::client::CallOptions::default(),
+        )
+        .await;
+        assert!(matches!(response, Err(error) if error.code == connectrpc::ErrorCode::Unimplemented));
+    }
     let mut client = EngineeringClient::connect(endpoint.clone()).await.unwrap();
     let prefix = format!("study-client-{}", std::process::id());
     let source_operation = format!("{prefix}-source");
@@ -239,33 +261,83 @@ async fn phase_submit() {
                 .unwrap(),
         ))
     };
-    let prepare = EngineeringPrepareStudy {
+    let prepare = EngineeringPrepareExplicitStudy {
         operation: format!("{prefix}-preparation"),
         source_operation,
         expected_source: original.local_revision.clone(),
-        request: StudyRequest {
+        output: StudyOutputDemand::Full {},
+        points: vec![point(declared("square"), 7), point(declared("impossible"), 9)],
+    };
+    let expanded = EngineeringPrepareExpandedStudy {
+        operation: format!("{prefix}-expanded"),
+        source_operation: prepare.source_operation.clone(),
+        expected_source: prepare.expected_source.clone(),
+        output: StudyOutputDemand::Full {},
+        variants: StudyVariants {
             version: Version,
-            output: StudyOutputDemand::Full {},
-            inputs: StudyInputs::Explicit(vec![
-                point(declared("square"), 7),
-                point(declared("impossible"), 9),
-            ]),
+            source: OperationSource {
+                research: None,
+                context: None,
+                revision: pse_ids::roles::SourceRevisionHash::from_id(original.source_revision),
+                physical_context: original.physical_context,
+            },
+            choices: vec![SourceChoice {
+                alternatives: vec![SourceDelta {
+                    parent: prepare.expected_source.clone(),
+                    ..Default::default()
+                }],
+            }],
+            selected: vec![SelectedStudyVariant {
+                ordinal: 0,
+                point: prepare.points[0].clone(),
+            }],
         },
     };
+    let expanded = codec::decode_engineering_prepared_study(
+        client
+            .expanded_study()
+            .prepare_expanded_study(codec::encode_engineering_prepare_expanded_study(expanded).unwrap())
+            .await
+            .unwrap()
+            .into_owned(),
+    )
+    .unwrap();
+    assert_eq!(expanded.occurrences, 1);
+    let expanded_key = pb::EngineeringOperationKey {
+        operation: expanded.operation.clone(),
+        ..Default::default()
+    };
+    assert!(client.read_prepared_explicit_study(expanded_key.clone()).await.is_err());
+    let expanded_definition = codec::decode_expanded_study_definition(
+        client
+            .read_prepared_expanded_study(expanded_key)
+            .await
+            .unwrap()
+            .into_owned(),
+    )
+    .unwrap();
+    assert_eq!(
+        pse_ids::document::of(
+            pse_ids::Frame::DurableStudyRequestV5,
+            &StudyDefinition::from(expanded_definition.clone()),
+        )
+        .unwrap(),
+        expanded.preparation
+    );
     let mut stale = prepare.clone();
     stale.expected_source.push_str("-stale");
     stale.operation.push_str("-stale");
     assert!(
-        client
-            .generated()
-            .prepare_study(codec::encode_engineering_prepare_study(stale).unwrap())
+        independent
+            .preparation
+            .prepare_explicit_study(codec::encode_engineering_prepare_explicit_study(stale).unwrap())
             .await
             .is_err()
     );
     let prepared = codec::decode_engineering_prepared_study(
-        client
-            .generated()
-            .prepare_study(codec::encode_engineering_prepare_study(prepare.clone()).unwrap())
+        independent
+            .preparation
+            .prepare_explicit_study(codec::encode_engineering_prepare_explicit_study(prepare.clone()).unwrap())
             .await
             .unwrap()
             .into_owned(),
@@ -274,18 +346,32 @@ async fn phase_submit() {
     assert_eq!(prepared.occurrences, 2);
     assert_eq!(prepared.source.as_ref(), Some(&original));
     let repeated = codec::decode_engineering_prepared_study(
-        client
-            .generated()
-            .prepare_study(codec::encode_engineering_prepare_study(prepare).unwrap())
+        independent
+            .preparation
+            .prepare_explicit_study(codec::encode_engineering_prepare_explicit_study(prepare).unwrap())
             .await
             .unwrap()
             .into_owned(),
     )
     .unwrap();
     assert_eq!(repeated.preparation, prepared.preparation);
-    let definition = codec::decode_study_definition(
+    assert!(
         client
-            .read_prepared_study(pb::EngineeringOperationKey {
+            .expanded_study()
+            .restore_expanded_study(
+                codec::encode_engineering_restore_expanded_study(EngineeringRestoreExpandedStudy {
+                    operation: format!("{prefix}-wrong-expanded-identity"),
+                    expected_preparation: prepared.preparation,
+                    definition: expanded_definition.clone(),
+                })
+                .unwrap(),
+            )
+            .await
+            .is_err()
+    );
+    let definition = codec::decode_explicit_study_definition(
+        client
+            .read_prepared_explicit_study(pb::EngineeringOperationKey {
                 operation: prepared.operation.clone(),
                 ..Default::default()
             })
@@ -296,7 +382,11 @@ async fn phase_submit() {
     .unwrap();
     assert_eq!(definition.points.len(), 2);
     assert_eq!(
-        pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &definition).unwrap(),
+        pse_ids::document::of(
+            pse_ids::Frame::DurableStudyRequestV5,
+            &StudyDefinition::from(definition.clone()),
+        )
+        .unwrap(),
         prepared.preparation
     );
     let submitted = EngineeringSubmitStudy {
@@ -306,12 +396,12 @@ async fn phase_submit() {
         study: pse_operations::mint_id(),
     };
     let envelope = codec::encode_engineering_submit_study(submitted.clone()).unwrap();
-    let lost_ack = tokio::spawn(async move { client.generated().submit_study(envelope).await });
+    let lost_ack = tokio::spawn(async move { client.study().submit_study(envelope).await });
     let observer = EngineeringClient::connect(endpoint).await.unwrap();
     let deadline = Instant::now() + Duration::from_secs(90);
     let queued = loop {
         if let Ok(response) = observer
-            .generated()
+            .study()
             .study_status(codec::encode_engineering_study_key(key(&submitted)).unwrap())
             .await
         {
@@ -337,7 +427,7 @@ async fn phase_submit() {
     let _discarded_ack = lost_ack.await;
     assert!(!queued.cancelled && !queued.terminal);
     assert_eq!(queued.point_count, 2);
-    assert_eq!(queued.revision, definition.modeling_revision);
+    assert_eq!(queued.revision, definition.context.modeling_revision);
     assert_eq!(
         queued.run,
         format!(
@@ -346,7 +436,7 @@ async fn phase_submit() {
         )
     );
     let mut stream = observer
-        .generated()
+        .study()
         .observe_study(
             codec::encode_engineering_observe_study(observation(&submitted, None)).unwrap(),
         )
@@ -407,7 +497,7 @@ async fn phase_submit() {
     assert!(!before_cancel.terminal && !before_cancel.cancelled);
     let cancelled_queued = codec::decode_engineering_study_status(
         observer
-            .generated()
+            .study()
             .cancel_study(codec::encode_engineering_study_key(key(&cancelled)).unwrap())
             .await
             .unwrap()
@@ -428,6 +518,8 @@ async fn phase_submit() {
         submitted,
         cancelled,
         definition,
+        expanded,
+        expanded_definition,
         queued,
         cancelled_queued,
         retired_capture,
@@ -451,6 +543,43 @@ async fn phase_recover() {
         "recovery must use another authenticated frontend incarnation"
     );
     let client = EngineeringClient::connect(endpoint).await.unwrap();
+    let restored = codec::decode_engineering_prepared_study(
+        client
+            .expanded_study()
+            .restore_expanded_study(
+                codec::encode_engineering_restore_expanded_study(EngineeringRestoreExpandedStudy {
+                    operation: handoff.expanded.operation.clone(),
+                    expected_preparation: handoff.expanded.preparation,
+                    definition: handoff.expanded_definition.clone(),
+                })
+                .unwrap(),
+            )
+            .await
+            .unwrap()
+            .into_owned(),
+    )
+    .unwrap();
+    assert_eq!(restored.preparation, handoff.expanded.preparation);
+    assert_eq!(restored.occurrences, handoff.expanded.occurrences);
+    let restored_definition = codec::decode_expanded_study_definition(
+        client
+            .read_prepared_expanded_study(pb::EngineeringOperationKey {
+                operation: restored.operation,
+                ..Default::default()
+            })
+            .await
+            .unwrap()
+            .into_owned(),
+    )
+    .unwrap();
+    assert_eq!(
+        pse_ids::document::of(
+            pse_ids::Frame::DurableStudyRequestV5,
+            &StudyDefinition::from(restored_definition),
+        )
+        .unwrap(),
+        handoff.expanded.preparation
+    );
     let original = submit(&client, handoff.submitted.clone()).await;
     assert!(original.failure.is_none());
     assert_eq!(original.canonical.as_ref(), Some(&handoff.queued));
@@ -475,13 +604,16 @@ async fn phase_recover() {
     // to different science, but the old issued envelope must never adopt that replacement.
     let mut changed = handoff.definition.clone();
     changed.points[0].policy.attempt_limit += 1;
-    let changed_identity =
-        pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &changed).unwrap();
+    let changed_identity = pse_ids::document::of(
+        pse_ids::Frame::DurableStudyRequestV5,
+        &StudyDefinition::from(changed.clone()),
+    )
+    .unwrap();
     assert_ne!(changed_identity, handoff.submitted.expected_preparation);
     client
-        .generated()
-        .restore_study(
-            codec::encode_engineering_restore_study(EngineeringRestoreStudy {
+        .explicit_study()
+        .restore_explicit_study(
+            codec::encode_engineering_restore_explicit_study(EngineeringRestoreExplicitStudy {
                 operation: handoff.submitted.preparation_operation.clone(),
                 expected_preparation: changed_identity,
                 definition: changed,
@@ -492,7 +624,7 @@ async fn phase_recover() {
         .unwrap();
     assert!(
         client
-            .generated()
+            .study()
             .submit_study(
                 codec::encode_engineering_submit_study(EngineeringSubmitStudy {
                     expected_preparation: changed_identity,
@@ -511,7 +643,7 @@ async fn phase_recover() {
         Some(&handoff.queued)
     );
     let mut pending = client
-        .generated()
+        .study()
         .observe_study(
             codec::encode_engineering_observe_study(observation(
                 &handoff.submitted,
@@ -532,13 +664,13 @@ async fn phase_recover() {
     .unwrap();
     assert_eq!(
         pending_page.status.header.source,
-        handoff.definition.modeling_revision
+        handoff.definition.context.modeling_revision
     );
     assert!(!pending_page.status.header.cancelled && !pending_page.status.header.terminal);
     drop(pending);
     // Send a server allowance without arming a competing generated client timer.
     let mut bounded = client
-        .generated()
+        .study()
         .observe_study_with_options(
             codec::encode_engineering_observe_study(observation(
                 &handoff.submitted,
@@ -582,7 +714,7 @@ async fn phase_recover() {
     };
     assert!(
         client
-            .generated()
+            .study()
             .read_study_headers(codec::encode_engineering_study_header_page(retired).unwrap())
             .await
             .is_err(),
@@ -596,7 +728,7 @@ async fn phase_complete() {
     let handoff = read_handoff();
     let client = EngineeringClient::connect(endpoint()).await.unwrap();
     let mut stream = client
-        .generated()
+        .study()
         .observe_study(
             codec::encode_engineering_observe_study(observation(
                 &handoff.submitted,
@@ -627,11 +759,11 @@ async fn phase_complete() {
         );
         assert_eq!(
             page.status.header.source,
-            handoff.definition.modeling_revision
+            handoff.definition.context.modeling_revision
         );
         assert_eq!(
             page.status.header.physical_identity.as_deref(),
-            Some(handoff.definition.physical.identity.to_string().as_str())
+            Some(handoff.definition.context.physical.identity.to_string().as_str())
         );
         assert!(!page.status.header.cancelled);
         assert!(
@@ -672,7 +804,7 @@ async fn phase_complete() {
     // Start a fresh bounded history reader after terminal settlement. Even an already
     // terminal first header must retain every unread original history page.
     let mut history = client
-        .generated()
+        .study()
         .observe_study(
             codec::encode_engineering_observe_study(observation(&handoff.submitted, None)).unwrap(),
         )
@@ -714,7 +846,7 @@ async fn phase_complete() {
     let mut foreign_cursor = last.cursor.clone();
     foreign_cursor.context.source.push_str("-foreign");
     let refusal = client
-        .generated()
+        .study()
         .observe_study(
             codec::encode_engineering_observe_study(observation(
                 &handoff.submitted,
@@ -730,7 +862,7 @@ async fn phase_complete() {
         );
     }
     let mut resumed = client
-        .generated()
+        .study()
         .observe_study(
             codec::encode_engineering_observe_study(observation(
                 &handoff.submitted,
@@ -770,7 +902,7 @@ async fn phase_complete() {
     assert!(receipt.complete);
     let headers = codec::decode_study_cohort_header_page(
         client
-            .generated()
+            .study()
             .read_study_headers(
                 codec::encode_engineering_study_header_page(EngineeringStudyHeaderPage {
                     operation: capture_operation.clone(),
@@ -790,11 +922,11 @@ async fn phase_complete() {
     assert!(headers.next.is_none());
     assert_eq!(
         headers.headers[0].value.source,
-        handoff.definition.modeling_revision
+        handoff.definition.context.modeling_revision
     );
     assert_eq!(
         headers.headers[0].value.physical_identity.as_deref(),
-        Some(handoff.definition.physical.identity.to_string().as_str())
+        Some(handoff.definition.context.physical.identity.to_string().as_str())
     );
     assert_eq!(headers.headers[0].value.run, handoff.queued.run);
     let mut members = Vec::new();
@@ -802,7 +934,7 @@ async fn phase_complete() {
     loop {
         let page = codec::decode_study_cohort_member_page(
             client
-                .generated()
+                .study()
                 .read_study_members(
                     codec::encode_engineering_study_cohort_page(EngineeringStudyCohortPage {
                         operation: capture_operation.clone(),
@@ -941,7 +1073,7 @@ async fn phase_complete() {
     assert_square_original_allowance(&variables, &numerics);
     let release = codec::decode_engineering_cohort_release(
         client
-            .generated()
+            .study()
             .release_study_cohort(pb::EngineeringOperationKey {
                 operation: capture_operation.clone(),
                 ..Default::default()
@@ -972,7 +1104,7 @@ async fn phase_complete() {
         let cancelled = status(&client, &handoff.cancelled).await.canonical.unwrap();
         assert!(cancelled.cancelled);
         assert_eq!(cancelled.run, handoff.cancelled_queued.run);
-        assert_eq!(cancelled.revision, handoff.definition.modeling_revision);
+        assert_eq!(cancelled.revision, handoff.definition.context.modeling_revision);
         if cancelled.terminal {
             break;
         }
@@ -987,7 +1119,7 @@ async fn phase_complete() {
     assert_eq!(cancelled_receipt.member_count, 2);
     let cancelled_members = codec::decode_study_cohort_member_page(
         client
-            .generated()
+            .study()
             .read_study_members(
                 codec::encode_engineering_study_cohort_page(EngineeringStudyCohortPage {
                     operation: cancel_capture.clone(),
@@ -1012,7 +1144,7 @@ async fn phase_complete() {
         assert!(!member.value.facts.scientific.usable);
     }
     client
-        .generated()
+        .study()
         .release_study_cohort(pb::EngineeringOperationKey {
             operation: cancel_capture,
             ..Default::default()

@@ -752,7 +752,7 @@ async fn protected_steam_case(name: &str) -> Result<(), WorkflowError> {
             .decode(encoded)
             .unwrap();
         let world = Arc::new(
-            DescriptorPool::decode(crate::host_operations::engineering::generated::DESCRIPTORS)
+            DescriptorPool::decode(crate::recorded_result_projection::DESCRIPTORS)
                 .unwrap(),
         );
         let message = world

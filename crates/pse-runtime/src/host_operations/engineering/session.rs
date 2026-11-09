@@ -223,6 +223,7 @@ pub struct EngineeringService {
     shutdown_lock: tokio::sync::Mutex<()>,
     maximum_operations: usize,
     contract: Mutex<Option<Arc<contract::PreparedContract>>>,
+    explicit_study_contract: Mutex<Option<Arc<contract::PreparedContract>>>,
 }
 
 impl std::fmt::Debug for EngineeringService {
@@ -274,6 +275,7 @@ impl EngineeringService {
             shutdown_lock: tokio::sync::Mutex::new(()),
             maximum_operations,
             contract: Mutex::new(None),
+            explicit_study_contract: Mutex::new(None),
         }))
     }
 

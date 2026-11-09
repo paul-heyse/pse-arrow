@@ -2637,22 +2637,6 @@ pub struct StudyPoint {
 }
 }
 
-pse_contract::projection_struct! {
-/// Raw request admitted once into the immutable executable definition.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
-#[serde(deny_unknown_fields)]
-pub struct StudyRequest {
-    projection: { name: "StudyRequest", rust_path: crate::workflow::StudyRequest,
-        version: 8, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
-    /// Document version.
-    pub version: Version<8> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
-    /// Explicit original-summary and occurrence-detail demand.
-    pub output: super::StudyOutputDemand => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
-    /// Explicit points or a bounded immutable lazy structural input.
-    pub inputs: super::StudyInputs => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
-}
-}
-
 /// A durable study to start.
 #[derive(Clone, Debug)]
 pub struct StudyPlan {
@@ -2664,7 +2648,7 @@ pub struct StudyPlan {
     pub inputs: super::StudyInputs,
 }
 
-const STUDY_DEFINITION_VERSION: u32 = 14;
+pub(crate) const STUDY_DEFINITION_VERSION: u32 = 14;
 
 pse_contract::projection_struct! {
 /// Version 14 of a study's definition: the store's `definition` document and the content of

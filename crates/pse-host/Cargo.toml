@@ -39,6 +39,8 @@ required-features = ["compiler-analysis"]
 
 [features]
 compiler-analysis = []
+engineering-types = []
+engineering-client = ["connectrpc/server", "dep:pse-ids", "engineering-types"]
 native-hir = [
   "dep:ra_ap_hir",
   "dep:ra_ap_ide",
@@ -59,6 +61,7 @@ doctest = false
 workspace = true
 
 [dependencies]
+pse-ids = { workspace = true, optional = true }
 pse-contract.workspace = true
 pse-contract-proto = { workspace = true, features = ["crossings"] }
 buffa.workspace = true

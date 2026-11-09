@@ -1,7 +1,7 @@
 ---
 status: current
-revision: 362
-date: 2026-11-08
+revision: 365
+date: 2026-11-09
 ---
 
 # Architecture blueprint: revisions and former anchors
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 365 | 2026-11-09 | Reconcile the Study workflow with the two engineering input capabilities and the current durable definition (§19.3, §21.8). | Proposed ADR-0239 under the Plan66 cutover. |
 | 364 | 2026-11-08 | Refine the proposed engineering and worker boundaries to use separate Study input surfaces, consumer-scoped generation and native-owned worker demands (§4.7, §9.11, §21.8). | Proposed ADR-0239/0240 under the Plan66 cutover. Focused implementation and assembled qualification have separate evidence. |
 | 363 | 2026-11-08 | Distinguish local benchmark smoke, named prepared workloads and measurement mode (§24.3). | Plan70f F03 operating route under ADR-0160. Benchmark receiving evidence belongs to Plan70f. |
 | 362 | 2026-11-08 | Calibrate engine, lifecycle, and diagnostic test evidence to the controls at their owners (§23.2, §24.1). | Plan70c C04 evidence wording under ADR-0160 and ADR-0170. |

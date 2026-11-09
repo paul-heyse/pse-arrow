@@ -4969,7 +4969,7 @@ mod canonical_connected_results_server_unit {
             let schema = file.schema();
             let encoded = &schema.metadata()[super::super::result_selection::SELECTION_METADATA_KEY];
             let bytes = base64::engine::general_purpose::STANDARD.decode(encoded).unwrap();
-            let world = Arc::new(DescriptorPool::decode(crate::host_operations::engineering::generated::DESCRIPTORS).unwrap());
+            let world = Arc::new(DescriptorPool::decode(crate::recorded_result_projection::DESCRIPTORS).unwrap());
             let message = world.message_index("pse.engineering.v1.RecordedResultSelection").unwrap();
             let independent = DynamicMessage::decode(world, message, &bytes).unwrap();
             assert_eq!(independent.field_by_number(1), Some(&Value::String("run".into())));

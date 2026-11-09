@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Source-forward passive contract generation, independent of runtime compilation.
-#[cfg(any(feature = "product-schemas", test))]
+#[cfg(any(feature = "engineering-contracts", test))]
 use anyhow::ensure;
 use anyhow::{Context, Result};
 use buffa_codegen::generated::descriptor::FileDescriptorSet;
@@ -37,7 +37,7 @@ pub(super) fn output(imports: &FileDescriptorSet) -> Result<boundary_projection:
 }
 
 /// Admit the complete exact file closure and its disjoint native ownership before suppliers run.
-#[cfg(any(feature = "product-schemas", test))]
+#[cfg(any(feature = "engineering-contracts", test))]
 pub(super) fn engineering_imports(
     local: &ProjectionGraph,
     imports: &FileDescriptorSet,
@@ -71,7 +71,7 @@ pub(super) fn engineering_imports(
 }
 
 /// Exact type mappings preserve the selected package while excluding imported PB ownership.
-#[cfg(any(feature = "product-schemas", test))]
+#[cfg(any(feature = "engineering-contracts", test))]
 pub(super) fn extern_paths() -> Result<Vec<(String, String)>> {
     Ok(graph()?
         .definitions()

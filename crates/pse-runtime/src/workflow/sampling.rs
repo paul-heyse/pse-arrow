@@ -84,7 +84,7 @@ pub struct DesignCoordinate {
     #[serde(default)]
     pub levels: Vec<DesignLevel>,
 }
-/// Explicit finite producer request; does not change StudyRequest's wire interpretation.
+/// Explicit finite producer request for a sampled design.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DesignRequest {

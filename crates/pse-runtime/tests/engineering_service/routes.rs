@@ -7,7 +7,6 @@ use super::study::{read_result, status, submit};
 use super::*;
 use pse_ids::SemanticId;
 use pse_model::{
-    document::Version,
     generated::{
         authored::fit_cases as fit_source,
         enums::{
@@ -235,7 +234,7 @@ async fn members(
 ) -> Vec<CapturedStudyRow<StudyCohortMember>> {
     let page = codec::decode_study_cohort_member_page(
         client
-            .generated()
+            .study()
             .read_study_members(
                 codec::encode_engineering_study_cohort_page(EngineeringStudyCohortPage {
                     operation: capture.into(),
@@ -503,33 +502,30 @@ async fn prepared_engineering_study_client_simulation_fit_and_horizon_keep_origi
             uncertainty: None,
         }),
     };
-    let prepare = EngineeringPrepareStudy {
+    let prepare = EngineeringPrepareExplicitStudy {
         operation: format!("{prefix}-prepare"),
         source_operation: source_operation.clone(),
         expected_source: original.local_revision.clone(),
-        request: StudyRequest {
-            version: Version,
-            output: StudyOutputDemand::Full {},
-            inputs: StudyInputs::Explicit(vec![
-                point(OperationRequest::Simulation(simulation), 1),
-                point(OperationRequest::Fit(fit), 2),
-                point(OperationRequest::Horizon(Box::new(horizon.clone())), 3),
-            ]),
-        },
+        output: StudyOutputDemand::Full {},
+        points: vec![
+            point(OperationRequest::Simulation(simulation), 1),
+            point(OperationRequest::Fit(fit), 2),
+            point(OperationRequest::Horizon(Box::new(horizon.clone())), 3),
+        ],
     };
     let mut incompatible = prepare.clone();
     incompatible.operation.push_str("-physical-refusal");
     let mut incompatible_horizon = horizon;
     incompatible_horizon.inputs[0].initial.quantity = length.quantity.id;
     incompatible_horizon.inputs[0].initial.unit = length.canonical_unit.id;
-    incompatible.request.inputs = StudyInputs::Explicit(vec![point(
+    incompatible.points = vec![point(
         OperationRequest::Horizon(Box::new(incompatible_horizon)),
         3,
-    )]);
+    )];
     let refused = failure(
         client
-            .generated()
-            .prepare_study(codec::encode_engineering_prepare_study(incompatible).unwrap())
+            .explicit_study()
+            .prepare_explicit_study(codec::encode_engineering_prepare_explicit_study(incompatible).unwrap())
             .await
             .unwrap_err(),
     );
@@ -551,8 +547,8 @@ async fn prepared_engineering_study_client_simulation_fit_and_horizon_keep_origi
     );
     let prepared = codec::decode_engineering_prepared_study(
         client
-            .generated()
-            .prepare_study(codec::encode_engineering_prepare_study(prepare).unwrap())
+            .explicit_study()
+            .prepare_explicit_study(codec::encode_engineering_prepare_explicit_study(prepare).unwrap())
             .await
             .unwrap()
             .into_owned(),
@@ -567,7 +563,7 @@ async fn prepared_engineering_study_client_simulation_fit_and_horizon_keep_origi
     };
     let registered = submit(&client, submitted.clone()).await.canonical.unwrap();
     let mut stream = client
-        .generated()
+        .study()
         .observe_study(
             codec::encode_engineering_observe_study(EngineeringObserveStudy {
                 original: EngineeringStudyKey {
@@ -629,7 +625,7 @@ async fn prepared_engineering_study_client_simulation_fit_and_horizon_keep_origi
     // than the two-member helper selected by the separate lifecycle fixture.
     let receipt = codec::decode_study_cohort_receipt(
         client
-            .generated()
+            .study()
             .freeze_study_cohort(
                 codec::encode_engineering_freeze_study_cohort(EngineeringFreezeStudyCohort {
                     operation: capture.clone(),
@@ -762,7 +758,7 @@ async fn prepared_engineering_study_client_simulation_fit_and_horizon_keep_origi
         }
     }
     client
-        .generated()
+        .study()
         .release_study_cohort(pb::EngineeringOperationKey {
             operation: capture,
             ..Default::default()

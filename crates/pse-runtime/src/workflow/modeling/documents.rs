@@ -7,7 +7,7 @@ pub use inspection_fixture::{
     InspectionFixture, InspectionIntegration, InspectionQuadrature, InspectionScheduleControl,
     InspectionScheduleInterval, InspectionSpecification,
 };
-#[cfg(all(test, feature = "engineering-service"))]
+#[cfg(all(test, feature = "engineering-inspection"))]
 #[path = "inspection_generated_tests.rs"]
 mod inspection_generated_tests;
 #[cfg(test)]

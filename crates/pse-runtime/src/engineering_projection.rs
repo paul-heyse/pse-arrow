@@ -9,3 +9,6 @@ use pse_contract_proto::support::*;
 #[rustfmt::skip]
 mod generated;
 pub use generated::*;
+pub use crate::host_operations::engineering::inspection::{
+    decode_modeling_inspection, encode_modeling_inspection,
+};

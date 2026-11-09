@@ -4,30 +4,11 @@
 
 use super::*;
 
-const DEFAULT_MESSAGE_BYTES: usize = 4 << 20;
-const DEFAULT_ELEMENT_BYTES: usize = 32 << 20;
 use super::super::DOCUMENT_RESPONSE_BYTES as DOCUMENT_BYTES;
-
-pub(super) fn config(uri: http::Uri) -> connectrpc::client::ClientConfig {
-    connectrpc::client::ClientConfig::new(uri)
-        .with_protocol(connectrpc::Protocol::Grpc)
-        .with_default_max_message_size(DEFAULT_MESSAGE_BYTES)
-        .with_default_element_memory_limit(DEFAULT_ELEMENT_BYTES)
-}
-
-fn options(maximum_bytes: usize) -> connectrpc::client::CallOptions {
-    // AccountedResponse enforces this ceiling on the complete encoded message:
-    // metadata is already included, not an extra allowance for an IPC/body field.
-    // Retain the supplier's finite 32 MiB view-element profile independently of
-    // wire size. This bounds repeated/map/unknown-field amplification; it is not
-    // an assertion that every legal nested document fits that decode profile.
-    connectrpc::client::CallOptions::default()
-        .with_max_message_size(maximum_bytes)
-        .with_element_memory_limit(DEFAULT_ELEMENT_BYTES)
-}
+use pse_host::engineering_client::response_options;
 
 macro_rules! fixed_response {
-    ($method:ident, $with_options:ident, $request:ident, $view:ident, $doc:literal) => {
+    ($client:ident, $method:ident, $with_options:ident, $request:ident, $view:ident, $doc:literal) => {
         #[doc = $doc]
         /// The finite 32 MiB view-element profile independently bounds collection amplification.
         /// # Errors
@@ -40,15 +21,15 @@ macro_rules! fixed_response {
             ConnectError,
         > {
             adoption::validate(&request)?;
-            self.inner
-                .$with_options(request, options(DOCUMENT_BYTES))
+            self.$client
+                .$with_options(request, response_options(DOCUMENT_BYTES))
                 .await
         }
     };
 }
 
 macro_rules! selected_response {
-    ($method:ident, $with_options:ident, $request:ident, $view:ident, $maximum:expr, $doc:literal) => {
+    ($client:ident, $method:ident, $with_options:ident, $request:ident, $view:ident, $maximum:expr, $doc:literal) => {
         #[doc = $doc]
         /// The finite 32 MiB view-element profile independently bounds collection amplification.
         /// # Errors
@@ -65,8 +46,8 @@ macro_rules! selected_response {
             let maximum_bytes = usize::try_from(maximum_bytes).map_err(|_| {
                 ConnectError::invalid_argument("response allowance exceeds addressable memory")
             })?;
-            self.inner
-                .$with_options(request, options(maximum_bytes))
+            self.$client
+                .$with_options(request, response_options(maximum_bytes))
                 .await
         }
     };
@@ -74,6 +55,7 @@ macro_rules! selected_response {
 
 impl EngineeringClient {
     fixed_response!(
+        inner,
         describe_contract,
         describe_contract_with_options,
         EngineeringDescribeRequest,
@@ -81,6 +63,7 @@ impl EngineeringClient {
         "Read the source-owned contract within its complete 16 MiB producer allowance."
     );
     fixed_response!(
+        study,
         browse_studies,
         browse_studies_with_options,
         StudyWorkbenchRequest,
@@ -88,13 +71,23 @@ impl EngineeringClient {
         "Read the bounded workbench page within its complete 16 MiB producer allowance."
     );
     fixed_response!(
-        read_prepared_study,
-        read_prepared_study_with_options,
+        explicit,
+        read_prepared_explicit_study,
+        read_prepared_explicit_study_with_options,
         EngineeringOperationKey,
-        StudyDefinitionView,
-        "Read the original prepared study within its complete 16 MiB producer allowance."
+        ExplicitStudyDefinitionView,
+        "Read the original explicit preparation within its complete 16 MiB producer allowance."
+    );
+    fixed_response!(
+        expanded,
+        read_prepared_expanded_study,
+        read_prepared_expanded_study_with_options,
+        EngineeringOperationKey,
+        ExpandedStudyDefinitionView,
+        "Read the original source expansion within its complete 16 MiB producer allowance."
     );
     selected_response!(
+        inner,
         read_result,
         read_result_with_options,
         EngineeringReadResult,
@@ -103,6 +96,7 @@ impl EngineeringClient {
         "Decode the complete selected result using its original request allowance."
     );
     selected_response!(
+        study,
         read_study_result,
         read_study_result_with_options,
         EngineeringReadStudyResult,
@@ -111,6 +105,7 @@ impl EngineeringClient {
         "Decode the complete selected study result using its original request allowance."
     );
     selected_response!(
+        inner,
         read_source_file,
         read_source_file_with_options,
         EngineeringReadSourceFile,
@@ -131,6 +126,7 @@ impl EngineeringClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use pse_host::engineering_client::{VIEW_ELEMENT_MEMORY_BYTES, client_config};
     use std::sync::atomic::{AtomicUsize, Ordering};
     use tower_service::Service as _;
 
@@ -156,16 +152,14 @@ mod tests {
                 .await
                 .unwrap();
         });
-        let config = config("http://localhost".parse().unwrap());
+        let config = client_config().unwrap();
         let connection =
             connectrpc::client::Http2Connection::connect_unix(path, config.base_uri().clone())
                 .await
                 .unwrap()
                 .shared(32);
         (
-            EngineeringClient {
-                inner: bindings::EngineeringServiceClient::new(connection, config),
-            },
+            EngineeringClient::from_connection(connection, config),
             directory,
             server,
         )
@@ -249,7 +243,7 @@ mod tests {
 
     #[tokio::test]
     async fn engineering_response_limits_bound_document_bytes_and_element_amplification() {
-        let count = DEFAULT_ELEMENT_BYTES
+        let count = VIEW_ELEMENT_MEMORY_BYTES
             / size_of::<pb::__buffa::view::EngineeringMethodContractView<'static>>()
             + 1;
         let calls = Arc::new(AtomicUsize::new(0));
