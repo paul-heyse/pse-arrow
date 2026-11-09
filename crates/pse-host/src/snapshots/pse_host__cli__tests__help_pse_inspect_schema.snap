@@ -26,7 +26,7 @@ Options:
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
       --semantic-policy <SEMANTIC_POLICY>
-          Available native semantic policy; acquired options cannot nominate native coverage [possible values: core, developer-evidence]
+          Available native semantic policy; acquired options cannot nominate native coverage [possible values: core, developer-evidence, recorded-result, native-usage]
   -h, --help
           Print help (see more with '--help')
 --help
@@ -75,6 +75,8 @@ Options:
           Possible values:
           - core:               Understand core metadata only; native source coverage remains unavailable
           - developer-evidence: Current independent-host developer evidence source policy and generated coverage
+          - recorded-result:    Original recorded-result observation metadata for the explicitly selected result file
+          - native-usage:       Source-owned dependency usage and its shared native context declarations
 
   -h, --help
           Print help (see a summary with '-h')

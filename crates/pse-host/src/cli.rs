@@ -996,10 +996,6 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
                     crate::fixtures::selected_module(&root, &environment)
                         .map(crate::fixtures::FixtureSelection::StudyModule)
                 }
-                crate::fixtures::FixtureKind::NativeLane => {
-                    crate::fixtures::selected_native_lane(&root, &environment)
-                        .map(crate::fixtures::FixtureSelection::NativeLane)
-                }
             };
             match receipt {
                 Ok(receipt) => Ok(presentation.emit_observation(Envelope::response(
@@ -1058,10 +1054,6 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
                 crate::fixtures::FixtureKind::StudyModule => runtime()?
                     .block_on(crate::fixtures::prepare_module(&root, &environment))
                     .map(crate::fixtures::FixtureSelection::StudyModule),
-                crate::fixtures::FixtureKind::NativeLane => {
-                    crate::fixtures::prepare_native_lane(&root, &environment)
-                        .map(crate::fixtures::FixtureSelection::NativeLane)
-                }
             }
             .map_err(|error| {
                 HostError::Workflow(Box::new(crate::test_workflow::WorkflowError::Fixture(
@@ -2352,10 +2344,8 @@ mod tests {
             ("prepare", GenerationIntent::NewWork),
             ("show", GenerationIntent::Passive),
         ] {
-            for fixture in ["study-module", "native-lane"] {
-                let parsed = Cli::try_parse_from(["pse", "fixture", action, fixture]).unwrap();
-                assert_eq!(parsed.command.unwrap().generation_intent(), expected);
-            }
+            let parsed = Cli::try_parse_from(["pse", "fixture", action, "study-module"]).unwrap();
+            assert_eq!(parsed.command.unwrap().generation_intent(), expected);
             assert!(response_schema(&format!("fixture {action}"), &Default::default()).is_ok());
         }
         assert!(Cli::try_parse_from(["pse", "fixture", "show", "unknown"]).is_err());
@@ -2363,8 +2353,9 @@ mod tests {
             serde_json::to_string(&response_schema("fixture show", &Default::default()).unwrap())
                 .unwrap();
         assert!(!show_schema.contains("scientific_inputs"));
-        assert!(show_schema.contains("native_lane"));
-        let private = Cli::try_parse_from(["pse", "__fixture-prepare", "native-lane"]).unwrap();
+        assert!(!show_schema.contains("native_lane"));
+        assert!(Cli::try_parse_from(["pse", "fixture", "show", "native-lane"]).is_err());
+        let private = Cli::try_parse_from(["pse", "__fixture-prepare", "study-module"]).unwrap();
         assert_eq!(
             private.command.unwrap().generation_intent(),
             GenerationIntent::Internal

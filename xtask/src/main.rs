@@ -378,8 +378,6 @@ enum Target {
     ScientificRecipe,
     /// Native developer report/inventory observations and independent reader bundle.
     DeveloperEvidence,
-    /// Native child protocol projected from its existing source owners.
-    NativeRoot,
     /// Compiled engineering, scientific worker and reference contract projections.
     Engineering,
     /// Code-intelligence contracts, validation and representation fixtures.

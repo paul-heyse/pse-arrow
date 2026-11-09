@@ -1075,17 +1075,6 @@ impl Host {
     }
 }
 
-/// Initialize the private short-lived child host with process-lifetime ownership.
-/// Its final batches may be lost at process exit: no network drain is permitted
-/// between native settlement and parent-owned physical process reaping. Long-lived
-/// hosts continue to own and shut down their ordinary Host explicitly.
-pub fn initialize_private_child_host() -> Result<(), &'static TelemetryError> {
-    static HOST: OnceLock<Result<Option<Host>, TelemetryError>> = OnceLock::new();
-    HOST.get_or_init(|| Host::from_environment("pse-native-lane"))
-        .as_ref()
-        .map(|_| ())
-}
-
 impl Drop for Host {
     fn drop(&mut self) {
         if self.shutdown_inner().is_err() {
@@ -1998,108 +1987,5 @@ mod tests {
         assert!(request.contains("authorization: resolved-credential"));
         assert!(!request.contains("stale-environment-credential"));
         assert!(!request.contains("x-unresolved-environment"));
-    }
-
-    #[test]
-    fn private_child_exit_control() {
-        if std::env::var("PSE_TELEMETRY_EXIT_CONTROL").as_deref() != Ok("1") {
-            return;
-        }
-        initialize_private_child_host().unwrap();
-        tracing::info_span!("pse.fixture.private_exit", pse.owner.stage = true).in_scope(|| {});
-        let release =
-            std::path::PathBuf::from(std::env::var_os("PSE_TELEMETRY_EXIT_READY").unwrap());
-        let deadline = std::time::Instant::now() + Duration::from_secs(4);
-        while !release.exists() && std::time::Instant::now() < deadline {
-            std::thread::sleep(Duration::from_millis(1));
-        }
-        assert!(release.exists());
-        // Return a native-control success while the SDK export remains in flight.
-        // The actual process exits with its static host still owned by the OS.
-    }
-    #[test]
-    fn private_child_exit_does_not_wait_for_delayed_exporter() {
-        use std::io::{Read, Write};
-        let directory = tempfile::tempdir().unwrap();
-        let release_path = directory.path().join("native-owner-settled");
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        listener.set_nonblocking(true).unwrap();
-        let mut settings = settings();
-        settings.disabled = false;
-        settings.traces.enabled = true;
-        settings.traces.endpoint = Some(format!(
-            "http://{}/v1/traces",
-            listener.local_addr().unwrap()
-        ));
-        settings.traces.timeout_ms = 5000;
-        settings.max_export_batch_size = 1;
-        settings.export_timeout_ms = 5000;
-        let (started, accepted) = std::sync::mpsc::sync_channel(1);
-        let (release, delayed) = std::sync::mpsc::sync_channel(1);
-        let server = std::thread::spawn(move || {
-            let deadline = std::time::Instant::now() + Duration::from_secs(5);
-            let mut stream = loop {
-                match listener.accept() {
-                    Ok((stream, _)) => break stream,
-                    Err(error)
-                        if error.kind() == std::io::ErrorKind::WouldBlock
-                            && std::time::Instant::now() < deadline =>
-                    {
-                        std::thread::sleep(Duration::from_millis(1))
-                    }
-                    Err(error) => panic!("delayed receiver unavailable: {error}"),
-                }
-            };
-            stream
-                .set_read_timeout(Some(Duration::from_secs(2)))
-                .unwrap();
-            let mut bytes = [0; 4096];
-            assert!(stream.read(&mut bytes).unwrap() > 0);
-            started.send(()).unwrap();
-            // Only the parent test can release this response. SDK client/provider
-            // deadlines are five seconds, much longer than the process-exit bound.
-            let _ = delayed.recv_timeout(Duration::from_secs(5));
-            let _ = stream
-                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
-        });
-        struct Owned(std::process::Child);
-        impl Drop for Owned {
-            fn drop(&mut self) {
-                let _ = self.0.kill();
-                let _ = self.0.wait();
-            }
-        }
-        let mut child = Owned(
-            std::process::Command::new(std::env::current_exe().unwrap())
-                .args([
-                    "--exact",
-                    "tooling::telemetry::tests::private_child_exit_control",
-                    "--nocapture",
-                ])
-                .env("PSE_TELEMETRY_EXIT_CONTROL", "1")
-                .env("PSE_TELEMETRY_EXIT_READY", &release_path)
-                .env(SETTINGS_ENV, serde_json::to_string(&settings).unwrap())
-                .stdout(std::process::Stdio::null())
-                .spawn()
-                .unwrap(),
-        );
-        accepted.recv_timeout(Duration::from_secs(4)).unwrap();
-        std::fs::write(&release_path, b"native owner settled").unwrap();
-        let deadline = std::time::Instant::now() + Duration::from_millis(750);
-        let status = loop {
-            if let Some(status) = child.0.try_wait().unwrap() {
-                break Some(status);
-            }
-            if std::time::Instant::now() >= deadline {
-                break None;
-            }
-            std::thread::sleep(Duration::from_millis(1));
-        };
-        let _ = release.send(());
-        server.join().unwrap();
-        assert!(
-            status.is_some_and(|status| status.success()),
-            "private child process waited for optional exporter drain"
-        );
     }
 }

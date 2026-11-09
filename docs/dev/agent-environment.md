@@ -914,21 +914,6 @@ headers, protocol and timeout. Supported export uses HTTP/protobuf. Private reso
 carry secrets as data; explanations and public status omit them. A scientific Runtime does not
 install providers. Export availability never changes numerical admission or results.
 
-The ordinary portable-root test re-executes its own test image and enters the production private
-receiver. For the standalone executable's bootstrap, explicitly prepare the native lane and
-select the separate test. The optional telemetry journey on that test takes
-`PSE_NATIVE_TELEMETRY_ACCEPTANCE=1`, an independent W3C parent in
-`PSE_NATIVE_TELEMETRY_ACCEPTANCE_PARENT`, and the resolved native exporter settings.
-Repeated preparation reuses the verified lane in the same source and native build context.
-Prepare under the same native profile selection used by the test.
-
-```bash
-scripts/pse-env --native=compiler,klu,solver,isolation -- scripts/pse-host fixture prepare native-lane
-scripts/pse-env --native=compiler,klu,solver,isolation -- \
-  scripts/pse test pse-runtime --lib --features pse-runtime/solver-kinsol --ignored only \
-  -E 'test(=math::native_child::tests::actual_portable_native_root_standalone_bootstraps_and_parent_screens)'
-```
-
 ```bash
 just telemetry install
 just telemetry setup

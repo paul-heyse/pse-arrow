@@ -234,11 +234,8 @@ fn exact_selection_reports_every_missing_original_input_before_effects() {
     let directory = tempfile::tempdir().unwrap();
     let destination = directory.path().join("must-not-be-created");
     let mut requirement = requirement();
-    requirement.declaration.inputs = BTreeSet::from([
-        Input::TraceProcessor,
-        Input::NativeLane,
-        Input::EngineeringEndpoint,
-    ]);
+    requirement.declaration.inputs =
+        BTreeSet::from([Input::TraceProcessor, Input::EngineeringEndpoint]);
     let environment = BTreeMap::from([("PSE_ENGINEERING_ENDPOINT".into(), "".into())]);
     let error = ExecutionInputs::assess(directory.path(), &environment, &[requirement])
         .prepare(&destination)
@@ -252,11 +249,7 @@ fn exact_selection_reports_every_missing_original_input_before_effects() {
             .filter(|failure| matches!(failure.cause.as_ref(), FixtureError::Unprepared(_)))
             .map(|failure| failure.input)
             .collect::<Vec<_>>(),
-        [
-            Input::EngineeringEndpoint,
-            Input::NativeLane,
-            Input::TraceProcessor
-        ]
+        [Input::EngineeringEndpoint, Input::TraceProcessor]
     );
     assert!(!destination.exists());
 }
@@ -269,7 +262,6 @@ fn exact_readiness_retains_all_refused_missing_and_owner_required_inputs() {
     let mut requirement = requirement();
     requirement.declaration.inputs.extend([
         Input::TraceProcessor,
-        Input::NativeLane,
         Input::EngineeringEndpoint,
         Input::DiagnosticEvidence,
     ]);
@@ -291,18 +283,14 @@ fn exact_readiness_retains_all_refused_missing_and_owner_required_inputs() {
     let assessment = ExecutionInputs::assess(directory.path(), &environment, &[requirement]);
     assert!(assessment.blocked());
     let observed = &assessment.observations()[0];
-    assert_eq!(observed.inputs.len(), 7);
+    assert_eq!(observed.inputs.len(), 6);
     for input in [Input::Server, Input::StudyModule] {
         let InputState::Refused { next, .. } = &observed.inputs[&input] else {
             panic!("original owner refusal missing");
         };
         assert_eq!(next, &prepare(input));
     }
-    for input in [
-        Input::TraceProcessor,
-        Input::NativeLane,
-        Input::EngineeringEndpoint,
-    ] {
+    for input in [Input::TraceProcessor, Input::EngineeringEndpoint] {
         let InputState::Unprepared { code, next } = &observed.inputs[&input] else {
             panic!("original missing-input observation missing");
         };
@@ -317,11 +305,11 @@ fn exact_readiness_retains_all_refused_missing_and_owner_required_inputs() {
         InputState::OwnerAdmissionRequired { path: None }
     ));
     let error = assessment.prepare(&destination).unwrap_err();
-    assert_eq!(error.diagnostic_children().unwrap().count(), 5);
+    assert_eq!(error.diagnostic_children().unwrap().count(), 4);
     let FixtureError::Inputs(failures) = error else {
         panic!("aggregate original causes missing");
     };
-    assert_eq!(failures.len(), 5);
+    assert_eq!(failures.len(), 4);
     assert!(
         failures
             .iter()
@@ -329,24 +317,6 @@ fn exact_readiness_retains_all_refused_missing_and_owner_required_inputs() {
     );
     assert!(!destination.exists());
     assert!(!directory.path().join("absent-server").exists());
-}
-
-#[test]
-fn explicit_native_lane_input_remains_with_its_original_owner_without_helper_builds() {
-    let directory = tempfile::tempdir().unwrap();
-    let destination = directory.path().join("must-not-be-created");
-    let mut requirement = requirement();
-    requirement.declaration.ownership = Ownership::PreparationOnly;
-    requirement.declaration.inputs = BTreeSet::from([Input::NativeLane]);
-    let environment =
-        BTreeMap::from([(native_lane::VARIABLE.into(), "/original/native-lane".into())]);
-    ExecutionInputs::assess(directory.path(), &environment, &[requirement])
-        .prepare(&destination)
-        .unwrap();
-    assert!(
-        !destination.exists(),
-        "the original lane owner interprets the explicit executable"
-    );
 }
 
 #[test]

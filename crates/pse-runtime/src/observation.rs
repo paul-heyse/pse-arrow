@@ -194,7 +194,6 @@ pub struct Diagnostics {
     registrations: Mutex<usize>,
     publishing: AtomicBool,
     final_publication: AtomicBool,
-    parent: Mutex<Option<OperationId>>,
     clock: Arc<target::ProcessClock>,
     locator: ProcessLocator,
     managed_invocation: Option<pse_diagnostics::process_facts::ManagedInvocationCandidate>,
@@ -251,7 +250,6 @@ impl Diagnostics {
             registrations: Mutex::new(0),
             publishing: AtomicBool::new(false),
             final_publication: AtomicBool::new(false),
-            parent: Mutex::new(None),
             clock,
             locator: ProcessLocator::current(),
             managed_invocation,
@@ -405,18 +403,6 @@ impl Diagnostics {
         *registrations = registrations.saturating_add(1);
         DiagnosticRegistration(self.clone())
     }
-    /// Register the actual native-child process and its diagnostic-only continuation.
-    #[cfg(any(all(unix, feature = "solver-kinsol"), test))]
-    pub(crate) fn register_child(
-        self: &Arc<Self>,
-        parent: Option<OperationId>,
-    ) -> DiagnosticRegistration {
-        *self
-            .parent
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) = parent;
-        self.register()
-    }
     /// Non-owning reader for an exact operation, including preparation before a run exists.
     pub fn reader(&self, id: OperationId) -> Option<OperationReader> {
         self.hub.reader(id)
@@ -479,10 +465,7 @@ impl Diagnostics {
                 .map(|threads| threads.clone())
                 .unwrap_or_default(),
             threads_partial: self.threads_partial.load(Ordering::Relaxed),
-            parent: *self
-                .parent
-                .lock()
-                .map_err(|_| ObservationError::Format("parent lock poisoned".into()))?,
+            parent: None,
         };
         // Encode each candidate at most twice; avoid repeated whole-image serialization under pressure.
         // Reserve metadata independently so refusal cannot overrun the image bound.
@@ -1361,13 +1344,11 @@ mod tests {
         owner.release().unwrap();
     }
     #[test]
-    fn registered_child_publishes_while_its_owner_is_busy_and_readers_do_not_own_it() {
+    fn registered_owner_publishes_while_busy_and_readers_do_not_own_it() {
         let directory = tempfile::tempdir().unwrap();
         let owner = Diagnostics::new(Policy::default(), directory.path().to_owned());
-        let parent_hub = ObservationHub::new(Policy::default());
-        let parent = parent_hub.start("caller");
-        let registration = owner.register_child(Some(parent.context().id()));
-        let operation = owner.hub().start("busy.child");
+        let registration = owner.register();
+        let operation = owner.hub().start("busy.owner");
         let phase = operation.context().phase("native.factor.open");
         let reader = operation.reader();
         let deadline = std::time::Instant::now() + Duration::from_secs(4);
@@ -1377,11 +1358,6 @@ mod tests {
                     sample.id == operation.context().id() && !sample.phases.is_empty()
                 })
             {
-                assert_eq!(image.parent, Some(parent.context().id()));
-                assert_ne!(
-                    owner.hub().process_instance(),
-                    parent_hub.process_instance()
-                );
                 break;
             }
             assert!(

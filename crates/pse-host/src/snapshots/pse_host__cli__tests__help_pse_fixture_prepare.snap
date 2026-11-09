@@ -6,7 +6,7 @@ expression: "format!(\"-h\\n{short}\\n--help\\n{long}\")"
 Usage: pse fixture prepare [OPTIONS] <FIXTURE>
 
 Arguments:
-  <FIXTURE>  [possible values: study-module, native-lane]
+  <FIXTURE>  [possible values: study-module]
 
 Options:
   -C <checkout>
@@ -21,7 +21,6 @@ Arguments:
   <FIXTURE>
           Possible values:
           - study-module: Production module receipt through its existing native owner
-          - native-lane:  Source-built standalone native-lane executable
 
 Options:
   -C <checkout>

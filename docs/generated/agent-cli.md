@@ -5160,7 +5160,6 @@ Arguments:
   <FIXTURE>
           Possible values:
           - study-module: Production module receipt through its existing native owner
-          - native-lane:  Source-built standalone native-lane executable
 
 Options:
   -C <checkout>
@@ -5198,7 +5197,6 @@ Arguments:
   <FIXTURE>
           Possible values:
           - study-module: Production module receipt through its existing native owner
-          - native-lane:  Source-built standalone native-lane executable
 
 Options:
   -C <checkout>

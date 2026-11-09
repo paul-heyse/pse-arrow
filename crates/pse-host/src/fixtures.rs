@@ -17,26 +17,19 @@ use std::{
 
 mod execution;
 pub use execution::{ExecutionInputs, PreparedExecution, prepare_module, selected_module};
-mod native_lane;
 #[doc(hidden)]
 pub mod target_settlement;
-pub use native_lane::{
-    NativeLaneArtifact, NativeLaneSelection, prepare_native_lane, selected_native_lane,
-};
 
 /// Explicit preparation scope, distinct from an assertion that a live fixture is ready.
 #[derive(Clone, Copy, Debug, clap::ValueEnum)]
 pub enum FixtureKind {
     /// Production module receipt through its existing native owner.
     StudyModule,
-    /// Source-built standalone native-lane executable.
-    NativeLane,
 }
 impl FixtureKind {
     pub(crate) fn argument(self) -> &'static str {
         match self {
             Self::StudyModule => "study-module",
-            Self::NativeLane => "native-lane",
         }
     }
 }
@@ -47,8 +40,6 @@ impl FixtureKind {
 pub enum FixtureSelection {
     /// Existing module receipt retains its public representation.
     StudyModule(study_module::StudyModuleReceipt),
-    /// Exact standalone native-lane executable selection.
-    NativeLane(NativeLaneSelection),
 }
 
 /// Explicit ordinary Study qualification companion receipt.
@@ -129,8 +120,6 @@ pub enum Input {
     SensitivityReferencePython,
     /// The separately prepared PID scientific reference interpreter.
     PidReferencePython,
-    /// Exact source-built native lane executable used by the child-process control.
-    NativeLane,
     /// Explicit Trace Processor binary for its ignored consumer qualification.
     TraceProcessor,
     /// External owned server-restart rendezvous, interpreted by the original lifecycle owner.
@@ -511,7 +500,6 @@ fn prepare(input: Input) -> Vec<String> {
         Input::StudyModule => &["scripts/pse", "fixture", "prepare", "study-module"],
         Input::QualificationStudyModule => &["just", "surreal-module", "--qualification"],
         Input::LongHoldStudyModule => &["just", "surreal-module", "--qualification", "--long-hold"],
-        Input::NativeLane => &["scripts/pse-host", "fixture", "prepare", "native-lane"],
         _ => &[],
     };
     args.iter()

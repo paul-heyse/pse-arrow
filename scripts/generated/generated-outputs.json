@@ -866,14 +866,6 @@
           "kind": "file"
         },
         {
-          "path": "crates/pse-buildinfo/src/identity.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-buildinfo/src/lib.rs",
-          "kind": "file"
-        },
-        {
           "path": "crates/pse-codegen/src",
           "kind": "tree"
         },
@@ -1094,31 +1086,11 @@
           "kind": "file"
         },
         {
-          "path": "crates/pse-math/src/execution/transfer.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-math/src/guarded.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-math/src/implicit.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-math/src/implicit_transfer.rs",
-          "kind": "file"
-        },
-        {
           "path": "crates/pse-math/src/jets.rs",
           "kind": "file"
         },
         {
           "path": "crates/pse-math/src/library.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-math/src/source_bindings.rs",
           "kind": "file"
         },
         {
@@ -1379,10 +1351,6 @@
         },
         {
           "path": "crates/pse-runtime/src/host_operations/project.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-runtime/src/math/native_root_protocol.rs",
           "kind": "file"
         },
         {
@@ -1671,146 +1639,6 @@
         },
         {
           "path": "docker/solvers/Dockerfile",
-          "kind": "file"
-        }
-      ],
-      "contributors": null
-    },
-    {
-      "producer": "native-root",
-      "outputs": [
-        {
-          "path": "crates/pse-runtime/src/generated/native-root",
-          "kind": "tree"
-        },
-        {
-          "path": "docs/generated/engineering/pse.native_root.v2",
-          "kind": "tree"
-        },
-        {
-          "path": "docs/generated/source-relationships/pse-native-root-v2",
-          "kind": "tree"
-        }
-      ],
-      "regenerate": [
-        "just",
-        "codegen"
-      ],
-      "inputs": [
-        {
-          "path": "crates/pse-buildinfo/src/identity.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-buildinfo/src/lib.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-codegen/src",
-          "kind": "tree"
-        },
-        {
-          "path": "crates/pse-codegen/src/codegen/boundary_projection/adapters.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-contract/src/boundary_projection/array.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-contract/src/boundary_projection/path.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-contract/src/boundary_projection/standard.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-contract/src/boundary_projection/tuple_triple.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-diagnostics/src/lib.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-diagnostics/src/observation.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-diagnostics/src/vocabulary.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-kernels/src/lib.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-math/src/binding.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-math/src/execution/transfer.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-math/src/guarded.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-math/src/implicit.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-math/src/implicit_transfer.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-math/src/jets.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-math/src/source_bindings.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-model/src/applicability.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-model/src/diagnostic.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-model/src/generated/enums.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-runtime/src/math/native_root_protocol.rs",
-          "kind": "file"
-        },
-        {
-          "path": "crates/pse-schema/src",
-          "kind": "tree"
-        },
-        {
-          "path": "scripts/generated-outputs.rs",
-          "kind": "file"
-        },
-        {
-          "path": "xtask/src/codegen",
-          "kind": "tree"
-        },
-        {
-          "path": "xtask/src/codegen.rs",
-          "kind": "file"
-        },
-        {
-          "path": "xtask/src/codegen/proto_projection.rs",
           "kind": "file"
         }
       ],

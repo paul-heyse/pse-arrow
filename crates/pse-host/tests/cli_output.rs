@@ -455,7 +455,8 @@ fn missing_fixture_readiness_keeps_owner_diagnostic_and_exact_preparation() {
         .unwrap();
     let help = json(&help);
     assert_eq!(help["payload"]["records"][0]["effect"], "prepare");
-    for fixture in ["study-module", "native-lane"] {
+    {
+        let fixture = "study-module";
         let output = pse()
             .env("XDG_STATE_HOME", state.path())
             .env_remove("PSE_NATIVE_FIXTURE_MODULE_RECEIPT")

@@ -21,8 +21,6 @@ mod developer_evidence;
 #[cfg(feature = "engineering-contracts")]
 mod engineering;
 mod grpc_wire;
-#[cfg(feature = "product-schemas")]
-mod native_root;
 mod ownership;
 mod private_store;
 #[cfg(any(test, feature = "host-contracts"))]
@@ -98,15 +96,6 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
             write_tree(root, &tree)
         };
     }
-    if only == Some(Target::NativeRoot) {
-        let tree = native_root_tree(root)?;
-        validate_tree(&tree)?;
-        return if check {
-            check_tree(root, &tree)
-        } else {
-            write_tree(root, &tree)
-        };
-    }
     if only == Some(Target::DeveloperEvidence) {
         let tree = developer_evidence_tree(root)?;
         validate_tree(&tree)?;
@@ -160,7 +149,6 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
             | Target::ScientificWorker
             | Target::ReferenceExchange
             | Target::DeveloperEvidence
-            | Target::NativeRoot
             | Target::ScientificRecipe,
         ) => Vec::new(),
         None => Language::ALL.to_vec(),
@@ -185,9 +173,6 @@ pub(super) fn run(root: &Path, check: bool, only: Option<Target>) -> Result<()> 
         let tree = engineering_tree(root)?;
         validate_tree(&tree)?;
         trees.push(("engineering".into(), tree));
-        let tree = native_root_tree(root)?;
-        validate_tree(&tree)?;
-        trees.push(("native-root".into(), tree));
         let tree = developer_evidence_tree(root)?;
         validate_tree(&tree)?;
         trees.push(("developer-evidence".into(), tree));
@@ -310,15 +295,6 @@ fn cli_reference(root: &Path) -> Result<Vec<u8>> {
         );
     }
     Ok(export.stdout)
-}
-
-#[cfg(feature = "product-schemas")]
-fn native_root_tree(root: &Path) -> Result<GeneratedTree> {
-    native_root::generate(root)
-}
-#[cfg(not(feature = "product-schemas"))]
-fn native_root_tree(_: &Path) -> Result<GeneratedTree> {
-    bail!("native child projections require product-schemas")
 }
 
 #[cfg(feature = "product-schemas")]
@@ -493,9 +469,6 @@ fn check_generators(root: &Path, languages: &[Language], only: Option<Target>) -
             }
             if let Some(tree) = check_result(&mut failures, "engineering", engineering_tree(root)) {
                 trees.push(("engineering".into(), tree));
-            }
-            if let Some(tree) = check_result(&mut failures, "native-root", native_root_tree(root)) {
-                trees.push(("native-root".into(), tree));
             }
             if let Some(tree) = check_result(
                 &mut failures,

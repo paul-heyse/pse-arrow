@@ -1042,12 +1042,11 @@ pub(crate) struct Submission {
     /// Absolute task deadline, including durable job and CPU waiting.
     pub(crate) deadline: Option<std::time::Instant>,
 }
-/// Current admission lifetime, including who owns expiration and its ready signal.
+/// Current admission lifetime and its ready signal.
 struct AdmissionControl {
     cancel: Cancellation,
     admitted: Option<tokio::sync::oneshot::Sender<()>>,
     deadline: Option<std::time::Instant>,
-    source_owns_deadline: bool,
 }
 impl Submission {
     /// In-memory work: a fresh cancellation, 256 retained events, refused when full.
@@ -1131,7 +1130,6 @@ impl MathService {
             cores,
             ConstructionEstimate::Known(bytes),
             submission,
-            false,
             true,
             move |flag, progress, storage| {
                 let storage =
@@ -1155,51 +1153,10 @@ impl MathService {
         + 'static,
     ) -> Result<super::solves::SolveHandle<(T, Arc<pse_columnar::AllocationLease>)>, MathRuntimeError>
     {
-        self.submit_construction_mode(cores, construction, submission, false, work)
-    }
-    /// Trusted closed child driver enforces its absolute deadline, kills and reaps.
-    /// Expiry must not mutate the public user-cancellation source to wake it.
-    #[cfg(all(unix, feature = "solver-kinsol"))]
-    pub(super) fn submit_source_timed<T: Send + 'static>(
-        self: &Arc<Self>,
-        cores: usize,
-        bytes: usize,
-        submission: Submission,
-        work: impl FnOnce(
-            Cancellation,
-            Arc<pse_backend_native::solve::Progress>,
-        ) -> Result<(T, usize), MathRuntimeError>
-        + Send
-        + 'static,
-    ) -> Result<super::solves::SolveHandle<(T, Arc<pse_columnar::AllocationLease>)>, MathRuntimeError>
-    {
-        self.submit_construction_mode(
-            cores,
-            ConstructionEstimate::Opaque(bytes),
-            submission,
-            true,
-            work,
-        )
-    }
-    fn submit_construction_mode<T: Send + 'static>(
-        self: &Arc<Self>,
-        cores: usize,
-        construction: ConstructionEstimate,
-        submission: Submission,
-        source_owns_deadline: bool,
-        work: impl FnOnce(
-            Cancellation,
-            Arc<pse_backend_native::solve::Progress>,
-        ) -> Result<(T, usize), MathRuntimeError>
-        + Send
-        + 'static,
-    ) -> Result<super::solves::SolveHandle<(T, Arc<pse_columnar::AllocationLease>)>, MathRuntimeError>
-    {
         self.submit_construction_storage(
             cores,
             construction,
             submission,
-            source_owns_deadline,
             false,
             move |flag, progress, _| work(flag, progress),
         )
@@ -1209,7 +1166,6 @@ impl MathService {
         cores: usize,
         construction: ConstructionEstimate,
         submission: Submission,
-        source_owns_deadline: bool,
         retain_foreign: bool,
         work: impl FnOnce(
             Cancellation,
@@ -1243,7 +1199,6 @@ impl MathService {
                 cancel: cancel.clone(),
                 admitted,
                 deadline,
-                source_owns_deadline,
             },
             Some(entry),
             retain_foreign,
@@ -1297,8 +1252,7 @@ impl MathService {
         cancel: Cancellation,
         work: impl FnOnce(Cancellation) -> Result<(T, usize), MathRuntimeError> + Send + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
-        self.admitted(cores, bytes, cancel, (None, None, false), None, work)
-            .await
+        self.admitted(cores, bytes, cancel, None, None, work).await
     }
     /// Prepare/advance a product under the caller's original task clock. Waiting for
     /// capacity and execution share this deadline; it is never interpreted as cancellation.
@@ -1310,7 +1264,7 @@ impl MathService {
         deadline: Option<std::time::Instant>,
         work: impl FnOnce(Cancellation) -> Result<(T, usize), MathRuntimeError> + Send + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
-        self.admitted(cores, bytes, cancel, (None, deadline, false), None, work)
+        self.admitted(cores, bytes, cancel, deadline, None, work)
             .await
     }
     /// Select the actual value owner's fallible retirement when a joined product
@@ -1331,7 +1285,6 @@ impl MathService {
                 cancel,
                 admitted: None,
                 deadline,
-                source_owns_deadline: false,
             },
             None,
             false,
@@ -1507,15 +1460,8 @@ impl MathService {
         entry: AdmissionEntry,
         work: impl FnOnce(Cancellation) -> Result<(T, usize), MathRuntimeError> + Send + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
-        self.admitted(
-            cores,
-            bytes,
-            cancel,
-            (None, deadline, false),
-            Some(entry),
-            work,
-        )
-        .await
+        self.admitted(cores, bytes, cancel, deadline, Some(entry), work)
+            .await
     }
     /// Refuse a synchronous burst before its handle/task joins the bounded population.
     /// A multi-phase operation supplies one unchanged admission cutoff; the separate
@@ -1672,11 +1618,7 @@ impl MathService {
         cores: usize,
         bytes: usize,
         cancel: Cancellation,
-        (admitted, deadline, source_owns_deadline): (
-            Option<tokio::sync::oneshot::Sender<()>>,
-            Option<std::time::Instant>,
-            bool,
-        ),
+        deadline: Option<std::time::Instant>,
         entry: Option<AdmissionEntry>,
         work: impl FnOnce(Cancellation) -> Result<(T, usize), MathRuntimeError> + Send + 'static,
     ) -> Result<(T, Arc<pse_columnar::AllocationLease>), MathRuntimeError> {
@@ -1685,9 +1627,8 @@ impl MathService {
             bytes,
             AdmissionControl {
                 cancel,
-                admitted,
+                admitted: None,
                 deadline,
-                source_owns_deadline,
             },
             entry,
             false,
@@ -1750,7 +1691,6 @@ impl MathService {
             cancel,
             admitted,
             deadline,
-            source_owns_deadline,
         } = control;
         let entry = match entry {
             Some(entry) => entry,
@@ -1859,7 +1799,7 @@ impl MathService {
                         pse_diagnostics::stop::StopReason::Deadline => {
                             metrics.expired();
                             metrics.observe(pse_diagnostics::lifecycle::LifecycleBoundary::DeadlineExpired, true);
-                            if !source_owns_deadline { cancel.cancel(); }
+                            cancel.cancel();
                         }
                     }
                 }).await;
@@ -1960,7 +1900,6 @@ mod supervisor_tests {
             cancel: Cancellation::default(),
             admitted: None,
             deadline: None,
-            source_owns_deadline: false,
         }
     }
     fn service() -> Arc<MathService> {

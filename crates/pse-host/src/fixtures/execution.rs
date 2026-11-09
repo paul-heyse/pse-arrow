@@ -109,7 +109,6 @@ pub struct PreparedExecution {
     scientific_workers: BTreeMap<usize, Executable>,
     runner: Option<Executable>,
     reader: Option<crate::product_reader::ProductReaderSelection>,
-    native_lane: Option<native_lane::SelectedNativeLane>,
 }
 /// Exact post-list prerequisite account. Assessment uses existing owner selection and
 /// validation; the original selections follow it into explicit helper preparation.
@@ -119,7 +118,6 @@ pub struct ExecutionInputs {
     requirements: Vec<Requirement>,
     demand: BTreeSet<Input>,
     module: Option<study_module::StudyModuleReceipt>,
-    native_lane: Option<native_lane::SelectedNativeLane>,
     observations: Vec<Readiness>,
     failures: Vec<InputFailure>,
 }
@@ -144,7 +142,6 @@ impl ExecutionInputs {
             .collect();
         let mut failures = Vec::new();
         let mut states = BTreeMap::new();
-        let mut native_lane = None;
         let borrowed = requirements
             .iter()
             .any(|requirement| requirement.ownership() == Ownership::RunnerBorrowed);
@@ -179,25 +176,6 @@ impl ExecutionInputs {
                     Err(cause) => record_refusal(&mut states, &mut failures, input, cause),
                 }
                 continue;
-            }
-            if input == Input::NativeLane {
-                match native_lane::selected_for_run(root, environment) {
-                    Ok(Some(selected)) => {
-                        states.insert(
-                            input,
-                            InputState::OwnerAdmissionRequired {
-                                path: Some(selected.path().into()),
-                            },
-                        );
-                        native_lane = Some(selected);
-                        continue;
-                    }
-                    Ok(None) => {}
-                    Err(cause) => {
-                        record_refusal(&mut states, &mut failures, input, cause);
-                        continue;
-                    }
-                }
             }
             if let Some(variable) = original_input_variable(input) {
                 match environment
@@ -282,7 +260,6 @@ impl ExecutionInputs {
             requirements: requirements.into(),
             demand,
             module,
-            native_lane,
             observations,
             failures,
         }
@@ -316,7 +293,6 @@ impl ExecutionInputs {
             requirements,
             demand,
             module,
-            native_lane,
             failures,
             ..
         } = self;
@@ -345,7 +321,6 @@ impl ExecutionInputs {
             scientific_workers: BTreeMap::new(),
             runner: None,
             reader: None,
-            native_lane,
         };
         if demand.contains(&Input::ServiceHelper) || borrowed {
             let mut bins = vec!["pse-canonical-service"];
@@ -485,11 +460,6 @@ impl PreparedExecution {
             if !demand.contains(&input) {
                 command.environment.remove(OsStr::new(variable));
             }
-        }
-        if demand.contains(&Input::NativeLane)
-            && let Some(selected) = &self.native_lane
-        {
-            selected.lend(&command.cwd, &mut command.environment)?;
         }
         let borrowed = relevant
             .iter()
@@ -676,7 +646,6 @@ fn original_input_variable(input: Input) -> Option<&'static str> {
         | Input::ScientificWorker
         | Input::ProductReader
         | Input::ObservationHelper => None,
-        Input::NativeLane => Some(native_lane::VARIABLE),
         Input::EngineeringEndpoint => Some("PSE_ENGINEERING_ENDPOINT"),
         Input::CanonicalTools => Some("PSE_CANONICAL_TOOLS"),
         Input::DiagnosticEvidence => Some("PSE_DIAGNOSTIC_EVIDENCE"),

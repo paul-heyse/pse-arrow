@@ -273,7 +273,7 @@ fn exact_fixture_refusal_records_complete_pending_account_before_helpers() {
         "declaration": {
             "id": "selected-original", "target": "original", "kind": "lib",
             "ownership": "target-owned", "scope": { "tests": ["selected_case"] },
-            "inputs": ["trace-processor", "native-lane", "scientific-worker", "engineering-endpoint"]
+            "inputs": ["trace-processor", "scientific-worker", "engineering-endpoint"]
         }
     }))
     .unwrap();
