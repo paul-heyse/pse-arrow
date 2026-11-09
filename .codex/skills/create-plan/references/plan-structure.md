@@ -24,7 +24,7 @@ finding; the existing plan owns their scheduled disposition and acceptance along
 | Choices and alternatives | Material decisions, composed library/optimizer fit, necessary versus repeated work, movement/live state/reuse, total lifecycle machinery, assumptions and reconsideration |
 | Execution sequence | Coherent work packages, specific prerequisites, affected owners, available capabilities and completion evidence |
 | Migration and adoption | Consumer changes, preservation and retirement, intermediate states and operational transitions where relevant |
-| Verification and acceptance | Revealing scenarios, local and assembled acceptance, applicable review points, and measurements with their conditions and completion role |
+| Verification and acceptance | Revealing scenarios, local and assembled acceptance, applicable review points, and experiments where serious regression risks warrant them |
 | Finding disposition and current state | Traceability to source findings, open decisions, deferred work and the next executable step |
 
 ## One document or a coordinated series
@@ -152,6 +152,9 @@ local explanation suffices.
 
 ## Transitions, evidence and current state
 
+Favor a coherent target with affected consumers migrated and superseded machinery removed.
+Consider direct cutover before adding intermediate interfaces, compatibility layers or deployment
+stages, following AGENTS.md's design-stage guidance.
 For consequential transitions, explain the intermediate system states and the path to adoption.
 Identify any required consumer coordination, data migration, activation or derived-artifact
 rebuild. Describe useful pause points or required coordinated cutovers, including recovery where
@@ -159,9 +162,10 @@ interruption matters. Apply the project's preservation and retirement policy; th
 do not imply universal requirements for compatibility paths or deployment stages.
 
 Separate future acceptance requirements from actual evidence. Identify local checks, assembled
-journeys and measurements by what they establish and when they are needed. Follow repository
-policy for execution timing and evidence reporting. Optional or deferred measurements should have
-a clear purpose and trigger, without obscuring required completion evidence.
+journeys by what they establish and when they are needed. Follow repository policy for execution
+timing, validation judgment and evidence reporting. Include performance experiments where serious
+regression concerns warrant them; a reasonably expected improvement need not acquire a measurement
+task or deferred obligation.
 
 As execution proceeds, maintain concise state, decisions and next steps at their declared owner.
 If a package consumes an early slice of another plan, record which contract and consumers are
@@ -175,7 +179,8 @@ and move enduring meaning to its established owner before retiring the plan unde
 When a dedicated [completion audit](../../plan-completion-audit/SKILL.md) is performed, maintain
 its current conclusion in this same plan, with date, inspected source baseline, claimed scope and
 evidence limits. Explain what is functionally delivered, what required qualification remains and
-what benefit measurements are required or deliberately deferred. Connect gaps to their existing
+what evidence supports benefit claims. Missing improvement benchmarks alone do not indicate
+incomplete work. Connect gaps to their existing
 package/finding owners and actionable next scope, preserving stable identities.
 
 Reconcile completion summaries, package state and finding disposition rather than leaving a

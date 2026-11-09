@@ -12,6 +12,13 @@ belong to the active [Plan64 and Plan65 owners](../plans/README.md), including t
 qualification companions. This guide describes
 commands and evidence limits, not a claim that full qualification has completed.
 
+Use [AGENTS.md's validation judgment](../../AGENTS.md#execution-rhythm-functional-scope-first-static-checks-at-scope-end)
+when selecting evidence. Expected improvements generally need no benchmark demonstrating their
+size. Consider benchmarking or profiling where serious risks of performance or correctness
+degradation leave consequential uncertainty; functional or numerical checks often answer
+correctness concerns more directly. Unmeasured expected benefits alone do not leave qualification
+incomplete.
+
 The local `pse-cli` skill (source: `.codex/skills/pse-cli/SKILL.md`) helps select useful native
 checks, investigations and original-result readers. Prefer those routes when their actual
 correctness selection, fixtures and native process ownership fit the task; raw tools remain

@@ -66,8 +66,9 @@ checks of each new numerical state. Budgets, cancellation/drain and honest parti
 scientific meaning. Explain material tradeoffs in plain language under the core's qualitative
 assessment scope; it requires no numerical estimates, cost models, runtime cost accounting or
 cost proof artifacts. Such mechanisms need a separate concrete functional or operational
-requirement. Quantitative performance/capacity claims still need measurements, and existing
-scientific correctness obligations remain.
+requirement. Numerical performance/capacity claims need measurement support; qualitative expectations
+need no measurement task. Follow AGENTS.md's validation judgment for performance experiments;
+existing scientific correctness obligations remain.
 
 ## Lenses that settle numerical claims
 

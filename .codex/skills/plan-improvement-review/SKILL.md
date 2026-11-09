@@ -113,7 +113,9 @@ Assess recommendations together. Individually attractive amendments can accumula
 different undertaking or create conflicting responsibilities and transition assumptions.
 Use qualitative comparison and revealing scenarios; no change-size budget, scoring system,
 recommendation quota or mandatory probe follows. Run a probe when it settles consequential
-uncertainty. Quantitative benefit claims require measurements.
+uncertainty. Numerical benefit claims need measurement support; qualitative expectations need no
+measurement task. Follow AGENTS.md's validation judgment for serious regression concerns and its
+design-stage guidance when comparing coherent replacements with incremental changes.
 
 ## Make recommendations usable
 

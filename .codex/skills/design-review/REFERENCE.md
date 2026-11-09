@@ -45,7 +45,8 @@ work. Global computations may need full input; ordinary fixed-size operations ma
 collect and sort. Assess these operations and growth/failure scenarios qualitatively; explain
 material tradeoffs in plain language. The core's assessment scope requires no numerical cost
 estimate, accounting machinery or cost proof artifact. Quantitative performance/capacity claims need
-measurements; existing semantic correctness obligations remain.
+measurement support; qualitative expectations need no measurement task. Follow AGENTS.md's
+validation judgment for performance experiments; existing semantic correctness obligations remain.
 
 | Shape | Evidence that makes it reportable | Foundation |
 |---|---|---|

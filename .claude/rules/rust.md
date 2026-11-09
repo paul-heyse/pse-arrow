@@ -109,5 +109,6 @@ implemented (or when the maintainer requests comprehensive qualification), `just
 doctests**, which is why `just doctest` is a separate step. `just governance` covers
 pin reasons, crate registration, the nightly pin against the `rust-version` floor, dependency
 floors, unsafe allowlist and error taxonomy.
-Select integration and performance checks for the implemented scope. These aggregates
+Select integration checks for the implemented scope; consider performance experiments under
+AGENTS.md's validation judgment where serious regression concerns warrant them. These aggregates
 are not commit, push or merge gates.

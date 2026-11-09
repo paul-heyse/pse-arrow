@@ -103,6 +103,10 @@ requirement. A MUST gap cannot be waived for supported behavior (§0, §H).
 
 Stable contracts have explicit meaning and deliberate evolution; they need not freeze an
 immature API. Break and migrate internal contracts when that improves the agreed target.
+Favor a coherent target over preserving existing structure or minimizing the diff. Integrating a
+better design can warrant substantial changes to interfaces, representations and affected consumers;
+prior implementation effort alone does not justify retaining the old approach. Assess compatibility
+and staged adoption against actual consumer, durable-data and recovery obligations.
 An extension point needs a credible variation axis, which can come from the roadmap before a
 second implementation exists. Prefer the least machinery that accommodates that variation.
 Ordinary functions, typed values and modules can provide composition and isolation.
@@ -549,8 +553,10 @@ artifact, is never treated as an authority (DP-01). Proportionality applies to t
 integration as well as bespoke machinery: consider coupling, initialization,
 configuration and upgrade obligations introduced by a capability. Eligibility never requires a current consumer; the
 adopted integration still needs an architectural role or a bounded exploration purpose. Once
-a replacement lands and its callers have moved, delete the replaced code, tests and fixtures
-in the same change; keep no shim or parallel path "as evidence".
+a replacement lands and its callers have moved, delete the replaced code, mechanism-specific tests,
+fixtures, obsolete compatibility adapters, fallback selection and configuration in the same change;
+keep no shim or parallel path "as evidence". Preserve useful behavior tests and independent oracles
+against the target.
 
 **Audit.** Where must a typical extension be expressed, and is any meaning re-expressed in
 several places? Does a bespoke layer lack a current requirement? Does a replaced path survive?
@@ -645,11 +651,14 @@ inputs responsible? What exactly can be reproduced, and what is outside that pro
 ### DP-22 — Claims are labelled and falsifiable
 
 **MUST · G7.** Every design claim carries an evidence label (§D). A proposed benefit states its
-mechanism, baseline, validation method and current evidence. Performance is measured end to end
-— construction, preparation, transfer, execution, publication, memory, cold and warm — at
+mechanism, baseline, validation method and current evidence. Qualitative comparison and engineering
+reasoning can supply that baseline and validation without measuring the improvement's size.
+When reporting a measured system performance improvement, measure end to end — construction,
+preparation, transfer, execution, publication, memory, cold and warm — at
 representative scale; an isolated kernel benchmark or a language choice does not establish a
-system speed-up. An unmeasured benefit is a hypothesis. Static evidence of an avoidable scan, crossing or
-amplification is architectural evidence under AP-07/G9; lack of a speed claim does not exempt
+system speed-up. An unmeasured benefit remains an expectation, rather than an established numerical
+gain; it need not become a measurement task or completion obligation. Static evidence of an avoidable
+scan, crossing or amplification is architectural evidence under AP-07/G9; lack of a speed claim does not exempt
 a supported operation from execution-fit assessment.
 
 **Audit.** What observation would show the claim false, and was it sought? Do *Tested* and
@@ -670,6 +679,10 @@ stored/read-codec reconciliation, certificate checking and independent audit/tes
 failures they cover. Repeating producer logic is not an independent semantic oracle. Reuse
 checks whose premises remain valid, retaining new-state, trust-transition, transient-failure
 and global checks where necessary; economy never removes a required sound guarantee.
+Reserve benchmarking and profiling for serious risks of performance or correctness degradation
+where an experiment can resolve consequential uncertainty. Functional or numerical assertions often
+answer correctness concerns more directly. Expected improvements still receive appropriate
+correctness verification; demonstrating their size is usually unnecessary.
 
 **Audit.** For the risks that matter here, what would detect semantic drift in an adapter, a
 rewrite or an alternate backend? Are the failures most likely to occur between happy-path

@@ -84,7 +84,9 @@ tradeoffs and retained benefits in plain language. Execution-fit assessment requ
 estimates, cost models, estimators, runtime cost accounting, execution-planning machinery,
 instrumentation, formal cost proofs or additional proof artifacts. Introduce those mechanisms
 only for a separate concrete functional or operational requirement. Quantitative performance/
-capacity claims require measurements; semantic correctness obligations remain. AP-07 follows
+capacity claims need measurement support; qualitative expectations need no measurement task.
+Follow AGENTS.md's validation judgment for performance experiments; semantic correctness
+obligations remain. AP-07 follows
 existing G9; no extra gate is added. A new trait, crate or registry is not itself an
 improvement. Use the current review template; keep its architectural and behavioral judgments
 distinct and preserve the scope of each claim.

@@ -50,6 +50,11 @@ Preservation, retirement, migration and failure/recovery behavior can carry cons
 that happy-path controls miss. Use these as investigative leads, not required findings or an
 exhaustive flow-tracing exercise.
 
+Assess whether the delivered design reaches its intended consumers and whether superseded
+machinery remains. Distinguish unfinished replacement work from compatibility serving a concrete
+requirement, using AGENTS.md's design-stage guidance. Existing implementation effort alone is not
+a reason to accept an incomplete replacement.
+
 Where accepted scope depends on a concrete library mechanism, assess whether its intended
 guarantees, composition and material advantages reach the actual consumers, or whether a justified
 replacement delivers the accepted target. Follow the plan's capability references when needed;
@@ -62,8 +67,10 @@ Separate three questions in the conclusion:
   applicable integration and transition obligations?
 - **Verification and qualification:** does applicable evidence cover the required scope on the
   relevant source and execution context, and what remains failed, blocked, unknown or not run?
-- **Benefit claims:** what is established about the intended improvement, and which measurements
-  are required for completion versus explicitly deferred or optional?
+- **Benefit claims:** what does the available evidence support? An unmeasured expected improvement
+  can be a sound engineering judgment; absent improvement benchmarks alone do not indicate
+  incomplete work. Consider measurement where a serious regression concern warrants it under
+  AGENTS.md's validation judgment.
 
 A source-inspected missing consumer can establish incomplete implementation without a test run.
 Passing tests cannot establish an obligation their selected scope does not exercise. Read the

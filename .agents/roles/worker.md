@@ -46,6 +46,10 @@ explicit force-validation feature on correctness tests. Run ad hoc commands thro
 conformance, parity and linked-Python work): it supplies the checkout environment and a
 supervised scope with the resource policy selected by the environment owner.
 
+Use AGENTS.md's validation judgment and design-stage guidance. Expected gains generally need no
+demonstration of their size; consider performance experiments for serious regression concerns.
+Favor a coherent target with affected consumers migrated and superseded machinery removed.
+
 Use the [pse-cli skill](../../.codex/skills/pse-cli/SKILL.md) when choosing native investigation,
 correctness or managed-run capabilities. Prefer it where its source identity, actual fixture
 and process ownership or original results help the assignment; raw tools remain available.

@@ -43,9 +43,23 @@ unbounded ordinary work, explicit finite/scientific placement and explicitly pre
 provider profiles. Canonical test fixtures are source-built Rust owners; connection-only clients
 never start a configured database. The environment guide records supported placement,
 preparation and the separate H qualification obligations. New work
-starts only when the maintainer authorizes it. Build a target directly and remove replaced code/callers/tests without compatibility APIs or a second
-production path. Correctness tests retain explicit force-validation. Full library
-eligibility remains in force.
+starts only when the maintainer authorizes it. Correctness tests retain explicit force-validation.
+Full library eligibility remains in force.
+
+**Design-stage development.** This is a personal project under one operator, with Codex
+supplying the edits. Favor a coherent target design when integrating improvements or new
+features. Interfaces, representations and component boundaries remain available for substantial
+revision; minimizing the diff or preserving the existing implementation is usually less valuable
+than reaching the better design.
+
+Treat affected consumer changes and removal of superseded machinery as part of delivering the
+replacement. The completed result has one authoritative implementation, with obsolete code,
+compatibility adapters, fallback paths, configuration and mechanism-specific tests removed.
+Preserve required behavior and useful independent verification. Compatibility and staged
+transitions can be appropriate where an actual consumer, durable-data obligation or recovery
+requirement warrants them. Assess those needs from this project's circumstances rather than
+assuming the obligations of a released product or multi-operator service. Use the existing scope
+and decision routes for consequential changes.
 
 ## Execution rhythm: functional scope first; static checks at scope end
 
@@ -59,6 +73,16 @@ after a failure and list what failed:
   or when a command fails in an environment-shaped way.
 - `just hygiene` (type errors, clippy, lint, codegen drift): once all functional scope in the
   plan is implemented; fix what fails. Integrated testing happens once, at the same point.
+
+**Validation judgment.** Aim validation at plausible failures and consequential uncertainty.
+Engineering reasoning, source inspection and established library behavior are generally sufficient
+grounds for expecting an improvement; demonstrating the size of that improvement is usually
+unnecessary. Reserve benchmarking and profiling for serious risks of performance or correctness
+degradation where an experiment would materially inform the implementation or acceptance decision.
+Choose evidence suited to the concern: functional or numerical checks often answer correctness
+questions more directly than timing comparisons. Expected improvements still receive appropriate
+correctness validation. Describe benefits at the strength the available evidence supports; a
+reasonable qualitative expectation need not become a measurement task or deferred obligation.
 
 None of these is a commit, push or merge prerequisite. Formatting and lint fixes mid-work
 rewrite lines you did not author, so every agent would have to re-assess changes that are not
@@ -80,16 +104,19 @@ those lines are yours. The specialized `pse commit` transaction is deferred (Pla
   part of the change, not polish. `just hygiene` confirms it at scope end (`codegen-check`).
 - **Delete legacy code as soon as it is provably replaced** — the replacement's targeted
   tests pass and every caller has moved. Remove the old mechanism, its callers, its tests
-  and its fixtures in the same change. Do not port tests for a deleted mechanism, keep a
-  shim, or retain a path "as evidence".
+  and its fixtures in the same change, including obsolete adapters, fallback selection and
+  configuration. Preserve useful behavior tests against the target; delete tests specific to the
+  removed mechanism. Keep no shim or replaced path "as evidence".
 
 **After all functional scope is implemented:** select the relevant integration, component,
-solver and Python journeys, performance campaigns, and the relevant hygiene, governance,
+solver and Python journeys, and the relevant hygiene, governance,
 docs, native and powerset checks. When hygiene and governance cover the same checkout and
 prepared context, run `scripts/pse run-all hygiene governance-tests` to share their codegen
 and family checks. Use `just hygiene` or `just governance` when selecting either on its own.
 Fix failures and rerun the checks whose evidence the fix changes. Report the commands, scope
 and results. The maintainer may also request this qualification at any other time.
+Consider performance experiments where serious regression concerns warrant them, following
+the validation judgment above.
 
 **Don't, mid-plan:** run `just doctor`/`just ready` unless the environment changed or a command
 failed in an environment-shaped way; run formatters, linters, type checks or other
@@ -427,7 +454,8 @@ Use design-review-audit at requested or explicitly planned boundaries. Publish t
 review in place, preserving the exact input in Git and attributing the revised judgment.
 Use plan-completion-audit for claimed scope completion and correct that same owning plan,
 including affected summaries, packages, findings and next work. Separate implementation,
-required qualification and benefit evidence. These assessments do not recur per slice and do
+required qualification and the evidence supporting benefit claims; absent improvement benchmarks
+alone do not indicate incomplete work. These assessments do not recur per slice and do
 not alone authorize production repairs. Existing plans keep scheduled disposition and handoff.
 
 ### Functional capability exploration

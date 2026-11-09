@@ -66,7 +66,9 @@ unused library feature alone does not establish a violation.
 Keep established diagnoses, hypotheses and unexamined areas distinguishable using the existing
 evidence vocabulary. Read decisive sources and include material contrary evidence. Source reasoning
 may suffice; probes help when they resolve a consequential uncertainty. Qualitative execution-fit
-assessment needs no cost model or benchmark campaign; quantitative claims still need measurements.
+assessment needs no cost model or benchmark campaign. Numerical claims need measurement support;
+qualitative expectations need no measurement task. Follow AGENTS.md's validation judgment when
+serious regression concerns warrant performance experiments.
 Choose reference sources according to the repository's library-research guidance and the
 uncertainty being resolved.
 

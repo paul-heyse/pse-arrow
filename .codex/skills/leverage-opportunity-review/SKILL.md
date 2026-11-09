@@ -74,8 +74,10 @@ Explain why an option best serves the intended operation and consumers. Consider
 semantic fit, domain authority, ownership, composition, change locality, isolated reasoning,
 execution, failure/recovery and total developer/operator machinery. Compare preparation, normal
 use, growth and credible failure far enough to expose material tradeoffs. Reason qualitatively;
-quantitative performance claims need measurements. Probes serve consequential questions rather
-than a required review ritual.
+numerical performance claims need measurement support. Qualitative expectations need no measurement
+task. Follow the host's validation judgment for performance experiments and its development-stage
+guidance when comparing replacements and transition machinery. Functional probes serve consequential
+questions rather than a required review ritual.
 
 Challenge a consequential recommendation with a revealing legitimate case. Could it erase a
 distinction, reject valid work, weaken a guarantee, obscure effects or move policy to the wrong

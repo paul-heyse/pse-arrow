@@ -127,6 +127,10 @@ when assigning that work. Ask what could remain wrong even if every worker satis
 brief; the answer identifies where coordinator attention or a revealing cross-boundary check
 would help.
 
+Use AGENTS.md's design-stage guidance when choosing the transition: a coherent target and direct
+cutover can be simpler than intermediate interfaces or staged adoption. Include affected consumers
+and deletion of superseded machinery in the assignments that deliver the replacement.
+
 Choose useful points for implementation review and functional feedback against identifiable
 inputs. A worker's completion report should expose remaining assumptions, evidence limits and
 integration obligations. Inspect decisive evidence and reconcile contributions before accepting
@@ -136,6 +140,9 @@ handoffs do not create additional qualification gates.
 Follow `AGENTS.md` for verification scope and timing, generation, formatting and hook ownership.
 Use focused checks during implementation and reserve integrated qualification for the boundary
 specified by repository policy.
+Follow AGENTS.md's validation judgment when considering performance experiments; reasonably
+expected gains need no measurement task. Serious regression concerns can warrant a focused
+experiment when its result would inform implementation or acceptance.
 
 ## Keep detail proportional to what is known
 

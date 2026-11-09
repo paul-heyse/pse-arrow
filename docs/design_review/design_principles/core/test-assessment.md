@@ -199,7 +199,9 @@ reasoning can establish avoidable amplification or poor execution fit without id
 dominant runtime bottleneck. Use targeted execution only to resolve consequential uncertainty
 that source inspection cannot settle; do not initiate profiling or benchmark probes merely to
 substantiate an otherwise established structural diagnosis. Claims about elapsed time, speedup
-or capacity still need measurements under stated conditions. No universal test pyramid, runtime
+or capacity still need measurement support under stated conditions. Expected gains can remain
+qualitative without a measurement task; consider performance experiments for serious regression
+risks under DP-23 and the repository's validation guidance. No universal test pyramid, runtime
 threshold, full-suite execution or benchmark campaign follows. An inquiry may conclude that no
 material efficiency shortfall was established, with its inspected scope and limits stated.
 

@@ -104,7 +104,8 @@ and concurrency require judgment about validity and failure behavior; none is a 
 Use targeted execution only when it resolves a consequential uncertainty that source inspection
 cannot settle. Do not initiate profiling or benchmark probes merely to substantiate an otherwise
 established structural diagnosis. Quantitative claims about elapsed time, speedup or capacity
-still require measurements under stated conditions.
+still require measurement support under stated conditions. Qualitative expectations need no
+measurement task; follow AGENTS.md's validation judgment for serious regression concerns.
 
 ## Publish diagnosis with clear ownership
 

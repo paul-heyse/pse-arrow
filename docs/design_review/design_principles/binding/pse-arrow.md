@@ -33,6 +33,11 @@ measurements. Qualitative reasoning can defeat acceptance without a benchmark; n
 probe mandate, lint or product qualification is introduced by this adoption. Scientific gates
 and PS-09's solver/composition ownership remain independently required.
 
+AGENTS.md owns local validation judgment and design-stage development. Expected gains generally
+need no demonstration of their size; consider performance experiments for serious regression
+concerns. Favor a coherent target with affected consumers migrated and superseded machinery
+removed, assessing transition needs against actual consumer, durable-data and recovery obligations.
+
 Use the [core principles](../core/design-principles.md) together with
 [Heuristics for Efficient Architecture](../core/efficient-architecture-heuristics.md), selected
 by `[core].heuristics`, for consequential choices. The companion maps to AP-07 and existing G9,
@@ -218,7 +223,8 @@ The coordinator owns a series' combined conclusion; supporting plans retain affe
 details and source finding identities. Git holds prior accounts and receipts keep their original
 dates and scope. No separate completion report, folder or progress register is introduced.
 
-Distinguish functional implementation, required qualification and benefit measurements. Use
+Distinguish functional implementation, required qualification and the evidence supporting benefit
+claims. Missing improvement benchmarks alone do not indicate incomplete work. Use
 existing applicable evidence and targeted investigation as warranted; no automatic full test
 campaign follows. Missing required evidence remains outstanding under the existing qualification
 policy. A fresh `implementation-reviewer` can return the judgment and proposed plan corrections

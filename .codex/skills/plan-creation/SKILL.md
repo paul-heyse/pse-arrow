@@ -69,8 +69,10 @@ coordination a simpler conforming realization removes, and what effect/recovery 
 Semantic ownership alone does not settle layout, placement or enforcement frequency. Assess
 execution fit qualitatively under create-plan's scope and explain material tradeoffs in plain
 language; numerical estimates, cost models, accounting machinery and cost proof artifacts are
-not required by this consideration. Quantitative performance/capacity claims require measurements,
-and existing correctness obligations remain.
+not required by this consideration. Numerical performance/capacity claims need measurement support;
+qualitative expectations need no measurement task. Use AGENTS.md's validation judgment for serious
+regression concerns and its design-stage guidance when shaping a coherent replacement, including
+affected consumers and deletion. Existing correctness obligations remain.
 Investigate such questions early enough to avoid developing substantial detail around an
 unstable premise. Explain what a result would enable or change in the proposed design.
 

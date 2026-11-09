@@ -65,8 +65,9 @@ design the review may propose changing.
 
 Where execution fit matters, select revealing operations and growth, skew, concurrency or failure
 premises. Consider necessary work, access paths, crossings, working set, reuse and recovery
-qualitatively. Source reasoning may settle a structural mismatch; quantitative claims need
-measurements. No cost model, mandatory probe or benchmark campaign follows.
+qualitatively. Source reasoning may settle a structural mismatch. Numerical claims need measurement
+support; qualitative expectations need no measurement task. Use AGENTS.md's validation judgment
+for serious regression concerns. No cost model, mandatory probe or benchmark campaign follows.
 
 ## Organize inquiry around consequential uncertainty
 

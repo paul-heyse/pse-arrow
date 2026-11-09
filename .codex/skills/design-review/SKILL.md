@@ -134,7 +134,7 @@ new proof machinery.
   instrumentation, formal cost proofs or additional proof artifacts. Those mechanisms need a
   separate concrete functional or operational requirement; existing correctness obligations remain.
   Material unknown premises remain unresolved. Static structural evidence can
-  establish unfit execution; quantitative benefits need measurement. G9 follows
+  establish unfit execution; numerical benefit claims need measurement support. G9 follows
   these verdicts without averaging, even when current outputs are correct. Deferral cannot
   waive a domain-model MUST for supported behavior.
 - **Behavior:** settle each applicable core/profile gate on its own evidence. Preserve physical
@@ -178,6 +178,9 @@ new proof machinery.
 Reason from the source, contracts and designs actually inspected. Use a probe only where
 material doubt remains. Label proposed benefits and source-traced paths honestly; Tested and
 Measured name executed checks and their conditions. Secondhand evidence is a lead until read.
+Use AGENTS.md's validation judgment when considering benchmarks: expected improvements generally
+need no demonstration of their size. Favor coherent target designs under its design-stage guidance;
+consider affected consumers and removal of superseded paths when assessing a replacement.
 
 Attack the relevant guarantee: an ordinary extension propagating into unrelated owners; an
 implementation detail leaking into consumers; a pure responsibility requiring unrelated

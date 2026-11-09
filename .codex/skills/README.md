@@ -58,7 +58,10 @@ standard remains core 3.4 and process-simulator 1.5, as selected by
 qualitative execution-fit assessment (AP-07/G9) and independent scientific judgments are preserved.
 Explain material operational tradeoffs in plain language under the core's assessment scope;
 numerical estimates, runtime cost accounting and cost proof artifacts are not required by it.
-Quantitative performance/capacity claims require measurements; semantic correctness obligations
+Numerical performance/capacity claims require measurement support; a qualitative expectation need
+not become a measurement task. AGENTS.md owns validation judgment and design-stage development:
+consider benchmarking for serious regression concerns, and favor a coherent replacement with
+affected consumers migrated and superseded machinery removed. Semantic correctness obligations
 remain. The binding owns cadence. Routine implementation adds no standing domain-model
 review or exhaustive flow tracing.
 

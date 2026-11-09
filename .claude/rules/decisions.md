@@ -116,8 +116,10 @@ Requested design-review recommendation audits produce a net-change companion and
 integrated principal review, preserving the exact original in Git. Editorial dispositions do
 not change scheduled scope. Requested completion audits reconstruct accepted obligations and
 correct the same owning plan's current conclusion, package state, findings and next work.
-Separate implementation, required qualification and benefit measurements. These are deliberate
-boundaries, not recurring per-slice gates; auditing does not authorize production repair.
+Separate implementation, required qualification and the evidence supporting benefit claims.
+Absent improvement benchmarks alone do not indicate incomplete work (AGENTS.md's validation judgment).
+These are deliberate boundaries, not recurring per-slice gates; auditing does not authorize
+production repair.
 
 ### Execution rhythm in plans
 
@@ -125,13 +127,16 @@ Structure every plan the way AGENTS.md *Execution rhythm* runs it:
 
 - **Packets** name targeted unit tests as their acceptance, plus the deletion of whatever
   they replace. A packet is not done while the replaced mechanism, its callers or its
-  tests remain — delete them as soon as the replacement is proven by its tests. No
-  compatibility paths, no tests ported onto a deleted mechanism.
+  mechanism-specific tests remain — delete them as soon as the replacement is proven by its tests.
+  Remove replaced compatibility paths. Preserve useful behavior tests against the target rather than
+  porting tests for the deleted mechanism. Favor a coherent target and direct cutover where the
+  project's actual consumer, data and recovery obligations allow it.
 - **Formatting runs in `just turn-end` at the end of a turn; static checks (`just hygiene`) and integrated
   tests run once, after all functional scope is implemented** (ADR-0161). Packets use compile checks and
   targeted tests only. A plan's final qualification packet selects the relevant integration,
-  component, solver, Python, performance and manual static checks; the maintainer may also request it at
-  any time. None of these is a commit, push or merge gate. Report evidence for checks
+  component, solver, Python and manual static checks; consider performance experiments under
+  AGENTS.md's validation judgment where serious regression concerns warrant them. The maintainer
+  may request qualification at any time. None of these is a commit, push or merge gate. Report evidence for checks
   actually run. Documentation/tooling changes do not acquire native
   compilation or source-proof requirements.
 - **Checkpoints** record current state, decisions made and the next dependency-ordered

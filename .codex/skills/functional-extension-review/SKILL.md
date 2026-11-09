@@ -73,8 +73,10 @@ candidates, illustrative examples and unresolved feasibility. Preserve these lea
 
 Use qualitative judgment about usefulness, likely frequency, breadth of benefit, integration
 burden and ongoing operation. Explain material tradeoffs without numerical scoring, invented
-demand estimates, cost models or mandatory benchmark campaigns. Quantitative benefit claims need
-measurements; useful proposals can remain explicitly reasoned hypotheses. Choose probes or
+demand estimates, cost models or mandatory benchmark campaigns. Numerical benefit claims need
+measurement support; useful proposals can remain reasoned qualitative expectations without a
+measurement task. Use AGENTS.md's validation judgment for performance experiments and its
+design-stage guidance when considering substantial replacements. Choose functional probes or
 scenarios when they settle consequential uncertainty, not as proof of diligence.
 
 ## Recommend a coherent set of improvements

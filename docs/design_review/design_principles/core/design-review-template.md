@@ -142,6 +142,8 @@ model, estimator, runtime cost accounting, execution-planning machinery, instrum
 cost proof or additional proof artifact; such mechanisms need a separate concrete functional or
 operational requirement. Quantitative performance/capacity claims still require measurements,
 and existing semantic correctness obligations remain. No invented capacity SLA is required.
+Expected gains can remain qualitative without a measurement task; consider performance experiments
+for serious regression risks under DP-23 and the repository's validation guidance.
 Explain what was inspected, asserted, not examined or unavailable. Identify likely
 variation axes and constraints before naming implementation mechanisms.
 

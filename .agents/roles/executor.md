@@ -15,6 +15,11 @@ Reconcile contradictions, missing foundations or changes beyond delegated contra
 with the coordinator and relevant semantic owner. Supply evidence and a proposed route; continue
 work whose assumptions still hold.
 
+Favor a coherent target over preserving existing structure or minimizing the diff, following
+AGENTS.md's design-stage guidance. The completed replacement includes affected consumers and
+removal of obsolete adapters, fallback selection, configuration and mechanism-specific tests;
+preserve useful behavior tests and independent oracles against the target.
+
 Use compile checks and meaningful targeted tests for the implemented behavior. Read schema
 snapshot changes before accepting them. Diagnose and repair in-scope functional failures; never
 weaken acceptance to obtain a pass. Coordinate shared build and database resources. Return the

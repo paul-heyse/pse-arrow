@@ -105,8 +105,10 @@ capabilities and alternatives where they affect the design, using the repository
 guidance to choose sources for the uncertainty being resolved, and its active native solver skill.
 Preserve enough rationale for an implementer to recognize evidence that would reopen a decision.
 Relate an expected benefit to its mechanism and workload or conditions, and consider material
-integration, lifecycle and maintenance obligations. Quantitative benefits need a baseline and
-measurement route; unmeasured benefits remain hypotheses.
+integration, lifecycle and maintenance obligations. Qualitative engineering reasoning can support
+an expected improvement without demonstrating its size. Numerical performance claims need
+applicable measurements; they need not be made. Follow AGENTS.md's validation judgment when
+serious regression concerns warrant an experiment, rather than creating benefit-measurement work.
 
 Explain each pivotal library capability in the target design or work package that owns its use,
 whether it comes from a review, an existing integration, or new research. A capability is pivotal
@@ -219,6 +221,10 @@ a revealing failure case often settles ambiguity better than an exhaustive imple
 Distinguish illustrative consumers from the actual migration scope so an example does not become
 an accidental completion boundary.
 
+Favor a coherent target over preserving existing structure or minimizing the diff. Consider whether
+a direct cutover would simplify the change before introducing intermediate interfaces, compatibility
+layers or staged adoption. Include substantially affected consumers and removal of superseded
+machinery in the replacement's acceptance, following AGENTS.md's design-stage guidance.
 Describe preservation and retirement with replacement, following the project's migration policy.
 Explain meaningful intermediate states: which capabilities become usable, which consumers have
 moved and which constraints remain. Where adoption requires data migration, activation, rebuilding
@@ -233,11 +239,12 @@ capable of exposing a wrong implementation or premise; expected results produced
 questionable transformation may only reproduce its defect. Explain suitable independent evidence
 where that risk matters, without requiring a new oracle for every change.
 
-Local verification, assembled-system qualification and benefit measurement establish different
-claims. Give each relevant scope an owner and deliberate timing under the repository's execution
-policy. Package and document boundaries do not automatically require full campaigns. Make clear
-which evidence is necessary for completion and which measurements are deferred, with their purpose
-and trigger. Retain source-review finding identifiers and link to the single disposition owner;
+Local verification and assembled-system qualification establish different claims from expected
+benefits. Give required verification appropriate scope and timing under the repository's execution
+policy. Package and document boundaries do not automatically require full campaigns. Benefit
+measurement need not be a work package, deferred obligation or completion criterion. Where a
+serious regression risk warrants measurement, explain the concern and what the evidence would
+settle in the owning work package. Retain source-review finding identifiers and link to the single disposition owner;
 a package can finish while a broader finding still has other contributors or evidence obligations.
 
 Keep design intent, current progress and completed evidence distinguishable. A checkpoint explains

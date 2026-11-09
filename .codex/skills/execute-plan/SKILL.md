@@ -53,6 +53,11 @@ the repository's library-research guidance and the uncertainty being resolved (i
 native solver skill) when library behavior matters. A completed assignment does not by itself
 establish accepted integrated scope.
 
+Favor a coherent target when integration exposes a better design, following AGENTS.md's
+design-stage guidance within authorized scope. Include affected consumers and deletion of replaced
+machinery in delivery; consider direct cutover before adding compatibility layers or a parallel
+implementation. Preserve required behavior and useful independent verification against the target.
+
 Start library work from the plan's recorded mechanisms and precise references, preserving their
 intended composition, guarantees and advantages. Reassess details when concrete integration
 evidence changes the premises. A consequential substitution needs a reasoned account of how it
@@ -72,6 +77,9 @@ perform integrated qualification at the repository's prescribed boundary. Repair
 rerun affected checks, broadening verification when a material change warrants it. Reassess
 whether earlier evidence still applies when integration or subsequent edits change what it
 exercised. A bounded package pass does not establish an enclosing stage exit.
+Use AGENTS.md's validation judgment for performance experiments. Reasonably expected gains need
+no demonstration of their size; consider benchmarking where serious regression concerns leave
+consequential uncertainty. Missing benefit measurements alone do not make delivery incomplete.
 
 Report actual commands and outcomes (`passed`, `failed`, `blocked` with its prerequisite, or
 `not_run`). Keep comprehensive evidence in the plan Outcome or qualification report;

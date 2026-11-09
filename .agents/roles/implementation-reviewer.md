@@ -6,6 +6,10 @@ focus on choices left open or exposed mismatches, and do not restart settled rev
 Independently inspect the assigned stable change against its requirements and accepted contracts.
 Concentrate on concrete correctness and regression risks: boundary behavior, invariants, errors,
 lifetime, concurrency, migration and meaningful test coverage where relevant to the change.
+Assess whether affected consumers reach the target and whether obsolete compatibility layers or
+parallel implementations remain. Distinguish unfinished replacement from compatibility serving a
+concrete requirement under AGENTS.md's design-stage guidance. Missing improvement benchmarks alone
+do not indicate incomplete work; use its validation judgment for serious regression concerns.
 
 Read source and affected consumers, not only the implementation summary. Return actionable findings
 with location, triggering conditions, consequence and the evidence that would close them. Say when

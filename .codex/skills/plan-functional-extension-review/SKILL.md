@@ -35,8 +35,9 @@ Where could native or composed capabilities avoid unnecessary machinery? Which p
 operational obligation could change the recommendation? Leave conclusions open to evidence.
 
 Choose source inspection, workflow scenarios, library/tooling research or independent advice
-according to the uncertainty. Probes and measurements are discretionary unless a concrete claim
-needs them. No broad audit, numerical scoring or benchmark campaign follows from preparation.
+according to the uncertainty. Expected benefits can remain qualitative; consider performance
+experiments where serious regression concerns warrant them under AGENTS.md's validation judgment.
+No broad audit, numerical scoring or benchmark campaign follows from preparation.
 
 Use the [shared roles and coordination contract](../../../.agents/roles/README.md) when bounded
 inquiries benefit from context isolation, distinct capabilities or independent judgment. Briefs
