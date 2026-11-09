@@ -381,9 +381,12 @@ impl InvocationDirectory {
     }
 
     /// Called only after the recorded enclosing owner and population have been verified.
-    pub(crate) fn record_conformance_enclosing_drain(&self) -> Result<(), HostError> {
+    pub(crate) fn record_conformance_enclosing_drain(&self, authenticated_custody: &str) -> Result<(), HostError> {
         let owner = lock(self.path(), FlockOperation::LockExclusive)?;
         let drain = self.enclosing_drain()?;
+        if drain.custody_sha256 != authenticated_custody {
+            return Err(invalid("original borrowed campaign custody changed after drain authentication"));
+        }
         match read_member::<EnclosingDrain>(&owner, ENCLOSING_DRAIN)? {
             Some((original, _)) if original == drain => Ok(()),
             Some(_) => Err(invalid("enclosing drain witness differs from original borrowed campaign custody")),
@@ -906,8 +909,10 @@ mod tests {
 
         let custody = serde_json::json!({"fixture": "original foreground custody"});
         fixture.original.publish_evidence(InvocationEvidence::Custody, &custody).unwrap();
-        fixture.original.record_conformance_enclosing_drain().unwrap();
-        fixture.original.record_conformance_enclosing_drain().unwrap();
+        assert!(fixture.original.record_conformance_enclosing_drain("different custody").is_err());
+        let authenticated = fixture.original.enclosing_drain().unwrap().custody_sha256;
+        fixture.original.record_conformance_enclosing_drain(&authenticated).unwrap();
+        fixture.original.record_conformance_enclosing_drain(&authenticated).unwrap();
         let token = fixture.retire(None).unwrap().release.unwrap();
         let custody_name = InvocationEvidence::Custody.filename();
         fs::remove_file(fixture.path(custody_name)).unwrap();

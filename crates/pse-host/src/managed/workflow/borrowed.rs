@@ -108,6 +108,7 @@ fn release_recorded(
     store: &InvocationStore,
     directory: &InvocationDirectory,
     borrowed: bool,
+    authenticated_custody: &str,
 ) -> Result<(), HostError> {
     let result = store
         .result::<serde::de::IgnoredAny, crate::managed::result::ManagedSummary>(directory.id())?
@@ -116,7 +117,7 @@ fn release_recorded(
         if !borrowed || !result.payload.borrowed_reservation {
             return Err(host(invalid("original campaign did not borrow this enclosing workload")));
         }
-        return directory.record_conformance_enclosing_drain();
+        return directory.record_conformance_enclosing_drain(authenticated_custody);
     }
     if result.payload.borrowed_reservation == borrowed
         && release_interrupted_listing(directory, &result)?
@@ -150,14 +151,15 @@ fn release_recorded(
     Ok(())
 }
 
-fn custody(directory: &InvocationDirectory) -> Result<ForegroundCustody, HostError> {
-    let custody: ForegroundCustody = directory
-        .evidence(InvocationEvidence::Custody)?
+fn custody(directory: &InvocationDirectory) -> Result<(ForegroundCustody, String), HostError> {
+    let bytes = directory
+        .evidence_bytes(InvocationEvidence::Custody)?
         .ok_or_else(|| host(invalid("original foreground workflow custody is absent")))?;
+    let custody: ForegroundCustody = serde_json::from_slice(&bytes).map_err(host)?;
     if custody.version != 4 {
         return Err(host(invalid("unsupported foreground workflow custody")));
     }
-    Ok(custody)
+    Ok((custody, digest(&bytes)))
 }
 
 fn remove_queue(path: &Path) -> Result<(), HostError> {
@@ -236,7 +238,7 @@ pub(crate) fn reconcile_enclosing(
             let route: Route = serde_json::from_slice(&bytes).map_err(host)?;
             let store = route.store()?;
             let directory = store.directory(&id)?;
-            let original_custody = custody(&directory)?;
+            let (original_custody, authenticated_custody) = custody(&directory)?;
             if original_custody.manager != manager
                 || original_custody.unit != unit
                 || original_custody.root != *binding
@@ -245,7 +247,7 @@ pub(crate) fn reconcile_enclosing(
                     "borrowed workflow belongs to a different enclosing workload",
                 )));
             }
-            release_recorded(&store, &directory, true)?;
+            release_recorded(&store, &directory, true, &authenticated_custody)?;
             match fs::symlink_metadata(entry.path()) {
                 Ok(current)
                     if (original.dev(), original.ino()) == (current.dev(), current.ino()) =>
@@ -273,7 +275,7 @@ pub(crate) async fn reconcile_foreground(
     directory: &InvocationDirectory,
     borrowed_runtime: Option<&Path>,
 ) -> Result<bool, HostError> {
-    let custody = custody(directory)?;
+    let (custody, authenticated_custody) = custody(directory)?;
     let manager = HostManager::connect_user(None).await?;
     if !manager
         .foreground_binding_drained(
@@ -286,7 +288,7 @@ pub(crate) async fn reconcile_foreground(
     {
         return Ok(false);
     }
-    release_recorded(store, directory, borrowed_runtime.is_some())?;
+    release_recorded(store, directory, borrowed_runtime.is_some(), &authenticated_custody)?;
     let Some(runtime) = borrowed_runtime else {
         return Ok(true);
     };
