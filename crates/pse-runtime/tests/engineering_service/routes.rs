@@ -525,7 +525,9 @@ async fn prepared_engineering_study_client_simulation_fit_and_horizon_keep_origi
     let refused = failure(
         client
             .explicit_study()
-            .prepare_explicit_study(codec::encode_engineering_prepare_explicit_study(incompatible).unwrap())
+            .prepare_explicit_study(
+                codec::encode_engineering_prepare_explicit_study(incompatible).unwrap(),
+            )
             .await
             .unwrap_err(),
     );
@@ -548,7 +550,9 @@ async fn prepared_engineering_study_client_simulation_fit_and_horizon_keep_origi
     let prepared = codec::decode_engineering_prepared_study(
         client
             .explicit_study()
-            .prepare_explicit_study(codec::encode_engineering_prepare_explicit_study(prepare).unwrap())
+            .prepare_explicit_study(
+                codec::encode_engineering_prepare_explicit_study(prepare).unwrap(),
+            )
             .await
             .unwrap()
             .into_owned(),

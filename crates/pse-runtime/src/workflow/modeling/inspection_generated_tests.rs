@@ -34,9 +34,7 @@ async fn generated_inspection_original_fixture_inputs_preserve_presence_bits_and
     let original = serde_json::to_value(&document).unwrap();
     let wire = codec::encode_modeling_inspection(document).unwrap();
     let bytes = wire.encode_to_vec();
-    let world = std::sync::Arc::new(
-        DescriptorPool::decode(codec::DESCRIPTORS).unwrap(),
-    );
+    let world = std::sync::Arc::new(DescriptorPool::decode(codec::DESCRIPTORS).unwrap());
     let message = world
         .message_index("pse.engineering.v1.ModelingInspection")
         .unwrap();

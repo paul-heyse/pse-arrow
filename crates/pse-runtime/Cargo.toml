@@ -18,7 +18,11 @@ workspace = true
 
 [features]
 engineering-inspection = ["pse-host/engineering-types"]
-engineering-service = ["dep:http-body", "engineering-inspection", "pse-host/engineering-client"]
+engineering-service = [
+  "dep:http-body",
+  "engineering-inspection",
+  "pse-host/engineering-client",
+]
 property-coolprop = [
   "dep:http-body",
   "pse-backend-native/coolprop",

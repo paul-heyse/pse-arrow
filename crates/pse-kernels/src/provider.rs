@@ -201,7 +201,12 @@ impl ProviderSelectionObservation {
                 h.str("weighted-second").u64(*directions as u64);
             }
         }
-        for values in [inputs, runtime.directions, runtime.cotangents, runtime.weights] {
+        for values in [
+            inputs,
+            runtime.directions,
+            runtime.cotangents,
+            runtime.weights,
+        ] {
             h.u64(values.len() as u64);
             for value in values {
                 h.u64(value.to_bits());

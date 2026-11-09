@@ -6,8 +6,8 @@ use crate::math::{
     modeling::ModelingPreparation,
     solves::{OracleRouteRequest, OracleWitness, admit_oracle_route},
 };
-use crate::workflow::modeling::{ModelingPackage, ModelingSimulation, results as checks};
 use crate::workflow::modeling::dynamics::IntegrationInputTarget;
+use crate::workflow::modeling::{ModelingPackage, ModelingSimulation, results as checks};
 use pse_compiler::workspace::{ModelingCaseBindings, ModelingOutput, Profile};
 use pse_model::generated::enums::ModelingAnalysisRoute as Route;
 use pse_model::generated::identities::RunId;
@@ -178,7 +178,9 @@ impl ModelingPackage {
                 })?;
             let (model, local) = sources
                 .iter()
-                .find_map(|(_, _, model, local)| local.get(&index).map(|target| (model, target.member)))
+                .find_map(|(_, _, model, local)| {
+                    local.get(&index).map(|target| (model, target.member))
+                })
                 .ok_or_else(|| contract("fit parameter has no experiment binding"))?;
             let mut entry =
                 self.admit_target_quantity(model.compiled(), local, &assignment.value)?;
@@ -252,7 +254,9 @@ impl ModelingPackage {
             }
             let (model, local) = sources
                 .iter()
-                .find_map(|(_, _, model, local)| local.get(&index).map(|target| (model, target.member)))
+                .find_map(|(_, _, model, local)| {
+                    local.get(&index).map(|target| (model, target.member))
+                })
                 .ok_or_else(|| contract("fit parameter has no experiment binding"))?;
             let mut local_entry = entry.clone();
             local_entry.member = local;
@@ -321,8 +325,12 @@ impl ModelingPackage {
                     .ok_or_else(|| contract("experiment binds an undeclared fit parameter"))?;
                 let member = member(&model, &binding.path)?;
                 let schedule_start = binding.schedule_start;
-                if schedule_start.is_some_and(|time| !time.is_finite() || experiment.route != Route::Integrated) {
-                    return Err(contract("fit schedule targets require a finite integrated model clock"));
+                if schedule_start
+                    .is_some_and(|time| !time.is_finite() || experiment.route != Route::Integrated)
+                {
+                    return Err(contract(
+                        "fit schedule targets require a finite integrated model clock",
+                    ));
                 }
                 let mut parameter_port = port(&model, member)?;
                 parameter_port.id = binding.parameter_id;
@@ -333,7 +341,15 @@ impl ModelingPackage {
                     return Err(contract("shared parameter physical contract mismatch"));
                 }
                 ports[parameter] = Some(parameter_port);
-                if local.insert(parameter, IntegrationInputTarget { member, schedule_start }).is_some()
+                if local
+                    .insert(
+                        parameter,
+                        IntegrationInputTarget {
+                            member,
+                            schedule_start,
+                        },
+                    )
+                    .is_some()
                     || !local_ids.insert((member, schedule_start.map(f64::to_bits)))
                 {
                     return Err(contract("duplicate experiment parameter binding"));
@@ -1123,7 +1139,9 @@ impl ModelingPackage {
                         }
                         let local_states = coordinates.len();
                         for (parameter, target) in &local {
-                            values.scalars.insert(target.member, d.parameters[*parameter].value);
+                            values
+                                .scalars
+                                .insert(target.member, d.parameters[*parameter].value);
                             if let Some(col) = parameter_columns[*parameter] {
                                 coordinates.push((target.member, col));
                             }

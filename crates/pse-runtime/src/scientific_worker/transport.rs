@@ -451,15 +451,16 @@ impl IoOwner {
     ) -> Result<p::Response, WorkerError> {
         let client = self.observed_client()?;
         let request = pb::Request::try_from(request)?;
-        let response = connectrpc::client::call_unary::<_, _, pb::__buffa::view::ResponseView<'static>>(
-            &client.transport,
-            client.generated.config(),
-            connectrpc::Spec::client(path, connectrpc::StreamType::Unary),
-            request,
-            call_options(Some(Duration::from_secs(5))),
-        )
-        .await
-        .map_err(WorkerError::Exchange)?;
+        let response =
+            connectrpc::client::call_unary::<_, _, pb::__buffa::view::ResponseView<'static>>(
+                &client.transport,
+                client.generated.config(),
+                connectrpc::Spec::client(path, connectrpc::StreamType::Unary),
+                request,
+                call_options(Some(Duration::from_secs(5))),
+            )
+            .await
+            .map_err(WorkerError::Exchange)?;
         p::Response::try_from(response.into_owned())
     }
     #[cfg(test)]
@@ -719,7 +720,8 @@ impl HandleControls {
                     )
                     .into());
                 }
-                self.handles.insert(handle.generation, (handle, Default::default()));
+                self.handles
+                    .insert(handle.generation, (handle, Default::default()));
                 self.last_prepared_generation = handle.generation;
             }
             p::Request::Evaluate(value) => {
@@ -741,7 +743,10 @@ impl HandleControls {
         }
         Ok(())
     }
-    fn control(&self, handle: &p::SessionHandle) -> Result<&pse_diagnostics::Cancellation, WorkerError> {
+    fn control(
+        &self,
+        handle: &p::SessionHandle,
+    ) -> Result<&pse_diagnostics::Cancellation, WorkerError> {
         self.handles
             .get(&handle.generation)
             .filter(|(actual, _)| actual == handle)
@@ -2081,7 +2086,9 @@ mod tests {
         (
             Server {
                 jobs,
-                controls: SharedControls::new(std::sync::Mutex::new(HandleControls::new(handle(0).session))),
+                controls: SharedControls::new(std::sync::Mutex::new(HandleControls::new(
+                    handle(0).session,
+                ))),
                 work: Arc::new(tokio::sync::Semaphore::new(1)),
                 terminal: tokio::sync::watch::channel(None).1,
             },
@@ -2204,10 +2211,10 @@ mod tests {
         let (server, mut receiving) = server();
         let survivor = handle(4);
         let cancellation = pse_diagnostics::Cancellation::default();
-        controls_lock(&server.controls).unwrap().handles.insert(
-            survivor.generation,
-            (survivor, cancellation.clone()),
-        );
+        controls_lock(&server.controls)
+            .unwrap()
+            .handles
+            .insert(survivor.generation, (survivor, cancellation.clone()));
         let orphan = handle(3);
         let work = server.work.clone().try_acquire_owned().unwrap();
         let observer = server
@@ -2256,10 +2263,10 @@ mod tests {
             let orphan = handle(3);
             let survivor = handle(4);
             let cancellation = pse_diagnostics::Cancellation::default();
-            controls_lock(&server.controls).unwrap().handles.insert(
-                survivor.generation,
-                (survivor, cancellation.clone()),
-            );
+            controls_lock(&server.controls)
+                .unwrap()
+                .handles
+                .insert(survivor.generation, (survivor, cancellation.clone()));
             let work = server.work.clone().try_acquire_owned().unwrap();
             let observer = server
                 .submit(preparation(orphan), Some(work))
@@ -2448,9 +2455,7 @@ mod tests {
             .await
             .unwrap();
         let job = receiving.recv().await.unwrap();
-        let observed = job
-            .completion
-            .deliver(p::Response::Closed(survivor));
+        let observed = job.completion.deliver(p::Response::Closed(survivor));
         let reply = next.response.await.unwrap();
         assert!(matches!(reply.response, p::Response::Closed(actual) if actual == survivor));
         reply.delivery.consume();

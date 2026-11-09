@@ -16,8 +16,8 @@ use std::collections::btree_map::Entry;
 use pse_columnar::native_field::{MetadataPurpose, map, project};
 
 use crate::SchemaError;
-use crate::model::{FieldContract, RelationSpec};
 use crate::model::field_facets::{EXPRESSION_ORDINAL, EXPRESSION_ROLE};
+use crate::model::{FieldContract, RelationSpec};
 
 /// Collect every named structure, refusing two different contracts under one name.
 ///
@@ -203,17 +203,27 @@ mod tests {
 
         let structure = |role, ordinal| {
             let mut value = F::native(DataType::Utf8).with_name("value").into_field();
-            value.metadata_mut().insert(EXPRESSION_ROLE.into(), String::from(role));
-            value.metadata_mut().insert(EXPRESSION_ORDINAL.into(), String::from(ordinal));
+            value
+                .metadata_mut()
+                .insert(EXPRESSION_ROLE.into(), String::from(role));
+            value
+                .metadata_mut()
+                .insert(EXPRESSION_ORDINAL.into(), String::from(ordinal));
             F::structure(vec![F::from_field(value)]).named("SourceValue")
         };
         let mut builder = RegistryBuilder::new();
         builder.declare_relation(relation("first", structure("first.values.value", "list")));
-        builder.declare_relation(relation("second", structure("second.values.value", "flatten")));
+        builder.declare_relation(relation(
+            "second",
+            structure("second.values.value", "flatten"),
+        ));
         let registry = builder.build().unwrap();
         let owner = registry.structures()["SourceValue"].children()[0].clone();
         assert!(owner.expression_source_contract().unwrap().is_none());
-        for (name, expected) in [("first", "first.values.value"), ("second", "second.values.value")] {
+        for (name, expected) in [
+            ("first", "first.values.value"),
+            ("second", "second.values.value"),
+        ] {
             let relation = registry.relation(&format!("authored.{name}")).unwrap();
             let mut fields = Vec::new();
             relation.columns[1].walk(&mut fields);

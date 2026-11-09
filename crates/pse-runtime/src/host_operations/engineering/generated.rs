@@ -33,7 +33,9 @@ pub mod pb {
                 pub fn register_types(registry: &mut buffa::type_registry::TypeRegistry) {
                     broad::pse::engineering::v1::register_types(registry);
                     inspection::pse::engineering::v1::register_types(registry);
-                    pse_host::engineering_client::pb::pse::engineering::v1::register_types(registry);
+                    pse_host::engineering_client::pb::pse::engineering::v1::register_types(
+                        registry,
+                    );
                     pse_host::engineering_types::pb::pse::engineering::v1::register_types(registry);
                 }
 

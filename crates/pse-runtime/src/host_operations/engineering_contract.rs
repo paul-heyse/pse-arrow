@@ -9,13 +9,13 @@ mod inspection;
 mod study;
 pub use inspection::{EngineeringInspectModeling, EngineeringInspectProviders};
 pub use study::{
-    EXPANDED_STUDY_SERVICE, EXPLICIT_STUDY_SERVICE, STUDY_CONTROL_SERVICE,
-    EngineeringCohortRelease, EngineeringFreezeStudyCohort, EngineeringObserveStudy,
-    EngineeringPrepareExpandedStudy, EngineeringPrepareExplicitStudy, EngineeringPreparedStudy,
-    EngineeringReadStudyResult, EngineeringRestoreExpandedStudy, EngineeringRestoreExplicitStudy,
-    EngineeringStudyCohortPage, EngineeringStudyHeaderPage,
-    EngineeringStudyKey, EngineeringStudyResultPage, EngineeringStudyStatus,
-    EngineeringSubmitStudy, ExpandedStudyDefinition, ExplicitStudyDefinition, StudyDefinitionContext,
+    EXPANDED_STUDY_SERVICE, EXPLICIT_STUDY_SERVICE, EngineeringCohortRelease,
+    EngineeringFreezeStudyCohort, EngineeringObserveStudy, EngineeringPrepareExpandedStudy,
+    EngineeringPrepareExplicitStudy, EngineeringPreparedStudy, EngineeringReadStudyResult,
+    EngineeringRestoreExpandedStudy, EngineeringRestoreExplicitStudy, EngineeringStudyCohortPage,
+    EngineeringStudyHeaderPage, EngineeringStudyKey, EngineeringStudyResultPage,
+    EngineeringStudyStatus, EngineeringSubmitStudy, ExpandedStudyDefinition,
+    ExplicitStudyDefinition, STUDY_CONTROL_SERVICE, StudyDefinitionContext,
 };
 
 pse_contract::projection_struct! {
@@ -100,13 +100,16 @@ pub fn methods() -> Result<Vec<pse_model::engineering::EngineeringMethodContract
 }
 
 #[cfg(feature = "engineering-service")]
-pub(super) fn explicit_study_methods() -> Result<Vec<pse_model::engineering::EngineeringMethodContract>, ProjectionError> {
+pub(super) fn explicit_study_methods()
+-> Result<Vec<pse_model::engineering::EngineeringMethodContract>, ProjectionError> {
     let mut graph = ProjectionGraph::default();
     study::explicit_services(&mut graph)?;
     method_contracts(&graph)
 }
 
-fn method_contracts(graph: &ProjectionGraph) -> Result<Vec<pse_model::engineering::EngineeringMethodContract>, ProjectionError> {
+fn method_contracts(
+    graph: &ProjectionGraph,
+) -> Result<Vec<pse_model::engineering::EngineeringMethodContract>, ProjectionError> {
     use pse_contract::boundary_projection::TypeRef;
     let direction = |direction| match direction {
         Direction::Input => "input",

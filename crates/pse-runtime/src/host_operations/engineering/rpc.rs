@@ -60,8 +60,14 @@ impl EngineeringClient {
     ) -> Self {
         Self {
             inner: bindings::EngineeringServiceClient::new(connection.clone(), config.clone()),
-            explicit: bindings::ExplicitStudyPreparationV2Client::new(connection.clone(), config.clone()),
-            expanded: bindings::ExpandedStudyPreparationV2Client::new(connection.clone(), config.clone()),
+            explicit: bindings::ExplicitStudyPreparationV2Client::new(
+                connection.clone(),
+                config.clone(),
+            ),
+            expanded: bindings::ExpandedStudyPreparationV2Client::new(
+                connection.clone(),
+                config.clone(),
+            ),
             study: bindings::StudyControlV2Client::new(connection, config),
         }
     }
@@ -73,15 +79,23 @@ impl EngineeringClient {
         &self.inner
     }
     /// Generated client for explicit-point preparation and recovery.
-    pub fn explicit_study(&self) -> &bindings::ExplicitStudyPreparationV2Client<connectrpc::client::SharedHttp2Connection> {
+    pub fn explicit_study(
+        &self,
+    ) -> &bindings::ExplicitStudyPreparationV2Client<connectrpc::client::SharedHttp2Connection>
+    {
         &self.explicit
     }
     /// Generated client for source-expansion preparation and recovery.
-    pub fn expanded_study(&self) -> &bindings::ExpandedStudyPreparationV2Client<connectrpc::client::SharedHttp2Connection> {
+    pub fn expanded_study(
+        &self,
+    ) -> &bindings::ExpandedStudyPreparationV2Client<connectrpc::client::SharedHttp2Connection>
+    {
         &self.expanded
     }
     /// Generated client for shared Study execution and observations.
-    pub fn study(&self) -> &bindings::StudyControlV2Client<connectrpc::client::SharedHttp2Connection> {
+    pub fn study(
+        &self,
+    ) -> &bindings::StudyControlV2Client<connectrpc::client::SharedHttp2Connection> {
         &self.study
     }
 }
@@ -133,13 +147,16 @@ impl Implementation {
         explicit_study: bool,
     ) -> connectrpc::ServiceResult<AccountedResponse<pb::EngineeringContract>> {
         self.authenticate(&context)?;
-        crate::engineering_projection::decode_engineering_describe_request(request.to_owned_message())
-            .map_err(study::projection_error)?;
+        crate::engineering_projection::decode_engineering_describe_request(
+            request.to_owned_message(),
+        )
+        .map_err(study::projection_error)?;
         let output = if explicit_study {
             self.engine.describe_study_contract()
         } else {
             self.engine.describe_contract()
-        }.map_err(transport)?;
+        }
+        .map_err(transport)?;
         Ok(connectrpc::Response::new(AccountedResponse {
             message: crate::engineering_projection::encode_engineering_contract(output.document)
                 .map_err(study::projection_error)?,
@@ -491,7 +508,9 @@ impl bindings::StudyControlV2 for Implementation {
     }
 }
 
-fn check_run_observation_deadline(deadline: Option<std::time::Instant>) -> Result<(), ConnectError> {
+fn check_run_observation_deadline(
+    deadline: Option<std::time::Instant>,
+) -> Result<(), ConnectError> {
     if deadline.is_some_and(|deadline| std::time::Instant::now() >= deadline) {
         return Err(run_observation_deadline_error());
     }
@@ -530,7 +549,8 @@ pub async fn serve(
         policy: policy.clone(),
     });
     let router = bindings::EngineeringServiceExt::register(
-        implementation.clone(), connectrpc::Router::new(),
+        implementation.clone(),
+        connectrpc::Router::new(),
     );
     let router = bindings::ExplicitStudyPreparationV2Ext::register(implementation.clone(), router);
     let router = bindings::ExpandedStudyPreparationV2Ext::register(implementation.clone(), router);
@@ -637,7 +657,8 @@ fn infrastructure(error: impl std::fmt::Display) -> EngineeringServiceError {
     EngineeringServiceError::Infrastructure(error.to_string())
 }
 fn transport(error: EngineeringServiceError) -> ConnectError {
-    let failure = crate::engineering_projection::encode_engineering_failure(super::session::failure(&error));
+    let failure =
+        crate::engineering_projection::encode_engineering_failure(super::session::failure(&error));
     let code = pse_diagnostics::TypedDiagnostic::diagnostic_code(&error);
     let mapped = match code {
         Some(

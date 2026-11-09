@@ -172,7 +172,10 @@ pub fn encode_root<N: NativeInto<W> + ValidateProjection, W: protovalidate_buffa
 }
 
 /// Validate and convert an outgoing root under its crossing owner's scope.
-pub fn encode_root_in_scope<N, W, Scope>(native: N, path: &str) -> Result<W, BoundaryProjectionError>
+pub fn encode_root_in_scope<N, W, Scope>(
+    native: N,
+    path: &str,
+) -> Result<W, BoundaryProjectionError>
 where
     N: NativeInto<W, Scope> + ValidateProjection,
     W: protovalidate_buffa::Validate,

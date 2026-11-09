@@ -55,4 +55,5 @@ mod adapters;
 pub use adapters::{decode_modeling_inspection, encode_modeling_inspection};
 
 /// Complete descriptor import world of the model-inspection projection.
-pub const DESCRIPTORS: &[u8] = include_bytes!("../../generated/engineering-inspection/descriptor.bin");
+pub const DESCRIPTORS: &[u8] =
+    include_bytes!("../../generated/engineering-inspection/descriptor.bin");

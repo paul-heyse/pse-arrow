@@ -46,7 +46,10 @@ impl EngineeringService {
         &self,
         cache: &Mutex<Option<Arc<PreparedContract>>>,
         descriptor: &[u8],
-        methods: impl FnOnce() -> Result<Vec<EngineeringMethodContract>, pse_contract::boundary_projection::ProjectionError>,
+        methods: impl FnOnce() -> Result<
+            Vec<EngineeringMethodContract>,
+            pse_contract::boundary_projection::ProjectionError,
+        >,
     ) -> Result<ContractOutput, EngineeringServiceError> {
         use sha2::Digest as _;
         let mut prepared = cache

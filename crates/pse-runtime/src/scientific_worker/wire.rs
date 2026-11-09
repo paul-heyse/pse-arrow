@@ -434,7 +434,9 @@ mod tests {
     fn all_demand_alternatives_roundtrip_without_claiming_water_support() {
         for expected in [
             ProviderDemand::CompleteJets,
-            ProviderDemand::SelectedColumns { columns: vec![1, 0] },
+            ProviderDemand::SelectedColumns {
+                columns: vec![1, 0],
+            },
             ProviderDemand::JacobianAction { directions: 3 },
             ProviderDemand::TransposeAction { cotangents: 2 },
             ProviderDemand::WeightedSecondAction { directions: 4 },

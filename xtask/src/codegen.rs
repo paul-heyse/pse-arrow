@@ -477,14 +477,18 @@ fn check_generators(root: &Path, languages: &[Language], only: Option<Target>) -
             {
                 trees.push(("recorded-result".into(), tree));
             }
-            if let Some(tree) =
-                check_result(&mut failures, "scientific-worker", scientific_worker_tree(root))
-            {
+            if let Some(tree) = check_result(
+                &mut failures,
+                "scientific-worker",
+                scientific_worker_tree(root),
+            ) {
                 trees.push(("scientific-worker".into(), tree));
             }
-            if let Some(tree) =
-                check_result(&mut failures, "reference-exchange", reference_exchange_tree(root))
-            {
+            if let Some(tree) = check_result(
+                &mut failures,
+                "reference-exchange",
+                reference_exchange_tree(root),
+            ) {
                 trees.push(("reference-exchange".into(), tree));
             }
             if let Some(tree) = check_result(&mut failures, "engineering", engineering_tree(root)) {

@@ -616,17 +616,17 @@ impl ProjectionGraph {
 
     /// Source attribution for a file selection already admitted against the complete graph.
     /// Imported owners remain attributable at their own publication.
-    pub fn publication_scope(
-        &self,
-        owners: &BTreeSet<&str>,
-        services: &BTreeSet<&str>,
-    ) -> Self {
+    pub fn publication_scope(&self, owners: &BTreeSet<&str>, services: &BTreeSet<&str>) -> Self {
         Self {
-            definitions: self.definitions.iter()
+            definitions: self
+                .definitions
+                .iter()
                 .filter(|(name, _)| owners.contains(name.as_str()))
                 .map(|(name, definition)| (name.clone(), definition.clone()))
                 .collect(),
-            services: self.services.iter()
+            services: self
+                .services
+                .iter()
                 .filter(|(name, _)| services.contains(name.as_str()))
                 .map(|(name, service)| (name.clone(), service.clone()))
                 .collect(),

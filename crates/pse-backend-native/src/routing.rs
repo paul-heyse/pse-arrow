@@ -899,10 +899,11 @@ pub fn assess_static(
     requirements: &Requirements<'_>,
 ) -> Eligibility {
     let f = requirements.facts;
-    let callbacks = requirements
-        .table
-        .get(backend)
-        .and_then(|adapter| adapter.callback_demand(requirements.settings, requirements.controls).ok());
+    let callbacks = requirements.table.get(backend).and_then(|adapter| {
+        adapter
+            .callback_demand(requirements.settings, requirements.controls)
+            .ok()
+    });
     let mut assessment = Eligibility {
         backend,
         reasons: admit(
@@ -957,10 +958,15 @@ pub fn assess_static(
         assessment.evidence.push(EvidenceDemand::Structure);
     }
     if let Some(demand) = callbacks
-        && demand.required_order().is_some_and(|order| f.derivatives >= order)
+        && demand
+            .required_order()
+            .is_some_and(|order| f.derivatives >= order)
         && let Some(missing) = demand.missing(
             f.prepared_derivatives,
-            requirements.context.prepared.contains(&ArtifactDemand::JacobianProduct),
+            requirements
+                .context
+                .prepared
+                .contains(&ArtifactDemand::JacobianProduct),
         )
     {
         assessment.artifacts.push(missing);

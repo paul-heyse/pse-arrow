@@ -2,16 +2,21 @@
 // Copyright (c) 2026 Paul Heyse
 //! Typed crossings to original study admission, creation, observation and protected cohorts.
 
-use pse_contract::boundary_projection::{Direction, LocalRule, ProjectionError, ProjectionGraph, Service};
-use pse_contract::operation_effects::EffectFacts;
-use pse_ids::ContentHash;
-use pse_model::document::Version;
-use pse_model::engineering::{EngineeringContract, EngineeringDescribeRequest, EngineeringFailure, EngineeringOperationKey, EngineeringSourceSelection, OPERATION_ID_RULE};
-use pse_model::generated::identities::StudyId;
 use crate::workflow::{
     LazyStudyDefinition, PhysicalSource, ResearchSource, STUDY_DEFINITION_VERSION, StudyDefinition,
     StudyOutputDemand, StudyPoint, StudyPointDefinition, StudyVariants, WorkflowError,
 };
+use pse_contract::boundary_projection::{
+    Direction, LocalRule, ProjectionError, ProjectionGraph, Service,
+};
+use pse_contract::operation_effects::EffectFacts;
+use pse_ids::ContentHash;
+use pse_model::document::Version;
+use pse_model::engineering::{
+    EngineeringContract, EngineeringDescribeRequest, EngineeringFailure, EngineeringOperationKey,
+    EngineeringSourceSelection, OPERATION_ID_RULE,
+};
+use pse_model::generated::identities::StudyId;
 
 macro_rules! prepare_request {
     ($name:ident, $wire:literal, $member:ident: $inputs:ty, [$($rule:expr),*]) => {
@@ -84,8 +89,16 @@ macro_rules! restore_request {
     };
 }
 
-restore_request!(EngineeringRestoreExplicitStudy, "EngineeringRestoreExplicitStudy", ExplicitStudyDefinition);
-restore_request!(EngineeringRestoreExpandedStudy, "EngineeringRestoreExpandedStudy", ExpandedStudyDefinition);
+restore_request!(
+    EngineeringRestoreExplicitStudy,
+    "EngineeringRestoreExplicitStudy",
+    ExplicitStudyDefinition
+);
+restore_request!(
+    EngineeringRestoreExpandedStudy,
+    "EngineeringRestoreExpandedStudy",
+    ExpandedStudyDefinition
+);
 
 pse_contract::projection_struct! {
     /// Shared immutable source context of the two portable preparation capabilities.
@@ -108,14 +121,52 @@ pse_contract::projection_struct! {
 }
 
 impl StudyDefinitionContext {
-    fn split(value: StudyDefinition) -> (Self, Option<LazyStudyDefinition>, Vec<StudyPointDefinition>) {
-        let StudyDefinition { research, context, version, physical, modeling_revision, variants, points } = value;
-        (Self { research, context, version, physical, modeling_revision }, variants, points)
+    fn split(
+        value: StudyDefinition,
+    ) -> (Self, Option<LazyStudyDefinition>, Vec<StudyPointDefinition>) {
+        let StudyDefinition {
+            research,
+            context,
+            version,
+            physical,
+            modeling_revision,
+            variants,
+            points,
+        } = value;
+        (
+            Self {
+                research,
+                context,
+                version,
+                physical,
+                modeling_revision,
+            },
+            variants,
+            points,
+        )
     }
 
-    fn join(self, variants: Option<LazyStudyDefinition>, points: Vec<StudyPointDefinition>) -> StudyDefinition {
-        let Self { research, context, version, physical, modeling_revision } = self;
-        StudyDefinition { research, context, version, physical, modeling_revision, variants, points }
+    fn join(
+        self,
+        variants: Option<LazyStudyDefinition>,
+        points: Vec<StudyPointDefinition>,
+    ) -> StudyDefinition {
+        let Self {
+            research,
+            context,
+            version,
+            physical,
+            modeling_revision,
+        } = self;
+        StudyDefinition {
+            research,
+            context,
+            version,
+            physical,
+            modeling_revision,
+            variants,
+            points,
+        }
     }
 }
 
@@ -166,7 +217,9 @@ impl TryFrom<StudyDefinition> for ExplicitStudyDefinition {
     fn try_from(value: StudyDefinition) -> Result<Self, Self::Error> {
         let (context, variants, points) = StudyDefinitionContext::split(value);
         if variants.is_some() {
-            return Err(crate::workflow::contract("study was prepared by source expansion"));
+            return Err(crate::workflow::contract(
+                "study was prepared by source expansion",
+            ));
         }
         Ok(Self { context, points })
     }
@@ -178,7 +231,9 @@ impl TryFrom<StudyDefinition> for ExpandedStudyDefinition {
     fn try_from(value: StudyDefinition) -> Result<Self, Self::Error> {
         let (context, variants, points) = StudyDefinitionContext::split(value);
         let Some(variants) = variants.filter(|_| points.is_empty()) else {
-            return Err(crate::workflow::contract("study was not prepared by source expansion"));
+            return Err(crate::workflow::contract(
+                "study was not prepared by source expansion",
+            ));
         };
         Ok(Self { context, variants })
     }
@@ -361,22 +416,40 @@ pub const STUDY_CONTROL_SERVICE: &str = "StudyControlV2";
 pub(super) fn services(graph: &mut ProjectionGraph) -> Result<(), ProjectionError> {
     explicit_services(graph)?;
     let expanded = Service::new(EXPANDED_STUDY_SERVICE)
-        .unary::<EngineeringPrepareExpandedStudy, EngineeringPreparedStudy>(graph, "PrepareExpandedStudy")?
+        .unary::<EngineeringPrepareExpandedStudy, EngineeringPreparedStudy>(
+            graph,
+            "PrepareExpandedStudy",
+        )?
         .effects(EffectFacts::SOURCE_ADMISSION)?
-        .unary::<EngineeringRestoreExpandedStudy, EngineeringPreparedStudy>(graph, "RestoreExpandedStudy")?
+        .unary::<EngineeringRestoreExpandedStudy, EngineeringPreparedStudy>(
+            graph,
+            "RestoreExpandedStudy",
+        )?
         .effects(EffectFacts::SOURCE_ADMISSION)?
-        .unary::<EngineeringOperationKey, ExpandedStudyDefinition>(graph, "ReadPreparedExpandedStudy")?
+        .unary::<EngineeringOperationKey, ExpandedStudyDefinition>(
+            graph,
+            "ReadPreparedExpandedStudy",
+        )?
         .effects(EffectFacts::OBSERVATION)?;
     graph.service(expanded)
 }
 
 pub(super) fn explicit_services(graph: &mut ProjectionGraph) -> Result<(), ProjectionError> {
     let explicit = Service::new(EXPLICIT_STUDY_SERVICE)
-        .unary::<EngineeringPrepareExplicitStudy, EngineeringPreparedStudy>(graph, "PrepareExplicitStudy")?
+        .unary::<EngineeringPrepareExplicitStudy, EngineeringPreparedStudy>(
+            graph,
+            "PrepareExplicitStudy",
+        )?
         .effects(EffectFacts::SOURCE_ADMISSION)?
-        .unary::<EngineeringRestoreExplicitStudy, EngineeringPreparedStudy>(graph, "RestoreExplicitStudy")?
+        .unary::<EngineeringRestoreExplicitStudy, EngineeringPreparedStudy>(
+            graph,
+            "RestoreExplicitStudy",
+        )?
         .effects(EffectFacts::SOURCE_ADMISSION)?
-        .unary::<EngineeringOperationKey, ExplicitStudyDefinition>(graph, "ReadPreparedExplicitStudy")?
+        .unary::<EngineeringOperationKey, ExplicitStudyDefinition>(
+            graph,
+            "ReadPreparedExplicitStudy",
+        )?
         .effects(EffectFacts::OBSERVATION)?;
     graph.service(explicit)?;
     let control = Service::new(STUDY_CONTROL_SERVICE)

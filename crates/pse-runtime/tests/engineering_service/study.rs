@@ -4,7 +4,9 @@
 //! The retained native keeper and qualification coordinator own all process effects.
 
 use super::*;
-use pse_host::engineering_client::{DOCUMENT_RESPONSE_BYTES, ExplicitStudyClient, response_options};
+use pse_host::engineering_client::{
+    DOCUMENT_RESPONSE_BYTES, ExplicitStudyClient, response_options,
+};
 use pse_ids::{ContentHash, SemanticId};
 use pse_model::{
     document::Version,
@@ -101,7 +103,10 @@ async fn read_explicit(client: &ExplicitStudyClient, operation: String) -> Expli
         client
             .preparation
             .read_prepared_explicit_study_with_options(
-                pb::EngineeringOperationKey { operation, ..Default::default() },
+                pb::EngineeringOperationKey {
+                    operation,
+                    ..Default::default()
+                },
                 response_options(DOCUMENT_RESPONSE_BYTES),
             )
             .await
@@ -216,22 +221,27 @@ async fn phase_submit() {
     gate_is(false);
     let endpoint = endpoint();
     let frontend = endpoint.invocation.clone();
-    let independent = ExplicitStudyClient::connect(endpoint.clone()).await.unwrap();
+    let independent = ExplicitStudyClient::connect(endpoint.clone())
+        .await
+        .unwrap();
     let (transport, config) = endpoint.clone().connect().await.unwrap();
     for retired in [
         "/pse.engineering.v1.EngineeringService/PrepareStudy",
         "/pse.engineering.v1.EngineeringService/ReadPreparedStudy",
         "/pse.engineering.v1.EngineeringService/RestoreStudy",
     ] {
-        let response = connectrpc::client::call_unary::<_, _, pb::EngineeringPreparedStudyView<'static>>(
-            &transport,
-            &config,
-            connectrpc::Spec::client(retired, connectrpc::StreamType::Unary),
-            pb::EngineeringDescribeRequest::default(),
-            connectrpc::client::CallOptions::default(),
-        )
-        .await;
-        assert!(matches!(response, Err(error) if error.code == connectrpc::ErrorCode::Unimplemented));
+        let response =
+            connectrpc::client::call_unary::<_, _, pb::EngineeringPreparedStudyView<'static>>(
+                &transport,
+                &config,
+                connectrpc::Spec::client(retired, connectrpc::StreamType::Unary),
+                pb::EngineeringDescribeRequest::default(),
+                connectrpc::client::CallOptions::default(),
+            )
+            .await;
+        assert!(
+            matches!(response, Err(error) if error.code == connectrpc::ErrorCode::Unimplemented)
+        );
     }
     let mut client = EngineeringClient::connect(endpoint.clone()).await.unwrap();
     let prefix = format!("study-client-{}", std::process::id());
@@ -279,7 +289,10 @@ async fn phase_submit() {
         source_operation,
         expected_source: original.local_revision.clone(),
         output: StudyOutputDemand::Full {},
-        points: vec![point(declared("square"), 7), point(declared("impossible"), 9)],
+        points: vec![
+            point(declared("square"), 7),
+            point(declared("impossible"), 9),
+        ],
     };
     let expanded = EngineeringPrepareExpandedStudy {
         operation: format!("{prefix}-expanded"),
@@ -309,7 +322,9 @@ async fn phase_submit() {
     let expanded = codec::decode_engineering_prepared_study(
         client
             .expanded_study()
-            .prepare_expanded_study(codec::encode_engineering_prepare_expanded_study(expanded).unwrap())
+            .prepare_expanded_study(
+                codec::encode_engineering_prepare_expanded_study(expanded).unwrap(),
+            )
             .await
             .unwrap()
             .into_owned(),
@@ -320,7 +335,12 @@ async fn phase_submit() {
         operation: expanded.operation.clone(),
         ..Default::default()
     };
-    assert!(client.read_prepared_explicit_study(expanded_key.clone()).await.is_err());
+    assert!(
+        client
+            .read_prepared_explicit_study(expanded_key.clone())
+            .await
+            .is_err()
+    );
     let expanded_definition = codec::decode_expanded_study_definition(
         client
             .read_prepared_expanded_study(expanded_key)
@@ -343,14 +363,18 @@ async fn phase_submit() {
     assert!(
         independent
             .preparation
-            .prepare_explicit_study(codec::encode_engineering_prepare_explicit_study(stale).unwrap())
+            .prepare_explicit_study(
+                codec::encode_engineering_prepare_explicit_study(stale).unwrap()
+            )
             .await
             .is_err()
     );
     let prepared = codec::decode_engineering_prepared_study(
         independent
             .preparation
-            .prepare_explicit_study(codec::encode_engineering_prepare_explicit_study(prepare.clone()).unwrap())
+            .prepare_explicit_study(
+                codec::encode_engineering_prepare_explicit_study(prepare.clone()).unwrap(),
+            )
             .await
             .unwrap()
             .into_owned(),
@@ -361,7 +385,9 @@ async fn phase_submit() {
     let repeated = codec::decode_engineering_prepared_study(
         independent
             .preparation
-            .prepare_explicit_study(codec::encode_engineering_prepare_explicit_study(prepare).unwrap())
+            .prepare_explicit_study(
+                codec::encode_engineering_prepare_explicit_study(prepare).unwrap(),
+            )
             .await
             .unwrap()
             .into_owned(),
@@ -545,7 +571,9 @@ async fn phase_recover() {
         endpoint.invocation, handoff.frontend,
         "recovery must use another authenticated frontend incarnation"
     );
-    let independent = ExplicitStudyClient::connect(endpoint.clone()).await.unwrap();
+    let independent = ExplicitStudyClient::connect(endpoint.clone())
+        .await
+        .unwrap();
     let client = EngineeringClient::connect(endpoint).await.unwrap();
     let explicit = codec::decode_engineering_prepared_study(
         independent
@@ -564,7 +592,10 @@ async fn phase_recover() {
     )
     .unwrap();
     assert_eq!(explicit.preparation, handoff.submitted.expected_preparation);
-    assert_eq!(explicit.occurrences, u64::try_from(handoff.definition.points.len()).unwrap());
+    assert_eq!(
+        explicit.occurrences,
+        u64::try_from(handoff.definition.points.len()).unwrap()
+    );
     let explicit_definition = read_explicit(&independent, explicit.operation).await;
     assert_eq!(
         pse_ids::document::of(
@@ -716,7 +747,8 @@ async fn phase_recover() {
         loop {
             match bounded.message::<pb::StudyObservationPage>().await {
                 Ok(Some(page)) => {
-                    let page = codec::decode_study_observation_page(page.to_owned_message()).unwrap();
+                    let page =
+                        codec::decode_study_observation_page(page.to_owned_message()).unwrap();
                     assert!(!page.status.header.terminal && !page.status.header.cancelled);
                 }
                 Ok(None) => panic!("queued study observation ended without a terminal refusal"),
@@ -729,8 +761,10 @@ async fn phase_recover() {
     drop(bounded);
     assert_eq!(expired.code, connectrpc::ErrorCode::DeadlineExceeded);
     assert!(
-        expired.message.as_deref().is_some_and(|message|
-            message.contains("study observation allowance elapsed"))
+        expired
+            .message
+            .as_deref()
+            .is_some_and(|message| message.contains("study observation allowance elapsed"))
     );
     assert_eq!(
         status(&client, &handoff.submitted).await.canonical.as_ref(),
@@ -794,7 +828,15 @@ async fn phase_complete() {
         );
         assert_eq!(
             page.status.header.physical_identity.as_deref(),
-            Some(handoff.definition.context.physical.identity.to_string().as_str())
+            Some(
+                handoff
+                    .definition
+                    .context
+                    .physical
+                    .identity
+                    .to_string()
+                    .as_str()
+            )
         );
         assert!(!page.status.header.cancelled);
         assert!(
@@ -957,7 +999,15 @@ async fn phase_complete() {
     );
     assert_eq!(
         headers.headers[0].value.physical_identity.as_deref(),
-        Some(handoff.definition.context.physical.identity.to_string().as_str())
+        Some(
+            handoff
+                .definition
+                .context
+                .physical
+                .identity
+                .to_string()
+                .as_str()
+        )
     );
     assert_eq!(headers.headers[0].value.run, handoff.queued.run);
     let mut members = Vec::new();
@@ -1135,7 +1185,10 @@ async fn phase_complete() {
         let cancelled = status(&client, &handoff.cancelled).await.canonical.unwrap();
         assert!(cancelled.cancelled);
         assert_eq!(cancelled.run, handoff.cancelled_queued.run);
-        assert_eq!(cancelled.revision, handoff.definition.context.modeling_revision);
+        assert_eq!(
+            cancelled.revision,
+            handoff.definition.context.modeling_revision
+        );
         if cancelled.terminal {
             break;
         }

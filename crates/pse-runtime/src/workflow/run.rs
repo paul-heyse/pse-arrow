@@ -1045,7 +1045,13 @@ impl RunSupervisor {
         preflight()?;
         let activity = services.preparation().admit_activity()?;
         activity.sync_scope(crate::invocation::start_scope(|| {
-            start(Self::new(services.clone(), None, parent, Some(deadline), 256)?)
+            start(Self::new(
+                services.clone(),
+                None,
+                parent,
+                Some(deadline),
+                256,
+            )?)
         }))
     }
 
@@ -1061,26 +1067,29 @@ impl RunSupervisor {
             Ok(activity) => activity,
             Err(error) => return Err(Self::abandon_claim(attempt, error).await),
         };
-        activity.scope(async {
-            let deadline = Self::launch_deadline(time_limit, Some(parent)).and_then(|deadline| {
-                Self::check_claim(services, parent)?;
-                preflight()?;
-                Ok(deadline)
-            });
-            let deadline = match deadline {
-                Ok(deadline) => deadline,
-                Err(error) => return Err(Self::abandon_claim(attempt, error).await),
-            };
-            crate::invocation::start_scope(|| {
-                start(Self::new(
-                    services.clone(),
-                    Some(attempt),
-                    Some(parent),
-                    Some(deadline),
-                    256,
-                )?)
-            })()
-        }).await
+        activity
+            .scope(async {
+                let deadline =
+                    Self::launch_deadline(time_limit, Some(parent)).and_then(|deadline| {
+                        Self::check_claim(services, parent)?;
+                        preflight()?;
+                        Ok(deadline)
+                    });
+                let deadline = match deadline {
+                    Ok(deadline) => deadline,
+                    Err(error) => return Err(Self::abandon_claim(attempt, error).await),
+                };
+                crate::invocation::start_scope(|| {
+                    start(Self::new(
+                        services.clone(),
+                        Some(attempt),
+                        Some(parent),
+                        Some(deadline),
+                        256,
+                    )?)
+                })()
+            })
+            .await
     }
 
     pub(super) fn check_claim(
@@ -1094,7 +1103,9 @@ impl RunSupervisor {
         Ok(())
     }
 
-    pub(super) fn check_launch_cancel(parent: Option<&crate::CancelSource>) -> Result<(), WorkflowError> {
+    pub(super) fn check_launch_cancel(
+        parent: Option<&crate::CancelSource>,
+    ) -> Result<(), WorkflowError> {
         if parent.is_some_and(|parent| parent.token().is_cancelled()) {
             return Err(MathRuntimeError::Cancelled.into());
         }
@@ -1371,7 +1382,8 @@ impl super::ModelingSimulation {
         services: &ExecutionServices,
         cancel: &crate::CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
-        self.launch(services, Some(cancel), None).map(|(handle, _)| handle)
+        self.launch(services, Some(cancel), None)
+            .map(|(handle, _)| handle)
     }
     pub(crate) async fn start_attempt(
         &self,
@@ -1384,7 +1396,11 @@ impl super::ModelingSimulation {
             self.profile().time_limit,
             cancel,
             attempt,
-            || self.source.check_service_bindings(services.preparation()).map_err(WorkflowError::from),
+            || {
+                self.source
+                    .check_service_bindings(services.preparation())
+                    .map_err(WorkflowError::from)
+            },
             |supervisor| self.start_owned(supervisor, None).map(|(handle, _)| handle),
         )
         .await
@@ -1416,18 +1432,41 @@ impl super::ModelingSimulation {
     ) -> Result<(RunHandle, Option<super::LiveSimulationCursor>), WorkflowError> {
         let services = &supervisor.services;
         let run_id = supervisor.run_id;
-        let deadline = supervisor.checks.deadline().ok_or_else(|| WorkflowError::Internal("simulation deadline absent".into()))?;
+        let deadline = supervisor
+            .checks
+            .deadline()
+            .ok_or_else(|| WorkflowError::Internal("simulation deadline absent".into()))?;
         let cancel = supervisor.native.clone();
-        let canonical_attempt = supervisor.durable.as_ref().map(|attempt| attempt.canonical_keys(run_id).1);
-        let live = live.map(|options| super::live_simulation::LiveDispatch::new(
-            services.preparation(), self.clone(), options, run_id, canonical_attempt, &cancel, deadline,
-        )).transpose()?;
+        let canonical_attempt = supervisor
+            .durable
+            .as_ref()
+            .map(|attempt| attempt.canonical_keys(run_id).1);
+        let live = live
+            .map(|options| {
+                super::live_simulation::LiveDispatch::new(
+                    services.preparation(),
+                    self.clone(),
+                    options,
+                    run_id,
+                    canonical_attempt,
+                    &cancel,
+                    deadline,
+                )
+            })
+            .transpose()?;
         let (observer, mut live_channel, mut cursor) = match live {
-            Some(live) => (Some((live.retention, live.observer)), Some(live.channel), Some(live.cursor)),
+            Some(live) => (
+                Some((live.retention, live.observer)),
+                Some(live.channel),
+                Some(live.cursor),
+            ),
             None => (None, None, None),
         };
         let dispatch_source = self.clone();
-        let live_refusal = live_channel.as_ref().and_then(|channel| channel.projection.as_ref().err()).cloned();
+        let live_refusal = live_channel
+            .as_ref()
+            .and_then(|channel| channel.projection.as_ref().err())
+            .cloned();
         let prepared = self.clone();
         let execution = services.clone();
         let projection_services = services.preparation().clone();
@@ -1509,7 +1548,9 @@ impl super::ModelingSimulation {
                 ((report, None), durable)
             },
         )?;
-        if let Some(cursor) = cursor.as_mut() { cursor.bind_completion(handle.receiver.clone()); }
+        if let Some(cursor) = cursor.as_mut() {
+            cursor.bind_completion(handle.receiver.clone());
+        }
         Ok((handle, cursor))
     }
 }
@@ -1570,53 +1611,54 @@ impl super::ShootingProblem {
                     .map_err(WorkflowError::from)
             },
             |supervisor| {
-            let run_id = supervisor.run_id;
-            let deadline = supervisor
-                .checks
-                .deadline()
-                .ok_or_else(|| WorkflowError::Internal("shooting deadline absent".into()))?;
-            let prepared = self.clone();
-            let mut declared_profile = self.solver.clone();
-            if initial.is_some() {
-                declared_profile.controls.start = pse_backend_native::solve::StartPolicy::Explicit;
-            }
-            let start = initial.clone();
-            let native = services.preparation().math().clone();
-            let job_bytes = self.job_bytes()?;
-            let execution = services.clone();
-            let dispatch = move |submission| {
-                native
-                    .submit_with_storage(
-                        declared_profile.controls.threads,
-                        job_bytes,
-                        submission,
-                        move |flag, progress, storage| {
-                            let report = prepared.solve(
-                                &execution,
-                                run_id,
-                                pse_kernels::ExecutionScope::new(flag, Some(deadline)),
-                                progress,
-                                start.as_deref(),
-                                &declared_profile,
-                                Some(storage),
-                            )?;
-                            let retained = report
-                                .numeric_bytes()
-                                .checked_add(prepared.solver.controls.report_allowance()?)
-                                .ok_or(MathRuntimeError::Limit("shooting result extent"))?;
-                            Ok((Box::new(report), retained))
-                        },
-                    )
-                    .map_err(WorkflowError::from)
-            };
-            supervisor.start_native(
-                super::run_outcome::ShootingOperation {
-                    problem: self.clone(),
-                    initial,
-                },
-                dispatch,
-                finish_native_report,
-            )
+                let run_id = supervisor.run_id;
+                let deadline = supervisor
+                    .checks
+                    .deadline()
+                    .ok_or_else(|| WorkflowError::Internal("shooting deadline absent".into()))?;
+                let prepared = self.clone();
+                let mut declared_profile = self.solver.clone();
+                if initial.is_some() {
+                    declared_profile.controls.start =
+                        pse_backend_native::solve::StartPolicy::Explicit;
+                }
+                let start = initial.clone();
+                let native = services.preparation().math().clone();
+                let job_bytes = self.job_bytes()?;
+                let execution = services.clone();
+                let dispatch = move |submission| {
+                    native
+                        .submit_with_storage(
+                            declared_profile.controls.threads,
+                            job_bytes,
+                            submission,
+                            move |flag, progress, storage| {
+                                let report = prepared.solve(
+                                    &execution,
+                                    run_id,
+                                    pse_kernels::ExecutionScope::new(flag, Some(deadline)),
+                                    progress,
+                                    start.as_deref(),
+                                    &declared_profile,
+                                    Some(storage),
+                                )?;
+                                let retained = report
+                                    .numeric_bytes()
+                                    .checked_add(prepared.solver.controls.report_allowance()?)
+                                    .ok_or(MathRuntimeError::Limit("shooting result extent"))?;
+                                Ok((Box::new(report), retained))
+                            },
+                        )
+                        .map_err(WorkflowError::from)
+                };
+                supervisor.start_native(
+                    super::run_outcome::ShootingOperation {
+                        problem: self.clone(),
+                        initial,
+                    },
+                    dispatch,
+                    finish_native_report,
+                )
             },
         )
     }
@@ -1646,7 +1688,11 @@ impl super::PreparedFit {
             self.problem.profile.solver.controls.time_limit,
             cancel,
             attempt,
-            || self.source.check_service_bindings(services.preparation()).map_err(WorkflowError::from),
+            || {
+                self.source
+                    .check_service_bindings(services.preparation())
+                    .map_err(WorkflowError::from)
+            },
             |supervisor| self.start_owned(supervisor),
         )
         .await
@@ -1660,7 +1706,11 @@ impl super::PreparedFit {
             services,
             self.problem.profile.solver.controls.time_limit,
             parent,
-            || self.source.check_service_bindings(services.preparation()).map_err(WorkflowError::from),
+            || {
+                self.source
+                    .check_service_bindings(services.preparation())
+                    .map_err(WorkflowError::from)
+            },
             |supervisor| self.start_owned(supervisor),
         )
     }
@@ -1685,36 +1735,31 @@ impl super::PreparedFit {
         let execution = services.clone();
         let dispatch = move |submission| {
             native
-                .submit_with_storage(
-                    cores,
-                    bytes,
-                    submission,
-                    move |flag, progress, storage| {
-                        #[cfg(test)]
-                        if let Some(entry) = entry {
-                            entry(&flag);
-                        }
-                        let allowance = prepared
-                            .problem
-                            .profile
-                            .solver
-                            .controls
-                            .report_allowance()?;
-                        let report = prepared.execute(
-                            &execution,
-                            run_id,
-                            pse_kernels::ExecutionScope::new(flag, Some(deadline)),
-                            progress,
-                            workers,
-                            Some(storage),
-                        )?;
-                        let retained = report
-                            .numeric_bytes()
-                            .checked_add(allowance)
-                            .ok_or(MathRuntimeError::Limit("fit result extent"))?;
-                        Ok((Box::new(report), retained))
-                    },
-                )
+                .submit_with_storage(cores, bytes, submission, move |flag, progress, storage| {
+                    #[cfg(test)]
+                    if let Some(entry) = entry {
+                        entry(&flag);
+                    }
+                    let allowance = prepared
+                        .problem
+                        .profile
+                        .solver
+                        .controls
+                        .report_allowance()?;
+                    let report = prepared.execute(
+                        &execution,
+                        run_id,
+                        pse_kernels::ExecutionScope::new(flag, Some(deadline)),
+                        progress,
+                        workers,
+                        Some(storage),
+                    )?;
+                    let retained = report
+                        .numeric_bytes()
+                        .checked_add(allowance)
+                        .ok_or(MathRuntimeError::Limit("fit result extent"))?;
+                    Ok((Box::new(report), retained))
+                })
                 .map_err(WorkflowError::from)
         };
         supervisor.start_native(Box::new(self.clone()), dispatch, finish_native_report)
@@ -2086,18 +2131,24 @@ impl ExecutionServices {
         issued_run: Option<RunId>,
     ) -> Result<RunHandle, WorkflowError> {
         crate::invocation::start_scope(|| {
-        let history = steps
-            .iter()
-            .map(|s| s.profile.controls.history)
-            .max()
-            .unwrap_or(0);
-        let mut supervisor = RunSupervisor::new(self.clone(), attempt, parent.as_ref(), None, history)?;
-        if let Some(run) = issued_run { supervisor.run_id = run; }
-        let opened = match supervisor.durable {
-            None => Some(super::staged::Staged::open(self, Some(supervisor.progress.clone()))?),
-            Some(_) => None,
-        };
-        Ok(supervisor.spawn(move |supervisor| async move {
+            let history = steps
+                .iter()
+                .map(|s| s.profile.controls.history)
+                .max()
+                .unwrap_or(0);
+            let mut supervisor =
+                RunSupervisor::new(self.clone(), attempt, parent.as_ref(), None, history)?;
+            if let Some(run) = issued_run {
+                supervisor.run_id = run;
+            }
+            let opened = match supervisor.durable {
+                None => Some(super::staged::Staged::open(
+                    self,
+                    Some(supervisor.progress.clone()),
+                )?),
+                Some(_) => None,
+            };
+            Ok(supervisor.spawn(move |supervisor| async move {
             let RunSupervisor { services, run_id, mut durable, progress: shared, checks: cancel, .. } = supervisor;
             let request = steps.clone();
             let stop = cancel.clone();
@@ -2419,7 +2470,9 @@ mod cancellation_tests {
                 scope.cancelled().await;
                 stopping.send(()).unwrap();
                 drain.await.unwrap();
-                Err(MathRuntimeError::Infrastructure("native finish failed".into()))
+                Err(MathRuntimeError::Infrastructure(
+                    "native finish failed".into(),
+                ))
             },
         );
         let task = tokio::spawn(super::drain_refused_native(

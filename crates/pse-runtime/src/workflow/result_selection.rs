@@ -171,10 +171,7 @@ pub(super) fn publish_selection_metadata(
     metadata: &mut std::collections::HashMap<String, String>,
     selection: &PackResultSelection,
 ) -> std::io::Result<()> {
-    if metadata
-        .keys()
-        .any(|key| incompatible_selection_key(key))
-    {
+    if metadata.keys().any(|key| incompatible_selection_key(key)) {
         return Err(metadata_error(
             "unsupported inherited selected-result metadata interpretation",
         ));
@@ -188,7 +185,8 @@ pub(super) fn validate_selection_metadata(
     metadata: &std::collections::HashMap<String, String>,
     selection: &PackResultSelection,
 ) -> std::io::Result<()> {
-    let encoded = metadata.get(SELECTION_METADATA_KEY)
+    let encoded = metadata
+        .get(SELECTION_METADATA_KEY)
         .ok_or_else(|| metadata_error("current selected-result metadata is required"))?;
     if encoded.len() > maximum_selection_text()?
         || metadata.keys().any(|key| incompatible_selection_key(key))
@@ -318,9 +316,10 @@ mod tests {
         // This is a retained payload contract, not a descriptor identity assertion.
         const ORIGINAL_V1: &str = "CgNydW4SB2F0dGVtcHQaFnJ1bnRpbWUuZml0X3BhcmFtZXRlcnMgASgEMAk6BXZhbHVlQgljb252ZXJnZWRKGQoFb3duZXISATAYgICAgICAgICAASAAKABSAgoAWi4KB3Byb2JsZW0SCHJldmlzaW9uGghtYW5pZmVzdCIPb3JpZ2luYWwtcG9saWN5";
         assert_eq!(selection_metadata(&selected).unwrap(), ORIGINAL_V1);
-        let mut metadata = std::collections::HashMap::from([
-            ("pse.canonical.annotation".into(), "retained".into()),
-        ]);
+        let mut metadata = std::collections::HashMap::from([(
+            "pse.canonical.annotation".into(),
+            "retained".into(),
+        )]);
         assert!(validate_selection_metadata(&metadata, &selected).is_err());
         publish_selection_metadata(&mut metadata, &selected).unwrap();
         assert_eq!(metadata.len(), 2);

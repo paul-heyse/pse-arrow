@@ -4461,7 +4461,10 @@ mod canonical_connected_results_server_unit {
                 let selected_coordinates = selected_reader.pack_selection().await.unwrap();
                 assert_eq!(selected_coordinates.run, fence.run());
                 assert_eq!(selected_coordinates.attempt, fence.attempt());
-                assert_eq!(selected_coordinates.terminal_class, TerminalClass::Partial.as_str());
+                assert_eq!(
+                    selected_coordinates.terminal_class,
+                    TerminalClass::Partial.as_str()
+                );
                 assert_eq!(selected_coordinates.usability, PackScientificState::Unknown);
                 let original_context = selected_coordinates.context.clone().unwrap();
                 assert_eq!(original_context.problem, read.run().problem);
@@ -4572,11 +4575,8 @@ mod canonical_connected_results_server_unit {
                     assert_eq!(Some(copied.digest), indexed.digest);
                     assert_eq!(sink.metadata().unwrap().len(), copied.copied_bytes);
                     std::io::Seek::rewind(&mut sink).unwrap();
-                    let stream = datafusion::arrow::ipc::reader::StreamReader::try_new(
-                        sink,
-                        None,
-                    )
-                    .unwrap();
+                    let stream =
+                        datafusion::arrow::ipc::reader::StreamReader::try_new(sink, None).unwrap();
                     assert_eq!(
                         stream.map(|batch| batch.unwrap().num_rows()).sum::<usize>(),
                         expected
@@ -4602,11 +4602,8 @@ mod canonical_connected_results_server_unit {
                     .copy_member_verified("selected", &mut sink, &CancellationToken::new())
                     .unwrap();
                 std::io::Seek::rewind(&mut sink).unwrap();
-                let stream = datafusion::arrow::ipc::reader::StreamReader::try_new(
-                    sink,
-                    None,
-                )
-                .unwrap();
+                let stream =
+                    datafusion::arrow::ipc::reader::StreamReader::try_new(sink, None).unwrap();
                 let declared = portable
                     .index()
                     .members

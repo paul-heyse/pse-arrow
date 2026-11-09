@@ -1127,12 +1127,14 @@ impl PreparedStudyOperation {
                             let _ = horizon;
                             let error = super::run::RunSupervisor::check_claim(services, cancel)
                                 .err()
-                                .unwrap_or_else(|| refusal(
-                                    DiagnosticRule::StudyOperationUnsupported,
-                                    BoundaryClass::Unsupported,
-                                    [],
-                                    "horizon owner is unavailable",
-                                ));
+                                .unwrap_or_else(|| {
+                                    refusal(
+                                        DiagnosticRule::StudyOperationUnsupported,
+                                        BoundaryClass::Unsupported,
+                                        [],
+                                        "horizon owner is unavailable",
+                                    )
+                                });
                             Err(super::run::RunSupervisor::abandon_claim(attempt, error).await)
                         })
                     }

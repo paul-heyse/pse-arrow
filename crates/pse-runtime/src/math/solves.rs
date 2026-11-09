@@ -3014,11 +3014,17 @@ pub(crate) fn admit_oracle_route(
         #[cfg(any(test, feature = "solver-diffsol"))]
         OracleWitness::Fresh { bounds, cancel } => {
             let mut structure = native::structural::oracle_structure_with_cancel(
-                request.contract, request.pattern, bounds, true, cancel,
+                request.contract,
+                request.pattern,
+                bounds,
+                true,
+                cancel,
             )?;
             let bytes = structure.witness.retained_bytes();
             if bytes > reservation.size() {
-                return Err(MathRuntimeError::Limit("native oracle structural witness retained extent"));
+                return Err(MathRuntimeError::Limit(
+                    "native oracle structural witness retained extent",
+                ));
             }
             // A typed route refusal can carry the same original witness as a successful route.
             structure.witness = structure
@@ -3051,7 +3057,9 @@ pub(crate) fn admit_oracle_route(
             cone: None,
             factorable: None,
             certificate: None,
-            prepared: &[routing::ArtifactDemand::Representation(execution::Representation::Nlp)],
+            prepared: &[routing::ArtifactDemand::Representation(
+                execution::Representation::Nlp,
+            )],
             refusals: &BTreeMap::new(),
         },
     }
@@ -3062,7 +3070,9 @@ pub(crate) fn admit_oracle_route(
             .retained_bytes()
             .checked_sub(witness_bytes)
             .filter(|bytes| *bytes <= reservation.size())
-            .ok_or(MathRuntimeError::Limit("native oracle structural assessment retained extent"))?;
+            .ok_or(MathRuntimeError::Limit(
+                "native oracle structural assessment retained extent",
+            ))?;
         reservation.shrink(reservation.size() - retained);
         assessment.witness = assessment
             .witness
@@ -4078,13 +4088,13 @@ impl MathService {
         } else {
             prepared
         };
-        let prepared = if demand.jacobian_product && !prepared.prepared.plan.has_directional_actions()
-        {
-            changed = true;
-            Self::within_task(scope, driver, self.prepare_directional_actions(prepared)).await?
-        } else {
-            prepared
-        };
+        let prepared =
+            if demand.jacobian_product && !prepared.prepared.plan.has_directional_actions() {
+                changed = true;
+                Self::within_task(scope, driver, self.prepare_directional_actions(prepared)).await?
+            } else {
+                prepared
+            };
         let executable = if changed {
             Self::within_task(scope, driver, self.assemble(prepared.clone())).await?
         } else {

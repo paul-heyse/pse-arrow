@@ -909,7 +909,8 @@ fn run_stage(operation: &Operation, record: &mut Record, stage: &str) -> Result<
             record.native_sha256 = Some(live);
             return Ok(());
         }
-        "rust-contracts" | "recorded-result" | "scientific-worker" | "reference-exchange" | "surreal" | "engineering" | "full-codegen" => {
+        "rust-contracts" | "recorded-result" | "scientific-worker" | "reference-exchange"
+        | "surreal" | "engineering" | "full-codegen" => {
             let mut command = snapshot::isolated_command(&root, "scripts/pse-env");
             command.args([
                 "--recipe-default-class",
@@ -952,7 +953,13 @@ fn generator_stages(root: &Path) -> Result<String> {
     ensure!(
         stages.lines().all(|stage| matches!(
             stage,
-            "rust-contracts" | "recorded-result" | "scientific-worker" | "reference-exchange" | "surreal" | "engineering" | "full-codegen"
+            "rust-contracts"
+                | "recorded-result"
+                | "scientific-worker"
+                | "reference-exchange"
+                | "surreal"
+                | "engineering"
+                | "full-codegen"
         ) && seen.insert(stage)),
         "ordered generator stage declaration contains an unsupported or repeated stage"
     );

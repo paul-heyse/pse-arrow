@@ -8,7 +8,8 @@ use crate::host_operations::engineering_contract::{
     EngineeringPrepareExpandedStudy, EngineeringPrepareExplicitStudy, EngineeringPreparedStudy,
     EngineeringReadStudyResult, EngineeringRestoreExpandedStudy, EngineeringRestoreExplicitStudy,
     EngineeringStudyCohortPage, EngineeringStudyHeaderPage, EngineeringStudyResultPage,
-    EngineeringStudyStatus, EngineeringSubmitStudy, ExpandedStudyDefinition, ExplicitStudyDefinition,
+    EngineeringStudyStatus, EngineeringSubmitStudy, ExpandedStudyDefinition,
+    ExplicitStudyDefinition,
 };
 use crate::workflow::{
     FrozenStudyCohort, IssuedStudyIdentity, StudyCreationRequest, StudyDefinition, StudyInputs,
@@ -187,7 +188,8 @@ impl EngineeringService {
             input.expected_source,
             input.output,
             StudyInputs::Explicit(input.points),
-        ).await
+        )
+        .await
     }
 
     /// Admit selected source expansion against one exact native source.
@@ -204,7 +206,8 @@ impl EngineeringService {
             input.expected_source,
             input.output,
             StudyInputs::Lazy(Box::new(input.variants)),
-        ).await
+        )
+        .await
     }
 
     async fn prepare_study(
@@ -222,8 +225,8 @@ impl EngineeringService {
         }
         let source = self.operation(&source_operation, Kind::Source)?;
         let intent = (&source_operation, &expected_source, &output, &inputs);
-        let extent = crate::workflow::bounded_study_document_extent(&intent, 16 << 20)
-            .map_err(owner)?;
+        let extent =
+            crate::workflow::bounded_study_document_extent(&intent, 16 << 20).map_err(owner)?;
         let reservation = self
             .shared
             .math()
@@ -331,7 +334,9 @@ impl EngineeringService {
             return Err(request("original native study preparation is unavailable"));
         };
         if prepared.definition.variants.is_some() != expanded {
-            return Err(request("original study preparation has a different input capability"));
+            return Err(request(
+                "original study preparation has a different input capability",
+            ));
         }
         let extent = crate::workflow::bounded_study_document_extent(
             &prepared.definition,
@@ -364,7 +369,12 @@ impl EngineeringService {
         input: EngineeringRestoreExplicitStudy,
     ) -> Result<EngineeringPreparedStudy, EngineeringServiceError> {
         input.validate_projection().map_err(owner)?;
-        self.restore_study(input.operation, input.expected_preparation, input.definition.into()).await
+        self.restore_study(
+            input.operation,
+            input.expected_preparation,
+            input.definition.into(),
+        )
+        .await
     }
 
     /// Retain an exact original source expansion for interrupted creation.
@@ -375,7 +385,12 @@ impl EngineeringService {
         input: EngineeringRestoreExpandedStudy,
     ) -> Result<EngineeringPreparedStudy, EngineeringServiceError> {
         input.validate_projection().map_err(owner)?;
-        self.restore_study(input.operation, input.expected_preparation, input.definition.into()).await
+        self.restore_study(
+            input.operation,
+            input.expected_preparation,
+            input.definition.into(),
+        )
+        .await
     }
 
     async fn restore_study(
@@ -385,9 +400,8 @@ impl EngineeringService {
         definition: StudyDefinition,
     ) -> Result<EngineeringPreparedStudy, EngineeringServiceError> {
         definition.validate_roles().map_err(owner)?;
-        let identity =
-            pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &definition)
-                .map_err(owner)?;
+        let identity = pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &definition)
+            .map_err(owner)?;
         if identity != expected_preparation {
             return Err(request(
                 "portable study differs from the exact original immutable preparation",

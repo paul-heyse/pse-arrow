@@ -113,7 +113,8 @@ impl ExecutionServices {
         cancel: &crate::CancelSource,
         attempt: DurableAttempt,
     ) -> Result<RunHandle, WorkflowError> {
-        self.start_horizon_owned(horizon, cancel, Some(attempt)).await
+        self.start_horizon_owned(horizon, cancel, Some(attempt))
+            .await
     }
     async fn start_horizon_owned(
         &self,

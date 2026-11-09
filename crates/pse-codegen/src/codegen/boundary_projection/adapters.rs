@@ -98,7 +98,15 @@ pub fn native_adapters_scoped(
     owner_crate: &str,
     visibility: AdapterVisibility,
 ) -> Result<String, ProjectionCodegenError> {
-    generate(graph, roots, &[], wire_root, owner_crate, Adoption::Strict, visibility)
+    generate(
+        graph,
+        roots,
+        &[],
+        wire_root,
+        owner_crate,
+        Adoption::Strict,
+        visibility,
+    )
 }
 
 /// Emit one strict adapter owner, using the native conversions already published
@@ -118,7 +126,15 @@ pub fn native_adapters_with_imports(
 ) -> Result<String, ProjectionCodegenError> {
     syn::parse_str::<syn::Path>(scope)
         .map_err(|e| error(format!("invalid native conversion scope path: {e}")))?;
-    generate(graph, roots, imported_roots, wire_root, owner_crate, Adoption::Scoped(scope), visibility)
+    generate(
+        graph,
+        roots,
+        imported_roots,
+        wire_root,
+        owner_crate,
+        Adoption::Scoped(scope),
+        visibility,
+    )
 }
 
 /// Emit known-field adoption only for a caller that retains the complete original wire
@@ -168,7 +184,9 @@ fn generate(
         select(graph, name, &mut imported)?;
     }
     if let Some(name) = imported_roots.iter().find(|name| roots.contains(name)) {
-        return Err(error(format!("native adapter root {name} already has a publication owner")));
+        return Err(error(format!(
+            "native adapter root {name} already has a publication owner"
+        )));
     }
     for name in &selected {
         let owner = &graph.definitions()[name];
@@ -720,7 +738,9 @@ impl Generator<'_> {
                     let tag = alternative.tag;
                     let alternative_name = &alternative.name;
                     let unknown = self.unknown_guard("wire", "path");
-                    let (binding, unpack) = if matches!(self.adoption, Adoption::RetainedWire) && alternative.fields.is_empty() {
+                    let (binding, unpack) = if matches!(self.adoption, Adoption::RetainedWire)
+                        && alternative.fields.is_empty()
+                    {
                         ("_", "")
                     } else {
                         ("wire", "let wire = *wire;")

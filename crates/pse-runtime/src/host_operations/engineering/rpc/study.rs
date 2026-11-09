@@ -77,13 +77,12 @@ macro_rules! read_preparation {
             &'a self,
             context: connectrpc::RequestContext,
             request: connectrpc::ServiceRequest<'_, pb::EngineeringOperationKey>,
-        ) -> connectrpc::ServiceResult<
-            impl connectrpc::Encodable<pb::$output> + Send + use<'a>,
-        > {
+        ) -> connectrpc::ServiceResult<impl connectrpc::Encodable<pb::$output> + Send + use<'a>> {
             self.authenticate(&context)?;
             let input = crate::engineering_projection::decode_engineering_operation_key(
                 request.to_owned_message(),
-            ).map_err(study::projection_error)?;
+            )
+            .map_err(study::projection_error)?;
             let output = self.engine.$method(&input).await.map_err(transport)?;
             Ok(connectrpc::Response::new(study::accounted(
                 output,
@@ -324,7 +323,9 @@ async fn settle_study_observation<T>(
     Ok(value)
 }
 
-async fn wait_for_study_observation(deadline: Option<std::time::Instant>) -> Result<(), ConnectError> {
+async fn wait_for_study_observation(
+    deadline: Option<std::time::Instant>,
+) -> Result<(), ConnectError> {
     let wait = tokio::time::sleep(std::time::Duration::from_millis(100));
     match deadline {
         Some(deadline) => tokio::time::timeout_at(deadline.into(), wait)
@@ -334,7 +335,9 @@ async fn wait_for_study_observation(deadline: Option<std::time::Instant>) -> Res
     }
 }
 
-fn check_study_observation_deadline(deadline: Option<std::time::Instant>) -> Result<(), ConnectError> {
+fn check_study_observation_deadline(
+    deadline: Option<std::time::Instant>,
+) -> Result<(), ConnectError> {
     if deadline.is_some_and(|deadline| std::time::Instant::now() >= deadline) {
         return Err(study_observation_deadline_error());
     }
@@ -385,14 +388,18 @@ mod tests {
             }),
             settle_study_observation(Some(deadline), async {
                 tokio::time::sleep_until(after_deadline).await;
-                Err::<(), _>(EngineeringServiceError::Request("original capture refused".into()))
+                Err::<(), _>(EngineeringServiceError::Request(
+                    "original capture refused".into(),
+                ))
             }),
         );
         assert!(settled.get());
         assert!(matches!(completed, Err(error) if error.code == ErrorCode::DeadlineExceeded));
-        assert!(matches!(failed, Err(error) if error.code == ErrorCode::InvalidArgument
+        assert!(
+            matches!(failed, Err(error) if error.code == ErrorCode::InvalidArgument
             && error.message.as_deref().is_some_and(|message| message.contains("original capture refused"))
-            && error.source_arc().is_some()));
+            && error.source_arc().is_some())
+        );
     }
 
     #[test]

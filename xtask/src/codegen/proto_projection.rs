@@ -124,7 +124,11 @@ pub(super) fn publish_projection_owned(
         generator_symbol,
     } = target;
     ensure!(
-        output.generation.targets().first().is_some_and(|name| name == file),
+        output
+            .generation
+            .targets()
+            .first()
+            .is_some_and(|name| name == file),
         "primary projection publication target differs from its admitted generation"
     );
     for warning in &output.generation.warnings {

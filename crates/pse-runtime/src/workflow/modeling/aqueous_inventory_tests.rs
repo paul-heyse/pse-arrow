@@ -1380,10 +1380,8 @@ async fn aqueous_integrated_original_native_outcome_survives_protected_export_an
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(encoded)
         .unwrap();
-    let world = Arc::new(
-        DescriptorPool::decode(crate::recorded_result_projection::DESCRIPTORS)
-            .unwrap(),
-    );
+    let world =
+        Arc::new(DescriptorPool::decode(crate::recorded_result_projection::DESCRIPTORS).unwrap());
     let message = world
         .message_index("pse.engineering.v1.RecordedResultSelection")
         .unwrap();

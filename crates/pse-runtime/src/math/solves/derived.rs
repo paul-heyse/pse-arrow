@@ -1580,16 +1580,16 @@ impl MathService {
         }
         if !complete_reconstruction
             && execution::adapter(backend)
-            .callback_demand(&profile.backend, &profile.controls)?
-            .required_order()
-            .is_some_and(|order| {
-                order
-                    > if matches!(request, DerivedRequest::LeastDeviation { .. }) {
-                        plan.available_order()
-                    } else {
-                        DerivativeOrder::First
-                    }
-            })
+                .callback_demand(&profile.backend, &profile.controls)?
+                .required_order()
+                .is_some_and(|order| {
+                    order
+                        > if matches!(request, DerivedRequest::LeastDeviation { .. }) {
+                            plan.available_order()
+                        } else {
+                            DerivativeOrder::First
+                        }
+                })
         {
             return Err(ProblemError::Unsupported(
                 "derived source does not supply the requested native derivative order".into(),

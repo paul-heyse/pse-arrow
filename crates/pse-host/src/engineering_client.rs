@@ -3,7 +3,10 @@
 //! Independent explicit Study client for an authenticated prepared local endpoint.
 
 use crate::{envelope::CliInvocationId, environment::Environment};
-use connectrpc::{ConnectError, client::{CallOptions, ClientConfig, Http2Connection, SharedHttp2Connection, UnaryResponse}};
+use connectrpc::{
+    ConnectError,
+    client::{CallOptions, ClientConfig, Http2Connection, SharedHttp2Connection, UnaryResponse},
+};
 use sha2::{Digest as _, Sha256};
 use std::path::PathBuf;
 
@@ -43,7 +46,9 @@ pub fn response_options(maximum_bytes: usize) -> CallOptions {
 /// # Errors
 /// Refuses an invalid built-in local endpoint URI.
 pub fn client_config() -> Result<ClientConfig, ConnectError> {
-    let uri = "http://localhost".parse().map_err(|_| ConnectError::internal("invalid fixed local engineering URI"))?;
+    let uri = "http://localhost"
+        .parse()
+        .map_err(|_| ConnectError::internal("invalid fixed local engineering URI"))?;
     Ok(ClientConfig::new(uri)
         .with_protocol(connectrpc::Protocol::Grpc)
         .with_default_max_message_size(4 << 20)
@@ -76,7 +81,10 @@ impl EngineeringEndpoint {
         let connection = Http2Connection::connect_with_connector(
             AuthenticatedConnector(self),
             config.base_uri().clone(),
-        ).await.map_err(|error| ConnectError::unavailable(error.to_string()))?.shared(32);
+        )
+        .await
+        .map_err(|error| ConnectError::unavailable(error.to_string()))?
+        .shared(32);
         Ok((connection, config))
     }
 }
@@ -100,15 +108,24 @@ impl tower_service::Service<http::Uri> for AuthenticatedConnector {
         let endpoint = self.0.clone();
         Box::pin(async move {
             let stream = tokio::net::UnixStream::connect(&endpoint.socket).await?;
-            let pid = stream.peer_cred()?.pid()
+            let pid = stream
+                .peer_cred()?
+                .pid()
                 .and_then(|pid| u32::try_from(pid).ok())
                 .ok_or_else(|| denied("kernel service PID unavailable"))?;
             let original = crate::managed::supervisor::authenticate_payload_peer(
-                &endpoint.root, &endpoint.invocation, pid, &endpoint.environment,
-            ).await.map_err(|error| denied(&error.to_string()))?;
+                &endpoint.root,
+                &endpoint.invocation,
+                pid,
+                &endpoint.environment,
+            )
+            .await
+            .map_err(|error| denied(&error.to_string()))?;
             tokio::task::spawn_blocking(move || {
                 auth::authenticate_image(&original, &endpoint.artifact, endpoint.build)
-            }).await.map_err(|error| denied(&format!("payload image observation failed: {error}")))??;
+            })
+            .await
+            .map_err(|error| denied(&format!("payload image observation failed: {error}")))??;
             Ok(hyper_util::rt::TokioIo::new(stream))
         })
     }
@@ -129,7 +146,9 @@ pub struct ExplicitStudyClient {
 
 impl std::fmt::Debug for ExplicitStudyClient {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter.debug_struct("ExplicitStudyClient").finish_non_exhaustive()
+        formatter
+            .debug_struct("ExplicitStudyClient")
+            .finish_non_exhaustive()
     }
 }
 
@@ -140,15 +159,19 @@ impl ExplicitStudyClient {
     pub async fn connect(endpoint: EngineeringEndpoint) -> Result<Self, ConnectError> {
         let (connection, config) = endpoint.connect().await?;
         let control = services::StudyControlV2Client::new(connection.clone(), config.clone());
-        let response = control.describe_study_contract_with_options(
-            pb::pse::engineering::v1::EngineeringDescribeRequest::default(),
-            response_options(DOCUMENT_RESPONSE_BYTES),
-        ).await?;
+        let response = control
+            .describe_study_contract_with_options(
+                pb::pse::engineering::v1::EngineeringDescribeRequest::default(),
+                response_options(DOCUMENT_RESPONSE_BYTES),
+            )
+            .await?;
         let described = response.view();
         if described.descriptor != DESCRIPTORS
             || described.descriptor_sha256 != &Sha256::digest(described.descriptor)[..]
         {
-            return Err(ConnectError::failed_precondition("prepared service differs from the compiled explicit Study contract"));
+            return Err(ConnectError::failed_precondition(
+                "prepared service differs from the compiled explicit Study contract",
+            ));
         }
         Ok(Self {
             preparation: services::ExplicitStudyPreparationV2Client::new(connection, config),
@@ -162,10 +185,17 @@ impl ExplicitStudyClient {
     pub async fn read_prepared_explicit_study(
         &self,
         request: pb::pse::engineering::v1::EngineeringOperationKey,
-    ) -> Result<UnaryResponse<buffa::OwnedView<pb::pse::engineering::v1::ExplicitStudyDefinitionView<'static>>>, ConnectError> {
-        self.preparation.read_prepared_explicit_study_with_options(
-            request,
-            response_options(DOCUMENT_RESPONSE_BYTES),
-        ).await
+    ) -> Result<
+        UnaryResponse<
+            buffa::OwnedView<pb::pse::engineering::v1::ExplicitStudyDefinitionView<'static>>,
+        >,
+        ConnectError,
+    > {
+        self.preparation
+            .read_prepared_explicit_study_with_options(
+                request,
+                response_options(DOCUMENT_RESPONSE_BYTES),
+            )
+            .await
     }
 }

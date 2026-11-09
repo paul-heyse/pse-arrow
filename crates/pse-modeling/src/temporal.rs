@@ -2,7 +2,9 @@
 // Copyright (c) 2026 Paul Heyse
 //! Analysis-owned temporal child composition; no unit laws are interpreted here.
 use crate::{CheckedPackage, Result, Type, TypeContext, invalid};
-use pse_model::generated::{enums::ModelingDeclarationKind as Kind, structures::ModelingIndexBinding as Index};
+use pse_model::generated::{
+    enums::ModelingDeclarationKind as Kind, structures::ModelingIndexBinding as Index,
+};
 
 pub(crate) const COORDINATE: &str = "__temporal_coordinate";
 

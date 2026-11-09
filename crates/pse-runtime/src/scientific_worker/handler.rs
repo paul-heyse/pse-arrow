@@ -644,8 +644,7 @@ pub(super) fn evaluate_batch(
             weights: floats(point.weights),
         })
         .collect();
-    let completed =
-        session.evaluate_batch(value.handle, value.invocation, &points)?;
+    let completed = session.evaluate_batch(value.handle, value.invocation, &points)?;
     Ok(p::Batch {
         handle: value.handle,
         invocation: value.invocation,
@@ -910,7 +909,8 @@ mod tests {
         request.registry.clone().build().unwrap();
         variants.push(request);
         let mut request = original;
-        request.request.demand = pse_kernels::ProviderDemand::WeightedSecondAction { directions: 1 };
+        request.request.demand =
+            pse_kernels::ProviderDemand::WeightedSecondAction { directions: 1 };
         variants.push(request);
         for request in variants {
             assert!(matches!(

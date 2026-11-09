@@ -128,12 +128,19 @@ fn oracle_route_charges_a_fresh_witness_once_and_keeps_the_retained_owner() {
     let request = OracleRouteRequest {
         contract: &contract,
         pattern: pattern.as_ref(),
-        witness: OracleWitness::Fresh { bounds: &bounds, cancel: &cancel },
+        witness: OracleWitness::Fresh {
+            bounds: &bounds,
+            cancel: &cancel,
+        },
         equalities: true,
         least_squares: false,
         profile: &profile,
         snapshot: &snapshot,
-        budgets: execution::Budgets { tolerances: &tolerances, normalization: &normalization, accuracy: &accuracy },
+        budgets: execution::Budgets {
+            tolerances: &tolerances,
+            normalization: &normalization,
+            accuracy: &accuracy,
+        },
     };
     let (route, fresh) = admit_oracle_route(&pool, request).unwrap();
     assert!(matches!(route, Route::Native(Backend::Ipopt)));
@@ -142,10 +149,8 @@ fn oracle_route_charges_a_fresh_witness_once_and_keeps_the_retained_owner() {
     drop(fresh);
     assert_eq!(pool.reserved(), 0);
 
-    let mut existing = native::structural::oracle_structure(
-        &contract, pattern.as_ref(), &bounds, true,
-    )
-    .unwrap();
+    let mut existing =
+        native::structural::oracle_structure(&contract, pattern.as_ref(), &bounds, true).unwrap();
     let existing_bytes = existing.witness.retained_bytes();
     let owner = MemoryConsumer::new("original structural witness").register(&pool);
     owner.try_grow(existing_bytes).unwrap();

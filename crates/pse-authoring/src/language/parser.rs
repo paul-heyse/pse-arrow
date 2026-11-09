@@ -1816,8 +1816,7 @@ impl Cursor<'_> {
                 })
             }
             "logic" => {
-                let indices =
-                    self.indices()?;
+                let indices = self.indices()?;
                 self.expect(":")?;
                 let proposition = self.until(&[";"])?;
                 self.expect(";")?;

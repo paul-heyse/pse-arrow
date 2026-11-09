@@ -51,27 +51,27 @@ async fn engineering_queued_study_lost_ack_survives_frontend_retirement_and_refu
             expected_source: source.local_revision,
             output: StudyOutputDemand::Full {},
             points: vec![StudyPoint {
-                    operation: crate::workflow::OperationRequest::DeclaredCase(CaseOperation {
-                        case: case.into(),
-                        route: ModelingAnalysisRoute::Steady,
-                        settings: crate::math::settings::SolveSettings {
-                            intent: pse_backend_native::solve::SolveIntent::Root,
-                            backend: Some(pse_backend_native::solve::Backend::Kinsol),
-                            ..Default::default()
-                        },
-                    }),
-                    preparation: PreparationSettings {
-                        compiler: crate::workflow::tests::compiler_profile(),
+                operation: crate::workflow::OperationRequest::DeclaredCase(CaseOperation {
+                    case: case.into(),
+                    route: ModelingAnalysisRoute::Steady,
+                    settings: crate::math::settings::SolveSettings {
+                        intent: pse_backend_native::solve::SolveIntent::Root,
+                        backend: Some(pse_backend_native::solve::Backend::Kinsol),
                         ..Default::default()
                     },
-                    overlay: crate::workflow::PointOverlay::default(),
-                    policy: StudyPointPolicy {
-                        key: OccurrenceKey(7),
-                        dependencies: Vec::new(),
-                        start: StartPolicy::Fresh,
-                        attempt_limit: 1,
-                    },
-                }],
+                }),
+                preparation: PreparationSettings {
+                    compiler: crate::workflow::tests::compiler_profile(),
+                    ..Default::default()
+                },
+                overlay: crate::workflow::PointOverlay::default(),
+                policy: StudyPointPolicy {
+                    key: OccurrenceKey(7),
+                    dependencies: Vec::new(),
+                    start: StartPolicy::Fresh,
+                    attempt_limit: 1,
+                },
+            }],
         })
         .await
         .unwrap();
