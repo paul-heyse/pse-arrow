@@ -346,15 +346,17 @@ async fn settle_study_observation<T: Send + 'static>(
     check_study_observation_deadline(deadline)?;
     // An admitted poll can issue a capture. Let it settle under its original
     // clock. A discarded success drops through its normal custody release.
-    let value = engine
-        .observe_owned(input_owner, async move {
-            if check_study_observation_deadline(deadline).is_err() {
-                return Ok(None);
-            }
-            work.await.map(Some)
-        })
-        .await
-        .map_err(transport)?;
+    let task = async move {
+        if check_study_observation_deadline(deadline).is_err() {
+            return Ok(None);
+        }
+        work.await.map(Some)
+    };
+    // The probe observes the actual request grant without retaining it. Scope
+    // it inside the joined task: the detached transport waiter owns no probe.
+    #[cfg(all(test, feature = "solver-kinsol"))]
+    let task = crate::workflow::StudyObserver::with_ingress_probe(Arc::downgrade(&input_owner), task);
+    let value = engine.observe_owned(input_owner, task).await.map_err(transport)?;
     check_study_observation_deadline(deadline)?;
     value.ok_or_else(study_observation_deadline_error)
 }

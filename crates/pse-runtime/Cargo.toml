@@ -533,6 +533,7 @@ ownership = "runner-borrowed"
 inputs = ["server", "study-module", "service-helper"]
 scope.tests = [
   "host_operations::engineering::session::canonical_study_tests::engineering_queued_study_lost_ack_survives_frontend_retirement_and_refuses_rebinding",
+  "host_operations::engineering::session::canonical_study_tests::engineering_study_h2_reset_joins_admitted_canonical_capture_and_releases_ingress",
   "host_operations::engineering::session::tests::canonical_engineering_original_run_survives_lost_waiter_and_service_retirement",
 ]
 

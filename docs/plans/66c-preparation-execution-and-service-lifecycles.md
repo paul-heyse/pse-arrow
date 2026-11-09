@@ -184,7 +184,7 @@ and physical-settlement population; no new shutdown test or memory benefit is cl
 | C02 | in-progress | Existing native operation/supervision foundation; B's needed family correspondence; A's governing scope | Common RPC correspondence and the single authored-case `SubmitRun` are in use, with selected main receiving and separately launched run-client controls. Complete the live mixed Study and remaining worker/reference consumers through their original owners. |
 | C03 | in-progress | Existing queue/retirement owners; C02 selected operations; D's provider support | Actual-child controls retain the original Prepare refusal or Evaluate deadline and the independent failed native finish after the generated method departs. Exact Close/Stop ownership is retained. Complete remaining selected batch/session paths; combine crossings only for an actual isolated placement. |
 | C04 | in-progress | Complete passive recipe and admitted-body foundations; A/D operation-specific permission; D02's bounded symbolic restore or replay decision | Remaining selected live/receiving/reference contexts use exact native permission and original memberships. The unconsumed private root lane is retired. Production receiving still uses JSON v3; the replacement needs independent stage/receipt correspondence and cold canonical qualification. |
-| C05 | in-progress | Working C02–C04 producer/consumer slices and B04 where representation changes | `ObserveStudy` joins admitted open/page work under the service and retains the original ingress grant through reply or drop. Focused deadline, panic, dropped-waiter and ingress controls pass, as does the real `ObserveRun` UDS terminal trailer. A Study attempt page now uses the existing bounded protected-read retry under its fixed generation and original clock. The keeper control separates joined failure from unestablished drain. Live receiving of these corrections and a Study reset during an admitted canonical capture are separate. |
+| C05 | in-progress | Working C02–C04 producer/consumer slices and B04 where representation changes | `ObserveStudy` joins admitted open/page work under the service and retains the original ingress grant through reply or drop. The real `ObserveRun` UDS trailer and the Study reset during a live canonical capture passed. The keeper acknowledged physical drain and preserved the failed fixture. Mixed Study, remaining endpoint and client populations stay open. |
 
 Typed engineering `AdmitSource` now takes an explicit registration set authorized by
 the service startup. The native owner rejects unknown/duplicate choices before retaining
@@ -411,6 +411,16 @@ The authenticated engineering HTTP/2 control abandons a partial unary upload, ob
 original ingress reservation return, and reads a valid typed response on the same connection.
 It then joins the actual server and client, retaining the original socket receive half through
 the final Hyper shutdown writes. The server's typed settlement remains part of the assertion.
+
+The [Study stream control](../../crates/pse-runtime/src/host_operations/engineering/session/canonical_study_tests.rs)
+holds the real canonical capture before page construction. Dropping the live response on the
+[locked](../../Cargo.lock) [Hyper](../libraries/cli/hyper.md) 1.11.1 and h2 0.4.19 client resets
+that stream while the same authenticated peer still serves `DescribeContract`. The original
+request grant stays with the admitted task after
+the transport drains. Shutdown waits for that task; joining releases the capture and the grant
+without cancelling the original queued Study. The exact default-profile, force-validated
+`scripts/pse test pse-runtime --lib` selection passed this control and the lost-acknowledgement
+control, two of two with complete capture and settlement (`01a1c18b-2638-7358-9d7b-7fe783e4eda7`).
 
 Original receiving exposed a native launcher gap: a caller without exported placement values
 did not activate the checkout's explicit unbounded selection, so managed test launch chose the

@@ -264,6 +264,61 @@ pub struct StudyObserver {
     cancel: CancellationToken,
     closed: bool,
 }
+#[cfg(all(test, feature = "engineering-service", feature = "solver-kinsol"))]
+mod capture_probe {
+    use super::StudyCohortReceipt;
+    use datafusion::execution::memory_pool::MemoryReservation;
+    use std::{
+        collections::BTreeMap,
+        sync::{Mutex, Weak},
+    };
+    use tokio::sync::oneshot;
+
+    pub(crate) type Ingress = Weak<MemoryReservation>;
+    tokio::task_local! {
+        pub(super) static INGRESS: Ingress;
+    }
+    pub(crate) struct CaptureProbe {
+        pub(crate) entered: oneshot::Receiver<(StudyCohortReceipt, Ingress)>,
+        pub(crate) resume: oneshot::Sender<()>,
+        pub(crate) completed: oneshot::Receiver<String>,
+    }
+    struct Gate {
+        entered: oneshot::Sender<(StudyCohortReceipt, Ingress)>,
+        resume: oneshot::Receiver<()>,
+        completed: oneshot::Sender<String>,
+    }
+    static GATES: Mutex<BTreeMap<String, Gate>> = Mutex::new(BTreeMap::new());
+
+    pub(super) fn install(study: String) -> CaptureProbe {
+        let (entered, observe_entry) = oneshot::channel();
+        let (allow_resume, resume) = oneshot::channel();
+        let (completed, observe_completion) = oneshot::channel();
+        let previous = GATES
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(study, Gate { entered, resume, completed });
+        assert!(previous.is_none(), "one gate for the original Study");
+        CaptureProbe {
+            entered: observe_entry,
+            resume: allow_resume,
+            completed: observe_completion,
+        }
+    }
+
+    pub(super) async fn pause(receipt: &StudyCohortReceipt, study: &str) -> Option<oneshot::Sender<String>> {
+        let gate = GATES
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .remove(study)?;
+        let ingress = INGRESS.try_with(Weak::clone).ok()?;
+        let _observed = gate.entered.send((receipt.clone(), ingress));
+        // A failed test drops the sender and lets the original owner settle.
+        let _resumed = gate.resume.await;
+        Some(gate.completed)
+    }
+}
+
 fn context(document: &StudyObservationStatus) -> Result<StudyObservationContext, WorkflowError> {
     let h = &document.header;
     Ok(StudyObservationContext {
@@ -369,6 +424,19 @@ impl RetainedDataServices {
     }
 }
 impl StudyObserver {
+    #[cfg(all(test, feature = "engineering-service", feature = "solver-kinsol"))]
+    pub(crate) fn probe_next_capture(study: String) -> capture_probe::CaptureProbe {
+        capture_probe::install(study)
+    }
+
+    #[cfg(all(test, feature = "engineering-service", feature = "solver-kinsol"))]
+    pub(crate) async fn with_ingress_probe<T>(
+        ingress: std::sync::Weak<datafusion::execution::memory_pool::MemoryReservation>,
+        work: impl Future<Output = T>,
+    ) -> T {
+        capture_probe::INGRESS.scope(ingress, work).await
+    }
+
     /// Cancellation scope belongs only to observation, never to scientific execution.
     pub fn observation_token(&self) -> CancellationToken {
         self.cancel.clone()
@@ -438,6 +506,8 @@ impl StudyObserver {
                 maximum_members: self.cursor.request.maximum_members,
             })
             .await?;
+        #[cfg(all(test, feature = "engineering-service", feature = "solver-kinsol"))]
+        let capture_probe = capture_probe::pause(status.receipt(), &self.cursor.request.study).await;
         let status = status_page(status).await?;
         if context(&status)? != self.cursor.context {
             return Err(contract("observer selected context changed"));
@@ -645,6 +715,10 @@ impl StudyObserver {
                 coverage,
                 history_refusal,
             });
+        }
+        #[cfg(all(test, feature = "engineering-service", feature = "solver-kinsol"))]
+        if let Some(completed) = capture_probe {
+            let _observed = completed.send(status.receipt.capture.clone());
         }
         Ok(StudyObservationPage {
             status,
