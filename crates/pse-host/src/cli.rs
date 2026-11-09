@@ -840,6 +840,9 @@ pub(crate) fn response_schema(command: &str, view: &Presentation) -> io::Result<
         "tools prepare-result-expiry" => {
             envelope::schema::<crate::invocation::CompactTimer>(command, view)
         }
+        "tools result-expiry-status" => {
+            envelope::schema::<crate::invocation::CompactTimerStatus>(command, view)
+        }
         "tools catalog" => envelope::schema::<
             crate::catalog::description::Page<crate::catalog::description::Description>,
         >(command, view),
@@ -2520,6 +2523,7 @@ mod tests {
         for arguments in [
             vec!["pse", "history", "--session", "session", "--limit", "3"],
             vec!["pse", "inspect", "invocation", "latest"],
+            vec!["pse", "tools", "result-expiry-status"],
             vec![
                 "pse", "inspect", "log", "latest", "--stderr", "--tail", "--length", "4",
             ],

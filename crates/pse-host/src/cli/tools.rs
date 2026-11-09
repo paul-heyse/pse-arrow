@@ -80,6 +80,9 @@ pub(super) enum Action {
         #[arg(long)]
         enable: bool,
     },
+    /// Read the compact-result expiry timer's current ownership and activity.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
+    ResultExpiryStatus,
     /// Build/capture the declared native tool; passive queries never invoke this operation.
     Prepare {
         #[arg(value_enum)]
@@ -332,6 +335,14 @@ pub(super) fn dispatch(
             Ok(output.emit(Envelope::response(
                 "tools prepare-result-expiry",
                 "compact result expiry timer preparation",
+                report,
+            ))?)
+        }
+        Action::ResultExpiryStatus => {
+            let report = crate::invocation::compact_timer_status(&root, &environment)?;
+            Ok(output.emit_observation(Envelope::response(
+                "tools result-expiry-status",
+                "compact result expiry timer status",
                 report,
             ))?)
         }

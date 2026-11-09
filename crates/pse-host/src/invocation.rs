@@ -30,7 +30,7 @@ pub use compact::{CompactRetirement, CompactSweep, sweep_registered_compact_resu
 pub use conformance_evidence::ConformanceRetirement;
 pub(crate) use conformance_evidence::SNAPSHOT as CONFORMANCE_SNAPSHOT;
 mod compact_timer;
-pub use compact_timer::{CompactTimer, prepare_compact_timer};
+pub use compact_timer::{CompactTimer, CompactTimerStatus, compact_timer_status, prepare_compact_timer};
 pub use session::select_session;
 
 fn invalid(message: impl Into<String>) -> HostError {
