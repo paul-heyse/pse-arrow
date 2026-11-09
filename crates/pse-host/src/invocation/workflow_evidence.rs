@@ -56,6 +56,16 @@ struct Member {
 struct Retirement {
     invocation: CliInvocationId,
     report_sha256: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    raw: Option<RetiredRaw>,
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RetiredRaw {
+    receipt: DescriptorIdentity,
+    stdout: bool,
+    stderr: bool,
 }
 
 /// Exact bounded raw streams identified by the performing owner's open descriptors.
@@ -68,14 +78,30 @@ pub(crate) struct WorkflowStreams {
 }
 
 pub(super) fn streams(original: &InvocationDirectory) -> Result<Option<WorkflowStreams>, HostError> {
-    let streams = original.evidence::<WorkflowStreams>(InvocationEvidence::WorkflowStreams)?;
-    if streams.as_ref().is_some_and(|record| {
-        &record.invocation != original.id()
-            || record.members().any(|(_, identity)| identity.bytes > crate::managed::streams::WORKFLOW_PIPE_BYTES)
-    }) {
+    Ok(stream_receipt(original)?.map(|(record, _)| record))
+}
+
+fn stream_receipt(original: &InvocationDirectory) -> Result<Option<(WorkflowStreams, DescriptorIdentity)>, HostError> {
+    let owner = private_root(original.path())?;
+    let name = Path::new(InvocationEvidence::WorkflowStreams.filename());
+    let file = match open_child(&owner, name) {
+        Ok(file) => file,
+        Err(HostError::Io(error)) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    let receipt = descriptor_identity(&file)?;
+    let mut bytes = Vec::new();
+    (&file).take(4097).read_to_end(&mut bytes)?;
+    if bytes.len() > 4096 || descriptor_identity(&file)? != receipt {
+        return Err(invalid("raw stream receipt is unbounded or changed while observed"));
+    }
+    let record: WorkflowStreams = serde_json::from_slice(&bytes).map_err(io::Error::other)?;
+    if &record.invocation != original.id()
+        || record.members().any(|(_, identity)| identity.bytes > crate::managed::streams::WORKFLOW_PIPE_BYTES)
+    {
         return Err(invalid("raw stream commitments differ from the original bounded operation"));
     }
-    Ok(streams)
+    Ok(Some((record, receipt)))
 }
 
 impl WorkflowStreams {
@@ -195,12 +221,12 @@ impl InvocationDirectory {
 pub(super) fn raw_stream_retired(
     original: &InvocationDirectory, stream: crate::extraction::OutputStream,
 ) -> Result<bool, HostError> {
-    if !read_retirement(original)?.is_some_and(|record| &record.invocation == original.id()) {
-        return Ok(false);
-    }
-    Ok(streams(original)?.is_some_and(|record| match stream {
-        crate::extraction::OutputStream::Stdout => record.stdout.is_some(),
-        crate::extraction::OutputStream::Stderr => record.stderr.is_some(),
+    Ok(read_retirement(original)?
+        .filter(|record| &record.invocation == original.id())
+        .and_then(|record| record.raw)
+        .is_some_and(|record| match stream {
+        crate::extraction::OutputStream::Stdout => record.stdout,
+        crate::extraction::OutputStream::Stderr => record.stderr,
     }))
 }
 
@@ -459,10 +485,16 @@ pub(super) fn release(
     let _fence = workflow_lock(original, FlockOperation::NonBlockingLockExclusive)?;
     let workflow = original.path().join("workflow");
     let owner = private_root(original.path())?;
-    let raw = streams(original)?
-        .map(|streams| streams.prepare_release(&owner, record.releasing))
+    let raw_receipt = stream_receipt(original)?;
+    let raw = raw_receipt.as_ref()
+        .map(|(streams, _)| streams.prepare_release(&owner, record.releasing))
         .transpose()?
         .unwrap_or_default();
+    let retired_raw = raw_receipt.map(|(streams, receipt)| RetiredRaw {
+        receipt,
+        stdout: streams.stdout.is_some(),
+        stderr: streams.stderr.is_some(),
+    });
     let original_report_present = match authenticate_members(&workflow, &record) {
         Ok(()) => true,
         Err(HostError::Io(error)) if error.kind() == io::ErrorKind::NotFound && record.releasing => false,
@@ -498,7 +530,9 @@ pub(super) fn release(
             .ok_or_else(|| invalid("released workflow extent overflow"))?;
     }
     if let Some(retired) = read_retirement(original)? {
-        if &retired.invocation != original.id() || retired.report_sha256 != report.sha256 {
+        if &retired.invocation != original.id() || retired.report_sha256 != report.sha256
+            || retired.raw != retired_raw
+        {
             return Err(invalid("workflow retirement witness differs from the released original"));
         }
     } else {
@@ -508,6 +542,7 @@ pub(super) fn release(
             &Retirement {
                 invocation: original.id().clone(),
                 report_sha256: report.sha256.clone(),
+                raw: retired_raw,
             },
             Some(1024),
         )?;
@@ -524,11 +559,18 @@ pub(super) fn forget(original: &InvocationDirectory) -> Result<(), HostError> {
         if &retired.invocation != original.id() {
             return Err(invalid("workflow retirement witness names another invocation"));
         }
-        let raw = original.path().join(InvocationEvidence::WorkflowStreams.filename());
-        match fs::remove_file(&raw) {
-            Ok(()) => synchronize_publication_parent(original.path(), &raw)?,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-            Err(error) => return Err(error.into()),
+        if let Some(raw) = retired.raw {
+            let parent = private_root(original.path())?;
+            let name = Path::new(InvocationEvidence::WorkflowStreams.filename());
+            match open_child(&parent, name) {
+                Ok(file) if descriptor_identity(&file)? == raw.receipt => {
+                    unlinkat(&parent, name, AtFlags::empty()).map_err(io::Error::from)?;
+                    parent.sync_all()?;
+                }
+                Ok(_) => return Err(invalid("retired raw stream receipt was replaced before expiry")),
+                Err(HostError::Io(error)) if error.kind() == io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error),
+            }
         }
         fs::remove_file(&path)?;
         synchronize_publication_parent(original.path(), &path)?;
@@ -661,6 +703,7 @@ mod tests {
         assert_eq!(release(&store, &original, &report).unwrap(), 0);
         forget(&original).unwrap();
         assert!(read_retirement(&original).unwrap().is_none());
+        assert!(!original.path().join(InvocationEvidence::WorkflowStreams.filename()).exists());
     }
 
     #[test]
@@ -706,5 +749,25 @@ mod tests {
         assert!(release(&store, &original, &report).is_err());
         assert!(member.exists());
         assert!(path.exists());
+    }
+
+    #[test]
+    fn forgetting_workflow_refuses_replaced_raw_stream_receipt() {
+        let (_temporary, store, original, report, _, _) = setup();
+        let outer = original.path().join("stdout.raw");
+        write_member(&outer, b"outer");
+        original.publish_evidence(InvocationEvidence::WorkflowStreams, &WorkflowStreams {
+            invocation: original.id().clone(),
+            stdout: Some(descriptor_identity(&evidence_file(&outer).unwrap()).unwrap()),
+            stderr: None,
+        }).unwrap();
+        release(&store, &original, &report).unwrap();
+        let path = original.path().join(InvocationEvidence::WorkflowStreams.filename());
+        let replacement = path.with_extension("replacement");
+        write_member(&replacement, &fs::read(&path).unwrap());
+        fs::rename(&replacement, &path).unwrap();
+        assert!(forget(&original).is_err());
+        assert!(path.exists());
+        assert!(read_retirement(&original).unwrap().is_some());
     }
 }
