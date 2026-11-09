@@ -18,11 +18,13 @@ mod reference_process;
 mod reference_support;
 #[path = "reference_support/scalar.rs"]
 mod reference_scalar;
+#[path = "reference_support/scalar_exchange.rs"]
+mod reference_scalar_exchange;
 #[path = "reference_sensitivity_support/mod.rs"]
 mod support;
 
 use futures_util::FutureExt;
-use reference_scalar::Oracle;
+use reference_scalar_exchange::Oracle;
 use reference_support::Result;
 use std::{collections::BTreeMap, panic::AssertUnwindSafe};
 use support::{Candidate, CandidateReport, NativeCandidate, SensitivityCase};
@@ -147,7 +149,7 @@ async fn native_sensitivity_matches_sipopt_and_rejects_bad_populations() -> Resu
                 record("native-after-failures", Some(report)),
         ];
         let pool = native.pool();
-        let reference = tokio::task::spawn_blocking(move || reference_scalar::exchange(contract, Oracle {
+        let reference = tokio::task::spawn_blocking(move || reference_scalar_exchange::exchange(contract, Oracle {
             role: "PSE_SENSITIVITY_REFERENCE_PYTHON",
             driver: "sensitivity_reference_driver.py",
             diagnostic_prefix: "sensitivity_reference_environment ",

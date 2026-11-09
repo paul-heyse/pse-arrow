@@ -25,6 +25,12 @@ mod covariance;
 )]
 #[path = "reference_degeneracy_support/mod.rs"]
 mod degeneracy;
+#[allow(
+    dead_code,
+    reason = "native callers use shared scalar input admission without the external exchange"
+)]
+#[path = "reference_support/scalar.rs"]
+mod reference_scalar;
 #[path = "reference_support/mod.rs"]
 mod reference_support;
 #[allow(
@@ -509,7 +515,7 @@ async fn native_weighted_fit_checks_inverse_information_and_refuses_zero_sigma()
     let context = NativeContext::new()?;
     let outcome = AssertUnwindSafe(async {
         let case = covariance::LineCase::weighted();
-        let report = covariance::run(&context, &case).await?;
+        let (report, _reference_inputs) = covariance::run(&context, &case).await?;
         assert!(report.complete);
         // Direct normal equations for absolute known sigma: estimates are
         // (X'WX)^-1 X'Wy and covariance is (X'WX)^-1, with no RSS rescaling.
@@ -574,7 +580,7 @@ async fn native_sensitivity_checks_active_branch_and_refuses_unknown_parameter()
     let context = NativeContext::new()?;
     let outcome = AssertUnwindSafe(async {
         let case = sensitivity::SensitivityCase::quadratic();
-        let report = native.run(&case).await?;
+        let (report, _reference_inputs) = native.run(&case).await?;
         assert!(report.complete);
         // Stationarity under x+y=a gives x=(2a+b)/3 and y=(a-b)/3.
         // Strictly positive a keeps z=0 on its active lower bound.
@@ -651,7 +657,7 @@ async fn native_degeneracy_checks_nullspace_and_retains_attempt_limited_evidence
     let context = NativeContext::new()?;
     let outcome = AssertUnwindSafe(async {
         let case = degeneracy::LinearCase::dependent();
-        let report = native.run(&case).await?;
+        let (report, _reference_inputs) = native.run(&case).await?;
         assert!(report.complete, "{:?}", report.unavailable);
         assert!(report.unavailable.is_empty());
         let actual: BTreeSet<_> = report

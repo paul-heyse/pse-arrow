@@ -18,11 +18,14 @@ mod reference_process;
 mod reference_support;
 #[path = "reference_support/scalar.rs"]
 mod reference_scalar;
+#[path = "reference_support/scalar_exchange.rs"]
+mod reference_scalar_exchange;
 #[path = "reference_covariance_support/mod.rs"]
 mod support;
 
 use futures_util::FutureExt;
-use reference_scalar::{Inputs, Oracle};
+use reference_scalar::Inputs;
+use reference_scalar_exchange::Oracle;
 use std::{collections::BTreeMap, panic::AssertUnwindSafe, sync::Arc};
 use support::{Candidate, CandidateReport, LineCase, Result};
 
@@ -37,7 +40,7 @@ fn exchange(
     inputs: Inputs,
     pool: Arc<dyn pse_columnar::MemoryPool>,
 ) -> Result<Reference> {
-    let values = reference_scalar::exchange(inputs, Oracle {
+    let values = reference_scalar_exchange::exchange(inputs, Oracle {
         role: "PSE_COVARIANCE_REFERENCE_PYTHON",
         driver: "covariance_reference_driver.py",
         diagnostic_prefix: "covariance_reference_environment ",

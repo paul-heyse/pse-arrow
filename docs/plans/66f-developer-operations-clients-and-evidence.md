@@ -206,6 +206,22 @@ Private per-group verdict facts and full F04/E07 population are still open.
 | F05 | in-progress | C's actual operation/authentication/lifecycle slice; B family mapping; A/E selected products | The Study qualification coordinator includes separate exact endpoint identity and edit, run and reconnect phases against the original keeper. Run the prepared sequence and independent tool and reference clients. Complete the selected error, cancel, lost-ACK and protected-read population and retire the replaced client translations and fixtures. |
 | F06 | in-progress | Working F01–F05 slices, E05/E07 actual delivery/analysis consumers and native/scientific owners | Selected original setup/signal/refusal/rerun controls pass on main, with original incomplete runs retained separately. Complete remaining developer/client and sequential-delivery failures plus useful cross-invocation query acceptance; original evidence, physical settlement and native verdict remain distinct. |
 
+The native engineering binary built with `property-coolprop` can authorize
+`--allow-provider water-liquid`, `water-vapor` or `water-saturation` at startup.
+An authenticated source request explicitly selects the corresponding registration
+names; the service uses the already prepared host image and refuses unconfigured
+choices before issuing the source operation. The generated client/native source
+control and a separately launched service using those options have distinct
+receiving obligations.
+
+The native scientific test target and the three independent scalar references now
+share the same pure source-input binder. The independent targets alone compose the
+reference process owner. Native covariance, sensitivity and degeneracy consume the
+candidate report from the shared result without loading or launching an oracle.
+The selected force-validated runtime all-target check compiled these consumers
+(`01a1bf87-5ce2-7733-a88d-6aa7a206ddd9`); executing the independent reference
+targets and the prepared Study journey remains separate.
+
 ### F01 — Complete native developer action consumers
 
 Cover each selected native list/check/rustdoc/test route, integration target selection and affected

@@ -18,6 +18,8 @@ mod reference_process;
 mod reference_support;
 #[path = "reference_support/scalar.rs"]
 mod reference_scalar;
+#[path = "reference_support/scalar_exchange.rs"]
+mod reference_scalar_exchange;
 
 #[path = "reference_degeneracy_support/mod.rs"]
 mod support;
@@ -25,7 +27,8 @@ mod support;
 use futures_util::FutureExt;
 use pse_ids::SemanticId;
 use pse_model::reference_exchange::{ReferenceDegenerateCertificate, ReferenceDegeneracyResult, ReferenceMeaning};
-use reference_scalar::{Inputs, Oracle};
+use reference_scalar::Inputs;
+use reference_scalar_exchange::Oracle;
 use std::{collections::{BTreeMap, BTreeSet}, panic::AssertUnwindSafe};
 use support::{Candidate, CandidateReport, LinearCase, NativeCandidate, Result};
 
@@ -92,7 +95,7 @@ fn exchange(inputs: Inputs) -> Result<IndependentSupports> {
     let meaning = inputs.contract.meaning.clone();
     let ids = inputs.contract.observables.iter().map(|coordinate| (coordinate.key.as_str(), coordinate.output)).collect::<BTreeMap<_, _>>();
     let expected = SUPPORTS.map(|(rows, _)| rows.iter().map(|row| ids[format!("row:{row}").as_str()]).collect());
-    let (bytes, execution) = reference_scalar::perform(inputs, Oracle {
+    let (bytes, execution) = reference_scalar_exchange::perform(inputs, Oracle {
         role: "PSE_DEGENERACY_REFERENCE_PYTHON",
         driver: "degeneracy_reference_driver.py",
         diagnostic_prefix: "degeneracy_reference_environment ",
