@@ -60,7 +60,7 @@ impl NativeProviders {
 pub struct Campaign {
     manifest: ConformanceManifest,
     parent: PathBuf,
-    runs: Vec<usize>,
+    runs: Vec<(usize, NativeSourceSelection)>,
     fixtures: Option<Vec<DeclarationId>>,
 }
 
@@ -98,9 +98,14 @@ impl Campaign {
             ..Default::default()
         }
         .selection()?;
+        let parent = path.parent().unwrap_or_else(|| Path::new(".")).to_owned();
+        let runs = runs
+            .into_iter()
+            .map(|index| Ok((index, NativeSourceSelection::resolve(&parent, &manifest.runs[index])?)))
+            .collect::<Result<Vec<_>>>()?;
         Ok(Self {
             manifest,
-            parent: path.parent().unwrap_or_else(|| Path::new(".")).to_owned(),
+            parent,
             runs,
             fixtures,
         })
@@ -113,11 +118,19 @@ impl Campaign {
 
     /// Selected runs in authored manifest order.
     pub fn runs(&self) -> impl Iterator<Item = &ConformanceRun> {
-        self.runs.iter().map(|index| &self.manifest.runs[*index])
+        self.runs.iter().map(|(index, _)| &self.manifest.runs[*index])
     }
 
-    fn roots(&self, run: &ConformanceRun) -> Result<NativeSourceSelection> {
-        NativeSourceSelection::resolve(&self.parent, run)
+    fn roots(&self, run: &ConformanceRun) -> Result<&NativeSourceSelection> {
+        let admitted = self.runs.iter()
+            .find(|(index, _)| std::ptr::eq(&self.manifest.runs[*index], run))
+            .map(|(_, sources)| sources)
+            .context("run must be borrowed from this admitted campaign selection")?;
+        ensure!(
+            *admitted == NativeSourceSelection::resolve(&self.parent, run)?,
+            "conformance package roots changed after campaign admission"
+        );
+        Ok(admitted)
     }
 
     /// Refuse missing source roots or unavailable providers before any runtime effects.
@@ -172,10 +185,7 @@ impl Campaign {
         cancel.checkpoint()?;
         let original = selection.capture_physical(runtime.registry())?;
         cancel.checkpoint()?;
-        ensure!(
-            selection == self.roots(run)?,
-            "conformance package roots changed during capture"
-        );
+        self.roots(run)?;
         let source = runtime.source_services();
         let pool = source.preparation().pool();
         let validation = runtime.validation_context();
@@ -279,18 +289,20 @@ impl Campaign {
         cancel: &CancelSource,
     ) -> Result<RunReport> {
         self.require_selected(run, ConformanceExecution::Pure)?;
-        let documents = std::iter::once(&run.package)
-            .chain(&run.dependencies)
+        let selection = self.roots(run)?;
+        let documents = selection.modeling.iter()
             .map(|path| {
                 cancel.checkpoint()?;
-                documents(&self.parent.join(path))
+                documents(path)
             })
             .collect::<Result<Vec<_>>>()?;
         cancel.checkpoint()?;
+        let physical = self::documents(&selection.physical)?;
+        self.roots(run)?;
         let settings = &self.manifest.settings;
         let report = conform_pure_request(
             documents,
-            self::documents(&self.parent.join(&run.physical))?,
+            physical,
             budget(settings, spill)?,
             PureConformanceControls {
                 maximum_fixtures: settings.maximum_fixtures,
@@ -324,7 +336,7 @@ impl Campaign {
     }
 }
 
-/// Resolved source occurrences for one native run, in authored modeling order.
+/// Resolved source occurrences for one campaign run, in authored modeling order.
 #[derive(Debug, PartialEq, Eq)]
 struct NativeSourceSelection {
     physical: PathBuf,

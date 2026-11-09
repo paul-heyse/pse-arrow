@@ -16,7 +16,7 @@ fn native_provider_selection_is_explicit_and_unprepared_builds_refuse() {
     );
 }
 
-fn fixture() -> Result<(tempfile::TempDir, PathBuf)> {
+pub(super) fn fixture() -> Result<(tempfile::TempDir, PathBuf)> {
     let directory = tempfile::tempdir()?;
     let packages = Path::new(env!("CARGO_MANIFEST_DIR")).join("../tests/fixtures/packages");
     let package = directory.path().join("model");
@@ -84,6 +84,27 @@ fn campaign_selection_precedes_execution_and_retains_authored_order() -> Result<
             .collect::<Vec<_>>(),
         ["second"]
     );
+    Ok(())
+}
+
+#[test]
+fn campaign_preflight_refuses_a_retargeted_admitted_root() -> Result<()> {
+    let (directory, path) = fixture()?;
+    let model = directory.path().join("model");
+    let original = directory.path().join("original");
+    let replacement = directory.path().join("replacement");
+    std::fs::rename(&model, &original)?;
+    std::fs::create_dir(&replacement)?;
+    std::fs::copy(original.join("package.toml"), replacement.join("package.toml"))?;
+    std::os::unix::fs::symlink(&original, &model)?;
+    let campaign = Campaign::load(&path, Some("first"), None)?;
+    campaign.preflight(NativeProviders::None)?;
+    std::fs::write(original.join("models/pure.pse"), b"newly authored content")?;
+    campaign.preflight(NativeProviders::None)?;
+    std::fs::remove_file(&model)?;
+    std::os::unix::fs::symlink(&replacement, &model)?;
+    let error = campaign.preflight(NativeProviders::None).unwrap_err();
+    assert!(error.to_string().contains("roots changed after campaign admission"));
     Ok(())
 }
 

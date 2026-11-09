@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! One bounded owner projection, replaced atomically rather than recording every event.
+use pse_model::generated::identities::{DeclarationId, RunId};
 use pse_runtime::{CancelSource, workflow::ConformanceObservation};
 use serde::Serialize;
 use std::{
@@ -27,15 +28,17 @@ struct Case {
 }
 #[derive(Debug, Default, Serialize)]
 struct Run {
-    runtime_run: Option<String>,
+    runtime_run: Option<RunId>,
     phase: Option<&'static str>,
-    cases: BTreeMap<String, Case>,
+    cases: BTreeMap<DeclarationId, Case>,
     total_fixtures: Option<usize>,
     passed: Option<bool>,
     coverage_complete: Option<bool>,
     execution_error: Option<String>,
     settlement: Option<&'static str>,
+    settlement_error: Option<String>,
     export: Option<&'static str>,
+    export_error: Option<String>,
     published_outputs: Vec<String>,
 }
 #[derive(Debug, Serialize)]
@@ -110,6 +113,9 @@ impl CampaignProgress {
             eprintln!("conformance progress unavailable: original owner path is invalid");
             return None;
         }
+        Some(Self::new(path, campaign, historical_image))
+    }
+    fn new(path: PathBuf, campaign: &super::Campaign, historical_image: bool) -> Self {
         let requested = campaign.fixtures.as_deref().unwrap_or_default();
         let mut state = State {
             path,
@@ -124,7 +130,7 @@ impl CampaignProgress {
                     // A fixture request is constrained to one manifest run. The runtime
                     // replaces these requested rows with its admitted selection.
                     let cases = requested.iter().take(MAX_CASES)
-                        .map(|id| (id.to_string(), Case { phase: Some("requested"), ..Case::default() }))
+                        .map(|id| (*id, Case { phase: Some("requested"), ..Case::default() }))
                         .collect();
                     (run.name.clone(), Run { cases, ..Run::default() })
                 }).collect(),
@@ -134,7 +140,7 @@ impl CampaignProgress {
             dirty: true,
         };
         state.publish(true);
-        Some(Self(Arc::new(Mutex::new(state))))
+        Self(Arc::new(Mutex::new(state)))
     }
     fn update(&self, run: &str, force: bool, update: impl FnOnce(&mut Run)) {
         if let Ok(mut state) = self.0.lock() {
@@ -152,6 +158,27 @@ impl CampaignProgress {
     pub fn phase(&self, run: &str, phase: &'static str) {
         self.update(run, true, |entry| entry.phase = Some(phase));
     }
+    /// Publish all runs left unattempted after the driver closes admission.
+    pub fn unattempted<'a>(&self, runs: impl IntoIterator<Item = &'a str>) {
+        let Ok(mut state) = self.0.lock() else { return };
+        if state.unavailable {
+            return;
+        }
+        let mut changed = false;
+        for run in runs {
+            let Some(entry) = state.snapshot.runs.get_mut(run) else { continue };
+            changed = true;
+            entry.phase = Some("unattempted");
+            for case in entry.cases.values_mut() {
+                case.phase = Some("unattempted");
+                case.status = Some("Unattempted".into());
+            }
+        }
+        if changed {
+            state.dirty = true;
+            state.publish(true);
+        }
+    }
     /// Flush changed owner facts when a long phase produces no further transitions.
     pub fn flush(&self) {
         if let Ok(mut state) = self.0.lock() {
@@ -161,34 +188,57 @@ impl CampaignProgress {
     /// Project native or pure case facts supplied by the runtime owner.
     pub fn observation(&self, name: &str, event: ConformanceObservation) {
         let force = matches!(event, ConformanceObservation::Selected { .. });
-        let case_limit = self.0.lock().ok().map_or(0, |state| MAX_CASES / state.snapshot.runs.len().max(1));
-        self.update(name, force, |entry| match event {
+        let Ok(mut state) = self.0.lock() else { return };
+        if state.unavailable {
+            return;
+        }
+        let case_limit = MAX_CASES / state.snapshot.runs.len().max(1);
+        let Some(entry) = state.snapshot.runs.get_mut(name) else { return };
+        let run_id = event.run_id();
+        match event {
             ConformanceObservation::Selected { run, fixtures } => {
-                entry.runtime_run = Some(run.to_string());
-                entry.total_fixtures = Some(fixtures.len());
-                entry.cases = fixtures.iter().take(case_limit).map(|id| (id.to_string(), Case::default())).collect();
-            }
-            ConformanceObservation::Phase { fixture, phase, .. } => {
-                if let Some(case) = entry.cases.get_mut(&fixture.to_string()) {
-                    case.phase = Some(phase);
+                if entry.runtime_run.is_some() {
+                    return;
                 }
+                entry.runtime_run = Some(run);
+                entry.total_fixtures = Some(fixtures.len());
+                entry.cases = fixtures.into_iter().take(case_limit).map(|id| {
+                    (id, Case { phase: Some("selected"), ..Case::default() })
+                }).collect();
+            }
+            _ if entry.runtime_run != Some(run_id) => return,
+            ConformanceObservation::Phase { fixture, phase, .. } => {
+                let Some(case) = entry.cases.get_mut(&fixture) else { return };
+                if matches!(case.phase, Some("returned" | "unattempted")) { return; }
+                case.phase = Some(phase);
             }
             ConformanceObservation::Returned { fixture, status, finding, .. } => {
-                if let Some(case) = entry.cases.get_mut(&fixture.to_string()) {
-                    case.phase = Some("returned");
-                    case.status = status.map(|status| format!("{status:?}"));
-                    case.finding = finding.as_deref().map(bounded_finding);
-                }
+                let Some(case) = entry.cases.get_mut(&fixture) else { return };
+                if matches!(case.phase, Some("returned" | "unattempted")) { return; }
+                case.phase = Some("returned");
+                case.status = status.map(|status| format!("{status:?}"));
+                case.finding = finding.as_deref().map(bounded_finding);
             }
-        });
+            ConformanceObservation::Unattempted { fixture, .. } => {
+                let Some(case) = entry.cases.get_mut(&fixture) else { return };
+                if case.phase != Some("selected") { return; }
+                case.phase = Some("unattempted");
+                case.status = Some("Unattempted".into());
+            }
+        }
+        state.dirty = true;
+        state.publish(force);
     }
     /// Retain scientific completion independently of later cleanup and export.
     pub fn report(&self, report: &super::RunReport) {
         self.update(&report.name, true, |entry| {
+            if entry.runtime_run != Some(report.report.run_id) {
+                return;
+            }
             entry.passed = Some(report.report.passed());
             entry.coverage_complete = Some(report.report.complete);
             for (id, status) in &report.report.fixture_statuses {
-                if let Some(case) = entry.cases.get_mut(&id.to_string()) {
+                if let Some(case) = entry.cases.get_mut(id) {
                     case.status = Some(format!("{status:?}"));
                 }
             }
@@ -199,12 +249,18 @@ impl CampaignProgress {
         self.update(run, true, |entry| entry.execution_error = Some(bounded_finding(&error.to_string())));
     }
     /// Record the native owner result independently of original process exit.
-    pub fn settlement(&self, run: &str, state: &'static str) {
-        self.update(run, true, |entry| entry.settlement = Some(state));
+    pub fn settlement(&self, run: &str, state: &'static str, error: Option<&str>) {
+        self.update(run, true, |entry| {
+            entry.settlement = Some(state);
+            entry.settlement_error = error.map(bounded_finding);
+        });
     }
     /// Record export disposition independently of scientific evidence.
-    pub fn export(&self, run: &str, state: &'static str) {
-        self.update(run, true, |entry| entry.export = Some(state));
+    pub fn export(&self, run: &str, state: &'static str, error: Option<&str>) {
+        self.update(run, true, |entry| {
+            entry.export = Some(state);
+            entry.export_error = error.map(bounded_finding);
+        });
     }
     /// Record one actual file publication, including partial exports.
     pub fn published_output(&self, run: &str, output: &std::path::Path) {
@@ -248,5 +304,121 @@ impl ProcessInterrupt {
 impl Drop for ProcessInterrupt {
     fn drop(&mut self) {
         self.listener.abort();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pse_model::generated::enums::ModelingConformanceStatus as Status;
+    use std::{io::{BufRead, BufReader}, process::{Child, Command, Stdio}, sync::mpsc};
+
+    // The same test binary is the original publisher in the controlled subprocess.
+    // The parent may kill it only after the child's pipe acknowledges the boundary.
+    #[test]
+    fn abrupt_publisher_exit_preserves_only_observed_checkpoint() -> anyhow::Result<()> {
+        const MANIFEST: &str = "PSE_CONFORMANCE_CONTROL_MANIFEST";
+        const CHECKPOINT: &str = "PSE_CONFORMANCE_CONTROL_CHECKPOINT";
+        const PUBLISH: &str = "PSE_CONFORMANCE_CONTROL_PUBLISH";
+        const READY: &str = "checkpoint control reached";
+        if let Some(manifest) = std::env::var_os(MANIFEST) {
+            let campaign = super::super::Campaign::load(std::path::Path::new(&manifest), Some("first"), None)?;
+            let checkpoint = PathBuf::from(std::env::var_os(CHECKPOINT).expect("child checkpoint"));
+            if std::env::var_os(PUBLISH).as_deref() == Some(std::ffi::OsStr::new("yes")) {
+                let progress = CampaignProgress::new(checkpoint, &campaign, false);
+                let run = RunId::from_bytes([42; 16]);
+                let fixture = DeclarationId::from_bytes([7; 16]);
+                progress.observation("first", ConformanceObservation::Selected { run, fixtures: vec![fixture] });
+            }
+            let mut out = io::stdout().lock();
+            writeln!(out, "{READY}")?;
+            out.flush()?;
+            io::copy(&mut io::stdin().lock(), &mut io::sink())?;
+            anyhow::bail!("parent should kill the original process before EOF");
+        }
+        struct Owner(Child);
+        impl Drop for Owner {
+            fn drop(&mut self) {
+                let _ = self.0.kill();
+                let _ = self.0.wait();
+            }
+        }
+        let (dir, manifest) = super::super::tests::fixture()?;
+        let module = module_path!().split_once("::").expect("qualified module").1;
+        let test = format!("{module}::abrupt_publisher_exit_preserves_only_observed_checkpoint");
+        for publish in ["no", "yes"] {
+            let checkpoint = dir.path().join(format!("{publish}.json"));
+            let mut owner = Owner(Command::new(std::env::current_exe()?)
+                .args(["--exact", &test, "--nocapture"])
+                .env(MANIFEST, &manifest).env(CHECKPOINT, &checkpoint).env(PUBLISH, publish)
+                .stdin(Stdio::piped()).stdout(Stdio::piped()).spawn()?);
+            let stdout = owner.0.stdout.take().expect("child stdout");
+            let (send, recv) = mpsc::sync_channel(1);
+            let reader = std::thread::spawn(move || {
+                let seen = BufReader::new(stdout).lines().map_while(Result::ok).any(|line| line.contains(READY));
+                let _ = send.send(seen);
+            });
+            let seen = recv.recv_timeout(Duration::from_secs(10));
+            owner.0.kill()?;
+            assert!(!owner.0.wait()?.success());
+            reader.join().expect("child output reader");
+            assert!(seen?, "original process did not reach the selected boundary");
+            if publish == "no" {
+                assert!(!checkpoint.exists());
+            } else {
+                let observation: serde_json::Value = serde_json::from_slice(&std::fs::read(checkpoint)?)?;
+                let run = &observation["runs"]["first"];
+                assert_eq!(run["total_fixtures"], 1);
+                assert!(run["passed"].is_null() && run["settlement"].is_null() && run["export"].is_null());
+            }
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn checkpoint_binds_original_run_and_bounds_cases_without_inventing_completion() -> anyhow::Result<()> {
+        let (dir, manifest) = super::super::tests::fixture()?;
+        let campaign = super::super::Campaign::load(&manifest, Some("first"), None)?;
+        let path = dir.path().join("conformance-progress.json");
+        let progress = CampaignProgress::new(path.clone(), &campaign, false);
+        let read = || -> anyhow::Result<serde_json::Value> {
+            Ok(serde_json::from_slice(&std::fs::read(&path)?)?)
+        };
+        assert_eq!(read()?["runs"]["first"]["runtime_run"], serde_json::Value::Null);
+        let run = RunId::from_bytes([1; 16]);
+        let foreign = RunId::from_bytes([2; 16]);
+        let fixture_id = |index: usize| DeclarationId::from_bytes((index as u128).to_be_bytes());
+        let fixture = fixture_id(0);
+        let unattempted = fixture_id(1);
+        progress.observation("first", ConformanceObservation::Selected {
+            run,
+            fixtures: (0..=MAX_CASES).map(fixture_id).collect(),
+        });
+        let admitted = read()?;
+        let original = &admitted["runs"]["first"];
+        assert_eq!(original["total_fixtures"], MAX_CASES + 1);
+        assert_eq!(original["cases"].as_object().map(serde_json::Map::len), Some(MAX_CASES));
+        assert_eq!(original["cases"][fixture.to_string()]["phase"], "selected");
+        assert!(original["passed"].is_null());
+        progress.observation("first", ConformanceObservation::Returned {
+            run: foreign, fixture, status: Some(Status::Passed), finding: None,
+        });
+        progress.observation("first", ConformanceObservation::Returned {
+            run, fixture, status: Some(Status::Failed), finding: Some("first failure".into()),
+        });
+        progress.observation("first", ConformanceObservation::Returned {
+            run, fixture, status: Some(Status::Passed), finding: None,
+        });
+        progress.observation("first", ConformanceObservation::Unattempted { run, fixture: unattempted });
+        progress.settlement("first", "unresolved", Some("cleanup failure"));
+        let final_observation = read()?;
+        let original = &final_observation["runs"]["first"];
+        let case = &original["cases"][fixture.to_string()];
+        assert_eq!(case["status"], "Failed");
+        assert_eq!(case["finding"], "first failure");
+        assert_eq!(original["cases"][unattempted.to_string()]["status"], "Unattempted");
+        assert_eq!(original["settlement_error"], "cleanup failure");
+        assert!(original["passed"].is_null());
+        Ok(())
     }
 }

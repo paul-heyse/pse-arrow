@@ -56,6 +56,25 @@ pub enum ConformanceObservation {
         /// First available actionable finding, independent of process exit.
         finding: Option<String>,
     },
+    /// The owner finished issuing work without starting this admitted fixture.
+    Unattempted {
+        /// Original conformance report identity.
+        run: RunId,
+        /// Exact authored fixture identity.
+        fixture: DeclarationId,
+    },
+}
+
+impl ConformanceObservation {
+    /// Scientific owner of this observation, not the process invocation ID.
+    pub fn run_id(&self) -> RunId {
+        match self {
+            Self::Selected { run, .. }
+            | Self::Phase { run, .. }
+            | Self::Returned { run, .. }
+            | Self::Unattempted { run, .. } => *run,
+        }
+    }
 }
 
 pub(super) type ConformanceObserver = Arc<dyn Fn(ConformanceObservation) + Send + Sync>;
@@ -1425,16 +1444,20 @@ impl ModelingPackage {
                         }
                     };
                     if let Some((index, fixture, mut outcome)) = next {
+                        use pse_model::diagnostic::BoundaryClass as C;
                         observe(|| match &outcome {
                             Ok(local) => local.report.returned_observation(run_id, fixture, 0),
                             Err(error) => ConformanceObservation::Returned {
                                 run: run_id,
                                 fixture,
-                                status: None,
+                                status: match error.boundary_diagnostic().class {
+                                    C::Cancelled => Some(Status::Cancelled),
+                                    C::ResourceLimit => Some(Status::Inconclusive),
+                                    _ => None,
+                                },
                                 finding: Some(error.to_string()),
                             },
                         });
-                        use pse_model::diagnostic::BoundaryClass as C;
                         match &mut outcome {
                             Ok(local) => {
                                 if index != settled {
@@ -1487,12 +1510,13 @@ impl ModelingPackage {
                     }
                 }
                 // Never abandon an issued fixture: the queue is empty before either return.
-                if let Some(error) = fatal {
-                    return Err(error);
-                }
                 if issued < fixtures.len() {
                     report.complete = false;
                     for row in &fixtures[issued..] {
+                        observe(|| ConformanceObservation::Unattempted {
+                            run: run_id,
+                            fixture: row.declaration_id,
+                        });
                         report.record_fixture(
                             row.declaration_id,
                             Kind::Preparation,
@@ -1502,6 +1526,9 @@ impl ModelingPackage {
                             cap,
                         );
                     }
+                }
+                if let Some(error) = fatal {
+                    return Err(error);
                 }
                 report.coverage(&source_rows, &covered, cap);
                 if cancel.token().is_cancelled() {
@@ -3324,9 +3351,14 @@ mod tests {
             .math()
             .preparation_deadline(&cancel)
             .unwrap();
-        let mut run = Box::pin(CONFORMANCE_TEST_PROBE.scope(
-            probe.clone(),
-            package.conform(&services, parallel_policy(), &cancel),
+        let observations = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let observed = observations.clone();
+        let mut run = Box::pin(with_conformance_observer(
+            move |event| observed.lock().unwrap().push(event),
+            CONFORMANCE_TEST_PROBE.scope(
+                probe.clone(),
+                package.conform(&services, parallel_policy(), &cancel),
+            ),
         ));
         tokio::select! {
             result = &mut run => panic!("conformance returned before all sixteen admitted workers: {}; {}", result_summary(&result), probe.snapshot()),
@@ -3354,6 +3386,20 @@ mod tests {
         probe.release_all();
         let report = run.await.unwrap();
         assert!(!report.complete && !report.passed());
+        let observations = observations.lock().unwrap();
+        assert!(matches!(observations.first(), Some(ConformanceObservation::Selected { run, fixtures })
+            if *run == report.run_id && *fixtures == order));
+        assert!(observations.iter().all(|event| event.run_id() == report.run_id));
+        let returned: BTreeSet<_> = observations.iter().filter_map(|event| match event {
+            ConformanceObservation::Returned { fixture, status: Some(Status::Cancelled), .. } => Some(*fixture),
+            _ => None,
+        }).collect();
+        assert_eq!(returned, initial);
+        let unattempted: Vec<_> = observations.iter().filter_map(|event| match event {
+            ConformanceObservation::Unattempted { fixture, .. } => Some(*fixture),
+            _ => None,
+        }).collect();
+        assert_eq!(unattempted, order[16..]);
         assert_eq!(probe.state_snapshot().active, 0);
         assert_eq!(
             probe.state_snapshot().finished.len(),

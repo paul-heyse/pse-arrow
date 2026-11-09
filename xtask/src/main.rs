@@ -455,16 +455,14 @@ fn conformance_command(
     if historical_image {
         eprintln!("running a historical prepared conformance image");
     }
+    let mut consumed = 0;
     let outcome = (|| -> Result<()> {
     let mut passed = true;
-    for run in campaign.runs() {
+    for (index, run) in campaign.runs().enumerate() {
         if cancel.token().is_cancelled() {
-            if let Some(progress) = &progress {
-                progress.phase(&run.name, "unattempted");
-            }
-            passed = false;
-            continue;
+            break;
         }
+        consumed = index + 1;
         if let Some(progress) = &progress {
             progress.phase(&run.name, "preparation");
         }
@@ -484,7 +482,7 @@ fn conformance_command(
                     &progress, &run.name, Box::pin(campaign.run_pure(run, spill.path(), &cancel)),
                 ));
                 if let Some(progress) = &progress {
-                    progress.settlement(&run.name, "no_native_lanes");
+                    progress.settlement(&run.name, "no_native_lanes", None);
                 }
                 perform(result)?
             }
@@ -492,26 +490,33 @@ fn conformance_command(
                 let _entered = executor.enter();
                 let shared =
                     pse_runtime::SharedRuntime::build(budget(campaign.settings(), spill.path())?)?;
-                let factory =
-                    Arc::new(shared.session_factory(pse_engine::session::native_engine_profile())?);
-                let runtime = pse_runtime::workflow::Runtime::from_shared_local(
-                    shared.clone(),
-                    factory.bind_model(pse_schema::shared_registry()?)?,
-                )?;
+                let mut active = None;
                 let result = catch_unwind(AssertUnwindSafe(|| {
+                    let factory =
+                        Arc::new(shared.session_factory(pse_engine::session::native_engine_profile())?);
+                    let runtime = active.insert(pse_runtime::workflow::Runtime::from_shared_local(
+                        shared.clone(),
+                        factory.bind_model(pse_schema::shared_registry()?)?,
+                    )?);
                     executor.block_on(observe_campaign_run(
-                        &progress, &run.name, Box::pin(campaign.run_native(run, &runtime, providers, &cancel)),
+                        &progress, &run.name, Box::pin(campaign.run_native(run, runtime, providers, &cancel)),
                     ))
                 }));
                 let result = result.map(perform);
                 if let Some(progress) = &progress {
                     progress.phase(&run.name, "draining_native_lanes");
                 }
-                runtime.close();
-                runtime.clear_program_cache();
+                if let Some(runtime) = active {
+                    runtime.close();
+                    runtime.clear_program_cache();
+                }
                 let cleanup = executor.block_on(shared.math().shutdown_native_lanes());
                 if let Some(progress) = &progress {
-                    progress.settlement(&run.name, if cleanup.is_ok() { "drained" } else { "unresolved" });
+                    progress.settlement(
+                        &run.name,
+                        if cleanup.is_ok() { "drained" } else { "unresolved" },
+                        cleanup.as_ref().err().map(ToString::to_string).as_deref(),
+                    );
                 }
                 match (result, cleanup) {
                     (Ok(result), Ok(())) => result?,
@@ -530,7 +535,7 @@ fn conformance_command(
         };
         if let Some(directory) = report_dir {
             if let Some(progress) = &progress {
-                progress.export(&run.name, "publishing");
+                progress.export(&run.name, "publishing", None);
             }
             let export = (|| -> Result<_> {
                 std::fs::create_dir_all(directory)?;
@@ -541,7 +546,11 @@ fn conformance_command(
                 })
             })();
             if let Some(progress) = &progress {
-                progress.export(&run.name, if export.is_ok() { "published" } else { "failed" });
+                progress.export(
+                    &run.name,
+                    if export.is_ok() { "published" } else { "failed" },
+                    export.as_ref().err().map(ToString::to_string).as_deref(),
+                );
             }
             export?;
         }
@@ -574,6 +583,9 @@ fn conformance_command(
     );
     Ok(())
     })();
+    if outcome.is_err() && let Some(progress) = &progress {
+        progress.unattempted(campaign.runs().skip(consumed).map(|run| run.name.as_str()));
+    }
     executor.block_on(signals.finish());
     outcome
 }

@@ -196,6 +196,12 @@ fn conformance_command_reports_failed_science_and_returns_nonzero() -> Result<()
 #[test]
 fn conformance_reports_science_and_partial_export_after_collision() -> Result<()> {
     let (directory, manifest) = fixture(4)?;
+    let source = std::fs::read_to_string(&manifest)?;
+    let (_, run) = source.split_once("[[runs]]").context("original campaign run")?;
+    std::fs::write(
+        &manifest,
+        format!("{source}\n[[runs]]{}", run.replace("name=\"first\"", "name=\"second\"")),
+    )?;
     let reports = directory.path().join("partial-reports");
     let progress = directory.path().join("conformance-progress.json");
     std::fs::create_dir(&reports)?;
@@ -214,6 +220,27 @@ fn conformance_reports_science_and_partial_export_after_collision() -> Result<()
     let run = &progress["runs"]["first"];
     assert_eq!(run["passed"], true, "original science completed before export failed");
     assert_eq!(run["export"], "failed");
+    assert!(run["export_error"].as_str().is_some_and(|error| !error.is_empty()));
     assert_eq!(run["published_outputs"], serde_json::json!(["first.arrow"]));
+    let skipped = &progress["runs"]["second"];
+    assert_eq!(skipped["phase"], "unattempted");
+    assert!(skipped["runtime_run"].is_null());
+    assert!(skipped["passed"].is_null());
+    Ok(())
+}
+
+#[test]
+fn conformance_same_executable_admits_changed_model_source() -> Result<()> {
+    let (directory, manifest) = fixture(4)?;
+    let run = || command().args(["conformance", "--manifest"]).arg(&manifest).output();
+    let first = run()?;
+    assert!(first.status.success(), "{first:?}");
+    let model = directory.path().join("model/models/pure.pse");
+    let source = std::fs::read_to_string(&model)?;
+    assert!(source.contains("square(2)==4"));
+    std::fs::write(&model, source.replace("square(2)==4", "square(2)==5"))?;
+    let changed = run()?;
+    assert!(!changed.status.success());
+    assert!(String::from_utf8(changed.stdout)?.contains("passed=false complete=true"));
     Ok(())
 }

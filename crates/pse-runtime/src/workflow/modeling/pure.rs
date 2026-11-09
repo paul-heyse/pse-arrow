@@ -117,12 +117,6 @@ pub async fn conform_pure_documents(
         ModelingConformanceReport::new(registry, resources.pool.clone(), validation, &fixture_ids)?;
     report.selection = selection;
     let observer = conformance::observer();
-    if let Some(publish) = &observer {
-        publish(ConformanceObservation::Selected {
-            run: report.run_id,
-            fixtures: fixture_ids,
-        });
-    }
     let flag = pse_diagnostics::Cancellation::new(token.is_cancelled());
     let worker_flag = flag.clone();
     let task = tokio::task::spawn_blocking(
@@ -158,6 +152,12 @@ pub async fn conform_pure_documents(
                 .iter()
                 .map(|row| declared_limits(row, preparation.limits))
                 .collect::<Result<Vec<_>, _>>()?;
+            if let Some(publish) = &observer {
+                publish(ConformanceObservation::Selected {
+                    run: report.run_id,
+                    fixtures: fixtures.iter().map(|fixture| fixture.declaration_id).collect(),
+                });
+            }
             let mut covered = BTreeSet::new();
             for (index, (row, limits)) in fixtures.iter().zip(fixture_limits).enumerate() {
                 let fixture = row.declaration_id;
@@ -175,6 +175,9 @@ pub async fn conform_pure_documents(
                         oracle,
                         maximum_checks,
                     );
+                    if let Some(publish) = &observer {
+                        publish(ConformanceObservation::Unattempted { run: report.run_id, fixture });
+                    }
                     continue;
                 }
                 if let Some(publish) = &observer {
@@ -226,6 +229,13 @@ pub async fn conform_pure_documents(
                 };
                 covered.extend(model.model.instances.values().map(|i| i.definition));
                 report.note_units(fixture, &model.model);
+                if let Some(publish) = &observer {
+                    publish(ConformanceObservation::Phase {
+                        run: report.run_id,
+                        fixture,
+                        phase: "point_check",
+                    });
+                }
                 let checked = compiler
                     .check_prepared_modeling_point(
                         &model,
