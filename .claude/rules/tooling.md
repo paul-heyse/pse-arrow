@@ -64,9 +64,12 @@ exposes the `scripts/pse` launcher through the checkout `scripts/` entry on `PAT
   Codex and Claude Code, always exits zero, and never blocks or rewrites the command. Codex
   requires native `/hooks` review/trust of changed definitions; do not bypass that review.
   End-of-turn automation stays removed (ADR-0161).
-- **Edits.** Prefer `apply_patch`/`Edit`. Ast-grep can help with repeated structural Rust rewrites, for
-  example `ast-grep run -l rust --pattern 'checkout_root()' --rewrite 'ctx.root()' --update-all
-  crates/pse-host/src`. A scripted replacement asserts its count first:
-  `assert s.count(old) == 1, s.count(old)`.
+- **Editing considerations.** Choose the editing method suited to the change and the
+  available tools. Consider the scope and structure of the transformation, how unexpected
+  source content would be detected, and any concurrent changes. For automated replacements,
+  checking the expected matches before writing can help catch ineffective or overly broad
+  edits; syntax-aware tools can help with repeated structural changes. Use judgment about
+  which safeguards are useful, and inspect the resulting changes to confirm the intended
+  effect and preserve unrelated work.
 - **Checks.** Exercise a changed capability once, in its revealing case; the script tests run
   with `just setup-test`, `just native-setup-unit` and `just surreal-test`. Do not add lints.

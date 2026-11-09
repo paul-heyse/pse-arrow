@@ -260,10 +260,9 @@ and a family major needs an ADR. Holds go in `[workspace.metadata.pse.pins]` wit
 
 Each of these is a real incident, not a hypothetical.
 
-- **Script edits that silently match nothing.** Edit with `apply_patch`/`Edit` by default.
-  `ast-grep run --pattern … --rewrite … --update-all` can help with repeated structural Rust
-  edits. An unavoidable script edit asserts its expected match count before writing
-  (`.claude/rules/tooling.md`).
+- **Script edits that silently match nothing.** Automated replacements have previously
+  completed without making the intended change. See the editing considerations in
+  [the tooling guidance](.claude/rules/tooling.md).
 
 - **Pinning the umbrella crate does not pin the family.** `arrow = "=59.3.0"` binds one
   direct dependency; `arrow-schema`, `arrow-array` and friends can still resolve to a
