@@ -1227,10 +1227,7 @@ async fn execute_groups_observed(
             if let Some(progress) = &progress {
                 progress.group(group, LiveGroup::EnteredCommand);
             }
-            let junit_report = request.junit_report.clone();
-            let result = phase::run_capturing_junit(
-                command(request), &stdout, &stderr, observer, policy, junit_report.as_deref(),
-            ).await;
+            let result = phase::run(command(request), &stdout, &stderr, observer, policy).await;
             drop(done);
             if let Some(progress) = &progress {
                 progress.group(group, LiveGroup::CommandReturned);

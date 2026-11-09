@@ -630,8 +630,6 @@ pub struct GroupCommand {
     pub environment: Environment,
     /// Captured admitted build/feature group.
     pub group: usize,
-    /// Retained native report; only Nextest commands declare this capture transport.
-    pub(crate) junit_report: Option<PathBuf>,
     /// Discovery's explicit remaining runtime-input boundary, never a ready-launch assertion.
     pub runtime_inputs: discovery::RuntimeInputObservation,
 }
@@ -814,7 +812,6 @@ impl Listed {
             cwd: self.context.checkout.clone(),
             environment,
             group,
-            junit_report: Some(self.report_path(group)),
             runtime_inputs: self.inventory.runtime_inputs,
         })
     }
@@ -841,7 +838,7 @@ impl Listed {
                     "selected native profile is absent from captured configuration".into(),
                 )
             })?;
-        let report = execute::junit::transport_path(&self.report_path(group));
+        let report = self.report_path(group);
         let report = report.to_str().ok_or_else(|| {
             WorkflowError::Invalid("native JUnit report path is not UTF-8".into())
         })?;

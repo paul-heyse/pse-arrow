@@ -743,7 +743,7 @@ fn run_configuration_is_private_and_preserves_original_profile_policy() {
     let expected: toml::Value = toml::from_str(std::str::from_utf8(original).unwrap()).unwrap();
     assert_eq!(
         actual["profile"]["selected-profile"]["junit"]["path"].as_str(),
-        execute::junit::transport_path(&listed.report_path(0)).to_str()
+        listed.report_path(0).to_str()
     );
     actual["profile"]["selected-profile"]["junit"]["path"] =
         expected["profile"]["selected-profile"]["junit"]["path"].clone();
@@ -755,7 +755,7 @@ fn run_configuration_is_private_and_preserves_original_profile_policy() {
     let second: toml::Value = toml::from_str(&fs::read_to_string(second).unwrap()).unwrap();
     assert_ne!(
         second["profile"]["selected-profile"]["junit"]["path"],
-        toml::Value::String(execute::junit::transport_path(&listed.report_path(0)).to_str().unwrap().into())
+        toml::Value::String(listed.report_path(0).to_str().unwrap().into())
     );
     fs::set_permissions(&first, fs::Permissions::from_mode(0o600)).unwrap();
     assert!(listed.run_configuration(0).is_err());

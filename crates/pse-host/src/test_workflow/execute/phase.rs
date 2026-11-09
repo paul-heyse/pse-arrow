@@ -35,17 +35,6 @@ pub(crate) async fn run<O: ChunkObserver>(
     observer: O,
     policy: PayloadPolicy,
 ) -> Result<Captured<O>, WorkflowError> {
-    run_capturing_junit(command, stdout, stderr, observer, policy, None).await
-}
-
-pub(super) async fn run_capturing_junit<O: ChunkObserver>(
-    command: Command,
-    stdout: &Path,
-    stderr: &Path,
-    observer: O,
-    policy: PayloadPolicy,
-    junit_report: Option<&Path>,
-) -> Result<Captured<O>, WorkflowError> {
     let started = Instant::now();
     let stdout_sink = tokio::fs::OpenOptions::new()
         .write(true)
@@ -64,7 +53,6 @@ pub(super) async fn run_capturing_junit<O: ChunkObserver>(
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    let relay = junit_report.map(super::junit::Relay::start).transpose()?;
     let mut child = command.spawn()?;
     let stdout = child
         .stdout
@@ -84,16 +72,7 @@ pub(super) async fn run_capturing_junit<O: ChunkObserver>(
         Some(streams::WORKFLOW_PIPE_BYTES),
     );
     let mut failures = Vec::new();
-    let (waited, waited_at, report_capture) = match relay {
-        Some(relay) => relay.wait(&mut child, policy).await,
-        None => {
-            let waited = child.wait().await;
-            (waited, Instant::now(), Ok(()))
-        }
-    };
-    let report_captured = report_capture.is_ok();
-    failures.extend(report_capture.err());
-    let status = match waited {
+    let status = match child.wait().await {
         Ok(status) => Some(status),
         Err(source) => {
             failures.push(WorkflowError::ChildWait {
@@ -109,13 +88,14 @@ pub(super) async fn run_capturing_junit<O: ChunkObserver>(
             .code()
             .unwrap_or_else(|| 128 + status.signal().unwrap_or(1))
     });
-    let deadline = match waited_at.checked_add(policy.drain) {
+    let now = Instant::now();
+    let deadline = match now.checked_add(policy.drain) {
         Some(deadline) => deadline,
         None => {
             failures.push(WorkflowError::Invalid(
                 "phase capture drain deadline exceeds clock range".into(),
             ));
-            waited_at
+            now
         }
     };
     let mut capture = match tee.finish(deadline).await {
@@ -125,7 +105,7 @@ pub(super) async fn run_capturing_junit<O: ChunkObserver>(
             None
         }
     };
-    let capture_complete = report_captured && capture
+    let capture_complete = capture
         .as_ref()
         .is_some_and(|capture| capture.log_complete());
     let stdout = capture

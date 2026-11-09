@@ -2,7 +2,6 @@
 // Copyright (c) 2026 Paul Heyse
 //! Fixed managed-helper workflow. Native interpreters own verdicts; the enclosing scope owns drain.
 pub(crate) mod evidence;
-pub(super) mod junit;
 pub(crate) mod phase;
 pub(crate) mod progress;
 mod report;

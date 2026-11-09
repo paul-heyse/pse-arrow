@@ -184,7 +184,6 @@ impl PreparedCheck {
             cwd: self.context.checkout.clone(),
             environment,
             group,
-            junit_report: None,
             runtime_inputs: discovery::RuntimeInputObservation::NotCapturedByDiscovery,
         })
     }
