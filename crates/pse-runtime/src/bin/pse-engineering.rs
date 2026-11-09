@@ -15,14 +15,15 @@ use pse_runtime::{
     CancelSource, SharedRuntime,
     host_operations::{
         engineering::{
-            EngineeringFrontendReady, EngineeringService, EngineeringServiceError,
-            LocalAccessPolicy, serve,
+            EngineeringFrontendReady, EngineeringProviderPreparation, EngineeringService,
+            EngineeringServiceError, LocalAccessPolicy, serve,
         },
         project::PROJECT_OPERATOR_DEFAULTS,
     },
     workflow::{CanonicalDeployment, OuterAttestation, Runtime},
 };
 use std::{
+    collections::BTreeMap,
     os::unix::fs::{FileTypeExt, MetadataExt, PermissionsExt},
     path::{Path, PathBuf},
     sync::Arc,
@@ -35,6 +36,37 @@ mod native_stack;
 mod signals;
 
 type Error = Box<dyn std::error::Error + Send + Sync>;
+
+#[cfg(feature = "property-coolprop")]
+#[derive(Clone, Copy, Debug, clap::ValueEnum)]
+enum ProviderRoute {
+    WaterLiquid,
+    WaterVapor,
+    WaterSaturation,
+}
+
+#[cfg(feature = "property-coolprop")]
+impl ProviderRoute {
+    fn registration(self) -> (&'static str, EngineeringProviderPreparation) {
+        use pse_backend_native::coolprop::{self, WaterRegime};
+        let (name, prepare): (_, fn(&pse_quantity::QuantityRegistry) -> _) = match self {
+            Self::WaterLiquid => (WaterRegime::Liquid.implementation(), |registry| {
+                coolprop::registration(registry, WaterRegime::Liquid)
+            }),
+            Self::WaterVapor => (WaterRegime::Vapor.implementation(), |registry| {
+                coolprop::registration(registry, WaterRegime::Vapor)
+            }),
+            Self::WaterSaturation => (
+                coolprop::WATER_SATURATION_IMPLEMENTATION,
+                coolprop::saturation_registration,
+            ),
+        };
+        (
+            name,
+            EngineeringProviderPreparation::new(prepare, coolprop::WATER_REGISTRATION_BYTES),
+        )
+    }
+}
 
 #[derive(Debug, Parser)]
 #[command(
@@ -80,6 +112,10 @@ struct Args {
     /// Finite client-connection retention, independent of scientific CPU placement.
     #[arg(long, default_value_t = 64)]
     maximum_connections: usize,
+    /// Permit typed source requests to select this explicitly prepared host capability.
+    #[cfg(feature = "property-coolprop")]
+    #[arg(long, value_enum)]
+    allow_provider: Vec<ProviderRoute>,
     /// Transport and terminal canonical-connection drain allowance after native settlement.
     #[arg(long, default_value_t = 30_000)]
     shutdown_ms: u64,
@@ -168,6 +204,21 @@ async fn run(args: Args) -> Result<(), Error> {
     )
     .await?;
     let budget = budget(&args)?;
+    let provider_preparations: BTreeMap<_, EngineeringProviderPreparation> = {
+        #[cfg(feature = "property-coolprop")]
+        {
+            let mut selected = BTreeMap::new();
+            for route in &args.allow_provider {
+                let (name, prepare) = route.registration();
+                if selected.insert(name, prepare).is_some() {
+                    return Err("duplicate --allow-provider selection".into());
+                }
+            }
+            selected
+        }
+        #[cfg(not(feature = "property-coolprop"))]
+        BTreeMap::new()
+    };
     let mut artifact = std::fs::File::open(std::env::current_exe()?)?;
     let mut digest = pse_ids::EncodingHasher::new();
     std::io::copy(&mut artifact, &mut digest)?;
@@ -197,7 +248,12 @@ async fn run(args: Args) -> Result<(), Error> {
                 None,
             ),
         )?;
-        let engine = EngineeringService::new(runtime, shared, args.maximum_operations)?;
+        let engine = EngineeringService::new(
+            runtime,
+            shared,
+            args.maximum_operations,
+            provider_preparations,
+        )?;
         let setup: Result<_, Error> = (|| {
             let listener = tokio::net::UnixListener::bind(&args.socket)?;
             let socket = SocketOwner::new(args.socket.clone())?;

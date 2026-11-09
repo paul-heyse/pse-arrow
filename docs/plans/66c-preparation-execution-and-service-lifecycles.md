@@ -184,6 +184,25 @@ and physical-settlement population; no new shutdown test or memory benefit is cl
 | C04 | planned | Complete passive recipe and admitted-body foundations; A/D operation-specific permission; D's preallocation-bounded canonical reconstruction gate | Remaining selected live/receiving/reference contexts use exact native permission and original memberships; canonical binary activation requires bounded native reconstruction or a qualified alternative, and obsolete routes retire only with their actual consumers. |
 | C05 | in-progress | Working C02–C04 producer/consumer slices and B04 where representation changes | Checkout activation and process-root observer token, nonblocking I/O and native error retention are integrated. `ObserveRun` bounds its passive wait by the request deadline and preserves settlement of an already admitted protected read. Verify the real UDS progress frame and terminal trailer control. Study observation still needs its effect-bearing capture and original failure to settle under its own deadline contract. |
 
+Typed engineering `AdmitSource` now takes an explicit registration set authorized by
+the service startup. The native owner rejects unknown/duplicate choices before retaining
+the request, prepares selected registrations against the actual admitted physical
+context under one managed native job and its original cancellation and clock, and supplies
+them to the existing document loader. The job admits the selected routes' construction
+allowance in addition to its existing stack and foreign reservations. CoolProp image
+verification uses fixed scratch rather than reading a full library image into memory on the
+service task. Provider-free intake uses
+the same route with an empty set. The original operation owns its registration set
+across source inspection and exact repeated admission. The new targeted control uses
+the authored Water closure. **Tested, selected:** the force-validated default-profile
+runtime control passed over an authenticated Unix HTTP/2 gRPC connection with
+complete settlement and zero build warnings (`01a1bf8c-3aa3-741b-ac71-14785594a48f`).
+It checked original bound provider configurations, unchanged reordered replay,
+unknown/duplicate and changed-same-identity refusal, and the actual smaller
+admission pool. Separate launched-client and scientific-product receiving remain
+with [F05](66f-developer-operations-clients-and-evidence.md#f05--deliver-complete-independent-clients)
+and [66g](66g-properties-equipment-and-steady-workflows.md).
+
 ### C01 — Make preparation representations compose
 
 Reproduce the retained-bridge context refusal using exact admitted command/environment/profile

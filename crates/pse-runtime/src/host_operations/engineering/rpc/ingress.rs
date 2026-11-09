@@ -329,7 +329,8 @@ mod tests {
 
         let runtime = crate::workflow::tests::runtime();
         let shared = runtime.shared.clone();
-        let engine = super::super::EngineeringService::new(runtime, shared, 8).unwrap();
+        let engine =
+            super::super::EngineeringService::new(runtime, shared, 8, Default::default()).unwrap();
         let pool = engine.ingress_pool();
         let baseline = pool.reserved();
         let directory = tempfile::tempdir().unwrap();

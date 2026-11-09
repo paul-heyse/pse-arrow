@@ -34,7 +34,7 @@ mod tests {
     fn service() -> Arc<EngineeringService> {
         let runtime = crate::workflow::tests::runtime();
         let shared = runtime.shared.clone();
-        EngineeringService::new(runtime, shared, 8).unwrap()
+        EngineeringService::new(runtime, shared, 8, BTreeMap::new()).unwrap()
     }
 
     #[tokio::test]

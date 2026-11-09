@@ -281,13 +281,15 @@ pub async fn admit_project_documents(
     shared: &SharedRuntime,
     input: &ProjectDraftDocuments,
     physical: PhysicalContext,
+    providers: BTreeMap<String, pse_kernels::Registration>,
     cancel: &CancelSource,
 ) -> std::result::Result<ModelingPackage, ProjectOperationError> {
     let result: Result<ModelingPackage> = async {
         Ok(runtime
-            .modeling_from_documents(
+            .modeling_from_documents_registered(
                 &documents(runtime, shared, input, cancel)?,
                 physical,
+                providers,
                 cancel,
             )
             .await?)
@@ -661,6 +663,7 @@ async fn dispatch(
                         shared,
                         &input,
                         require_physical(&physical)?,
+                        BTreeMap::new(),
                         cancel,
                     )
                     .await?,

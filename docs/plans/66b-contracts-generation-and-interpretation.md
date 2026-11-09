@@ -188,6 +188,12 @@ separate. Exact sources are `vendor/buffa/src/message.rs`, `encode_sink.rs`, `ps
 | B04 | in-progress | Actual large producer/consumer and B03 mapping for that family | Main's AccountedResponse enforces binary limits before writing and JSON limits through the existing typed sink, retaining original ownership through the last byte consumer. Thirty-eight selected service/result controls pass with zero failures/build warnings. Producer selection, other finite response families and any justified segmented consumer remain open. |
 | B05 | planned | Each delivered B01–B04 family, its outcome-owned consumer | Cross-representation/evolution/extension controls and surviving-source inventories cover the complete selected population; remaining assembled verification is handed to L with explicit omissions. |
 
+The [source-owned engineering request](../../crates/pse-model/src/engineering.rs)
+declares one finite registration selection at `AdmitSource`. It uses the existing
+generated request and local validation. Authorization, preparation against admitted
+physical declarations, and immutable native custody belong to
+[C02](66c-preparation-execution-and-service-lifecycles.md#packages).
+
 ### B01 — Deliver useful generation closures and reproducible bootstrap
 
 #### Shared index bindings and compiled contract ownership

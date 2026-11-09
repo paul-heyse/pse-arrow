@@ -85,6 +85,8 @@ projection_struct! {
         pub physical: Vec<EngineeringPackage> => { tag: 2, direction: Direction::Input, rules: [LocalRule::Length { min: 1, max: 16 }] };
         /// Complete explicit modeling package closure.
         pub modeling: Vec<EngineeringPackage> => { tag: 3, direction: Direction::Input, rules: [LocalRule::Length { min: 1, max: 16 }] };
+        /// Exact package-local names selected from the service's authorized registrations.
+        pub provider_registrations: Vec<String> => { tag: 4, direction: Direction::Input, rules: [LocalRule::Length { min: 0, max: 16 }] };
     }
 }
 projection_struct! {

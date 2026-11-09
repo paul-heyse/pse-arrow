@@ -217,6 +217,7 @@ impl Operation {
 pub struct EngineeringService {
     runtime: Runtime,
     shared: Arc<SharedRuntime>,
+    provider_preparations: BTreeMap<&'static str, EngineeringProviderPreparation>,
     operations: Mutex<BTreeMap<String, Arc<Operation>>>,
     tasks: Mutex<tokio::task::JoinSet<()>>,
     closing: AtomicBool,
@@ -224,6 +225,27 @@ pub struct EngineeringService {
     maximum_operations: usize,
     contract: Mutex<Option<Arc<contract::PreparedContract>>>,
     explicit_study_contract: Mutex<Option<Arc<contract::PreparedContract>>>,
+}
+
+type ProviderPreparation = fn(
+    &pse_quantity::QuantityRegistry,
+) -> Result<pse_kernels::Registration, pse_kernels::ProviderError>;
+
+/// Trusted native startup route with its selected Rust construction allowance.
+#[derive(Clone, Copy, Debug)]
+pub struct EngineeringProviderPreparation {
+    prepare: ProviderPreparation,
+    construction_bytes: usize,
+}
+impl EngineeringProviderPreparation {
+    /// Bind an exact route and its Rust construction allowance, separately from the
+    /// deployment's existing stack and foreign-library reservations.
+    pub const fn new(prepare: ProviderPreparation, construction_bytes: usize) -> Self {
+        Self {
+            prepare,
+            construction_bytes,
+        }
+    }
 }
 
 impl std::fmt::Debug for EngineeringService {
@@ -257,6 +279,7 @@ impl EngineeringService {
         runtime: Runtime,
         shared: Arc<SharedRuntime>,
         maximum_operations: usize,
+        provider_preparations: BTreeMap<&'static str, EngineeringProviderPreparation>,
     ) -> Result<Arc<Self>, EngineeringServiceError> {
         if maximum_operations == 0 {
             return Err(resource("retained operation extent must be positive"));
@@ -269,6 +292,7 @@ impl EngineeringService {
         Ok(Arc::new(Self {
             runtime,
             shared,
+            provider_preparations,
             operations: Mutex::new(BTreeMap::new()),
             tasks: Mutex::new(tokio::task::JoinSet::new()),
             closing: AtomicBool::new(false),
@@ -443,10 +467,32 @@ impl EngineeringService {
     /// A changed same-identity request, closed service or exhausted retention refuses.
     pub async fn admit_source(
         self: &Arc<Self>,
-        input: EngineeringAdmitSource,
+        mut input: EngineeringAdmitSource,
     ) -> Result<EngineeringSourceOutcome, EngineeringServiceError> {
         input.validate_projection().map_err(owner)?;
+        // Order does not change the explicitly selected capability set or its original request.
+        input.provider_registrations.sort_unstable();
+        if input
+            .provider_registrations
+            .windows(2)
+            .any(|pair| pair[0] == pair[1])
+        {
+            return Err(request(
+                "duplicate scientific provider registration selection",
+            ));
+        }
         let mut extent = 4096usize;
+        for name in &input.provider_registrations {
+            if !self.provider_preparations.contains_key(name.as_str()) {
+                return Err(request(
+                    "scientific provider registration is not authorized by this service",
+                ));
+            }
+            extent = extent
+                .checked_add(name.capacity())
+                .and_then(|bytes| bytes.checked_add(256))
+                .ok_or_else(|| resource("source provider selection extent overflow"))?;
+        }
         for package in input.physical.iter().chain(&input.modeling) {
             for (path, body) in &package.files {
                 extent = extent
@@ -490,11 +536,19 @@ impl EngineeringService {
                 )
                 .await
                 .map_err(owner)?;
+                let providers = service
+                    .prepare_source_registrations(
+                        input.provider_registrations,
+                        physical.quantities.clone(),
+                        &original.cancel,
+                    )
+                    .await?;
                 let package = admit_project_documents(
                     &service.runtime,
                     &service.shared,
                     &modeling,
                     physical,
+                    providers,
                     &original.cancel,
                 )
                 .await
@@ -513,6 +567,47 @@ impl EngineeringService {
             })?;
         }
         source_outcome(operation.snapshot()?)
+    }
+
+    async fn prepare_source_registrations(
+        self: &Arc<Self>,
+        selected: Vec<String>,
+        quantities: Arc<pse_quantity::QuantityRegistry>,
+        cancel: &CancelSource,
+    ) -> Result<BTreeMap<String, pse_kernels::Registration>, EngineeringServiceError> {
+        use crate::math::MathRuntimeError;
+        use pse_backend_native::ProblemError;
+        if selected.is_empty() {
+            return Ok(BTreeMap::new());
+        }
+        let math = self.shared.math();
+        let bytes = selected
+            .iter()
+            .try_fold(0usize, |size, name| {
+                let route = self.provider_preparations[name.as_str()];
+                size.checked_add(route.construction_bytes)
+            })
+            .ok_or_else(|| resource("source provider preparation extent overflow"))?;
+        let deadline = math.preparation_deadline(cancel).map_err(owner)?;
+        let control = pse_diagnostics::Cancellation::new(cancel.token().is_cancelled());
+        let service = self.clone();
+        let job = math.job_scoped(1, bytes, control.clone(), Some(deadline), move |control| {
+            selected
+                .into_iter()
+                .map(|name| {
+                    if control.is_cancelled() {
+                        return Err(MathRuntimeError::Cancelled);
+                    }
+                    let prepare = service.provider_preparations[name.as_str()].prepare;
+                    let registration = prepare(&quantities).map_err(ProblemError::Provider)?;
+                    Ok((name, registration))
+                })
+                .collect()
+        });
+        cancel
+            .join_native(&control, job, || {})
+            .await
+            .map_err(owner)
     }
 
     /// Observe the original source-admission outcome without replaying or constructing science.
@@ -1814,7 +1909,10 @@ mod tests {
                 .unwrap()
             }
         };
-        (EngineeringService::new(runtime, shared, 16).unwrap(), spill)
+        (
+            EngineeringService::new(runtime, shared, 16, BTreeMap::new()).unwrap(),
+            spill,
+        )
     }
     fn source_input() -> EngineeringAdmitSource {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/packages");
@@ -1831,7 +1929,8 @@ mod tests {
             .replace("dependencies = []", "dependencies = [{ package_id = \"5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a\", version_req = { operator = \"exact\", major = 1, minor = 0, patch = 0 } }]");
         EngineeringAdmitSource { operation: "source-original".into(), physical: vec![EngineeringPackage { files }],
             modeling: vec![EngineeringPackage { files: BTreeMap::from([("package.toml".into(), manifest.into_bytes()),
-                ("models/root.pse".into(), b"package local { test square fixture { dof 0; } { param p:Scalar=4; var x:Scalar; eq root:x*x==p; annotation start x(2); } }".to_vec())]) }] }
+                ("models/root.pse".into(), b"package local { test square fixture { dof 0; } { param p:Scalar=4; var x:Scalar; eq root:x*x==p; annotation start x(2); } }".to_vec())]) }],
+            provider_registrations: Vec::new() }
     }
     pub(super) async fn admitted(service: &Arc<EngineeringService>) -> EngineeringSourceSelection {
         let input = source_input();
@@ -1846,6 +1945,220 @@ mod tests {
             panic!("source admission must produce its original package")
         };
         selection
+    }
+
+    #[cfg(all(feature = "property-coolprop", feature = "solver-ipopt"))]
+    #[tokio::test]
+    async fn engineering_source_retains_only_explicit_prepared_water_registrations() {
+        use super::super::{generated::pb::pse::engineering::v1 as pb, rpc};
+        use crate::engineering_projection::{
+            decode_engineering_source_outcome, decode_provider_inspection_page,
+            encode_engineering_admit_source, encode_engineering_inspect_providers,
+        };
+        use http_body_util::{BodyExt as _, Full};
+        use hyper_util::rt::{TokioExecutor, TokioIo};
+        use pse_backend_native::coolprop::{self, WaterRegime};
+        type Client = hyper::client::conn::http2::SendRequest<Full<bytes::Bytes>>;
+        async fn unary<Output: buffa::Message>(
+            client: &mut Client,
+            method: &str,
+            input: impl buffa::Message,
+        ) -> Result<Output, String> {
+            let body = input.encode_to_vec();
+            let mut frame = Vec::with_capacity(body.len() + 5);
+            frame.push(0);
+            frame.extend_from_slice(&u32::try_from(body.len()).unwrap().to_be_bytes());
+            frame.extend_from_slice(&body);
+            let request = http::Request::post(format!(
+                "http://localhost/pse.engineering.v1.EngineeringService/{method}"
+            ))
+            .version(http::Version::HTTP_2)
+            .header(http::header::CONTENT_TYPE, "application/grpc+proto")
+            .header("te", "trailers")
+            .body(Full::new(frame.into()))
+            .unwrap();
+            client.ready().await.unwrap();
+            let response = client.send_request(request).await.unwrap();
+            assert_eq!(response.status(), http::StatusCode::OK);
+            let header = response.headers().get("grpc-status").cloned();
+            let response = response.into_body().collect().await.unwrap();
+            let status = response
+                .trailers()
+                .and_then(|headers| headers.get("grpc-status"))
+                .or(header.as_ref())
+                .unwrap()
+                .to_str()
+                .unwrap();
+            if status != "0" {
+                return Err(status.into());
+            }
+            let frame = response.to_bytes();
+            assert_eq!(frame[0], 0);
+            let length = u32::from_be_bytes(frame[1..5].try_into().unwrap()) as usize;
+            assert_eq!(length, frame.len() - 5);
+            Ok(Output::decode_from_slice(&frame[5..]).unwrap())
+        }
+        async fn admit(
+            client: &mut Client,
+            input: EngineeringAdmitSource,
+        ) -> Result<pb::EngineeringSourceOutcome, String> {
+            unary(
+                client,
+                "AdmitSource",
+                encode_engineering_admit_source(input).unwrap(),
+            )
+            .await
+        }
+        let liquid = WaterRegime::Liquid.implementation();
+        let vapor = WaterRegime::Vapor.implementation();
+        let saturation = coolprop::WATER_SATURATION_IMPLEMENTATION;
+        // A deployment can configure a pool smaller than its aggregate numeric
+        // worker ceiling; these registrations only need their selected extent.
+        let runtime = crate::workflow::tests::runtime_on(
+            4usize << 30,
+            crate::math::MathPolicy {
+                workspace_bytes: 1 << 30,
+                ..Default::default()
+            },
+        );
+        let shared = runtime.shared.clone();
+        let routes: [(&str, ProviderPreparation); 3] = [
+            (liquid, |registry| {
+                coolprop::registration(registry, WaterRegime::Liquid)
+            }),
+            (vapor, |registry| {
+                coolprop::registration(registry, WaterRegime::Vapor)
+            }),
+            (saturation, coolprop::saturation_registration),
+        ];
+        let preparations = routes
+            .into_iter()
+            .map(|(name, prepare)| {
+                (
+                    name,
+                    EngineeringProviderPreparation::new(
+                        prepare,
+                        coolprop::WATER_REGISTRATION_BYTES,
+                    ),
+                )
+            })
+            .collect();
+        let service = EngineeringService::new(runtime, shared, 8, preparations).unwrap();
+        let directory = tempfile::tempdir().unwrap();
+        let socket = directory.path().join("engineering.sock");
+        let listener = tokio::net::UnixListener::bind(&socket).unwrap();
+        let stop = CancelSource::new();
+        let serving = tokio::spawn(rpc::serve(
+            listener,
+            service.clone(),
+            rpc::LocalAccessPolicy {
+                uid: rustix::process::geteuid().as_raw(),
+                gid: None,
+                maximum_connections: 1,
+                connection_drain: Duration::from_secs(5),
+            },
+            stop.clone(),
+        ));
+        let peer = tokio::net::UnixStream::connect(socket)
+            .await
+            .unwrap()
+            .into_std()
+            .unwrap();
+        let retained_peer = peer.try_clone().unwrap();
+        let peer = tokio::net::UnixStream::from_std(peer).unwrap();
+        let (mut client, driver) =
+            hyper::client::conn::http2::handshake(TokioExecutor::new(), TokioIo::new(peer))
+                .await
+                .unwrap();
+        let driving = tokio::spawn(driver);
+        let result = std::panic::AssertUnwindSafe(async {
+            let inputs = crate::scientific_inputs::family("steam");
+            let physical = "packages/reference/physical";
+            let input = EngineeringAdmitSource {
+                operation: "water-admit".into(),
+                physical: vec![EngineeringPackage {
+                    files: inputs.package(physical).unwrap().files.clone(),
+                }],
+                modeling: inputs
+                    .packages()
+                    .map(|(_, package)| EngineeringPackage {
+                        files: package.files.clone(),
+                    })
+                    .collect(),
+                provider_registrations: vec![vapor.into(), liquid.into()],
+            };
+            let mut denied = input.clone();
+            denied.provider_registrations[1] = "unavailable-provider".into();
+            assert_eq!(admit(&mut client, denied).await.unwrap_err(), "3");
+            let mut duplicate = input.clone();
+            duplicate.provider_registrations[1] = vapor.into();
+            assert_eq!(admit(&mut client, duplicate).await.unwrap_err(), "3");
+            assert!(service.operation(&input.operation, Kind::Source).is_err());
+
+            let _ = admit(&mut client, input.clone()).await.unwrap();
+            let original = service.operation(&input.operation, Kind::Source).unwrap();
+            let settled = tokio::time::timeout(Duration::from_secs(60), original.completed())
+                .await
+                .unwrap()
+                .unwrap();
+            let Outcome::Source { selection, .. } = settled else {
+                panic!(
+                    "explicit Water source admission did not produce an original owner: {:?}",
+                    service.source_status(&EngineeringOperationKey {
+                        operation: input.operation.clone()
+                    })
+                );
+            };
+            let mut same = input.clone();
+            same.provider_registrations.reverse();
+            assert_eq!(
+                decode_engineering_source_outcome(admit(&mut client, same).await.unwrap()).unwrap(),
+                EngineeringSourceOutcome::Ready(selection.clone()),
+            );
+            let mut changed = input;
+            changed.provider_registrations[1] = saturation.into();
+            assert_eq!(admit(&mut client, changed).await.unwrap_err(), "3");
+            let inspect = encode_engineering_inspect_providers(
+                crate::host_operations::engineering_contract::EngineeringInspectProviders {
+                    source_operation: selection.operation,
+                    request: crate::workflow::ProviderInspectionRequest {
+                        name: None,
+                        offset: 0,
+                        limit: 3,
+                    },
+                },
+            )
+            .unwrap();
+            let page = decode_provider_inspection_page(
+                unary(&mut client, "InspectProviders", inspect)
+                    .await
+                    .unwrap(),
+            )
+            .unwrap();
+            assert_eq!(page.source.physical_context, selection.physical_context);
+            assert_eq!(page.total, 2);
+            assert_eq!(page.entries[0].name, liquid);
+            assert_eq!(page.entries[1].name, vapor);
+            assert!(
+                page.entries
+                    .iter()
+                    .all(|entry| entry.registration.is_some() && entry.configuration.is_some())
+            );
+            assert_ne!(page.entries[0].configuration, page.entries[1].configuration);
+        })
+        .catch_unwind()
+        .await;
+        // Explicitly own both HTTP/2 drive and half-close during service drain.
+        stop.cancel();
+        let drove = tokio::time::timeout(Duration::from_secs(10), driving).await;
+        drop(client);
+        retained_peer.shutdown(std::net::Shutdown::Write).unwrap();
+        let shutdown = tokio::time::timeout(Duration::from_secs(5), serving).await;
+        if let Err(panic) = result {
+            std::panic::resume_unwind(panic);
+        }
+        drove.unwrap().unwrap().unwrap();
+        shutdown.unwrap().unwrap().unwrap();
     }
 
     #[tokio::test]

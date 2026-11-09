@@ -71,3 +71,11 @@ identity and current restore admission. Publish complete approved descriptors in
 of the Rust modules a reader compiles. See the
 [shared-contract review](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#rc01)
 and [Plan 66](../plans/66-integrated-simulation-target.md#confirmed-shared-contract-decisions).
+
+The typed source admission request selects an explicit, finite set of registrations
+from the service's startup-authorized native preparation routes. The service joins
+each selected registration against the original admitted physical context and passes
+it into the existing authored document admission. Neither authored names nor passive
+descriptors select, prepare or restore a factory; requesters cannot supply a path,
+library or factory configuration. The retained native registration supplies its actual
+descriptor and exact configuration identity to original inspection and execution.

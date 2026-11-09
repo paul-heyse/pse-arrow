@@ -210,7 +210,7 @@ The native engineering binary built with `property-coolprop` can authorize
 `--allow-provider water-liquid`, `water-vapor` or `water-saturation` at startup.
 An authenticated source request explicitly selects the corresponding registration
 names; the service uses the already prepared host image and refuses unconfigured
-choices before issuing the source operation. The generated client/native source
+choices before issuing the source operation. The generated-contract/native source
 control and a separately launched service using those options have distinct
 receiving obligations.
 

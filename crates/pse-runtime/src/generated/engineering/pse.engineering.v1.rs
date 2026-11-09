@@ -76145,6 +76145,13 @@ pub struct EngineeringAdmitSource {
         deserialize_with = "::buffa::json_helpers::null_as_default"
     )]
     pub modeling: ::buffa::alloc::vec::Vec<EngineeringPackage>,
+    /// Field 4: `provider_registrations`
+    #[serde(
+        rename = "provider_registrations",
+        skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+        deserialize_with = "::buffa::json_helpers::null_as_default"
+    )]
+    pub provider_registrations: ::buffa::alloc::vec::Vec<::buffa::alloc::string::String>,
     #[serde(skip)]
     #[doc(hidden)]
     pub __buffa_unknown_fields: ::buffa::UnknownFields,
@@ -76155,6 +76162,7 @@ impl ::core::fmt::Debug for EngineeringAdmitSource {
             .field("operation", &self.operation)
             .field("physical", &self.physical)
             .field("modeling", &self.modeling)
+            .field("provider_registrations", &self.provider_registrations)
             .finish()
     }
 }
@@ -76187,6 +76195,9 @@ impl ::buffa_descriptor::reflect::ReflectMessage for EngineeringAdmitSource {
             1u32 => ::buffa_descriptor::reflect::ValueRef::String(&self.operation),
             2u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.physical),
             3u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.modeling),
+            4u32 => {
+                ::buffa_descriptor::reflect::ValueRef::List(&self.provider_registrations)
+            }
             _ => {
                 ::core::debug_assert!(
                     false,
@@ -76202,6 +76213,7 @@ impl ::buffa_descriptor::reflect::ReflectMessage for EngineeringAdmitSource {
             1u32 => !self.operation.is_empty(),
             2u32 => !self.physical.is_empty(),
             3u32 => !self.modeling.is_empty(),
+            4u32 => !self.provider_registrations.is_empty(),
             _ => false,
         }
     }
@@ -76299,6 +76311,9 @@ impl ::buffa::Message for EngineeringAdmitSource {
                 += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
                     + inner_size as u64;
         }
+        for v in &self.provider_registrations {
+            size += 1u64 + ::buffa::types::string_encoded_len(v) as u64;
+        }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
@@ -76327,6 +76342,9 @@ impl ::buffa::Message for EngineeringAdmitSource {
                 buf,
             );
             v.write_to(__cache, buf);
+        }
+        for v in &self.provider_registrations {
+            ::buffa::types::put_string_field(4u32, v, buf);
         }
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -76372,6 +76390,17 @@ impl ::buffa::Message for EngineeringAdmitSource {
                 ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
                 self.modeling.push(elem);
             }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                let __elem = ::buffa::types::decode_string(buf)?;
+                ctx.register_element_memory(
+                    ::buffa::__private::element_footprint(&__elem),
+                )?;
+                self.provider_registrations.push(__elem);
+            }
             _ => {
                 self.__buffa_unknown_fields
                     .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
@@ -76383,6 +76412,7 @@ impl ::buffa::Message for EngineeringAdmitSource {
         self.operation.clear();
         self.physical.clear();
         self.modeling.clear();
+        self.provider_registrations.clear();
         self.__buffa_unknown_fields.clear();
     }
 }
@@ -76414,6 +76444,10 @@ impl ::buffa::text::TextFormat for EngineeringAdmitSource {
             enc.write_field_name("modeling")?;
             enc.write_message(__v)?;
         }
+        for __v in &self.provider_registrations {
+            enc.write_field_name("provider_registrations")?;
+            enc.write_string(__v)?;
+        }
         enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
         ::core::result::Result::Ok(())
     }
@@ -76444,6 +76478,12 @@ impl ::buffa::text::TextFormat for EngineeringAdmitSource {
                             __d.merge_message(&mut __m)?;
                             ::core::result::Result::Ok(__m)
                         },
+                    )?
+                }
+                "provider_registrations" => {
+                    dec.read_repeated_into(
+                        &mut self.provider_registrations,
+                        |__d| ::core::result::Result::Ok(__d.read_string()?.into_owned()),
                     )?
                 }
                 _ => dec.skip_value()?,
@@ -247386,6 +247426,8 @@ pub mod __buffa {
                 'a,
                 super::super::__buffa::view::EngineeringPackageView<'a>,
             >,
+            /// Field 4: `provider_registrations`
+            pub provider_registrations: ::buffa::RepeatedView<'a, &'a str>,
             pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
         }
         impl<'a> ::buffa::MessageView<'a> for EngineeringAdmitSourceView<'a> {
@@ -247471,6 +247513,17 @@ pub mod __buffa {
                                 )?,
                             );
                     }
+                    4u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __elem = ::buffa::types::borrow_str(&mut cur)?;
+                        ctx.register_element_memory(
+                            ::buffa::__private::element_footprint(&__elem),
+                        )?;
+                        view.provider_registrations.push(__elem);
+                    }
                     _ => {
                         ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
                         let span_len = before_tag.len() - cur.len();
@@ -247511,6 +247564,11 @@ pub mod __buffa {
                         .iter()
                         .map(|v| v.to_owned_from_source(__buffa_src))
                         .collect::<::core::result::Result<_, ::buffa::DecodeError>>()?,
+                    provider_registrations: self
+                        .provider_registrations
+                        .iter()
+                        .map(|s| s.to_string())
+                        .collect(),
                     __buffa_unknown_fields: self
                         .__buffa_unknown_fields
                         .to_owned()?
@@ -247546,6 +247604,9 @@ pub mod __buffa {
                         += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
                             + inner_size as u64;
                 }
+                for v in &self.provider_registrations {
+                    size += 1u64 + ::buffa::types::string_encoded_len(v) as u64;
+                }
                 size += self.__buffa_unknown_fields.encoded_len() as u64;
                 ::buffa::saturate_size(size)
             }
@@ -247576,6 +247637,9 @@ pub mod __buffa {
                     );
                     v.write_to(__cache, buf);
                 }
+                for v in &self.provider_registrations {
+                    ::buffa::types::put_string_field(4u32, v, buf);
+                }
                 self.__buffa_unknown_fields.write_to(buf);
             }
         }
@@ -247605,6 +247669,13 @@ pub mod __buffa {
                 }
                 if !self.modeling.is_empty() {
                     __map.serialize_entry("modeling", &*self.modeling)?;
+                }
+                if !self.provider_registrations.is_empty() {
+                    __map
+                        .serialize_entry(
+                            "provider_registrations",
+                            &*self.provider_registrations,
+                        )?;
                 }
                 __map.end()
             }
@@ -247726,6 +247797,11 @@ pub mod __buffa {
             > {
                 &self.0.reborrow().modeling
             }
+            /// Field 4: `provider_registrations`
+            #[must_use]
+            pub fn provider_registrations(&self) -> &::buffa::RepeatedView<'_, &'_ str> {
+                &self.0.reborrow().provider_registrations
+            }
         }
         impl ::core::convert::From<
             ::buffa::OwnedView<EngineeringAdmitSourceView<'static>>,
@@ -247784,6 +247860,11 @@ pub mod __buffa {
                     1u32 => ::buffa_descriptor::reflect::ValueRef::String(self.operation),
                     2u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.physical),
                     3u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.modeling),
+                    4u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::List(
+                            &self.provider_registrations,
+                        )
+                    }
                     _ => {
                         ::core::debug_assert!(
                             false,
@@ -247799,6 +247880,9 @@ pub mod __buffa {
                     1u32 => !self.operation.is_empty(),
                     2u32 => !::buffa::RepeatedView::is_empty(&self.physical),
                     3u32 => !::buffa::RepeatedView::is_empty(&self.modeling),
+                    4u32 => {
+                        !::buffa::RepeatedView::is_empty(&self.provider_registrations)
+                    }
                     _ => false,
                 }
             }

@@ -25012,10 +25012,15 @@ impl NativeInto<
             <pse_model::engineering::EngineeringAdmitSource as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <pse_model::engineering::EngineeringAdmitSource as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
-            &[(1, "operation"), (2, "physical"), (3, "modeling")],
+            &[
+                (1, "operation"),
+                (2, "physical"),
+                (3, "modeling"),
+                (4, "provider_registrations"),
+            ],
             path,
         )?;
-        let (field_0, field_1, field_2) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0, field_1, field_2, field_3) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringAdmitSource {
@@ -25049,6 +25054,18 @@ impl NativeInto<
                     })
                     .collect::<Result<Vec<_>, _>>()?
             },
+            provider_registrations: {
+                let current_path = &child_path(path, "provider_registrations");
+                items(field_3)
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_into::<
+                            _,
+                            String,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            },
             ..Default::default()
         })
     }
@@ -25066,7 +25083,12 @@ impl NativeFrom<
             <pse_model::engineering::EngineeringAdmitSource as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <pse_model::engineering::EngineeringAdmitSource as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
-            &[(1, "operation"), (2, "physical"), (3, "modeling")],
+            &[
+                (1, "operation"),
+                (2, "physical"),
+                (3, "modeling"),
+                (4, "provider_registrations"),
+            ],
             path,
         )?;
         let fields = (
@@ -25098,6 +25120,21 @@ impl NativeFrom<
                             _,
                             crate::host_operations::engineering::generated::pb::pse::engineering::v1::EngineeringPackage,
                             crate::host_operations::engineering::NativeAdapterScope,
+                        >(value, &format!("{path}[{index}]", path = current_path))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                from_items(values, current_path)?
+            },
+            {
+                let current_path = &child_path(path, "provider_registrations");
+                let values = wire
+                    .provider_registrations
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, value)| -> Result<_, AdapterError> {
+                        native_from::<
+                            _,
+                            String,
                         >(value, &format!("{path}[{index}]", path = current_path))
                     })
                     .collect::<Result<Vec<_>, _>>()?;
