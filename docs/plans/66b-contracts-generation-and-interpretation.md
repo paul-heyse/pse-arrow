@@ -375,10 +375,12 @@ The PID reference now uses `ReferenceCaseContract` and `ReferenceEnvelope`. The 
 Python receiver validates the original time, physical roles and source artifacts before
 running the exact and PETSc oracles. The native receiver checks the complete typed result,
 the performing interpreter and solver-stage evidence, and all eleven candidate dispositions.
-The PID JSON route was removed and its native receiver was tested. The working tree also
-moves covariance, degeneracy and sensitivity to generated exchange and deletes the remaining
-JSON driver. The 24 independent Python controls passed after the parity environment was
-refreshed. The three new native solver exchanges await the combined receiving run.
+The PID JSON route was removed and its native receiver was tested. Covariance, degeneracy
+and sensitivity also use generated exchange, and their predecessor JSON driver is deleted.
+The 24 independent Python controls passed after the parity environment was refreshed. The
+[combined receiving run](66-integrated-simulation-target.md#66af-checkpoint--november-8)
+passed all three native scientific references with complete settlement. Other reference
+families follow their selected source and consumer requirements.
 [PID receiving test](../../crates/pse-runtime/tests/reference_pid_exchange.rs)
 
 Replace the mechanical portions of `engineering/rpc/wire.rs::prepare_from_pb`,
