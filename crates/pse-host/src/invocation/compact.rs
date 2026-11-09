@@ -134,6 +134,8 @@ pub struct CompactSweep {
     pub released_conformance: usize,
     /// Campaign records this sweep could not release or independently validate.
     pub blocked_conformance: usize,
+    /// Ordinary records this sweep could not release or independently validate.
+    pub blocked_workflows: usize,
 }
 
 /// Sweep only accessible, registered checkouts of the selected Git repository.
@@ -168,6 +170,7 @@ pub fn sweep_registered_compact_results(
         result.busy += sweep.busy;
         result.released_conformance += sweep.released_conformance;
         result.blocked_conformance += sweep.blocked_conformance;
+        result.blocked_workflows += sweep.blocked_workflows;
         result.released_workflow_bytes = result.released_workflow_bytes
             .saturating_add(sweep.released_workflow_bytes);
     }
@@ -787,14 +790,19 @@ impl InvocationStore {
             else {
                 continue;
             };
-            let Some(mut record) = self.read_compact(&id)? else {
-                continue;
+            let mut record = match self.read_compact(&id) {
+                Ok(Some(record)) => record,
+                Ok(None) => continue,
+                Err(_) => {
+                    result.blocked_workflows += 1;
+                    continue;
+                }
             };
             if result.released + result.forgotten == SWEEP_LIMIT {
                 result.limited = true;
                 break;
             }
-            match &record.state {
+            let release = (|| -> Result<(), HostError> { match &record.state {
                 RecordState::Retired { released_unix_ms }
                     if now >= released_unix_ms.saturating_add(WEEK_MS) =>
                 {
@@ -807,18 +815,18 @@ impl InvocationStore {
                 RecordState::Active { .. }
                     if self.preview_record(&record, now)?.release.is_some() =>
                 {
-                    match self.release_record(&mut record, now) {
-                        Ok(bytes) => {
-                            result.released_workflow_bytes = result.released_workflow_bytes.saturating_add(bytes);
-                            result.released += 1;
-                        }
-                        Err(HostError::Io(error)) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                            result.busy += 1;
-                        }
-                        Err(error) => return Err(error),
-                    }
+                    let bytes = self.release_record(&mut record, now)?;
+                    result.released_workflow_bytes = result.released_workflow_bytes.saturating_add(bytes);
+                    result.released += 1;
                 }
                 _ => {}
+            }; Ok(()) })();
+            match release {
+                Ok(()) => {}
+                Err(HostError::Io(error)) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    result.busy += 1;
+                }
+                Err(_) => result.blocked_workflows += 1,
             }
         }
         Ok(result)

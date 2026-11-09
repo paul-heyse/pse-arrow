@@ -1659,6 +1659,7 @@ fn launch_managed_finalize(
         if native_owner_output {
             terminal = terminal.with_native_streams(&directory);
         }
+        terminal = terminal.with_workflow_stream_identities(&directory, &policy);
         directory.publish_evidence(
             crate::invocation::InvocationEvidence::Settlement,
             terminal.response(),

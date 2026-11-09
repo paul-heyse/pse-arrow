@@ -242,6 +242,50 @@ impl<T> TerminalResult<T> {
     }
 }
 impl TerminalResult<ManagedSummary> {
+    /// Keep descriptor commitments from the original writer, independent of the verdict.
+    pub(crate) fn with_workflow_stream_identities(
+        mut self,
+        directory: &crate::invocation::InvocationDirectory,
+        policy: &RedactionPolicy,
+    ) -> Self {
+        if !directory.is_conformance()
+            && directory.workflow_action() != Some(crate::test_workflow::execute::Action::Test)
+        {
+            return self;
+        }
+        let capture = (|| -> Result<(), HostError> {
+            let observe = |file: Option<&tokio::fs::File>, summary: Option<&StreamSummary>| {
+                let Some((file, summary)) = file.zip(summary) else {
+                    return Ok::<_, HostError>(None);
+                };
+                if summary.io_unresolved {
+                    return Ok(None);
+                }
+                let descriptor = rustix::io::fcntl_dupfd_cloexec(file, 0).map_err(std::io::Error::from)?;
+                let identity = crate::artifacts::descriptor_identity(&std::fs::File::from(descriptor))?;
+                if identity.bytes != summary.bytes_retained {
+                    return Err(HostError::Ownership("original raw stream differs from its retained extent".into()));
+                }
+                Ok(Some(identity))
+            };
+            let streams = crate::invocation::WorkflowStreams {
+                invocation: directory.id().clone(),
+                stdout: observe(self._streams.first(), self.response.payload.stdout.as_ref())?,
+                stderr: observe(self._streams.get(1), self.response.payload.stderr.as_ref())?,
+            };
+            if streams.stdout.is_some() || streams.stderr.is_some() {
+                directory.publish_evidence(crate::invocation::InvocationEvidence::WorkflowStreams, &streams)?;
+            }
+            Ok(())
+        })();
+        if let Err(error) = capture {
+            self.response.observation.limitations.push(policy.redact(&format!(
+                "bounded raw stream retirement could not be enrolled: {error}"
+            )));
+        }
+        self
+    }
+
     pub(crate) fn with_bundle(
         mut self,
         directory: &crate::invocation::InvocationDirectory,

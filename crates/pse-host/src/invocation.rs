@@ -24,6 +24,7 @@ mod compact;
 mod conformance_evidence;
 mod session;
 mod workflow_evidence;
+pub(crate) use workflow_evidence::WorkflowStreams;
 pub(crate) use compact::{CompactObservation, DeferredTestDrain};
 pub use compact::{CompactRetirement, CompactSweep, sweep_registered_compact_results};
 pub use conformance_evidence::ConformanceRetirement;
@@ -103,6 +104,8 @@ pub enum InvocationEvidence {
     Bundle,
     /// Fixed native workflow input, bound by the original operation's byte digest.
     WorkflowInput,
+    /// Original bounded raw streams identified from the performing owner's open descriptors.
+    WorkflowStreams,
     /// Original service launch selection and intent.
     Launch,
     /// Original service main identity and opened controller hierarchy before payload effects.
@@ -121,6 +124,7 @@ impl InvocationEvidence {
         match self {
             Self::Bundle => "bundle.json",
             Self::WorkflowInput => "workflow-input.json",
+            Self::WorkflowStreams => "workflow-stream-identities.json",
             Self::Launch => "launch.json",
             Self::Controller => "controller.json",
             Self::Finalization => "finalization.json",
@@ -781,10 +785,41 @@ impl InvocationDirectory {
     /// The descriptor is a live mutable observation, never an atomic snapshot.
     pub fn stream(&self, stream: crate::extraction::OutputStream) -> Result<File, HostError> {
         directory(&self.path, false)?;
-        evidence_file(&self.path.join(match stream {
+        let path = self.path.join(match stream {
             crate::extraction::OutputStream::Stdout => "stdout.raw",
             crate::extraction::OutputStream::Stderr => "stderr.raw",
-        }))
+        });
+        let file = match evidence_file(&path) {
+            Err(HostError::Io(error))
+                if error.kind() == std::io::ErrorKind::NotFound
+                    && self.has_bounded_workflow_streams()
+                    && workflow_evidence::raw_stream_retired(self, stream)? =>
+            {
+                return Err(invalid("original workflow raw streams have been retired"));
+            }
+            result => result?,
+        };
+        if self.has_bounded_workflow_streams() {
+            rustix::fs::flock(&file, rustix::fs::FlockOperation::LockShared)
+                .map_err(std::io::Error::from)?;
+            let opened = file.metadata()?;
+            let named = fs::symlink_metadata(&path)?;
+            if (opened.dev(), opened.ino()) != (named.dev(), named.ino()) {
+                return Err(invalid("original raw stream changed during access"));
+            }
+            if let Some(streams) = workflow_evidence::streams(self)? {
+                let identity = match stream {
+                    crate::extraction::OutputStream::Stdout => streams.stdout,
+                    crate::extraction::OutputStream::Stderr => streams.stderr,
+                };
+                if let Some(identity) = identity
+                    && crate::artifacts::descriptor_identity(&file)? != identity
+                {
+                    return Err(invalid("bounded raw stream differs from the original writer identity"));
+                }
+            }
+        }
+        Ok(file)
     }
     /// Publish original owner evidence exactly once. Facts must be constructed and
     /// authenticated by the performing owner; serialization conveys no authority.

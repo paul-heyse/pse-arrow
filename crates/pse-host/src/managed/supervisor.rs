@@ -836,6 +836,10 @@ pub async fn supervise(root: PathBuf, id: CliInvocationId) -> Result<i32, HostEr
             Err(error) => terminal = terminal.with_owner_failures(vec![error], &RedactionPolicy::from_environment()),
         }
     }
+    terminal = terminal.with_workflow_stream_identities(
+        &context.directory,
+        &RedactionPolicy::from_environment(),
+    );
     if let Err(error) = context
         .directory
         .publish_evidence(InvocationEvidence::Settlement, terminal.response())
