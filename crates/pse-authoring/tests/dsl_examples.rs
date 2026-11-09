@@ -13,6 +13,7 @@ use pse_authoring::dsl::{
     BinaryOp, DslError, ExprKind, parse_equation, parse_expr, parse_predicate, render_equation,
     render_expr, render_predicate,
 };
+use pse_diagnostics::{DiagnosticCode, DiagnosticObservation, DiagnosticRule, TypedDiagnostic};
 
 #[test]
 fn finite_fold_round_trip_preserves_lexical_value_and_step_scopes() {
@@ -112,7 +113,7 @@ fn blueprint_equations_and_predicates_round_trip() {
 }
 
 #[test]
-fn power_is_right_associative_and_ambiguous_unary_power_is_refused() {
+fn power_chain_associates_on_the_right() {
     let ast = parse_expr("x^y^z").unwrap();
     let ExprKind::Binary {
         op: BinaryOp::Pow,
@@ -129,12 +130,57 @@ fn power_is_right_associative_and_ambiguous_unary_power_is_refused() {
             ..
         }
     ));
-    for text in ["-x^2", "-(x)^2"] {
-        assert!(matches!(
-            parse_expr(text),
-            Err(DslError::AmbiguousUnaryPower { offset: 0 })
-        ));
-    }
+}
+
+#[test]
+fn power_refuses_unparenthesized_negative_base() {
+    assert_ambiguous_unary_power("-x^2", 0);
+}
+
+#[test]
+fn power_distinguishes_explicit_negative_base_and_negative_power() {
+    let base = parse_expr("(-x)^2").unwrap();
+    let ExprKind::Binary {
+        op: BinaryOp::Pow,
+        lhs,
+        ..
+    } = base.kind
+    else {
+        panic!("power of a negative base expected")
+    };
+    assert!(matches!(lhs.kind, ExprKind::Neg(_)));
+
+    let power = parse_expr("-(x^2)").unwrap();
+    let ExprKind::Neg(operand) = power.kind else {
+        panic!("negation of a power expected")
+    };
+    assert!(matches!(
+        operand.kind,
+        ExprKind::Binary { op: BinaryOp::Pow, .. }
+    ));
+}
+
+#[test]
+fn power_refuses_negation_outside_parenthesized_base() {
+    assert_ambiguous_unary_power("2 + -(x)^2", 4);
+}
+
+fn assert_ambiguous_unary_power(source: &str, offset: u32) {
+    let error = parse_expr(source).expect_err("ambiguous unary power must be refused");
+    assert!(matches!(
+        error,
+        DslError::AmbiguousUnaryPower { offset: actual } if actual == offset
+    ));
+    assert_eq!(
+        error.diagnostic_code(),
+        Some(DiagnosticCode::AuthoringParseAmbiguousUnaryPower)
+    );
+    let facts = error.diagnostic_facts();
+    assert!(matches!(facts.rule, Some(DiagnosticRule::AuthoringSyntax)));
+    assert!(matches!(
+        facts.observations.get("offset"),
+        Some(DiagnosticObservation::Integer(actual)) if *actual == i64::from(offset)
+    ));
 }
 
 #[test]

@@ -272,18 +272,9 @@ async fn package(
     let registry = pse_schema::shared_registry()?;
     let sessions = Arc::new(shared.session_factory(pse_engine::session::native_engine_profile())?);
     let model = sessions.bind_model(registry.clone())?;
-    let runtime = if canonical {
-        Runtime::from_shared(
-            shared.clone(),
-            model,
-            crate::workflow::tests::canonical_deployment(),
-        )?
-    } else {
-        Runtime::from_shared_local(shared.clone(), model)?
-    };
     let token = pse_columnar::CancellationToken::new();
     let pool = shared.pool();
-    let validation = runtime.validation_context();
+    let validation = model.validation_context();
     if let Some((files, packages, owner)) = captured.as_mut() {
         let bytes = files
             .iter()
@@ -335,18 +326,40 @@ async fn package(
             )?,
         )
     };
+    // The seed closure can include the same authored package in both roles.
+    // Reuse the retained immutable document owner, not the admitted runtime
+    // context, when the modeling closure requests that exact path.
+    let physical_bundle = load(&source.physical)?;
     let physical_documents =
         pse_admission::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
-            vec![load(&source.physical)?],
+            vec![physical_bundle.clone()],
             &pool,
             &token,
         )?;
+    // The original physical document is ready before we borrow the database.
+    // Keep the full modeling closure after physical admission so those two
+    // materialization peaks do not overlap.
+    let runtime = if canonical {
+        Runtime::from_shared(
+            shared.clone(),
+            model,
+            crate::workflow::tests::canonical_deployment(),
+        )?
+    } else {
+        Runtime::from_shared_local(shared.clone(), model)?
+    };
     let physical = runtime
         .physical_from_documents(&physical_documents, &token)
         .await?;
     let bundles = std::iter::once(&source.package)
         .chain(&source.dependencies)
-        .map(|name| load(name))
+        .map(|name| {
+            if name == &source.physical {
+                Ok(physical_bundle.clone())
+            } else {
+                load(name)
+            }
+        })
         .collect::<TestResult<Vec<_>>>()?;
     let closure = pse_admission::authoring_driver::document::OwnedDocumentSet::try_from_bundles(
         bundles, &pool, &token,
