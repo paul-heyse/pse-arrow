@@ -59,6 +59,7 @@ fn shell(group: usize, root: &Path, script: &str, args: &[&Path]) -> GroupComman
         cwd: root.into(),
         environment: std::env::vars_os().collect(),
         group,
+        junit_report: None,
         runtime_inputs: discovery::RuntimeInputObservation::NotCapturedByDiscovery,
     }
 }

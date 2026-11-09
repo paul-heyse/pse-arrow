@@ -341,6 +341,7 @@ fn target_owned_recorded_module_state_is_not_replaced_by_a_prepared_module() {
                 cwd: directory.path().to_owned(),
                 environment: environment.clone(),
                 group: 0,
+                junit_report: None,
                 runtime_inputs: crate::discovery::RuntimeInputObservation::NotCapturedByDiscovery,
             },
             &requirements,
