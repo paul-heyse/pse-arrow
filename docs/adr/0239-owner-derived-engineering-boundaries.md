@@ -79,3 +79,11 @@ it into the existing authored document admission. Neither authored names nor pas
 descriptors select, prepare or restore a factory; requesters cannot supply a path,
 library or factory configuration. The retained native registration supplies its actual
 descriptor and exact configuration identity to original inspection and execution.
+
+On 2026-11-09 the maintainer selected one authored-case run submission. No supported
+client needs the former standalone preparation operation. The current version of
+`SubmitRun` binds the original source operation and exact revision, case and run
+intent. The retained native task owns preparation and execution from issuance
+through settlement. Original observation reports the immutable preparation identity
+once it exists. Exact repeat observes the original attempt, and a changed or stale
+request cannot create a replacement attempt. Study operations keep their own contract.

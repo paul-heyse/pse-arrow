@@ -24,6 +24,9 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 370 | 2026-11-09 | Submit and prepare authored cases in one engineering run operation (§21.8). | Proposed ADR-0239 under the Plan66 cutover. |
+| 369 | 2026-11-09 | Retire the unconsumed private native root lane (§18.8). | Proposed ADR-0259 under the Plan66 cutover. |
+| 368 | 2026-11-09 | Preserve strict-domain fidelity in factorable native export (§18.10.1). | Proposed ADR-0258; Plan66 owns implementation and evidence. |
 | 367 | 2026-11-09 | Join explicitly selected native provider registrations at typed engineering source admission (§21.8). | Proposed ADR-0239 under the Plan66 cutover. |
 | 366 | 2026-11-09 | Require current selected-result metadata, complete original context and an unopened original export selection (§19.2, §20.5). | Proposed ADR-0250 under the Plan66 cutover. |
 | 365 | 2026-11-09 | Reconcile the Study workflow with the two engineering input capabilities and the current durable definition (§19.3, §21.8). | Proposed ADR-0239 under the Plan66 cutover. |

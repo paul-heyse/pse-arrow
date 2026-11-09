@@ -95,8 +95,8 @@ reached owner and demonstrated semantic/ownership fit; no universal speedup is a
   JIT/device, tracing/crate and allocator outcomes remain bounded inquiries.
 - Retire only the unused relation canonicalization engine and dedicated API/tests. Preserve shared
   allocation/admission helpers, float canonical bits, framing and surviving content/encoding
-  identities. Keep the native-child experiment opt-in and provider-free; do not expand it into
-  another production execution route.
+  identities. The former opt-in native root child experiment is retired by the scoped
+  [ADR-0259](0259-retire-private-root-lane.md) direction; shared native execution stays in place.
 
 ### Consequences
 

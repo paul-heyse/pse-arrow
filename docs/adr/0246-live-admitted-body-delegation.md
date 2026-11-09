@@ -18,6 +18,9 @@ standard: {core: "3.4", heuristics: "1.0", process-simulator: "1.5"}
 
 # ADR-0246: Delegate one admitted native root to its original private child
 
+The private process target is retired by [ADR-0259](0259-retire-private-root-lane.md). The
+bounded supplier transfer remains independently scoped mathematical evidence.
+
 ## Context
 
 The private root child reconstructs source mathematics and consumes physical/proof replay
@@ -166,7 +169,7 @@ supplier transfer is narrower than prepared-atom restoration.
 
 [Plan65k](../plans/65k-scientific-artifacts-and-native-reconstruction.md#live-admitted-body-delegation)
 owns the scope and assessment. Sources: [admission/capture](../../crates/pse-compiler/src/typed_math/direct.rs),
-[private child/verification](../../crates/pse-runtime/src/math/native_child.rs),
+[private child/verification](https://github.com/paul-heyse/pse-arrow/blob/9de6d7d94e22890bf2c8ba73c2d0b47e0d700562/crates/pse-runtime/src/math/native_child.rs),
 [compiled stages and worker](../../crates/pse-math/src/execution.rs),
 [root problem](../../crates/pse-math/src/implicit.rs),
 [KINSOL callbacks](../../crates/pse-backend-native/src/implicit.rs),

@@ -1817,6 +1817,13 @@ and authenticated endpoint. Common control operations retain the original attemp
 permissions. The explicit client closure excludes inline authoring, while independent
 discovery retains the complete approved descriptor world.
 
+An authored-case run submits the original source operation and exact revision, case
+and intent through one `SubmitRun`. The retained native task owns preparation and
+execution from issuance through settlement. Once preparation exists, run observation
+reports its immutable identity. Reconnects and exact repeats observe the original
+attempt; changed or stale requests cannot create a replacement. Standalone case
+preparation has no local service route. Study keeps its own preparation and admission.
+
 Typed source admission may select a finite set of startup-authorized native provider
 registrations. The authenticated service prepares those selections against the exact
 admitted physical context and supplies them to the same authored document owner.

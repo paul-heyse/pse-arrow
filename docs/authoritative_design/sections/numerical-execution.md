@@ -1733,27 +1733,12 @@ and active/CPU admission; idle lanes hold no active capacity or obstructive excl
 retire under pressure before population starvation. Unrelated adapter pools do not accumulate
 indefinitely. Actual transitive teams, loaded-interface exclusions and admitted widths govern
 placement. FERAL owns an explicitly sized pool and resets application policy at lease
-boundaries; affected SUNDIALS contexts remain thread-affine. Store-free child lanes admit only
-explicitly reconstructible portable requests under bounded authenticated IPC and the parent's
-original clock/envelope. The implemented child route reconstructs closed provider-free authored
-scalar/square-root source through the existing implicit factory. Full `PreparedSolve` objects,
-opaque provider closures and strict complete child memory/RSS bounds refuse before launch.
-A concrete KINSOL native profile fingerprint is required: it binds generated SUNDIALS native
-configuration/ABI, declared sources and an admitted managed KLU receipt. Native qualification
-exports `PSE_KLU_PROVIDER_RECEIPT` only for managed generations; a stale receipt in an observed
-unmanaged prefix grants no fingerprint authority. Missing fingerprint evidence still permits
-direct native API use but refuses child launch. The separately authorized executable
-`FileObservation` authenticates deployed bytes, including static SUNDIALS; the profile
-fingerprint does not independently attest native archive bytes. Child work owns bounded IPC,
-original-space screening and actual reap before charge release. It neither acquires canonical
-worker authority nor distributes one solve.
+boundaries; affected SUNDIALS contexts remain thread-affine.
 
-> Proposed decision: [ADR-0246](../../adr/0246-live-admitted-body-delegation.md) replaces private
-> source reconstruction only after checked supplier/native transfer qualification. One original
-> authenticated child executes its parent's live admitted result under the same request, clock,
-> compatibility, screening and actual-reap custody. The parent retains original evidence; passive
-> decoding issues no transferable grant. Full prepared solves, providers, durable adoption and
-> complete child memory/RSS guarantees remain outside that target. Current execution is unchanged.
+> Decision: [ADR-0259](../../adr/0259-retire-private-root-lane.md) (proposed) — retire the
+> unconsumed private root process and its test fixture. Ordinary native root execution and
+> service-owned native lanes retain their own admission and settlement. Supplier numerical
+> transfer supplies no canonical symbolic restoration or provider-worker authority.
 
 Concurrent SCIP uses quiescent process exclusion for its selected process-static tinycthread
 TPI pool, held through `SCIPfree` and native joins. Before launch, a joined fresh-thread probe
@@ -2404,6 +2389,8 @@ original case columns ([§18.10.1](#section-18-10-1)).
 
 #### 18.10.1 Factorable adapter: SCIP
 
+> Decision: [ADR-0258](../../adr/0258-preserve-strict-domain-export-fidelity.md) (proposed) — sound strict-domain closure and scoped export evidence.
+
 > Decision: [ADR-0105](../../adr/0105-scip-factorable-backend.md) — SCIP 10.0.2 through the
 > factorable projection and a pse-owned `scip-sys` binding (Plan 22 G1 and G3, implemented;
 > implicit definitions and provider envelopes in the export, G4, implemented, with no
@@ -2454,8 +2441,11 @@ branching needs; a semi column whose active interval is not `0 < l ≤ u < ∞`
 (`SemiInterval`); or a nonfinite constant or exponent. The export plan collects the selected
 rows that
 have a projection, the constraints of unconditional obligations, implicit residuals (`= 0`)
-and their declared bounds. A strict obligation bound is closed with a relative margin:
-`x > b` exports as `x ≥ b + 10⁻⁹·max(1, |b|)`, and `x < b` symmetrically. A row without a
+and their declared bounds. A strict obligation or implicit bound closes at its original
+endpoint only if the resulting export is a sound, safely evaluable superset, labeled
+`Relaxed`. Refuse when the exported graph's domain cannot be established. An inward
+margin cannot supply a global proof, bound or infeasibility claim. An omitted conditional
+guard reduces fidelity unless discharged; it is never enforced unconditionally. A row without a
 projection is dropped, which keeps the export a relaxation and makes it `Relaxed`. A binary
 column's box is `[0, 1]` intersected with its declaration. Affine functions become SCIP
 linear constraints and every other function a nonlinear constraint; an affine objective
