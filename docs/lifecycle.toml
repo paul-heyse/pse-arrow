@@ -7679,3 +7679,59 @@ id_pattern = '^(I[0-9]+)\b'
 status_profile = "finding"
 status_column = 1
 owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/71-workflow-and-simulation-test-feedback.md"
+name = "opportunity-dispositions"
+heading = "Opportunity dispositions"
+headers = ["Opportunity", "Disposition", "Work owner", "Evidence or revisit trigger"]
+kind = "finding"
+id_column = 0
+id_pattern = '^(O[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/71a-cli-inspection-and-evidence-lifecycle.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(A[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/71b-nextest-execution-and-original-attempt-evidence.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(B[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/71c-conformance-readiness-execution-and-recovery.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(C[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/71d-fixture-efficiency-and-selected-diagnostics.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(D[0-9]+)\b'
+status_profile = "packet"
+status_column = 1

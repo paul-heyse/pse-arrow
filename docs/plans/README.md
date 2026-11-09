@@ -75,5 +75,9 @@ verification. Plan66 owns configured scientific acceptance.
 - [70f · Conformance and benchmark execution](70f-conformance-and-benchmark-execution.md)
 - [70g · Developer verification](70g-developer-verification.md)
 
+[Plan71: Workflow and simulation test feedback](71-workflow-and-simulation-test-feedback.md)
+is a draft series for faster test feedback, CLI diagnostics and evidence lifecycle.
+It does not supersede any plan or change Plan66 scientific acceptance.
+
 Use the [architecture](../authoritative_design/README.md) for enduring contracts.
 Local targeted checks precede assembled scope-end qualification.

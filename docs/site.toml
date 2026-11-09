@@ -12,6 +12,7 @@ current_work = [
   "plans/68*.md",
   "plans/69*.md",
   "plans/70*.md",
+  "plans/71*.md",
 ]
 assets = [
   "functional_reviews/probes/rust-agent-cli-log-miner-2026-10-29.py",
