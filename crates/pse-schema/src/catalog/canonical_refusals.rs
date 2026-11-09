@@ -44,8 +44,6 @@ macro_rules! refusals {
         }
     };
 }
-// StudyCapturePublicationBusy remains an interpretation of immutable V2/V3
-// predecessor failures. Current atomic capture has no gate or Busy retry policy.
 refusals! {
     ExecutionCancellationAttemptChanged: "execution_cancellation_attempt_changed" => (Fence, "original cancellation attempt or generation is no longer current"),
     SchemaEpochChanged: "schema_epoch_changed" => (Fence, "opened schema epoch or issuer changed; reconstruct the capability"),
@@ -57,9 +55,7 @@ refusals! {
     ControlActorAlreadyIssued: "control_actor_already_issued" => (Identity, "control actor identity has already been issued"),
     ControlCommandIdentityReused: "control_command_identity_reused" => (Identity, "control operation identity has different immutable intent"),
     ControlRequestInvalid: "control_request_invalid" => (Admission, "control request shape, version or extent is invalid"),
-    StudyCapturePublicationBusy: "study_capture_publication_busy" => (Fence, "publication is temporarily gated by an exact immutable capture"),
     StudyCapturePublicationWitnessUnavailable: "study_capture_publication_witness_unavailable" => (Fence, "preexisting study publication witness is unavailable"),
-    StudyCapturePredecessorRequiresFreshCatalog: "study_capture_predecessor_requires_fresh_catalog" => (Fence, "predecessor captures require a fresh catalog for atomic capture activation"),
     HistoryHasProtectedCaptures: "history_has_protected_captures" => (Fence, "immutable captured facts retain original result and history ownership"),
     StudyInstallationOriginalPageExpired: "study_installation_original_page_expired" => (Fence, "study installation original page expired"),
     StudyCapturePageKind: "study_capture_page_kind" => (Admission, "study capture page kind"),

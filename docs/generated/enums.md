@@ -2614,6 +2614,14 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `savepoints` | `` | false |
 | `diagnostics` | `` | false |
 
+## `ProviderSelectionRegularity`
+
+| Member | IDAES name | Deprecated |
+|---|---|---|
+| `point` | `` | false |
+| `local` | `` | false |
+| `certified_chart` | `` | false |
+
 ## `QuantityAdditionKind`
 
 | Member | IDAES name | Deprecated |

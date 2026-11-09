@@ -2175,8 +2175,8 @@ pub fn decode(
     }
     if batch.relation_id()
         == pse_ids::SemanticId::from_bytes([
-            176u8, 173u8, 76u8, 186u8, 66u8, 31u8, 245u8, 19u8, 17u8, 93u8, 127u8, 37u8,
-            166u8, 150u8, 164u8, 244u8,
+            155u8, 27u8, 50u8, 146u8, 98u8, 26u8, 237u8, 58u8, 132u8, 119u8, 166u8,
+            143u8, 230u8, 117u8, 38u8, 14u8,
         ])
     {
         return Ok(
@@ -2194,6 +2194,18 @@ pub fn decode(
         return Ok(
             pse_model::generated::facts::FactBatch::r#RuntimePropagatedCovariances(
                 super::r#runtime::r#propagated_covariances::Row::rows(batch)?,
+            ),
+        );
+    }
+    if batch.relation_id()
+        == pse_ids::SemanticId::from_bytes([
+            33u8, 150u8, 244u8, 173u8, 23u8, 31u8, 58u8, 31u8, 31u8, 114u8, 58u8, 124u8,
+            161u8, 146u8, 20u8, 227u8,
+        ])
+    {
+        return Ok(
+            pse_model::generated::facts::FactBatch::r#RuntimeProviderSelections(
+                super::r#runtime::r#provider_selections::Row::rows(batch)?,
             ),
         );
     }
@@ -3020,6 +3032,9 @@ pub fn encode(
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimePropagatedCovariances(rows) => {
+            crate::columnar::encode_rows(rows, registry, context, pool, cancel)
+        }
+        pse_model::generated::facts::FactBatch::r#RuntimeProviderSelections(rows) => {
             crate::columnar::encode_rows(rows, registry, context, pool, cancel)
         }
         pse_model::generated::facts::FactBatch::r#RuntimeReducedHessians(rows) => {

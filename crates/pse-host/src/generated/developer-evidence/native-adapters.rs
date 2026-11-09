@@ -8630,7 +8630,7 @@ impl NativeInto<
         layout(
             <crate::test_workflow::execute::ReportObservation as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <crate::test_workflow::execute::ReportObservation as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            2,
+            3,
             &[
                 (1, "version"),
                 (2, "invocation"),
@@ -8749,7 +8749,7 @@ impl NativeFrom<
         layout(
             <crate::test_workflow::execute::ReportObservation as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <crate::test_workflow::execute::ReportObservation as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            2,
+            3,
             &[
                 (1, "version"),
                 (2, "invocation"),

@@ -199,7 +199,7 @@ impl ExecutionInputs {
                     }
                 }
             }
-            if let Some(variable) = original_input_variable(input, environment) {
+            if let Some(variable) = original_input_variable(input) {
                 match environment
                     .get(OsStr::new(variable))
                     .filter(|value| !value.is_empty())
@@ -664,7 +664,7 @@ fn qualification_module(
     }
 }
 
-fn original_input_variable(input: Input, environment: &Environment) -> Option<&'static str> {
+fn original_input_variable(input: Input) -> Option<&'static str> {
     match input {
         Input::Server
         | Input::StudyModule
@@ -680,13 +680,6 @@ fn original_input_variable(input: Input, environment: &Environment) -> Option<&'
         Input::EngineeringEndpoint => Some("PSE_ENGINEERING_ENDPOINT"),
         Input::CanonicalTools => Some("PSE_CANONICAL_TOOLS"),
         Input::DiagnosticEvidence => Some("PSE_DIAGNOSTIC_EVIDENCE"),
-        Input::PredecessorModuleState => Some(
-            if environment.contains_key(OsStr::new(PREDECESSOR_MODULE_RECEIPT_ENV)) {
-                PREDECESSOR_MODULE_RECEIPT_ENV
-            } else {
-                PREDECESSOR_MODULE_STATE_ENV
-            },
-        ),
         Input::ProducerFixtureReceipt => Some("PSE_PRODUCER_FIXTURE_RECEIPT"),
         Input::WorkerProducerReceipt => Some("PSE_WORKER_PRODUCER_RECEIPT"),
         Input::DeploymentArtifactObservations => Some("PSE_DEPLOYMENT_ARTIFACT_OBSERVATIONS"),

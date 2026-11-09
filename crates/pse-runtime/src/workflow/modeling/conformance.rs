@@ -2766,8 +2766,8 @@ mod tests {
             });
         }
     }
-    fn diagnostic_leaves(cause: &pse_model::diagnostic::BoundaryDiagnostic) -> String {
-        fn collect(cause: &pse_model::diagnostic::BoundaryDiagnostic, leaves: &mut Vec<String>) {
+    fn diagnostic_leaves(cause: &BoundaryDiagnostic) -> String {
+        fn collect(cause: &BoundaryDiagnostic, leaves: &mut Vec<String>) {
             if leaves.len() == 4 {
                 return;
             }
@@ -4034,7 +4034,7 @@ mod tests {
         hold.try_grow(LIMIT - bytes - "omitted".len()).unwrap();
         report.record_fixture(id, Kind::Preparation, Status::Passed, "omitted", None, 8);
         hold.free();
-        assert_eq!(report.checks, [original.clone()]);
+        assert_eq!(report.checks.as_slice(), std::slice::from_ref(&original));
         assert_eq!(pool.reserved(), bytes);
 
         for message in ["second", "third"] {
@@ -5356,7 +5356,7 @@ mod tests {
             ])),
         };
         let finding = |sources: &[u8]| {
-            pse_model::diagnostic::BoundaryDiagnostic::new(
+            BoundaryDiagnostic::new(
                 pse_model::diagnostic::BoundaryClass::InvalidModel,
                 pse_diagnostics::DiagnosticStage::Native,
                 sources.iter().map(|b| SemanticId::from_bytes([*b; 16])),

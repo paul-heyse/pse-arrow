@@ -509,6 +509,7 @@ fn modeling_table_ids() -> Vec<pse_ids::SemanticId> {
         modeling_checks::RELATION_ID,
         modeling_reports::RELATION_ID,
         modeling_findings::RELATION_ID,
+        provider_selections::RELATION_ID,
         solve_strategy_events::RELATION_ID,
         solve_strategy_products::RELATION_ID,
         local_validity::RELATION_ID,

@@ -64,7 +64,7 @@ fn generated_result_row_identity_survives_repacking_slices_and_partitions() {
             let count = partition.min(rows.len() - start);
             let offset = start + usize::from(repacked);
             let tokens = tokens(
-                pse_ids::SemanticId::NIL,
+                SemanticId::NIL,
                 &[
                     ("label", fields[0].clone(), arrays[0].slice(offset, count)),
                     ("record", fields[1].clone(), arrays[1].slice(offset, count)),

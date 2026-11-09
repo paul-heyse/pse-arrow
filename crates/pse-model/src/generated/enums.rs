@@ -30997,6 +30997,154 @@ impl ProjectMetadataKind {
         }
     }
 }
+/// A string enumeration projected from the registry.
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    strum::EnumString,
+    strum::Display,
+    strum::VariantArray,
+    strum::IntoStaticStr,
+    serde::Serialize,
+    serde::Deserialize
+)]
+#[allow(
+    missing_docs,
+    reason = "strum emits the const spelling conversion; documented as_str is the public contract"
+)]
+#[strum(
+    const_into_str,
+    parse_err_ty = pse_diagnostics::VocabularyError,
+    parse_err_fn = Self::unknown_member
+)]
+#[allow(
+    clippy::enum_variant_names,
+    reason = "closed enum spellings preserve registry and sanctioned parity names"
+)]
+pub enum ProviderSelectionRegularity {
+    ///point
+    #[serde(rename = "point")]
+    #[strum(serialize = "point")]
+    Point,
+    ///local
+    #[serde(rename = "local")]
+    #[strum(serialize = "local")]
+    Local,
+    ///certified_chart
+    #[serde(rename = "certified_chart")]
+    #[strum(serialize = "certified_chart")]
+    CertifiedChart,
+}
+impl pse_contract::boundary_projection::ProjectionType for ProviderSelectionRegularity {
+    fn projection(
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ProviderSelectionRegularity",
+                "crates/pse-model/src/generated/enums.rs",
+                1,
+                pse_contract::boundary_projection::Direction::Both,
+                &[],
+                &[],
+                |_| {
+                    Ok(
+                        pse_contract::boundary_projection::Shape::StringEnum(
+                            Self::ALL
+                                .iter()
+                                .map(|value| value.as_str().to_owned())
+                                .collect(),
+                        ),
+                    )
+                },
+            )
+    }
+}
+impl pse_contract::boundary_projection::ValidateProjection
+for ProviderSelectionRegularity {
+    const NEEDS_RECURSIVE_VALIDATION: bool = false;
+    fn validate_at(
+        &self,
+        _: &str,
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
+        Ok(())
+    }
+}
+impl crate::SemanticEq for ProviderSelectionRegularity {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        self == other
+    }
+}
+impl ProviderSelectionRegularity {
+    /// All members in declaration order; the ordinal is presentation only.
+    pub const ALL: [Self; 3usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<3usize>() {
+            Some(members) => *members,
+            None => panic!("strum variant count disagrees with registry"),
+        }
+    };
+    /// The declared member spelling.
+    pub const fn as_str(self) -> &'static str {
+        self.into_str()
+    }
+    /// The presentation ordinal, never a semantic identity.
+    pub const fn ordinal(self) -> usize {
+        match self {
+            Self::Point => 0usize,
+            Self::Local => 1usize,
+            Self::CertifiedChart => 2usize,
+        }
+    }
+    /// The sanctioned IDAES member name, where applicable.
+    #[allow(
+        clippy::match_same_arms,
+        clippy::unnecessary_wraps,
+        reason = "uniform optional parity-name projection follows one member declaration per arm"
+    )]
+    pub const fn idaes_name(self) -> Option<&'static str> {
+        match self {
+            Self::Point => None,
+            Self::Local => None,
+            Self::CertifiedChart => None,
+        }
+    }
+}
+/// A boundary document states this vocabulary as its registry spellings, which are
+/// its serde spellings (ADR-0116 Outcome 7).
+impl schemars::JsonSchema for ProviderSelectionRegularity {
+    fn schema_name() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(stringify!(ProviderSelectionRegularity))
+    }
+    fn schema_id() -> std::borrow::Cow<'static, str> {
+        std::borrow::Cow::Borrowed(
+            concat!("pse_model::", stringify!(ProviderSelectionRegularity)),
+        )
+    }
+    fn json_schema(_: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        schemars::json_schema!(
+            { "type" : "string", "enum" : ["point", "local", "certified_chart"] }
+        )
+    }
+}
+impl ProviderSelectionRegularity {
+    fn unknown_member(value: &str) -> pse_diagnostics::VocabularyError {
+        pse_diagnostics::VocabularyError::UnknownMember {
+            vocabulary: stringify!(ProviderSelectionRegularity),
+            value: value.to_owned(),
+        }
+    }
+}
 /// A vocabulary owned by its source type; the registry declares its members.
 pub type QuantityAdditionKind = pse_quantity::QuantityAdditionKind;
 impl crate::SemanticEq for QuantityAdditionKind {
@@ -36314,13 +36462,13 @@ macro_rules! for_each_registry_enum {
         PouncePartitionedUpdate, Preconditioner, PreparationEligibility,
         PreparationProductKind, PresolvePass, PresolvePolicyKind, ProductUseScope,
         ProjectChangeImpact, ProjectMergeChoice, ProjectMergeConflictKind,
-        ProjectMergeMode, ProjectMetadataKind, QuantityAdditionKind,
-        QuantityKindCategory, QuantityPreconditionKind, QuantityScaleRule,
-        QuantityShapeRule, RateBasis, ReductionKind, ReferenceRule, ReferenceStateKind,
-        Relationship, ReusePolicy, RowActivity, ScaleKind, ScientificArtifactFamily,
-        ScientificArtifactKind, SensitivityCorrector, Severity, ShootingMethod,
-        SnapshotClass, SpralOrdering, SpralPivot, SpralScaling, Stability, StateSign,
-        StatementKind, StructuralScopeKind, StudyAvailability,
+        ProjectMergeMode, ProjectMetadataKind, ProviderSelectionRegularity,
+        QuantityAdditionKind, QuantityKindCategory, QuantityPreconditionKind,
+        QuantityScaleRule, QuantityShapeRule, RateBasis, ReductionKind, ReferenceRule,
+        ReferenceStateKind, Relationship, ReusePolicy, RowActivity, ScaleKind,
+        ScientificArtifactFamily, ScientificArtifactKind, SensitivityCorrector, Severity,
+        ShootingMethod, SnapshotClass, SpralOrdering, SpralPivot, SpralScaling,
+        Stability, StateSign, StatementKind, StructuralScopeKind, StudyAvailability,
         StudyContinuationPermission, StudyEffectState, StudyLegacyKind, StudyLifecycle,
         StudyPointState, StudyResultRole, StudyRetryFailure, StudySeedNeed,
         StudySeedRole, StudySeedUnavailable, StudyStartKind, StudyState,
@@ -38245,6 +38393,16 @@ impl crate::HeapUsage for ProjectMetadataKind {
     }
 }
 impl crate::SemanticFrame for ProjectMetadataKind {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(self.as_str());
+    }
+}
+impl crate::HeapUsage for ProviderSelectionRegularity {
+    fn heap_bytes(&self) -> usize {
+        0
+    }
+}
+impl crate::SemanticFrame for ProviderSelectionRegularity {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(self.as_str());
     }

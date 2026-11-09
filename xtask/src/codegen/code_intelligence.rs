@@ -1,17 +1,40 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Explicit production contracts and discriminating representation fixtures.
-use anyhow::{Context, Result, bail};
+#[cfg(any(
+    test,
+    feature = "product-schemas",
+    feature = "host-contracts",
+    feature = "recorded-result-contracts",
+    feature = "scientific-worker-contracts",
+    feature = "reference-contracts"
+))]
+use anyhow::Context;
+use anyhow::{Result, bail};
+#[cfg(any(test, feature = "host-contracts"))]
 use buffa::Message as _;
+#[cfg(any(test, feature = "host-contracts"))]
 use buffa_descriptor::generated::descriptor::FileDescriptorSet;
 use pse_codegen::codegen::GeneratedTree;
+#[cfg(any(test, feature = "host-contracts"))]
 use sha2::Digest as _;
+use std::path::Path;
+#[cfg(any(test, feature = "host-contracts"))]
 use std::{
-    path::{Path, PathBuf},
+    path::PathBuf,
     process::Command,
 };
+#[cfg(any(test, feature = "host-contracts"))]
 mod associations;
+#[cfg(feature = "host-contracts")]
+mod native_usage;
 
+#[cfg(not(feature = "host-contracts"))]
+pub(super) fn generate(_: &Path) -> Result<GeneratedTree> {
+    bail!("code-intelligence projections require host-contracts")
+}
+
+#[cfg(feature = "host-contracts")]
 pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
     let (mut tree, production_inputs) = corpus(
         root,
@@ -29,16 +52,24 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
     Ok(tree)
 }
 
+#[cfg(feature = "host-contracts")]
 fn corpus(root: &Path, source: &str, destination: &str) -> Result<(GeneratedTree, Inputs)> {
     let source = root.join(source);
     let inputs = Inputs::capture(&source)?;
     let output = tempfile::tempdir()?;
+    let native = destination.ends_with("code-intelligence")
+        .then(|| pse_host::semantic::dependency_usage_projection())
+        .transpose()?;
+    let compile_source = match &native {
+        Some(graph) => native_usage::stage(output.path(), &inputs, graph)?,
+        None => source.clone(),
+    };
     let image = output.path().join("image.binpb");
     run(
         Command::new("buf")
             .args(["build", "-o"])
             .arg(&image)
-            .current_dir(&source),
+            .current_dir(&compile_source),
         "compile code-intelligence image",
     )?;
     let descriptor = output.path().join("descriptor.bin");
@@ -48,12 +79,12 @@ fn corpus(root: &Path, source: &str, destination: &str) -> Result<(GeneratedTree
             .arg(&image)
             .args(["--as-file-descriptor-set", "-o"])
             .arg(&descriptor)
-            .current_dir(&source),
+            .current_dir(&compile_source),
         "derive complete descriptor from compiled image",
     )?;
-    let bytes = std::fs::read(&descriptor)?;
-    let set = FileDescriptorSet::decode_from_slice(&bytes)?;
-    let files: Vec<String> = inputs
+    let mut bytes = std::fs::read(&descriptor)?;
+    let mut set = FileDescriptorSet::decode_from_slice(&bytes)?;
+    let authored_files: Vec<String> = inputs
         .files
         .keys()
         .filter(|path| {
@@ -62,6 +93,12 @@ fn corpus(root: &Path, source: &str, destination: &str) -> Result<(GeneratedTree
         })
         .map(|path| path.to_string_lossy().into_owned())
         .collect();
+    let mut files = authored_files.clone();
+    if let Some(graph) = &native {
+        native_usage::link(root, graph, &mut set, &authored_files)?;
+        files.push(native_usage::FILE.into());
+        bytes = set.encode_to_vec();
+    }
     let rust_module = if destination.ends_with("code-intelligence") {
         "crate::code_intelligence_contracts::pb"
     } else {
@@ -97,7 +134,7 @@ fn corpus(root: &Path, source: &str, destination: &str) -> Result<(GeneratedTree
                 .map(|(name, source)| (name.as_str(), source.as_str())),
         );
     let reserved: &[&str] = if destination.ends_with("code-intelligence") {
-        &["descriptor.bin", "descriptor-runtime.bin", "dispatch.rs"]
+        &["descriptor.bin", "descriptor-runtime.bin", "dispatch.rs", "native-adapters.rs", "native-policy.rs"]
     } else {
         &["descriptor.bin", "descriptor-runtime.bin"]
     };
@@ -122,7 +159,10 @@ fn corpus(root: &Path, source: &str, destination: &str) -> Result<(GeneratedTree
         let dispatch = super::proto_dispatch::generate(&tree, &destination, rust_module)?;
         super::proto_projection::insert(&mut tree, &destination, "dispatch.rs", &dispatch)?;
     }
-    for file in files {
+    if let Some(graph) = &native {
+        native_usage::publish(root, graph, &destination, &mut tree)?;
+    }
+    for file in authored_files {
         let origin = pse_codegen::codegen::provenance::SourceRelationship {
             declaration_key: file.clone(),
             declaration_kind: "protobuf_file".into(),
@@ -137,10 +177,7 @@ fn corpus(root: &Path, source: &str, destination: &str) -> Result<(GeneratedTree
             source_role: "authored_wire_contract".into(),
             source_identity: Some(format!(
                 "sha256:{}",
-                sha2::Sha256::digest(&inputs.files[Path::new(&file)])
-                    .iter()
-                    .map(|byte| format!("{byte:02x}"))
-                    .collect::<String>()
+                source_sha256(&inputs.files[Path::new(&file)])
             )),
             generator_path: "xtask/src/codegen/code_intelligence.rs".into(),
             generator_symbol: "corpus".into(),
@@ -183,10 +220,17 @@ fn corpus(root: &Path, source: &str, destination: &str) -> Result<(GeneratedTree
     Ok((tree, inputs))
 }
 
+#[cfg(any(test, feature = "host-contracts"))]
+fn source_sha256(bytes: &[u8]) -> String {
+    sha2::Sha256::digest(bytes).iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+#[cfg(any(test, feature = "host-contracts"))]
 struct Inputs {
     root: PathBuf,
     files: std::collections::BTreeMap<PathBuf, Vec<u8>>,
 }
+#[cfg(any(test, feature = "host-contracts"))]
 impl Inputs {
     fn capture(root: &Path) -> Result<Self> {
         let mut authored = Vec::new();
@@ -213,6 +257,7 @@ impl Inputs {
     }
 }
 
+#[cfg(any(test, feature = "host-contracts"))]
 fn run(command: &mut Command, meaning: &str) -> Result<()> {
     let result = command.output().with_context(|| meaning.to_owned())?;
     if !result.status.success() {
@@ -224,6 +269,7 @@ fn run(command: &mut Command, meaning: &str) -> Result<()> {
     Ok(())
 }
 
+#[cfg(any(test, feature = "host-contracts"))]
 fn authored_files(base: &Path, directory: &Path, files: &mut Vec<String>) -> Result<()> {
     for entry in std::fs::read_dir(directory)? {
         let path = entry?.path();
@@ -247,6 +293,14 @@ fn authored_files(base: &Path, directory: &Path, files: &mut Vec<String>) -> Res
 
 /// Keep upstream code intact while qualifying its explicit lint escapes and fixed-data
 /// assertions. Byte-span edits preserve generated comments and source spelling.
+#[cfg(any(
+    test,
+    feature = "product-schemas",
+    feature = "host-contracts",
+    feature = "recorded-result-contracts",
+    feature = "scientific-worker-contracts",
+    feature = "reference-contracts"
+))]
 pub(super) fn qualify_generated_rust(source: &str) -> Result<String> {
     use syn::{spanned::Spanned as _, visit::Visit as _};
     struct Expects {

@@ -2839,21 +2839,27 @@ LET $changes = SELECT * FROM canonical_staged_edits WHERE stage = $operation ORD
 IF array::len($changes) != $stage.edit_count OR array::len($changes) > /* EDIT_LIMIT */ { THROW 'PSE_REFUSAL:closed_staging_metadata_coverage_mismatch'; };
 LET $sequence = ($head.sequence ?? 0dec) + 1dec;
 UPSERT type::record('canonical_problems', $problem) SET key = $problem, head = $operation, sequence = $sequence;
-// Close all displaced intervals before checking the final namespace. Every
-// physical page uses exact changed logical IDs; no unchanged source is rewritten.
-FOR $batch IN array::clump($changes, 64) {
-    LET $logicals = $batch.logical;
-    LET $old = SELECT * FROM canonical_memberships WITH INDEX membership_logical WHERE problem = $problem AND logical IN $logicals AND to_sequence = NONE;
-    LET $old_guards = array::distinct(array::concat(
-        $old.map(|$member| type::string(['pse.scope-guard.v1', $problem, $member.scope])),
-        $old.map(|$member| type::string(['pse.name-guard.v1', $problem, $member.scope, $member.name]))
-    )).map(|$key| { id: type::record('canonical_guards', $key), key: $key, generation: 1dec });
-    LET $existing = SELECT id FROM $old_guards.id;
-    UPDATE $existing.id SET generation = generation + 1dec RETURN NONE;
-    LET $existing_ids = $existing.id;
-    LET $missing = $old_guards.filter(|$guard| $guard.id NOT IN $existing_ids);
-    INSERT INTO canonical_guards $missing RETURN NONE;
-    UPDATE $old.id SET to_sequence = $sequence RETURN NONE;
+// A new destination has no old intervals to close. Check that premise under
+// the same head and retention guards before skipping the per-page queries.
+IF $head = NONE {
+    LET $unexpected = SELECT id FROM canonical_memberships WITH INDEX membership_logical WHERE problem = $problem LIMIT 1;
+    IF array::len($unexpected) != 0 { THROW 'PSE_REFUSAL:head_compare_and_set_conflict'; };
+} ELSE {
+    // Close displaced intervals before validating the final namespace.
+    FOR $batch IN array::clump($changes, 64) {
+        LET $logicals = $batch.logical;
+        LET $old = SELECT * FROM canonical_memberships WITH INDEX membership_logical WHERE problem = $problem AND logical IN $logicals AND to_sequence = NONE;
+        LET $old_guards = array::distinct(array::concat(
+            $old.map(|$member| type::string(['pse.scope-guard.v1', $problem, $member.scope])),
+            $old.map(|$member| type::string(['pse.name-guard.v1', $problem, $member.scope, $member.name]))
+        )).map(|$key| { id: type::record('canonical_guards', $key), key: $key, generation: 1dec });
+        LET $existing = SELECT id FROM $old_guards.id;
+        UPDATE $existing.id SET generation = generation + 1dec RETURN NONE;
+        LET $existing_ids = $existing.id;
+        LET $missing = $old_guards.filter(|$guard| $guard.id NOT IN $existing_ids);
+        INSERT INTO canonical_guards $missing RETURN NONE;
+        UPDATE $old.id SET to_sequence = $sequence RETURN NONE;
+    };
 };
 LET $scope_guards = array::distinct($changes.scope).map(|$scope| {
     LET $key = type::string(['pse.scope-guard.v1', $problem, $scope]);
@@ -2894,16 +2900,18 @@ FOR $batch IN array::clump($changes, 64) {
         LET $manifest = $manifests.find(|$header| $header.key = $change.version);
         IF $manifest = NONE OR $manifest.closed = false OR $manifest.logical != $change.logical OR $manifest.interpretation != $interpretation { THROW 'PSE_REFUSAL:staged_immutable_source_manifest_invalid'; };
     };
-    // One native name selection per demanded namespace/page, with scalar
-    // bindings so released 3.3 selects the compound namespace index. Scientific
-    // logical identity is checked against the exact incoming name afterwards.
-    FOR $scope IN array::distinct($creates.scope) {
-        LET $scope_changes = $creates.filter(|$change| $change.scope = $scope);
-        LET $names = $scope_changes.name;
-        LET $survivors = SELECT name, logical FROM canonical_memberships WITH INDEX membership_selection WHERE problem = $problem AND scope = $scope AND name IN $names AND to_sequence = NONE;
-        FOR $survivor IN $survivors {
-            LET $replacement = $scope_changes.find(|$change| $change.name = $survivor.name);
-            IF $replacement = NONE OR $survivor.logical != $replacement.logical { THROW 'PSE_REFUSAL:name_already_exists'; };
+    // An existing head can have surviving names. A fresh destination already
+    // proved absence under the head and retention guards, and the full incoming
+    // namespace was checked for duplicate names before any membership insert.
+    IF $head != NONE {
+        FOR $scope IN array::distinct($creates.scope) {
+            LET $scope_changes = $creates.filter(|$change| $change.scope = $scope);
+            LET $names = $scope_changes.name;
+            LET $survivors = SELECT name, logical FROM canonical_memberships WITH INDEX membership_selection WHERE problem = $problem AND scope = $scope AND name IN $names AND to_sequence = NONE;
+            FOR $survivor IN $survivors {
+                LET $replacement = $scope_changes.find(|$change| $change.name = $survivor.name);
+                IF $replacement = NONE OR $survivor.logical != $replacement.logical { THROW 'PSE_REFUSAL:name_already_exists'; };
+            };
         };
     };
     LET $memberships = $creates.map(|$change| {

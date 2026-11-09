@@ -9978,6 +9978,13 @@ pub struct AuthoredFitCasesFieldExperimentsItemBindingsItem {
         skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
     )]
     pub path: ::buffa::alloc::string::String,
+    /// Field 3: `schedule_start`
+    #[serde(
+        rename = "schedule_start",
+        with = "::buffa::json_helpers::opt_uint64",
+        skip_serializing_if = "::core::option::Option::is_none"
+    )]
+    pub schedule_start: ::core::option::Option<u64>,
     #[serde(skip)]
     #[doc(hidden)]
     pub __buffa_unknown_fields: ::buffa::UnknownFields,
@@ -9987,6 +9994,7 @@ impl ::core::fmt::Debug for AuthoredFitCasesFieldExperimentsItemBindingsItem {
         f.debug_struct("AuthoredFitCasesFieldExperimentsItemBindingsItem")
             .field("parameter_id", &self.parameter_id)
             .field("path", &self.path)
+            .field("schedule_start", &self.schedule_start)
             .finish()
     }
 }
@@ -9996,6 +10004,15 @@ impl AuthoredFitCasesFieldExperimentsItemBindingsItem {
     ///
     /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
     pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.AuthoredFitCasesFieldExperimentsItemBindingsItem";
+}
+impl AuthoredFitCasesFieldExperimentsItemBindingsItem {
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::schedule_start`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_schedule_start(mut self, value: u64) -> Self {
+        self.schedule_start = Some(value);
+        self
+    }
 }
 ::buffa::impl_default_instance!(AuthoredFitCasesFieldExperimentsItemBindingsItem);
 impl ::buffa_descriptor::reflect::ReflectMessage
@@ -10019,6 +10036,11 @@ for AuthoredFitCasesFieldExperimentsItemBindingsItem {
         match field.number() {
             1u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(&self.parameter_id[..]),
             2u32 => ::buffa_descriptor::reflect::ValueRef::String(&self.path),
+            3u32 => {
+                ::buffa_descriptor::reflect::ValueRef::U64(
+                    self.schedule_start.unwrap_or(0),
+                )
+            }
             _ => {
                 ::core::debug_assert!(
                     false,
@@ -10033,6 +10055,7 @@ for AuthoredFitCasesFieldExperimentsItemBindingsItem {
         match field.number() {
             1u32 => !self.parameter_id.is_empty(),
             2u32 => !self.path.is_empty(),
+            3u32 => self.schedule_start.is_some(),
             _ => false,
         }
     }
@@ -10119,6 +10142,9 @@ impl ::buffa::Message for AuthoredFitCasesFieldExperimentsItemBindingsItem {
         if !self.path.is_empty() {
             size += 1u64 + ::buffa::types::string_encoded_len(&self.path) as u64;
         }
+        if self.schedule_start.is_some() {
+            size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+        }
         size += self.__buffa_unknown_fields.encoded_len() as u64;
         ::buffa::saturate_size(size)
     }
@@ -10134,6 +10160,9 @@ impl ::buffa::Message for AuthoredFitCasesFieldExperimentsItemBindingsItem {
         }
         if !self.path.is_empty() {
             ::buffa::types::put_string_field(2u32, &self.path, buf);
+        }
+        if let Some(v) = self.schedule_start {
+            ::buffa::types::put_fixed64_field(3u32, v, buf);
         }
         self.__buffa_unknown_fields.write_to(buf);
     }
@@ -10162,6 +10191,15 @@ impl ::buffa::Message for AuthoredFitCasesFieldExperimentsItemBindingsItem {
                 )?;
                 ::buffa::types::merge_string(&mut self.path, buf)?;
             }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::Fixed64,
+                )?;
+                self.schedule_start = ::core::option::Option::Some(
+                    ::buffa::types::decode_fixed64(buf)?,
+                );
+            }
             _ => {
                 self.__buffa_unknown_fields
                     .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
@@ -10172,6 +10210,7 @@ impl ::buffa::Message for AuthoredFitCasesFieldExperimentsItemBindingsItem {
     fn clear(&mut self) {
         self.parameter_id.clear();
         self.path.clear();
+        self.schedule_start = ::core::option::Option::None;
         self.__buffa_unknown_fields.clear();
     }
 }
@@ -10199,6 +10238,10 @@ impl ::buffa::text::TextFormat for AuthoredFitCasesFieldExperimentsItemBindingsI
             enc.write_field_name("path")?;
             enc.write_string(&self.path)?;
         }
+        if let ::core::option::Option::Some(ref __v) = self.schedule_start {
+            enc.write_field_name("schedule_start")?;
+            enc.write_u64(*__v)?;
+        }
         enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
         ::core::result::Result::Ok(())
     }
@@ -10212,6 +10255,9 @@ impl ::buffa::text::TextFormat for AuthoredFitCasesFieldExperimentsItemBindingsI
             match __name {
                 "parameter_id" => self.parameter_id = dec.read_bytes()?,
                 "path" => self.path = dec.read_string()?.into_owned(),
+                "schedule_start" => {
+                    self.schedule_start = ::core::option::Option::Some(dec.read_u64()?);
+                }
                 _ => dec.skip_value()?,
             }
         }
@@ -350488,6 +350534,8 @@ pub mod __buffa {
             pub parameter_id: &'a [u8],
             /// Field 2: `path`
             pub path: &'a str,
+            /// Field 3: `schedule_start`
+            pub schedule_start: ::core::option::Option<u64>,
             pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
         }
         impl<'a> ::buffa::MessageView<'a>
@@ -350541,6 +350589,15 @@ pub mod __buffa {
                         )?;
                         view.path = ::buffa::types::borrow_str(&mut cur)?;
                     }
+                    3u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::Fixed64,
+                        )?;
+                        view.schedule_start = Some(
+                            ::buffa::types::decode_fixed64(&mut cur)?,
+                        );
+                    }
                     _ => {
                         ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
                         let span_len = before_tag.len() - cur.len();
@@ -350572,6 +350629,7 @@ pub mod __buffa {
                 ::core::result::Result::Ok(super::super::AuthoredFitCasesFieldExperimentsItemBindingsItem {
                     parameter_id: (self.parameter_id).to_vec(),
                     path: self.path.to_string(),
+                    schedule_start: self.schedule_start,
                     __buffa_unknown_fields: self
                         .__buffa_unknown_fields
                         .to_owned()?
@@ -350596,6 +350654,9 @@ pub mod __buffa {
                 if !self.path.is_empty() {
                     size += 1u64 + ::buffa::types::string_encoded_len(&self.path) as u64;
                 }
+                if self.schedule_start.is_some() {
+                    size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+                }
                 size += self.__buffa_unknown_fields.encoded_len() as u64;
                 ::buffa::saturate_size(size)
             }
@@ -350616,6 +350677,9 @@ pub mod __buffa {
                 }
                 if !self.path.is_empty() {
                     ::buffa::types::put_string_field(2u32, &self.path, buf);
+                }
+                if let Some(v) = self.schedule_start {
+                    ::buffa::types::put_fixed64_field(3u32, v, buf);
                 }
                 self.__buffa_unknown_fields.write_to(buf);
             }
@@ -350648,6 +350712,13 @@ pub mod __buffa {
                 }
                 if !::buffa::json_helpers::skip_if::is_empty_str(self.path) {
                     __map.serialize_entry("path", self.path)?;
+                }
+                if let ::core::option::Option::Some(__v) = self.schedule_start {
+                    __map
+                        .serialize_entry(
+                            "schedule_start",
+                            &::buffa::json_helpers::ProtoJson(&__v),
+                        )?;
                 }
                 __map.end()
             }
@@ -350769,6 +350840,11 @@ pub mod __buffa {
             pub fn path(&self) -> &'_ str {
                 self.0.reborrow().path
             }
+            /// Field 3: `schedule_start`
+            #[must_use]
+            pub fn schedule_start(&self) -> ::core::option::Option<u64> {
+                self.0.reborrow().schedule_start
+            }
         }
         impl ::core::convert::From<
             ::buffa::OwnedView<
@@ -350844,6 +350920,11 @@ pub mod __buffa {
                         ::buffa_descriptor::reflect::ValueRef::Bytes(self.parameter_id)
                     }
                     2u32 => ::buffa_descriptor::reflect::ValueRef::String(self.path),
+                    3u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::U64(
+                            self.schedule_start.unwrap_or(0),
+                        )
+                    }
                     _ => {
                         ::core::debug_assert!(
                             false,
@@ -350858,6 +350939,7 @@ pub mod __buffa {
                 match field.number() {
                     1u32 => !self.parameter_id.is_empty(),
                     2u32 => !self.path.is_empty(),
+                    3u32 => self.schedule_start.is_some(),
                     _ => false,
                 }
             }

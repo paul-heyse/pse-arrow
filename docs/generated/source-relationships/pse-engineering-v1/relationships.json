@@ -88483,9 +88483,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/descriptor-source.bin",
       "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/physical_inspection.rs",
+      "source_path": "crates/pse-quantity/src/boundary/physical_description.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::physical_inspection::PhysicalQuantityDescription"
+      "source_symbol": "pse_quantity::boundary::physical_description::PhysicalQuantityDescription"
     },
     {
       "basis": "declared",
@@ -88499,9 +88499,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/descriptor.bin",
       "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/physical_inspection.rs",
+      "source_path": "crates/pse-quantity/src/boundary/physical_description.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::physical_inspection::PhysicalQuantityDescription"
+      "source_symbol": "pse_quantity::boundary::physical_description::PhysicalQuantityDescription"
     },
     {
       "basis": "declared",
@@ -88515,9 +88515,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/physical_inspection.rs",
+      "source_path": "crates/pse-quantity/src/boundary/physical_description.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::physical_inspection::PhysicalQuantityDescription"
+      "source_symbol": "pse_quantity::boundary::physical_description::PhysicalQuantityDescription"
     },
     {
       "basis": "declared",
@@ -88531,9 +88531,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/native-policy.rs",
       "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/physical_inspection.rs",
+      "source_path": "crates/pse-quantity/src/boundary/physical_description.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::physical_inspection::PhysicalQuantityDescription"
+      "source_symbol": "pse_quantity::boundary::physical_description::PhysicalQuantityDescription"
     },
     {
       "basis": "declared",
@@ -88547,9 +88547,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/pse.engineering.v1.rs",
       "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/physical_inspection.rs",
+      "source_path": "crates/pse-quantity/src/boundary/physical_description.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::physical_inspection::PhysicalQuantityDescription"
+      "source_symbol": "pse_quantity::boundary::physical_description::PhysicalQuantityDescription"
     },
     {
       "basis": "declared",
@@ -88563,9 +88563,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/services/engineering.__connect.rs",
       "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/physical_inspection.rs",
+      "source_path": "crates/pse-quantity/src/boundary/physical_description.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::physical_inspection::PhysicalQuantityDescription"
+      "source_symbol": "pse_quantity::boundary::physical_description::PhysicalQuantityDescription"
     },
     {
       "basis": "declared",
@@ -88579,9 +88579,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/services/pse.engineering.v1.mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/physical_inspection.rs",
+      "source_path": "crates/pse-quantity/src/boundary/physical_description.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::physical_inspection::PhysicalQuantityDescription"
+      "source_symbol": "pse_quantity::boundary::physical_description::PhysicalQuantityDescription"
     },
     {
       "basis": "declared",
@@ -88595,9 +88595,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/shared-root.rs",
       "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/physical_inspection.rs",
+      "source_path": "crates/pse-quantity/src/boundary/physical_description.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::physical_inspection::PhysicalQuantityDescription"
+      "source_symbol": "pse_quantity::boundary::physical_description::PhysicalQuantityDescription"
     },
     {
       "basis": "declared",
@@ -88611,9 +88611,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/engineering.rs",
       "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/physical_inspection.rs",
+      "source_path": "crates/pse-quantity/src/boundary/physical_description.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::physical_inspection::PhysicalQuantityDescription"
+      "source_symbol": "pse_quantity::boundary::physical_description::PhysicalQuantityDescription"
     },
     {
       "basis": "declared",
@@ -88627,9 +88627,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/physical_inspection.rs",
+      "source_path": "crates/pse-quantity/src/boundary/physical_description.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::physical_inspection::PhysicalQuantityDescription"
+      "source_symbol": "pse_quantity::boundary::physical_description::PhysicalQuantityDescription"
     },
     {
       "basis": "declared",
@@ -88643,9 +88643,9 @@
       "generator_symbol": "projection",
       "output_path": "crates/pse-runtime/src/generated/engineering/validation/pse.engineering.v1.mod.rs",
       "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/physical_inspection.rs",
+      "source_path": "crates/pse-quantity/src/boundary/physical_description.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::physical_inspection::PhysicalQuantityDescription"
+      "source_symbol": "pse_quantity::boundary::physical_description::PhysicalQuantityDescription"
     },
     {
       "basis": "declared",
@@ -88659,9 +88659,9 @@
       "generator_symbol": "projection",
       "output_path": "docs/generated/engineering/pse.engineering.v1/index.md",
       "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/physical_inspection.rs",
+      "source_path": "crates/pse-quantity/src/boundary/physical_description.rs",
       "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::physical_inspection::PhysicalQuantityDescription"
+      "source_symbol": "pse_quantity::boundary::physical_description::PhysicalQuantityDescription"
     },
     {
       "basis": "declared",

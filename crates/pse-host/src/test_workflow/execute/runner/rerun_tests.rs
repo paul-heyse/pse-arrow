@@ -127,7 +127,7 @@ async fn actual_native_setup_failure_preserves_original_capture_without_assertio
         .list(
             &nextest(&environment).unwrap(),
             &destination.join("inventory"),
-            crate::discovery::DiscoveryOptions {
+            discovery::DiscoveryOptions {
                 policy: input.policy,
                 timings: false,
             },
@@ -390,7 +390,7 @@ async fn actual_rerun_intent_uses_bound_original_failure_after_old_executable_di
     let manager_path = destination.parent().unwrap().join("result.json");
     let original_report = fs::read(&report_path).unwrap();
     let original_manager = fs::read(&manager_path).unwrap();
-    let mut passive: serde_json::Value = serde_json::from_slice(&original_report).unwrap();
+    let mut passive: Value = serde_json::from_slice(&original_report).unwrap();
     passive["required_capture_complete"] = false.into();
     passive["outcome"] = "incomplete".into();
     let incomplete = serde_json::to_vec(&passive).unwrap();
@@ -419,7 +419,7 @@ async fn actual_rerun_intent_uses_bound_original_failure_after_old_executable_di
         "incomplete original capture is not a zero-match or a fresh rerun grant"
     );
     for complete in [None, Some(false)] {
-        let mut passive: serde_json::Value = serde_json::from_slice(&original_report).unwrap();
+        let mut passive: Value = serde_json::from_slice(&original_report).unwrap();
         passive["outcome"] = "incomplete".into();
         let observed = passive["observations"]
             .as_array_mut()

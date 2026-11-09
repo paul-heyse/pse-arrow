@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Explicit native domain mappings. Only original provider documents use opaque JSON bytes.
-mod dependency_usage;
 mod graph;
 mod investigation;
 use super::*;
 use crate::{
-    code_intelligence_contracts::pb::pse::code_intelligence::v1 as pb,
+    code_intelligence_contracts::{self as contracts, pb::pse::code_intelligence::v1 as pb},
     source_read::{SourceIdentity, SourceOrigin, SourceText},
 };
-pub(super) use dependency_usage::answer_from_pb as usage_answer_from_pb;
 pub(super) use graph::answer_from_pb as graph_answer_from_pb;
+use pse_contract_proto::support::{native_from, native_into};
 use std::{
     collections::{BTreeMap, BTreeSet},
     ffi::OsString,
@@ -20,6 +19,9 @@ use std::{
 
 fn malformed(field: &str) -> Error {
     Error::Schema(format!("invalid native wire field: {field}"))
+}
+fn projection(error: impl std::fmt::Display) -> Error {
+    Error::Schema(error.to_string())
 }
 fn checked_outgoing<T: protovalidate_buffa::Validate>(value: T) -> Result<T> {
     value
@@ -57,70 +59,15 @@ fn from_opaque(value: pb::OriginalEvidence) -> Result<serde_json::Value> {
     }
     Ok(serde_json::from_slice(&value.data)?)
 }
-fn configuration_to_pb(value: Configuration) -> pb::NativeConfiguration {
-    pb::NativeConfiguration {
-        backend: match value.backend {
-            Backend::Lsp => pb::native_configuration::Backend::LiveLsp,
-            Backend::NativeSnapshot => pb::native_configuration::Backend::NativeSnapshot,
-        }
-        .into(),
-        project: path(&value.project),
-        features: value.features,
-        no_default_features: value.no_default_features,
-        target: value.target,
-        build_macros: value.build_macros,
-        test_context: value.test_context,
-        ..Default::default()
-    }
-}
-fn configuration_from_pb(value: pb::NativeConfiguration) -> Result<Configuration> {
-    Ok(Configuration {
-        backend: match value
-            .backend
-            .as_known()
-            .ok_or_else(|| malformed("configuration.backend"))?
-        {
-            pb::native_configuration::Backend::LiveLsp => Backend::Lsp,
-            pb::native_configuration::Backend::NativeSnapshot => Backend::NativeSnapshot,
-        },
-        project: from_path(value.project),
-        features: value.features,
-        no_default_features: value.no_default_features,
-        target: value.target,
-        build_macros: value.build_macros,
-        test_context: value.test_context,
-    })
-}
 fn analysis_to_pb(value: AnalysisContext) -> Result<pb::NativeAnalysisContext> {
-    Ok(pb::NativeAnalysisContext {
-        backend: value.backend,
-        configuration: configuration_to_pb(value.configuration).into(),
-        position_encoding: value.position_encoding,
-        backend_status: value
-            .backend_status
-            .as_ref()
-            .map(opaque)
-            .transpose()?
-            .into(),
-        preparation: value.preparation,
-        ..Default::default()
-    })
+    native_into(value, "session").map_err(projection)
 }
-fn analysis_from_pb(mut value: pb::NativeAnalysisContext) -> Result<AnalysisContext> {
-    Ok(AnalysisContext {
-        backend: value.backend,
-        configuration: configuration_from_pb(required(
-            value.configuration.take(),
-            "session.configuration",
-        )?)?,
-        position_encoding: value.position_encoding,
-        backend_status: value.backend_status.take().map(from_opaque).transpose()?,
-        preparation: value.preparation,
-    })
+fn analysis_from_pb(value: pb::NativeAnalysisContext) -> Result<AnalysisContext> {
+    native_from(value, "session").map_err(projection)
 }
 pub(super) fn status_to_pb(value: SessionStatus) -> Result<pb::NativeSessionStatus> {
     Ok(pb::NativeSessionStatus {
-        configuration: configuration_to_pb(value.configuration).into(),
+        configuration: native_into::<_, pb::NativeConfiguration>(value.configuration, "status.configuration").map_err(projection)?.into(),
         backend: value.backend,
         position_encoding: value.position_encoding,
         generation: value.generation,
@@ -142,10 +89,10 @@ pub(super) fn status_to_pb(value: SessionStatus) -> Result<pb::NativeSessionStat
 }
 pub(super) fn status_from_pb(mut value: pb::NativeSessionStatus) -> Result<SessionStatus> {
     Ok(SessionStatus {
-        configuration: configuration_from_pb(required(
+        configuration: native_from(required(
             value.configuration.take(),
             "status.configuration",
-        )?)?,
+        )?, "status.configuration").map_err(projection)?,
         backend: value.backend,
         position_encoding: value.position_encoding,
         generation: value.generation,
@@ -165,11 +112,8 @@ pub(super) fn status_from_pb(mut value: pb::NativeSessionStatus) -> Result<Sessi
 pub(super) fn request_to_pb(value: &Request) -> Result<pb::NativeRequest> {
     use pb::native_query::Kind as K;
     let operation = match value {
-        Request::DependencyUsage { package_ids } => pb::native_request::Operation::DependencyUsage(
-            Box::new(pb::NativeDependencyUsageQuery {
-                package_ids: package_ids.clone(),
-                ..Default::default()
-            }),
+        Request::DependencyUsage(query) => pb::native_request::Operation::DependencyUsage(
+            Box::new(contracts::encode_native_dependency_usage_query(query.clone()).map_err(projection)?),
         ),
         Request::Graph(value) => {
             pb::native_request::Operation::Graph(Box::new(graph::query_to_pb(value)?))
@@ -278,12 +222,11 @@ pub(super) fn request_from_pb(value: pb::NativeRequest) -> Result<Request> {
     use pb::native_query::Kind as K;
     Ok(match required(value.operation, "request.operation")? {
         pb::native_request::Operation::DependencyUsage(value) => {
-            if value.package_ids.is_empty() || value.package_ids.iter().any(String::is_empty) {
+            let query = contracts::decode_native_dependency_usage_query(*value).map_err(projection)?;
+            if query.package_ids.iter().any(String::is_empty) {
                 return Err(malformed("dependency_usage.package_ids"));
             }
-            Request::DependencyUsage {
-                package_ids: value.package_ids,
-            }
+            Request::DependencyUsage(query)
         }
         pb::native_request::Operation::Graph(value) => {
             Request::Graph(graph::query_from_pb(*value)?)
@@ -415,31 +358,8 @@ pub(super) fn request_from_pb(value: pb::NativeRequest) -> Result<Request> {
     })
 }
 
-fn library_to_pb(value: NativeLibraryProfile) -> pb::NativeLibraryProfile {
-    pb::NativeLibraryProfile {
-        package_id: value.package_id,
-        manifest: path(&value.manifest),
-        source_root: path(&value.source_root),
-        library_root: path(&value.library_root),
-        features: value.features.into_iter().collect(),
-        target: value.target,
-        role: value.role,
-        ..Default::default()
-    }
-}
-fn library_from_pb(value: pb::NativeLibraryProfile) -> NativeLibraryProfile {
-    NativeLibraryProfile {
-        package_id: value.package_id,
-        manifest: from_path(value.manifest),
-        source_root: from_path(value.source_root),
-        library_root: from_path(value.library_root),
-        features: value.features.into_iter().collect(),
-        target: value.target,
-        role: value.role,
-    }
-}
-fn package_to_pb(value: NativePackageContext) -> pb::NativePackageContext {
-    pb::NativePackageContext {
+fn package_to_pb(value: NativePackageContext) -> Result<pb::NativePackageContext> {
+    Ok(pb::NativePackageContext {
         edition: value.edition,
         cfg: value.cfg,
         package_id: value.package_id,
@@ -459,7 +379,9 @@ fn package_to_pb(value: NativePackageContext) -> pb::NativePackageContext {
                 ..Default::default()
             })
             .collect(),
-        dependencies: value.dependencies.into_iter().map(library_to_pb).collect(),
+        dependencies: value.dependencies.into_iter()
+            .map(|profile| native_into(profile, "package.dependency").map_err(projection))
+            .collect::<Result<_>>()?,
         dependency_issues: value.dependency_issues,
         dependency_exclusions: value
             .dependency_exclusions
@@ -471,7 +393,7 @@ fn package_to_pb(value: NativePackageContext) -> pb::NativePackageContext {
             })
             .collect(),
         ..Default::default()
-    }
+    })
 }
 fn package_from_pb(value: pb::NativePackageContext) -> Result<NativePackageContext> {
     let mut source_hashes = BTreeMap::new();
@@ -498,8 +420,8 @@ fn package_from_pb(value: pb::NativePackageContext) -> Result<NativePackageConte
         dependencies: value
             .dependencies
             .into_iter()
-            .map(library_from_pb)
-            .collect(),
+            .map(|profile| native_from(profile, "package.dependency").map_err(projection))
+            .collect::<Result<_>>()?,
         dependency_issues: value.dependency_issues,
         dependency_exclusions: value
             .dependency_exclusions
@@ -519,7 +441,7 @@ pub(super) fn package_answer_to_pb(
     Ok(pb::NativePackageContextAnswer {
         session: analysis_to_pb(value.session)?.into(),
         generation: value.generation,
-        packages: value.packages.into_iter().map(package_to_pb).collect(),
+        packages: value.packages.into_iter().map(package_to_pb).collect::<Result<_>>()?,
         ..Default::default()
     })
 }
@@ -549,19 +471,16 @@ fn position_from_pb(value: pb::NativePosition) -> ProtocolPosition {
         character: value.character,
     }
 }
-fn location_to_pb(value: FactLocation) -> pb::NativeLocation {
-    pb::NativeLocation {
+fn location_to_pb(value: FactLocation) -> Result<pb::NativeLocation> {
+    Ok(pb::NativeLocation {
         coordinates: Some(match value {
             FactLocation::Bytes {
                 path: source,
                 start,
                 end,
-            } => pb::native_location::Coordinates::Bytes(Box::new(pb::NativeByteLocation {
-                path: path(&source),
-                start: number(start),
-                end: number(end),
-                ..Default::default()
-            })),
+            } => pb::native_location::Coordinates::Bytes(Box::new(native_location_to_pb(NativeLocation {
+                path: source, start, end,
+            })?)),
             FactLocation::Protocol { uri, range } => {
                 pb::native_location::Coordinates::Protocol(Box::new(pb::NativeProtocolLocation {
                     uri,
@@ -576,19 +495,13 @@ fn location_to_pb(value: FactLocation) -> pb::NativeLocation {
             }
         }),
         ..Default::default()
-    }
+    })
 }
 fn location_from_pb(value: pb::NativeLocation) -> Result<FactLocation> {
     Ok(match required(value.coordinates, "location.coordinates")? {
         pb::native_location::Coordinates::Bytes(value) => {
-            if value.end < value.start || value.path.is_empty() {
-                return Err(malformed("location.byte_range"));
-            }
-            FactLocation::Bytes {
-                path: from_path(value.path),
-                start: size(value.start, "location.start")?,
-                end: size(value.end, "location.end")?,
-            }
+            let NativeLocation { path, start, end } = native_location_from_pb(*value)?;
+            FactLocation::Bytes { path, start, end }
         }
         pb::native_location::Coordinates::Protocol(mut value) => {
             let mut range = required(value.range.take(), "location.range")?;
@@ -604,15 +517,15 @@ fn location_from_pb(value: pb::NativeLocation) -> Result<FactLocation> {
         }
     })
 }
-fn symbol_to_pb(value: SymbolFact) -> pb::NativeSymbolFact {
-    pb::NativeSymbolFact {
+fn symbol_to_pb(value: SymbolFact) -> Result<pb::NativeSymbolFact> {
+    Ok(pb::NativeSymbolFact {
         name: value.name,
         kind: value.kind,
         container: value.container,
-        location: value.location.map(location_to_pb).into(),
+        location: value.location.map(location_to_pb).transpose()?.into(),
         source_sha256: value.source_sha256,
         ..Default::default()
-    }
+    })
 }
 fn symbol_from_pb(mut value: pb::NativeSymbolFact) -> Result<SymbolFact> {
     Ok(SymbolFact {
@@ -653,26 +566,26 @@ fn observed_to_pb(value: ObservedFacts) -> Result<pb::NativeObservedFacts> {
             .map(investigation::to_pb)
             .transpose()?
             .into(),
-        symbols: value.symbols.into_iter().map(symbol_to_pb).collect(),
+        symbols: value.symbols.into_iter().map(symbol_to_pb).collect::<Result<_>>()?,
         relationships: value
             .relationships
             .into_iter()
-            .map(|value| pb::NativeRelationshipFact {
+            .map(|value| Ok(pb::NativeRelationshipFact {
                 relation: relation_to_pb(value.relation).into(),
                 direction: match value.direction {
                     FactDirection::Outgoing => pb::Direction::Outgoing,
                     FactDirection::Incoming => pb::Direction::Incoming,
                 }
                 .into(),
-                location: location_to_pb(value.location).into(),
+                location: location_to_pb(value.location)?.into(),
                 name: value.name,
                 read: value.read,
                 write: value.write,
                 import: value.import,
                 test: value.test,
                 ..Default::default()
-            })
-            .collect(),
+            }))
+            .collect::<Result<_>>()?,
         predicate: value
             .predicate
             .map(|value| pb::NativePredicateFact {
@@ -702,7 +615,7 @@ fn observed_to_pb(value: ObservedFacts) -> Result<pb::NativeObservedFacts> {
         candidates: value
             .candidates
             .into_iter()
-            .map(|value| pb::NativeLazyCandidate {
+            .map(|value| Ok(pb::NativeLazyCandidate {
                 kind: match value.kind {
                     CandidateKind::Hint => pb::NativeCandidateKind::NativeHint,
                     CandidateKind::Completion => pb::NativeCandidateKind::NativeCompletion,
@@ -712,10 +625,10 @@ fn observed_to_pb(value: ObservedFacts) -> Result<pb::NativeObservedFacts> {
                 index: number(value.index),
                 fingerprint: value.fingerprint,
                 label: value.label,
-                location: value.location.map(location_to_pb).into(),
+                location: value.location.map(location_to_pb).transpose()?.into(),
                 ..Default::default()
-            })
-            .collect(),
+            }))
+            .collect::<Result<_>>()?,
         tests: value
             .tests
             .into_iter()
@@ -751,7 +664,7 @@ fn observed_to_pb(value: ObservedFacts) -> Result<pb::NativeObservedFacts> {
                         })
                         .into(),
                     label: value.label,
-                    location: value.location.map(location_to_pb).into(),
+                    location: value.location.map(location_to_pb).transpose()?.into(),
                     runnable_kind: value.runnable_kind,
                     cargo_args: value.cargo_args,
                     executable_args: value.executable_args,
@@ -1257,23 +1170,11 @@ fn proposal_from_pb(mut value: pb::NativePreview) -> Result<ChangeProposal> {
     Ok(proposal)
 }
 
-fn native_location_to_pb(value: NativeLocation) -> pb::NativeByteLocation {
-    pb::NativeByteLocation {
-        path: path(&value.path),
-        start: number(value.start),
-        end: number(value.end),
-        ..Default::default()
-    }
+fn native_location_to_pb(value: NativeLocation) -> Result<pb::NativeByteLocation> {
+    native_into(value, "location").map_err(projection)
 }
 fn native_location_from_pb(value: pb::NativeByteLocation) -> Result<NativeLocation> {
-    if value.end < value.start || value.path.is_empty() {
-        return Err(malformed("native_types.location"));
-    }
-    Ok(NativeLocation {
-        path: from_path(value.path),
-        start: size(value.start, "native_types.start")?,
-        end: size(value.end, "native_types.end")?,
-    })
+    native_from(value, "location").map_err(projection)
 }
 fn type_to_pb(value: TypeFact) -> pb::NativeTypeFact {
     pb::NativeTypeFact {
@@ -1347,14 +1248,14 @@ fn layout_from_pb(value: pb::NativeLayoutFact) -> Result<LayoutFact> {
             .collect::<Result<_>>()?,
     })
 }
-fn target_to_pb(value: TargetFact) -> pb::NativeTargetFact {
-    pb::NativeTargetFact {
+fn target_to_pb(value: TargetFact) -> Result<pb::NativeTargetFact> {
+    Ok(pb::NativeTargetFact {
         relationship: value.relationship,
         name: value.name,
-        location: value.location.map(native_location_to_pb).into(),
+        location: value.location.map(native_location_to_pb).transpose()?.into(),
         precision: value.precision,
         ..Default::default()
-    }
+    })
 }
 fn target_from_pb(mut value: pb::NativeTargetFact) -> Result<TargetFact> {
     Ok(TargetFact {
@@ -1391,11 +1292,11 @@ fn outcome_from_pb(
         },
     )
 }
-fn callable_context_to_pb(c: CallableContextFact) -> pb::NativeCallableContextFact {
-    pb::NativeCallableContextFact {
-        callsite: c.callsite.map(native_location_to_pb).into(),
-        callable_target: target_to_pb(c.callable_target).into(),
-        substitution_owner: target_to_pb(c.substitution_owner).into(),
+fn callable_context_to_pb(c: CallableContextFact) -> Result<pb::NativeCallableContextFact> {
+    Ok(pb::NativeCallableContextFact {
+        callsite: c.callsite.map(native_location_to_pb).transpose()?.into(),
+        callable_target: target_to_pb(c.callable_target)?.into(),
+        substitution_owner: target_to_pb(c.substitution_owner)?.into(),
         receiver_parameter: c.receiver_parameter.map(type_to_pb).into(),
         parameters: c.parameters.into_iter().map(type_to_pb).collect(),
         result: type_to_pb(c.result).into(),
@@ -1432,7 +1333,7 @@ fn callable_context_to_pb(c: CallableContextFact) -> pb::NativeCallableContextFa
             })
             .into(),
         ..Default::default()
-    }
+    })
 }
 fn callable_context_from_pb(mut c: pb::NativeCallableContextFact) -> Result<CallableContextFact> {
     Ok(CallableContextFact {
@@ -1490,35 +1391,35 @@ fn callable_context_from_pb(mut c: pb::NativeCallableContextFact) -> Result<Call
             .transpose()?,
     })
 }
-fn typed_to_pb(value: TypedFacts) -> pb::NativeTypedFacts {
-    pb::NativeTypedFacts {
+fn typed_to_pb(value: TypedFacts) -> Result<pb::NativeTypedFacts> {
+    Ok(pb::NativeTypedFacts {
         callable_candidates: value
             .callable_candidates
             .into_iter()
-            .map(|c| pb::NativeCallableCandidateFact {
-                target: target_to_pb(c.target).into(),
+            .map(|c| Ok(pb::NativeCallableCandidateFact {
+                target: target_to_pb(c.target)?.into(),
                 signature: c.signature,
                 receiver: type_to_pb(c.receiver).into(),
                 applicability: outcome_to_pb(c.applicability).into(),
                 required_import: c.required_import,
-                context: c.context.map(callable_context_to_pb).into(),
+                context: c.context.map(callable_context_to_pb).transpose()?.into(),
                 obligations: c
                     .obligations
                     .into_iter()
-                    .map(|o| pb::NativeCallableObligationFact {
-                        declared_trait: target_to_pb(o.declared_trait).into(),
+                    .map(|o| Ok(pb::NativeCallableObligationFact {
+                        declared_trait: target_to_pb(o.declared_trait)?.into(),
                         parameter: o.parameter,
                         subject: o.subject.map(type_to_pb).into(),
                         outcome: outcome_to_pb(o.outcome).into(),
                         reason: o.reason,
                         ..Default::default()
-                    })
-                    .collect(),
+                    }))
+                    .collect::<Result<_>>()?,
                 limitations: c.limitations,
                 reasons: c.reasons,
                 ..Default::default()
-            })
-            .collect(),
+            }))
+            .collect::<Result<_>>()?,
         context: value
             .context
             .map(|c| pb::NativeTypeContext {
@@ -1532,8 +1433,8 @@ fn typed_to_pb(value: TypedFacts) -> pb::NativeTypedFacts {
                 ..Default::default()
             })
             .into(),
-        capture_owner: value.capture_owner.map(native_location_to_pb).into(),
-        callsite: value.callsite.map(native_location_to_pb).into(),
+        capture_owner: value.capture_owner.map(native_location_to_pb).transpose()?.into(),
+        callsite: value.callsite.map(native_location_to_pb).transpose()?.into(),
         callable_kind: value.callable_kind,
         layout: value.layout.map(layout_to_pb).into(),
         adjustments: value
@@ -1549,21 +1450,21 @@ fn typed_to_pb(value: TypedFacts) -> pb::NativeTypedFacts {
         captures: value
             .captures
             .into_iter()
-            .map(|c| pb::NativeCaptureFact {
-                local: c.local.map(native_location_to_pb).into(),
+            .map(|c| Ok(pb::NativeCaptureFact {
+                local: c.local.map(native_location_to_pb).transpose()?.into(),
                 usages: c
                     .usages
-                    .map(|uses| pb::NativeCaptureUsages {
+                    .map(|uses| -> Result<_> { Ok(pb::NativeCaptureUsages {
                         uses: uses
                             .into_iter()
-                            .map(|u| pb::NativeCaptureUseFact {
-                                location: u.location.map(native_location_to_pb).into(),
+                            .map(|u| Ok(pb::NativeCaptureUseFact {
+                                location: u.location.map(native_location_to_pb).transpose()?.into(),
                                 is_ref: u.is_ref,
                                 ..Default::default()
-                            })
-                            .collect(),
+                            }))
+                            .collect::<Result<_>>()?,
                         ..Default::default()
-                    })
+                    }) }).transpose()?
                     .into(),
                 place: c.place,
                 has_field_projections: c.has_field_projections,
@@ -1571,23 +1472,14 @@ fn typed_to_pb(value: TypedFacts) -> pb::NativeTypedFacts {
                 place_type: type_to_pb(c.place_type).into(),
                 stored_type: type_to_pb(c.stored_type).into(),
                 ..Default::default()
-            })
-            .collect(),
-        expression: value.expression.map(native_location_to_pb).into(),
+            }))
+            .collect::<Result<_>>()?,
+        expression: value.expression.map(native_location_to_pb).transpose()?.into(),
         original: value.original.map(type_to_pb).into(),
         adjusted: value.adjusted.map(type_to_pb).into(),
         original_equals_adjusted: value.original_equals_adjusted,
         original_coerces_to_adjusted: value.original_coerces_to_adjusted,
-        target: value
-            .target
-            .map(|value| pb::NativeTargetFact {
-                relationship: value.relationship,
-                name: value.name,
-                location: value.location.map(native_location_to_pb).into(),
-                precision: value.precision,
-                ..Default::default()
-            })
-            .into(),
+        target: value.target.map(target_to_pb).transpose()?.into(),
         bounds: value
             .bounds
             .into_iter()
@@ -1598,7 +1490,7 @@ fn typed_to_pb(value: TypedFacts) -> pb::NativeTypedFacts {
             })
             .collect(),
         ..Default::default()
-    }
+    })
 }
 fn typed_from_pb(mut value: pb::NativeTypedFacts) -> Result<TypedFacts> {
     Ok(TypedFacts {
@@ -1772,7 +1664,7 @@ pub(super) fn answer_to_pb(value: Answer) -> Result<pb::NativeAnswer> {
                 ..Default::default()
             })
             .collect(),
-        native_types: value.native_types.map(typed_to_pb).into(),
+        native_types: value.native_types.map(typed_to_pb).transpose()?.into(),
         ..Default::default()
     })
 }
@@ -1827,7 +1719,7 @@ pub(super) fn workspace_to_pb(value: WorkspaceAnswer) -> Result<pb::NativeWorksp
         generation: value.generation,
         symbols: section_to_pb(value.symbols)?.into(),
         limitations: value.limitations,
-        observed: value.observed.into_iter().map(symbol_to_pb).collect(),
+        observed: value.observed.into_iter().map(symbol_to_pb).collect::<Result<_>>()?,
         ..Default::default()
     })
 }
@@ -2170,7 +2062,7 @@ pub(super) fn response_event(value: Response) -> Result<pb::NativeEvent> {
     Ok(pb::NativeEvent {
         item: Some(match value {
             Response::DependencyUsage(value) => pb::native_event::Item::DependencyUsage(Box::new(
-                dependency_usage::answer_to_pb(value)?,
+                contracts::encode_native_dependency_usage_answer(value).map_err(projection)?,
             )),
             Response::Graph(value) => {
                 pb::native_event::Item::Graph(Box::new(graph::answer_to_pb(value)?))
@@ -2187,6 +2079,10 @@ pub(super) fn response_event(value: Response) -> Result<pb::NativeEvent> {
         }),
         ..Default::default()
     })
+}
+
+pub(super) fn usage_answer_from_pb(value: pb::NativeDependencyUsageAnswer) -> Result<DependencyUsageAnswer> {
+    contracts::decode_native_dependency_usage_answer(value).map_err(projection)
 }
 
 #[cfg(test)]
@@ -2221,6 +2117,50 @@ mod tests {
             start: 3,
             end: 9,
         }
+    }
+
+    #[test]
+    fn native_dependency_usage_roundtrip_keeps_raw_locations_profiles_and_omissions() {
+        let request = Request::DependencyUsage(DependencyUsageQuery {
+            package_ids: vec!["supplier".into(), "unavailable".into()],
+        });
+        let encoded = request_to_pb(&request).unwrap().encode_to_vec();
+        let restored = request_from_pb(pb::NativeRequest::decode_from_slice(&encoded).unwrap()).unwrap();
+        assert!(matches!(restored, Request::DependencyUsage(query) if query.package_ids == ["supplier", "unavailable"]));
+        assert!(request_to_pb(&Request::DependencyUsage(DependencyUsageQuery { package_ids: vec![] })).is_err());
+
+        let location = NativeLocation { path: raw_path(), start: 3, end: 9 };
+        let response = Response::DependencyUsage(DependencyUsageAnswer {
+            session: context(), generation: 17,
+            package_ids: vec!["supplier".into(), "unavailable".into()],
+            unavailable_package_ids: vec!["unavailable".into()],
+            references: vec![DependencyReference {
+                definition: location.clone(), occurrence: location,
+                profiles: vec![NativeLibraryProfile {
+                    package_id: "supplier".into(), manifest: raw_path(),
+                    source_root: "/source".into(), library_root: raw_path(),
+                    features: BTreeSet::from(["feature".into()]), target: None, role: "lib".into(),
+                }],
+                source_sha256: "original".into(), symbol_kind: "field".into(), name: None, role: "read".into(),
+            }],
+            indexed_files: 7, unmapped_definitions: 1, limitations: vec!["original limit".into()],
+        });
+        let event = pb::NativeEvent::decode_from_slice(&response_event(response).unwrap().encode_to_vec()).unwrap();
+        let Some(pb::native_event::Item::DependencyUsage(answer)) = event.item else { panic!("missing generated dependency answer") };
+        let restored = usage_answer_from_pb((*answer).clone()).unwrap();
+        assert_eq!(restored.generation, 17);
+        assert_eq!(restored.unavailable_package_ids, ["unavailable"]);
+        assert_eq!(restored.references[0].occurrence.path, raw_path());
+        assert_eq!(restored.references[0].profiles[0].manifest, raw_path());
+        assert_eq!(restored.references[0].name, None);
+        assert_eq!(restored.session.backend_status, context().backend_status);
+        let mut wrong = (*answer).clone();
+        wrong.references[0].definition.as_option_mut().unwrap().end = 2;
+        assert!(usage_answer_from_pb(wrong).is_err());
+        let mut foreign = answer.encode_to_vec();
+        foreign.extend([0xa0, 0x06, 0x01]);
+        let foreign = pb::NativeDependencyUsageAnswer::decode_from_slice(&foreign).unwrap();
+        assert!(usage_answer_from_pb(foreign).is_err());
     }
 
     #[test]
@@ -2781,9 +2721,9 @@ mod tests {
                 },
             },
         };
-        let wire = location_to_pb(actual);
+        let wire = location_to_pb(actual).unwrap();
         assert_eq!(
-            location_to_pb(location_from_pb(wire.clone()).unwrap()),
+            location_to_pb(location_from_pb(wire.clone()).unwrap()).unwrap(),
             wire
         );
         let backwards = pb::NativeLocation {
@@ -2871,7 +2811,7 @@ mod tests {
                 declared_traits: vec!["ActualTrait".into()],
             }],
         };
-        let wire = typed_to_pb(facts);
+        let wire = typed_to_pb(facts).unwrap();
         let restored =
             typed_from_pb(pb::NativeTypedFacts::decode_from_slice(&wire.encode_to_vec()).unwrap())
                 .unwrap();
@@ -2890,7 +2830,7 @@ mod tests {
                 .path,
             raw_path()
         );
-        assert_eq!(typed_to_pb(restored), wire);
+        assert_eq!(typed_to_pb(restored).unwrap(), wire);
     }
 
     #[test]

@@ -1559,6 +1559,116 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn engineering_run_observation_deadline_keeps_native_work_and_delivers_terminal_trailer() {
+        use super::super::generated::pb::pse::engineering::v1 as pb;
+        use buffa::Message as _;
+        use http_body_util::{BodyExt as _, Full};
+        use hyper_util::rt::{TokioExecutor, TokioIo};
+
+        let (service, _spill) = service();
+        let input = EngineeringSubmitRun {
+            operation: "run-observer-deadline".into(),
+            preparation_operation: "prepared".into(),
+            run: pse_ids::SemanticId::from_bytes([51; 16]),
+            attempt: pse_ids::SemanticId::from_bytes([52; 16]),
+            expected_preparation: ContentHash::from_bytes([54; 32]),
+        };
+        let key = EngineeringRunKey {
+            operation: input.operation.clone(),
+            run: input.run,
+            attempt: input.attempt,
+        };
+        let (operation, fresh) = service.issue_run(&input, &key).unwrap();
+        assert!(fresh);
+        let (started, entered) = tokio::sync::oneshot::channel();
+        let (release, waiting) = tokio::sync::oneshot::channel();
+        service
+            .spawn(operation.clone(), async move {
+                started.send(()).unwrap();
+                waiting.await.unwrap();
+                Ok(Outcome::Retained)
+            })
+            .unwrap();
+        entered.await.unwrap();
+
+        let directory = tempfile::tempdir().unwrap();
+        let socket = directory.path().join("engineering.sock");
+        let listener = tokio::net::UnixListener::bind(&socket).unwrap();
+        let stop = CancelSource::new();
+        let serving = super::super::rpc::serve(
+            listener,
+            service,
+            super::super::rpc::LocalAccessPolicy {
+                uid: rustix::process::geteuid().as_raw(),
+                gid: None,
+                maximum_connections: 1,
+                connection_drain: Duration::from_secs(5),
+            },
+            stop.clone(),
+        );
+        let exercise = async move {
+            let peer = tokio::net::UnixStream::connect(socket)
+                .await
+                .unwrap()
+                .into_std()
+                .unwrap();
+            let retained_peer = peer.try_clone().unwrap();
+            let peer = tokio::net::UnixStream::from_std(peer).unwrap();
+            let (mut client, driver) =
+                hyper::client::conn::http2::handshake(TokioExecutor::new(), TokioIo::new(peer))
+                    .await
+                    .unwrap();
+            let exchange = async move {
+                let wire = crate::engineering_projection::encode_engineering_run_key(key.clone())
+                    .unwrap()
+                    .encode_to_vec();
+                let mut frame = vec![0];
+                frame.extend_from_slice(&(u32::try_from(wire.len()).unwrap()).to_be_bytes());
+                frame.extend_from_slice(&wire);
+                let request = http::Request::post("http://localhost/pse.engineering.v1.EngineeringService/ObserveRun")
+                    .version(http::Version::HTTP_2)
+                    .header(http::header::HOST, "localhost")
+                    .header(http::header::CONTENT_TYPE, "application/grpc+proto")
+                    .header("te", "trailers")
+                    .header("grpc-timeout", "1S")
+                    .body(Full::new(bytes::Bytes::from(frame)))
+                    .unwrap();
+                client.ready().await.unwrap();
+                let response = client.send_request(request).await.unwrap();
+                let response = response.into_body().collect().await.unwrap();
+                assert_eq!(response.trailers().unwrap()["grpc-status"], "4");
+                let frame = response.to_bytes();
+                assert_eq!(frame[0], 0);
+                let length = u32::from_be_bytes(frame[1..5].try_into().unwrap()) as usize;
+                assert_eq!(length, frame.len() - 5);
+                let observed = pb::EngineeringRunStatus::decode_from_slice(&frame[5..]).unwrap();
+                assert_eq!(observed.operation, key.operation);
+                assert!(!observed.settled && observed.run.is_none());
+                assert!(matches!(operation.snapshot().unwrap(), Outcome::Pending));
+                assert!(!operation.cancel.token().is_cancelled());
+                release.send(()).unwrap();
+                assert!(matches!(
+                    operation.completed().await.unwrap(),
+                    Outcome::Retained
+                ));
+                stop.cancel();
+                client
+            };
+            let (client, driver) = tokio::join!(exchange, driver);
+            driver.unwrap();
+            drop(client);
+            retained_peer.shutdown(std::net::Shutdown::Write).unwrap();
+            retained_peer
+        };
+        let (served, _retained_peer) = tokio::time::timeout(Duration::from_secs(10), async {
+            tokio::join!(serving, exercise)
+        })
+        .await
+        .unwrap();
+        served.unwrap();
+    }
+
+    #[tokio::test]
     async fn pending_run_cancellation_checks_original_issued_coordinates_before_acknowledgement() {
         let (service, _spill) = service();
         let input = EngineeringSubmitRun {

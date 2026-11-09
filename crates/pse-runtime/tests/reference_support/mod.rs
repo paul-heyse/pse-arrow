@@ -10,11 +10,13 @@ use pse_admission::authoring_driver::document::{OwnedDocumentSet, load_package_d
 use pse_runtime::{CancelSource, workflow::ModelingPackage};
 use std::{collections::BTreeMap, path::Path};
 
+type ReferencePackage = (ModelingPackage, BTreeMap<String, Vec<u8>>);
+
 impl NativeContext {
     pub(super) fn package<'a>(
         &'a self,
         source: &'a str,
-    ) -> BoxFuture<'a, Result<(ModelingPackage, BTreeMap<String, Vec<u8>>)>> {
+    ) -> BoxFuture<'a, Result<ReferencePackage>> {
         async move {
             let fixtures = root().join("tests/fixtures/packages");
             let mut physical_inputs = BTreeMap::new();

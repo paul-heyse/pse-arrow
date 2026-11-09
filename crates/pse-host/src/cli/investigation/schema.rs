@@ -27,6 +27,71 @@ pub(in crate::cli) struct Args {
     semantic_policy: Option<crate::schema::compare::semantics::Policy>,
 }
 
+pub(super) fn inspect(args: Args, root: &Path, output: &OutputOptions) -> Result<i32, HostError> {
+    let bundle = Bundle::load(&root.join(args.descriptor))?;
+    if let Some(baseline) = args.compare_with {
+        let baseline = Bundle::load(&root.join(baseline))?;
+        let mut report = crate::schema::compare::compare(&bundle, &baseline)?;
+        report.semantic = crate::schema::compare::semantics::assess(
+            &bundle,
+            &baseline,
+            &args.semantic_file,
+            args.semantic_policy.unwrap_or_default(),
+        )?;
+        report.native = super::super::super::runtime()?
+            .block_on(crate::schema::compare::classify(&bundle, &baseline))?;
+        report.associations = crate::schema::compare::associations(root, &bundle)?
+            .into_iter()
+            .filter(|association| {
+                report.differences.iter().any(|difference| {
+                    difference.declaration == association.declaration
+                        || difference
+                            .declaration
+                            .split_once('#')
+                            .is_some_and(|(parent, _)| parent == association.declaration)
+                })
+            })
+            .collect();
+        let mut response = Envelope::response(
+            "inspect schema compare",
+            "qualified contract differences",
+            report,
+        );
+        for classification in &response.payload.native {
+            if matches!(classification.outcome.as_str(), "failed" | "unavailable") {
+                let error = crate::schema::SchemaError::Tool(format!(
+                    "Buf {} classification {} (exit {:?}): {}",
+                    classification.category,
+                    classification.outcome,
+                    classification.exit_code,
+                    String::from_utf8_lossy(&classification.stderr)
+                ));
+                response
+                    .failures
+                    .push(crate::envelope::ErrorRecord::from_typed(
+                        &error,
+                        &crate::envelope::RedactionPolicy::from_environment(),
+                    ));
+            }
+        }
+        if !response.failures.is_empty() {
+            response.outcome = crate::envelope::CommandOutcome::Failure;
+            response.observation.completeness = crate::envelope::Completeness::Partial;
+            response.observation.limitations.push("Structural comparison is available; native compatibility classification is incomplete.".into());
+        }
+        return output.emit(response).map_err(Into::into);
+    }
+    output
+        .emit(Envelope::response(
+            "inspect schema",
+            "offline descriptor-qualified schema inspection",
+            bundle
+                .inspect(args.declaration.as_deref())?
+                .with_associations(root, &bundle)?,
+        ))
+        .map_err(Into::into)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -173,68 +238,4 @@ mod tests {
             assert!(String::from_utf8_lossy(&stderr).contains("incorrect implicit map entry name"));
         }
     }
-}
-pub(super) fn inspect(args: Args, root: &Path, output: &OutputOptions) -> Result<i32, HostError> {
-    let bundle = Bundle::load(&root.join(args.descriptor))?;
-    if let Some(baseline) = args.compare_with {
-        let baseline = Bundle::load(&root.join(baseline))?;
-        let mut report = crate::schema::compare::compare(&bundle, &baseline)?;
-        report.semantic = crate::schema::compare::semantics::assess(
-            &bundle,
-            &baseline,
-            &args.semantic_file,
-            args.semantic_policy.unwrap_or_default(),
-        )?;
-        report.native = super::super::super::runtime()?
-            .block_on(crate::schema::compare::classify(&bundle, &baseline))?;
-        report.associations = crate::schema::compare::associations(root, &bundle)?
-            .into_iter()
-            .filter(|association| {
-                report.differences.iter().any(|difference| {
-                    difference.declaration == association.declaration
-                        || difference
-                            .declaration
-                            .split_once('#')
-                            .is_some_and(|(parent, _)| parent == association.declaration)
-                })
-            })
-            .collect();
-        let mut response = Envelope::response(
-            "inspect schema compare",
-            "qualified contract differences",
-            report,
-        );
-        for classification in &response.payload.native {
-            if matches!(classification.outcome.as_str(), "failed" | "unavailable") {
-                let error = crate::schema::SchemaError::Tool(format!(
-                    "Buf {} classification {} (exit {:?}): {}",
-                    classification.category,
-                    classification.outcome,
-                    classification.exit_code,
-                    String::from_utf8_lossy(&classification.stderr)
-                ));
-                response
-                    .failures
-                    .push(crate::envelope::ErrorRecord::from_typed(
-                        &error,
-                        &crate::envelope::RedactionPolicy::from_environment(),
-                    ));
-            }
-        }
-        if !response.failures.is_empty() {
-            response.outcome = crate::envelope::CommandOutcome::Failure;
-            response.observation.completeness = crate::envelope::Completeness::Partial;
-            response.observation.limitations.push("Structural comparison is available; native compatibility classification is incomplete.".into());
-        }
-        return output.emit(response).map_err(Into::into);
-    }
-    output
-        .emit(Envelope::response(
-            "inspect schema",
-            "offline descriptor-qualified schema inspection",
-            bundle
-                .inspect(args.declaration.as_deref())?
-                .with_associations(root, &bundle)?,
-        ))
-        .map_err(Into::into)
 }

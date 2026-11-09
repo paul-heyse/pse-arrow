@@ -102,6 +102,47 @@ pub(super) fn declare(b: &mut RegistryBuilder) {
         "FitExperimentAssessmentState",
         ["completed", "failed", "unattempted"],
     );
+    enumeration(
+        b,
+        "ProviderSelectionRegularity",
+        ["point", "local", "certified_chart"],
+    );
+    relation(
+        b,
+        N::Runtime,
+        "provider_selections",
+        S::Derived,
+        &["run_id", "step", "ordinal"],
+        vec![
+            run_id(),
+            column("step", ordinal()),
+            column("ordinal", ordinal()),
+            column("attempt_id", T::id())
+                .with_identity("attempt")
+                .optional(),
+            column("native_attempt", ordinal()),
+            column("instance_id", T::id()).with_identity("instance"),
+            documented("source_id", T::id(), "Original provider stage occurrence."),
+            documented("provider", T::hash(), "Actual bound provider identity."),
+            documented("invocation", T::hash(), "Exact checked invocation identity."),
+            column("selector_id", T::id()),
+            column("regime_id", T::id()),
+            column("policy", T::hash()),
+            column("product", T::hash()),
+            documented(
+                "requested_order",
+                T::nonnegative(2),
+                "Derivative order demanded from this invocation, with zero denoting value.",
+            ),
+            documented(
+                "selection_order",
+                T::nonnegative(2),
+                "Derivative order established by this selection, with zero denoting value.",
+            ),
+            column("regularity", T::enumeration("ProviderSelectionRegularity")),
+        ],
+        "Original checked provider invocations retained by case assessment. Rows preserve observed mathematical selection and the original attempt scope. They establish neither physical stability nor scientific use permission.",
+    );
     let mut experiment_assessment_columns = vec![run_id()];
     experiment_assessment_columns.extend(fit_experiment_assessment_fields());
     relation(

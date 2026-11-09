@@ -316,7 +316,15 @@ mod tests {
             &HostError::Ownership("original unit setup capture incomplete".into()),
             &RedactionPolicy::default(),
         );
-        let bytes = serde_json::to_vec(&serde_json::json!({"version":1,"invocation":id,"action":"test","outcome":"incomplete","required_capture_complete":false,"failures":[failure],"observations":[]})).unwrap();
+        let input_failure = ErrorRecord::from_typed(
+            &HostError::Io(std::io::Error::new(std::io::ErrorKind::NotFound, "original workflow input")),
+            &RedactionPolicy::default(),
+        );
+        let bytes = serde_json::to_vec(&serde_json::json!({
+            "version":3,"invocation":id,"action":"test","outcome":"incomplete",
+            "required_capture_complete":false,"failures":[failure,input_failure],"observations":[],
+            "evidence":[{"root":"invocation","path":"workflow-input.json","role":"input","omission":"missing","failure":input_failure}]
+        })).unwrap();
         let sha = crate::source_read::source_digest(std::str::from_utf8(&bytes).unwrap());
         let report_path = parent.join("report.json");
         std::fs::write(&report_path, &bytes).unwrap();
@@ -383,7 +391,7 @@ mod tests {
         )
         .unwrap();
         assert_eq!(readback.invocation, id);
-        assert_eq!(readback.report_version, 1);
+        assert_eq!(readback.report_version, 3);
         assert!(readback.inventory_sha256.is_none());
         assert!(
             crate::developer_evidence::export(
@@ -411,21 +419,22 @@ mod tests {
             .is_err()
         );
         assert!(!scratch.path().join("unsupported-inventory.pb").exists());
-        let full = scratch.path().join("unavailable-legacy-full.pb");
-        assert!(
-            crate::developer_evidence::export(
-                &store,
-                id.as_str(),
-                None,
-                &full,
-                crate::test_workflow::execute::EvidenceScope::Full
-            )
-            .is_err()
-        );
-        assert!(
-            !full.exists(),
-            "legacy bytes cannot manufacture an original full-evidence commitment"
-        );
+        let full = scratch.path().join("full-with-original-omission.pb");
+        let full_receipt = crate::developer_evidence::export(
+            &store,
+            id.as_str(),
+            None,
+            &full,
+            crate::test_workflow::execute::EvidenceScope::Full,
+        ).unwrap();
+        let readback = crate::developer_evidence::inspect(
+            &descriptors,
+            &full_receipt.message,
+            &std::fs::read(&full).unwrap(),
+            &crate::developer_evidence::binary_options(),
+        ).unwrap();
+        assert_eq!(readback.original_dependency_omissions, Some(1));
+        assert_eq!(readback.full_original_bytes_available, Some(false));
         std::fs::set_permissions(&report_path, std::fs::Permissions::from_mode(0o600)).unwrap();
         std::fs::write(&report_path, b"changed original").unwrap();
         assert!(crate::test_inventory::frozen(&store, &reference).is_err());

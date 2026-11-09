@@ -540,6 +540,9 @@ fn online_project_request(
     })
     .map_err(|error| io::Error::other(error).into())
 }
+
+type PreparedProjectRequest = (&'static str, String, Box<RawValue>);
+
 impl ProjectAction {
     pub(super) fn intent(&self) -> GenerationIntent {
         match self {
@@ -554,7 +557,7 @@ impl ProjectAction {
         root: &Path,
         environment: &Environment,
         output: &OutputOptions,
-    ) -> Result<Result<(&'static str, String, Box<RawValue>), i32>, HostError> {
+    ) -> Result<Result<PreparedProjectRequest, i32>, HostError> {
         let resolve =
             |path| Ok::<_, HostError>(std::path::absolute(super::source_path(selected, path)?)?);
         let (command, source, query) = match self {
@@ -1209,7 +1212,7 @@ mod tests {
         #[command(subcommand)]
         action: ProjectAction,
     }
-    fn request(action: ProjectAction) -> (&'static str, String, Box<RawValue>) {
+    fn request(action: ProjectAction) -> PreparedProjectRequest {
         let output = OutputOptions {
             format: envelope::OutputFormat::Json,
             presentation: Default::default(),

@@ -745,7 +745,10 @@ async fn run_owned<O: ChunkObserver>(
         )
     {
         // Private image release is retryable independently of the original command.
-        eprintln!("pse-host: borrowed workflow executable release remains pending: {error}");
+        let _ = writeln!(
+            std::io::stderr().lock(),
+            "pse-host: borrowed workflow executable release remains pending: {error}"
+        );
     }
     // Settle independent resources even when a previous settlement failed.
     let killed = match child.try_wait() {

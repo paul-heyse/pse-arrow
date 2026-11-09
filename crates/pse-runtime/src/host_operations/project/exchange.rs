@@ -660,27 +660,27 @@ impl Publication {
         if let Some(receipt) = self.published(operation, issuer, cancel)? {
             return Ok(PublicationStatus::visible(Box::new(receipt)));
         }
-        if let Some(stage) = optional_directory(&self.stage)? {
-            if let Some(original) = read_document::<OriginalPublication>(&stage, INTENT)? {
-                self.matches(&original, operation, issuer)?;
-                if let Some(content) = optional_directory(&self.content())?
-                    && let Some(receipt) = read_document::<PublicationReceipt>(&content, RECEIPT)?
-                {
-                    if original != receipt.original {
-                        return Err(contract(
-                            "staged publication receipt differs from original intent",
-                        ));
-                    }
-                    verify_file(&content, &receipt.deliverable, cancel)?;
-                    return Ok(PublicationStatus::Ready {
-                        receipt: Box::new(receipt),
-                    });
+        if let Some(stage) = optional_directory(&self.stage)?
+            && let Some(original) = read_document::<OriginalPublication>(&stage, INTENT)?
+        {
+            self.matches(&original, operation, issuer)?;
+            if let Some(content) = optional_directory(&self.content())?
+                && let Some(receipt) = read_document::<PublicationReceipt>(&content, RECEIPT)?
+            {
+                if original != receipt.original {
+                    return Err(contract(
+                        "staged publication receipt differs from original intent",
+                    ));
                 }
-                return Ok(match self.published(operation, issuer, cancel)? {
-                    Some(receipt) => PublicationStatus::visible(Box::new(receipt)),
-                    None => PublicationStatus::Pending { original },
+                verify_file(&content, &receipt.deliverable, cancel)?;
+                return Ok(PublicationStatus::Ready {
+                    receipt: Box::new(receipt),
                 });
             }
+            return Ok(match self.published(operation, issuer, cancel)? {
+                Some(receipt) => PublicationStatus::visible(Box::new(receipt)),
+                None => PublicationStatus::Pending { original },
+            });
         }
         Ok(match self.published(operation, issuer, cancel)? {
             Some(receipt) => PublicationStatus::visible(Box::new(receipt)),

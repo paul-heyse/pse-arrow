@@ -69,13 +69,25 @@ fn source(dir: &Path, bytes: &[u8]) -> File {
     File::open(path).unwrap()
 }
 
+fn verified_bytes(reader: &PackReader, id: &str) -> Vec<u8> {
+    let mut bytes = Vec::new();
+    reader
+        .copy_member_verified(id, &mut bytes, &CancellationToken::new())
+        .unwrap();
+    bytes
+}
+
+fn verified_text(reader: &PackReader, id: &str) -> String {
+    String::from_utf8(verified_bytes(reader, id)).unwrap()
+}
+
 #[test]
 fn supplied_members_seal_and_relocate_without_scientific_analysis() {
     let root = tempfile::tempdir().unwrap();
     let path = root.path().join("supplied");
     let mut member = raw("investigation", true, PackMemberRole::Query);
     member.format = PackFormat::Json;
-    member.document_version = Some(1);
+    member.document_version = Some(2);
     let mut pack = PackSession::create_members(
         &path,
         PackSelection {
@@ -86,7 +98,7 @@ fn supplied_members_seal_and_relocate_without_scientific_analysis() {
         CancellationToken::new(),
     )
     .unwrap();
-    let bytes = br#"{"version":1,"records":[{"value":4,"start_time":100}]}"#;
+    let bytes = br#"{"version":2,"records":[{"value":4,"start_time":100}]}"#;
     pack.copy_prefix(
         "investigation",
         source(root.path(), bytes),
@@ -100,19 +112,13 @@ fn supplied_members_seal_and_relocate_without_scientific_analysis() {
     let moved = root.path().join("moved");
     std::fs::rename(path, &moved).unwrap();
     let reader = PackReader::open(&moved, 1 << 20).unwrap();
-    let mut retained = Vec::new();
-    reader
-        .open_member("investigation")
-        .unwrap()
-        .read_to_end(&mut retained)
-        .unwrap();
-    assert_eq!(retained, bytes);
-    assert!(reader.open_member("unlisted").is_err());
+    assert_eq!(verified_bytes(&reader, "investigation"), bytes);
+    assert!(reader.copy_member_verified("unlisted", &mut std::io::sink(), &CancellationToken::new()).is_err());
     assert!(reader.read_frozen().is_err());
 }
 
 #[test]
-fn verified_pack_copy_keeps_accepted_prefix_and_refuses_changed_or_legacy_members() {
+fn verified_pack_copy_keeps_accepted_prefix_and_requires_the_original_commitment() {
     let root = tempfile::tempdir().unwrap();
     let path = root.path().join("pack");
     let original = b"original selected member";
@@ -158,13 +164,34 @@ fn verified_pack_copy_keeps_accepted_prefix_and_refuses_changed_or_legacy_member
     patch_index(&path, |index| {
         index["members"][0].as_object_mut().unwrap().remove("digest");
     });
-    let legacy = PackReader::open(&path, 1 << 20).unwrap();
-    assert!(legacy.open_member("raw").is_ok());
-    assert_eq!(
-        legacy.copy_member_verified("raw", &mut std::io::sink(), &cancel)
-            .unwrap_err().accepted_bytes,
-        0
-    );
+    assert!(PackReader::open(&path, 1 << 20).is_err());
+}
+
+#[test]
+fn available_empty_pack_member_requires_the_empty_commitment() {
+    let root = tempfile::tempdir().unwrap();
+    let path = root.path().join("pack");
+    let cancel = CancellationToken::new();
+    let mut session = PackSession::create_members(
+        &path,
+        PackSelection {
+            members: vec![raw("empty", true, PackMemberRole::Capture)],
+            ..Default::default()
+        },
+        cancel.clone(),
+    )
+    .unwrap();
+    session.copy_prefix("empty", source(root.path(), b""), 0).unwrap();
+    session.seal().unwrap();
+    let reader = PackReader::open(&path, 1 << 20).unwrap();
+    let receipt = reader.copy_member_verified("empty", &mut std::io::sink(), &cancel).unwrap();
+    assert_eq!(receipt.copied_bytes, 0);
+    assert_eq!(receipt.digest, pse_ids::encoding_checksum(b"").content_hash());
+    assert!(reader.open_provisional_member("empty").is_err());
+    patch_index(&path, |index| {
+        index["members"][0].as_object_mut().unwrap().remove("digest");
+    });
+    assert!(PackReader::open(&path, 1 << 20).is_err());
 }
 
 #[test]
@@ -232,7 +259,7 @@ fn pack_prefix_retention_requires_the_original_staging_writer() {
     let member = &session.index().members[0];
     assert_eq!(member.readable_bytes, 0);
     assert!(!path.join(&member.relative_path).exists());
-    assert!(PackReader::open(&path, 1 << 20).unwrap().open_member("raw").is_err());
+    assert!(PackReader::open(&path, 1 << 20).unwrap().open_provisional_member("raw").is_err());
 }
 
 #[test]
@@ -287,33 +314,9 @@ fn review_pack_rejects_historical_caller_asserted_scientific_interpretation() {
 }
 
 #[test]
-fn supplied_query_json_retains_v1_and_accepts_v2_without_unknown_codec_admission() {
+fn supplied_query_json_requires_the_current_declared_codec() {
     let root = tempfile::tempdir().unwrap();
-    for version in [1, 2] {
-        let mut member = raw("investigation", true, PackMemberRole::Query);
-        member.format = PackFormat::Json;
-        member.document_version = Some(version);
-        let mut pack = PackSession::create_members(
-            &root.path().join(format!("query-v{version}")),
-            PackSelection {
-                members: vec![member],
-                ..Default::default()
-            },
-            CancellationToken::new(),
-        )
-        .unwrap();
-        let bytes = format!(r#"{{"version":{version},"records":[{{"value":4}}]}}"#);
-        pack.copy_prefix(
-            "investigation",
-            source(root.path(), bytes.as_bytes()),
-            bytes.len() as u64,
-        )
-        .unwrap();
-        let index = pack.seal().unwrap();
-        assert_eq!(index.publication, PackPublication::Sealed);
-        assert_eq!(index.members[0].selection.document_version, Some(version));
-    }
-    for version in [0, 3, u32::MAX] {
+    for version in [0, 1, 3, u32::MAX] {
         let mut member = raw("investigation", true, PackMemberRole::Query);
         member.format = PackFormat::Json;
         member.document_version = Some(version);
@@ -329,16 +332,15 @@ fn supplied_query_json_retains_v1_and_accepts_v2_without_unknown_codec_admission
             .is_err()
         );
     }
-    for (index, declared, bytes) in [
-        (0, 1, br#"{"version":2,"records":[]}"#.as_slice()),
-        (1, 2, br#"{"version":1,"records":[]}"#.as_slice()),
-        (2, 2, br#"{"version":3,"records":[]}"#.as_slice()),
-        (3, 2, br#"{"records":[]}"#.as_slice()),
-        (4, 2, br#"{"version":"2","records":[]}"#.as_slice()),
-    ] {
+    for (index, bytes) in [
+        br#"{"version":1,"records":[]}"#.as_slice(),
+        br#"{"version":3,"records":[]}"#.as_slice(),
+        br#"{"records":[]}"#.as_slice(),
+        br#"{"version":"2","records":[]}"#.as_slice(),
+    ].into_iter().enumerate() {
         let mut member = raw("investigation", true, PackMemberRole::Query);
         member.format = PackFormat::Json;
-        member.document_version = Some(declared);
+        member.document_version = Some(2);
         let mut pack = PackSession::create_members(
             &root.path().join(format!("mismatched-{index}")),
             PackSelection {
@@ -422,24 +424,14 @@ fn offline_pack_relocation_exact_integers_reports_and_unindexed_neighbors() {
     std::fs::remove_file(root.path().join("source")).unwrap();
     std::fs::write(relocated.join("source"), b"tempting live sibling").unwrap();
     let reader = PackReader::open(&relocated, 1 << 20).unwrap();
-    let mut copied = String::new();
-    reader
-        .open_member("detail")
-        .unwrap()
-        .read_to_string(&mut copied)
-        .unwrap();
+    let copied = verified_text(&reader, "detail");
     assert_eq!(copied, "acknowledged\n");
-    assert!(reader.open_member("source").is_err());
+    assert!(reader.copy_member_verified("source", &mut std::io::sink(), &CancellationToken::new()).is_err());
     assert_eq!(
         reader.read_analysis().unwrap().request.operation.sequence,
         u64::MAX
     );
-    let mut html = String::new();
-    reader
-        .open_member("report_html")
-        .unwrap()
-        .read_to_string(&mut html)
-        .unwrap();
+    let html = verified_text(&reader, "report_html");
     assert!(html.contains("18446744073709551615"));
     assert!(html.contains("&lt;script"));
     assert!(!html.contains("<script>"));
@@ -482,7 +474,7 @@ fn offline_pack_cancellation_output_allowance_and_short_source_never_seal() {
         if mode == "short" {
             let mut prefix = String::new();
             reader
-                .open_member("raw")
+                .open_provisional_member("raw")
                 .unwrap()
                 .read_to_string(&mut prefix)
                 .unwrap();
@@ -631,7 +623,7 @@ fn offline_pack_missing_context_optional_capture_and_science_are_independent() {
             .message
             .contains("scientific failure")
     );
-    assert!(reader.open_member("unrequested").is_err());
+    assert!(reader.copy_member_verified("unrequested", &mut std::io::sink(), &CancellationToken::new()).is_err());
     assert!(matches!(
         reader
             .index
@@ -708,6 +700,60 @@ fn offline_pack_incomplete_supported_read_and_optional_copy_failure() {
     assert!(PackReader::open(&path, 1 << 20).is_ok());
 }
 #[test]
+fn offline_pack_refuses_fifo_sources_before_open_can_block_or_staging_begins() {
+    use rustix::fs::{Mode, OFlags};
+    use std::{sync::mpsc, time::Duration};
+
+    let root = tempfile::tempdir().unwrap();
+    let fifo = root.path().join("source.fifo");
+    rustix::fs::mkfifoat(rustix::fs::CWD, &fifo, Mode::RUSR | Mode::WUSR).unwrap();
+    let destination = root.path().join("pack");
+    let mut selection = PackSelection::default();
+    selection.members.extend([
+        raw("path", false, PackMemberRole::Capture),
+        raw("descriptor", false, PackMemberRole::Capture),
+    ]);
+    let mut session = populated(&destination, selection, CancellationToken::new());
+    let (send, receive) = mpsc::channel();
+    let input = fifo.clone();
+    let owner = std::thread::spawn(move || {
+        let result = session.copy_file(&PackFileInput {
+            member: "path".into(),
+            path: input,
+            readable_prefix_bytes: 0,
+        });
+        send.send((result, session)).unwrap();
+    });
+    let observed_without_peer = receive.recv_timeout(Duration::from_secs(2));
+    // Supply a peer and join even if a regression reintroduces blocking open.
+    let descriptor = rustix::fs::open(
+        &fifo,
+        OFlags::RDWR | OFlags::CLOEXEC | OFlags::NONBLOCK,
+        Mode::empty(),
+    )
+    .unwrap();
+    owner.join().unwrap();
+    let (path_result, mut session) = observed_without_peer.unwrap();
+    let descriptor_result = session.copy_prefix("descriptor", File::from(descriptor), 0);
+    for (id, result) in [("path", path_result), ("descriptor", descriptor_result)] {
+        assert!(
+            matches!(result, Err(PackError::Contract(reason)) if reason.contains("regular file"))
+        );
+        let member = session
+            .index()
+            .members
+            .iter()
+            .find(|member| member.selection.id == id)
+            .unwrap();
+        assert!(matches!(member.availability, PackAvailability::Failed { .. }));
+        assert_eq!(member.readable_bytes, 0);
+        assert!(!member.finalized && member.digest.is_none());
+        assert!(!destination.join(&member.relative_path).exists());
+        assert!(!destination.join(".staging").join(id).exists());
+    }
+    assert_eq!(session.seal().unwrap().publication, PackPublication::Sealed);
+}
+#[test]
 fn offline_pack_source_references_resolve_to_original_selected_members() {
     use crate::tooling::review_analysis::AnalysisSourceReference;
     use pse_diagnostics::observation::Value;
@@ -736,20 +782,10 @@ fn offline_pack_source_references_resolve_to_original_selected_members() {
         .find(|m| m.selection.id == "frozen")
         .unwrap()
         .relative_path;
-    let mut markdown = String::new();
-    reader
-        .open_member("report_markdown")
-        .unwrap()
-        .read_to_string(&mut markdown)
-        .unwrap();
+    let markdown = verified_text(&reader, "report_markdown");
     let filename = Path::new(frozen).file_name().unwrap().to_str().unwrap();
     assert!(markdown.contains(&format!("{filename}#/version")));
-    let mut html = String::new();
-    reader
-        .open_member("report_html")
-        .unwrap()
-        .read_to_string(&mut html)
-        .unwrap();
+    let html = verified_text(&reader, "report_html");
     assert!(html.contains(&format!("href=\"{filename}#/version\"")));
     assert!(!html.contains("<pre>"));
     let analysis_member = reader
@@ -812,12 +848,7 @@ fn offline_pack_pinned_source_replacement_and_unacknowledged_tail_do_not_change_
     session.copy_prefix("detail", file, 7).unwrap();
     session.seal().unwrap();
     let reader = PackReader::open(&path, 1 << 20).unwrap();
-    let mut copied = String::new();
-    reader
-        .open_member("detail")
-        .unwrap()
-        .read_to_string(&mut copied)
-        .unwrap();
+    let copied = verified_text(&reader, "detail");
     assert_eq!(copied, "record\n");
     assert_eq!(std::fs::read(original).unwrap(), b"different active writer");
     assert_eq!(
@@ -1076,8 +1107,14 @@ fn pack_boundary_projection_retains_canonical_settlement_and_pack_cleanup() {
     let pack = native.settle(Err(PackError::Io(std::io::Error::other("index failure"))));
     let public = WorkflowError::Typed(pse_model::diagnostic::DiagnosticCause::new(pack))
         .boundary_diagnostic();
-    assert_eq!(public.observations.get("canonical_operation"), Some(&Observation::Text("original-operation".into())));
-    assert_eq!(public.observations.get("publication_effect"), Some(&Observation::Text("unresolved".into())));
+    assert!(matches!(
+        public.observations.get("canonical_operation"),
+        Some(Observation::Text(operation)) if operation == "original-operation"
+    ));
+    assert!(matches!(
+        public.observations.get("publication_effect"),
+        Some(Observation::Text(effect)) if effect == "unresolved"
+    ));
     assert_eq!(public.causes.len(), 3);
     assert!(matches!(public.causes[2].observations.get("detail"), Some(Observation::Text(detail)) if detail.contains("index failure")));
     assert!(!serde_json::to_string(&public).unwrap().contains("private-request"));
@@ -1192,12 +1229,13 @@ fn plan47f_member_report_and_final_seal_failures_preserve_independent_facts() {
             reader.read_analysis().unwrap().request.operation.sequence,
             u64::MAX
         );
-        let mut retained = Vec::new();
-        reader
-            .open_member("selected")
-            .unwrap()
-            .read_to_end(&mut retained)
-            .unwrap();
+        let retained = if boundary == Boundary::Member {
+            let mut prefix = Vec::new();
+            reader.open_provisional_member("selected").unwrap().read_to_end(&mut prefix).unwrap();
+            prefix
+        } else {
+            verified_bytes(&reader, "selected")
+        };
         assert_eq!(retained, original);
         let selected = reader
             .index()
@@ -1207,9 +1245,10 @@ fn plan47f_member_report_and_final_seal_failures_preserve_independent_facts() {
             .unwrap();
         assert_eq!(selected.finalized, boundary != Boundary::Member);
         if matches!(boundary, Boundary::Report | Boundary::FinalSeal) {
-            assert!(reader.open_member("report_markdown").is_ok());
+            let cancel = CancellationToken::new();
+            assert!(reader.copy_member_verified("report_markdown", &mut std::io::sink(), &cancel).is_ok());
             assert_eq!(
-                reader.open_member("report_html").is_ok(),
+                reader.copy_member_verified("report_html", &mut std::io::sink(), &cancel).is_ok(),
                 boundary == Boundary::FinalSeal
             );
         }
@@ -1481,12 +1520,7 @@ fn diagnostic_registry_ipc_has_independent_schema_and_exact_html_cells() {
         }
         session.seal().unwrap();
         let reader = PackReader::open(&path, 1 << 20).unwrap();
-        let mut html = String::new();
-        reader
-            .open_member("report_html")
-            .unwrap()
-            .read_to_string(&mut html)
-            .unwrap();
+        let html = verified_text(&reader, "report_html");
         assert!(html.contains("<table>"));
         assert!(html.contains("<td>18446744073709551615</td>"));
         assert!(html.contains("<a href=\""));
@@ -1677,7 +1711,7 @@ fn plan47f_all_table_kinds_compare_only_the_selected_finalized_source() {
                 session.seal().unwrap();
                 let reader = PackReader::open(&path, MAXIMUM_PACK_DOCUMENT_BYTES).unwrap();
                 let mut stream = datafusion::arrow::ipc::reader::StreamReader::try_new(
-                    reader.open_member("diagnostic").unwrap(),
+                    std::io::Cursor::new(verified_bytes(&reader, "diagnostic")),
                     None,
                 )
                 .unwrap();
@@ -1743,7 +1777,7 @@ fn plan47f_all_table_kinds_compare_only_the_selected_finalized_source() {
                 }
                 let reader = PackReader::open(&path, MAXIMUM_PACK_DOCUMENT_BYTES).unwrap();
                 assert_eq!(reader.index().publication, PackPublication::Incomplete);
-                assert!(reader.open_member("diagnostic").is_err());
+                assert!(reader.copy_member_verified("diagnostic", &mut std::io::sink(), &CancellationToken::new()).is_err());
                 assert!(reader.read_frozen().is_ok());
             }
         }

@@ -213,7 +213,7 @@ pub fn causes(
                 cancel,
             )?;
         }
-        for (index, evidence) in facts.report.evidence.iter().flatten().enumerate() {
+        for (index, evidence) in facts.report.evidence().map_err(invalid)?.iter().enumerate() {
             cancel.checkpoint()?;
             if let Some(error) = &evidence.failure {
                 diagnostic(

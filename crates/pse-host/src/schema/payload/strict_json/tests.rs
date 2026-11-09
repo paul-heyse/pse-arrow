@@ -15,15 +15,12 @@ fn fixture() -> DescriptorPool {
         |name: &str, number, kind: Type, repeated, type_name: Option<&str>| FieldDescriptorProto {
             name: Some(name.into()),
             number: Some(number),
-            r#type: Some(kind.into()),
-            label: Some(
-                if repeated {
-                    Label::Repeated
-                } else {
-                    Label::Optional
-                }
-                .into(),
-            ),
+            r#type: Some(kind),
+            label: Some(if repeated {
+                Label::Repeated
+            } else {
+                Label::Optional
+            }),
             type_name: type_name.map(str::to_owned),
             ..Default::default()
         };

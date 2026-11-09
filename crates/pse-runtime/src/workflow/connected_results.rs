@@ -3048,7 +3048,6 @@ mod canonical_connected_results_server_unit {
     use std::{
         ops::Deref,
         panic::AssertUnwindSafe,
-        path::PathBuf,
         time::{Duration, Instant},
     };
 
@@ -4110,13 +4109,34 @@ mod canonical_connected_results_server_unit {
                 .unwrap();
                 let closed = store.close_result_ingestion(&fence, "close").await.unwrap();
                 let manifest = store.reconcile_closed_attempt(&closed).await.unwrap();
+                let completion = super::super::durable::inspection_fixture_completion(
+                    super::super::StoredCompletion {
+                        version: 4,
+                        attempt_id: pse_operations::mint_id(),
+                        completion: None,
+                        termination: super::super::TerminationDetail {
+                            version: pse_model::document::Version,
+                            cause: super::super::TerminationCause::Assessment {
+                                usable: false,
+                                candidate_use: vec![],
+                                diagnostics: vec![],
+                            },
+                            point: None,
+                            retry_failure: None,
+                            effect: pse_model::study::EffectState::Absent,
+                        },
+                        state: pse_model::generated::enums::AttemptState::Partial,
+                        progress: super::super::ProgressCoverage::Unknown {},
+                    },
+                )
+                .unwrap();
                 // SAFETY: fixture observations deliberately assert partial availability, not usable success.
                 unsafe {
                     store.seal_attempt(
                         &manifest,
                         "seal",
                         TerminalClass::Partial,
-                        &[1],
+                        &completion,
                         pse_operations::canonical_execution::SeedEligibility::Unavailable,
                     )
                 }
@@ -4439,6 +4459,15 @@ mod canonical_connected_results_server_unit {
                     .unwrap();
                 let selected_borrower = Arc::downgrade(&selected_reader.reader.read);
                 let selected_coordinates = selected_reader.pack_selection().await.unwrap();
+                assert_eq!(selected_coordinates.run, fence.run());
+                assert_eq!(selected_coordinates.attempt, fence.attempt());
+                assert_eq!(selected_coordinates.terminal_class, TerminalClass::Partial.as_str());
+                assert_eq!(selected_coordinates.usability, PackScientificState::Unknown);
+                let original_context = selected_coordinates.context.clone().unwrap();
+                assert_eq!(original_context.problem, read.run().problem);
+                assert_eq!(original_context.revision, read.run().revision);
+                assert_eq!(original_context.manifest, manifest.row().digest);
+                assert_eq!(original_context.interpretation, read.run().interpretation);
                 assert_eq!(selected_coordinates.field.as_deref(), Some("value"));
                 assert_eq!(
                     selected_coordinates
@@ -4554,6 +4583,7 @@ mod canonical_connected_results_server_unit {
                     );
                     let declared = indexed.selection.result.as_ref().unwrap();
                     assert_eq!(declared.attempt, fence.attempt());
+                    assert_eq!(declared.context.as_ref(), Some(&original_context));
                     assert_eq!(declared.usability, PackScientificState::Unknown);
                 }
                 pack.add_frozen(&evidence).unwrap();
@@ -4567,8 +4597,13 @@ mod canonical_connected_results_server_unit {
                 pack.seal().unwrap();
                 let portable =
                     crate::tooling::review_pack::PackReader::open(&pack_path, 1 << 20).unwrap();
+                let mut sink = tempfile::tempfile().unwrap();
+                portable
+                    .copy_member_verified("selected", &mut sink, &CancellationToken::new())
+                    .unwrap();
+                std::io::Seek::rewind(&mut sink).unwrap();
                 let stream = datafusion::arrow::ipc::reader::StreamReader::try_new(
-                    portable.open_member("selected").unwrap(),
+                    sink,
                     None,
                 )
                 .unwrap();
@@ -4583,6 +4618,7 @@ mod canonical_connected_results_server_unit {
                     .as_ref()
                     .unwrap();
                 assert_eq!(declared.field.as_deref(), Some("value"));
+                assert_eq!(declared.context.as_ref(), Some(&original_context));
                 let mut times = Vec::new();
                 for batch in stream {
                     let batch = batch.unwrap();
@@ -5045,8 +5081,13 @@ mod canonical_connected_results_server_unit {
                 "partial"
             );
             let reopened = PackReader::open(&pack_path, 1 << 20).unwrap();
+            let mut sink = tempfile::tempfile().unwrap();
+            reopened
+                .copy_member_verified("scientific", &mut sink, &CancellationToken::new())
+                .unwrap();
+            std::io::Seek::rewind(&mut sink).unwrap();
             let mut stream = datafusion::arrow::ipc::reader::StreamReader::try_new(
-                reopened.open_member("scientific").unwrap(),
+                sink,
                 None,
             )
             .unwrap();
@@ -5284,7 +5325,7 @@ mod canonical_connected_results_server_unit {
         ));
         let collision_index = PackReader::open(&collision_path, 1 << 20).unwrap();
         assert_eq!(collision_index.index().members[0].readable_bytes, 0);
-        assert!(collision_index.open_member("broken").is_err());
+        assert!(collision_index.open_provisional_member("broken").is_err());
         assert!(!collision_path.join(&collision_index.index().members[0].relative_path).exists());
         assert_eq!(std::fs::read(collision).unwrap(), b"unrelated staging winner");
         let broken_pack_path = directory.path().join("broken-pack");
@@ -5315,7 +5356,7 @@ mod canonical_connected_results_server_unit {
         assert!(!member.finalized);
         assert!(member.readable_bytes > 0);
         let mut prefix = datafusion::arrow::ipc::reader::StreamReader::try_new(
-            incomplete.open_member("broken").unwrap(),
+            incomplete.open_provisional_member("broken").unwrap(),
             None,
         )
         .unwrap();

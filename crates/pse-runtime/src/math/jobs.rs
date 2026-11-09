@@ -1907,7 +1907,7 @@ impl MathService {
                         drop(retained);
                         result
                     };
-                    let result = match delivered {
+                    match delivered {
                         Err(guard) => {
                             drop(guard);
                             let result = publication.failed_send(&mut retire);
@@ -1927,8 +1927,7 @@ impl MathService {
                             metrics.returned(failed);
                             publication.settle(&closed, &mut retire).await
                         }
-                    };
-                    result
+                    }
                 }),
             )),
         ));

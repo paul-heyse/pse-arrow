@@ -549,6 +549,8 @@ pub enum FactBatch {
     r#RuntimeProfilePoints(Vec<super::r#runtime::r#profile_points::Row>),
     #[doc = stringify!(r#RuntimePropagatedCovariances)]
     r#RuntimePropagatedCovariances(Vec<super::r#runtime::r#propagated_covariances::Row>),
+    #[doc = stringify!(r#RuntimeProviderSelections)]
+    r#RuntimeProviderSelections(Vec<super::r#runtime::r#provider_selections::Row>),
     #[doc = stringify!(r#RuntimeReducedHessians)]
     r#RuntimeReducedHessians(Vec<super::r#runtime::r#reduced_hessians::Row>),
     #[doc = stringify!(r#RuntimeResolvedNumerics)]
@@ -1682,14 +1684,20 @@ impl FactBatch {
             }
             Self::r#RuntimeProfilePoints(_) => {
                 pse_ids::SemanticId::from_bytes([
-                    176u8, 173u8, 76u8, 186u8, 66u8, 31u8, 245u8, 19u8, 17u8, 93u8,
-                    127u8, 37u8, 166u8, 150u8, 164u8, 244u8,
+                    155u8, 27u8, 50u8, 146u8, 98u8, 26u8, 237u8, 58u8, 132u8, 119u8,
+                    166u8, 143u8, 230u8, 117u8, 38u8, 14u8,
                 ])
             }
             Self::r#RuntimePropagatedCovariances(_) => {
                 pse_ids::SemanticId::from_bytes([
                     94u8, 132u8, 155u8, 78u8, 74u8, 33u8, 224u8, 62u8, 131u8, 76u8, 94u8,
                     36u8, 18u8, 33u8, 246u8, 30u8,
+                ])
+            }
+            Self::r#RuntimeProviderSelections(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    33u8, 150u8, 244u8, 173u8, 23u8, 31u8, 58u8, 31u8, 31u8, 114u8, 58u8,
+                    124u8, 161u8, 146u8, 20u8, 227u8,
                 ])
             }
             Self::r#RuntimeReducedHessians(_) => {
@@ -2011,6 +2019,7 @@ impl FactBatch {
             Self::r#RuntimePrimalValues(rows) => rows.len(),
             Self::r#RuntimeProfilePoints(rows) => rows.len(),
             Self::r#RuntimePropagatedCovariances(rows) => rows.len(),
+            Self::r#RuntimeProviderSelections(rows) => rows.len(),
             Self::r#RuntimeReducedHessians(rows) => rows.len(),
             Self::r#RuntimeResolvedNumerics(rows) => rows.len(),
             Self::r#RuntimeResponseDirections(rows) => rows.len(),
@@ -2951,6 +2960,11 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimePropagatedCovariances(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeProviderSelections(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -3907,6 +3921,10 @@ impl FactBatch {
             Self::r#RuntimePropagatedCovariances(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimePropagatedCovariances(vec![row.clone()]))
+            }
+            Self::r#RuntimeProviderSelections(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeProviderSelections(vec![row.clone()]))
             }
             Self::r#RuntimeReducedHessians(rows) => {
                 rows.get(index)
@@ -5940,6 +5958,17 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeProviderSelections(left),
+                Self::r#RuntimeProviderSelections(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeReducedHessians(left),
                 Self::r#RuntimeReducedHessians(right),
             ) => {
@@ -7440,6 +7469,13 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimePropagatedCovariances(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeProviderSelections(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -9953,6 +9989,25 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeProviderSelections(left),
+                Self::r#RuntimeProviderSelections(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#step,
+                                &right.r#step,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#ordinal,
+                                &right.r#ordinal,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeReducedHessians(left),
                 Self::r#RuntimeReducedHessians(right),
             ) => {
@@ -11142,6 +11197,12 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
                 crate::SemanticFrame::frame(&row.r#step, &mut hash);
+            }
+            Self::r#RuntimeProviderSelections(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#step, &mut hash);
+                crate::SemanticFrame::frame(&row.r#ordinal, &mut hash);
             }
             Self::r#RuntimeReducedHessians(rows) => {
                 let row = rows.get(index)?;
@@ -12522,6 +12583,13 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeProviderSelections(left),
+                Self::r#RuntimeProviderSelections(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeReducedHessians(left),
                 Self::r#RuntimeReducedHessians(mut right),
             ) => {
@@ -13090,6 +13158,7 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimePropagatedCovariances(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
+            Self::r#RuntimeProviderSelections(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeReducedHessians(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeResolvedNumerics(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeResponseDirections(rows) => crate::HeapUsage::heap_bytes(rows),

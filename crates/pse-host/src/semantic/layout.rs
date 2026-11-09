@@ -161,9 +161,7 @@ pub fn associate_layout(native: &Answer, compiler: &Observation) -> LayoutAssoci
                 .matched
                 .push("Actual compiler verbose identities agree.".into());
         }
-        // The retained legacy compiler artifact has no structured edition/cfg contract.
-        // This absence prevents a complete premise equivalence claim even when all
-        // guards that it does supply agree.
+        // Opaque compiler layout artifacts do not report structured edition/cfg premises.
         result.unknown.push("Opaque compiler layout artifacts do not expose structured cfg/edition or per-type identity; no numerical ABI comparison is available.".into());
     } else {
         result

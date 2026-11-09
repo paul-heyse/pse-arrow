@@ -51,11 +51,6 @@ pub enum FixtureSelection {
     NativeLane(NativeLaneSelection),
 }
 
-/// Explicit immutable predecessor artifact, interpreted by the native fixture owner.
-/// Presence takes precedence over a recorded deployment state, including an empty value.
-pub const PREDECESSOR_MODULE_RECEIPT_ENV: &str = "PSE_NATIVE_FIXTURE_PREDECESSOR_MODULE_RECEIPT";
-/// Existing deployment state carrying its originally admitted predecessor artifact.
-pub const PREDECESSOR_MODULE_STATE_ENV: &str = "PSE_NATIVE_FIXTURE_PREDECESSOR_MODULE_STATE";
 /// Explicit ordinary Study qualification companion receipt.
 pub const QUALIFICATION_MODULE_RECEIPT_ENV: &str =
     "PSE_NATIVE_FIXTURE_MODULE_QUALIFICATION_RECEIPT";
@@ -118,8 +113,6 @@ pub enum Input {
     CanonicalTools,
     /// Operator-selected evidence destination, owned by the evidence operation.
     DiagnosticEvidence,
-    /// Original historical module state, admitted by the service owner.
-    PredecessorModuleState,
     /// Explicit receiving producer qualification, admitted by the existing replay owner.
     ProducerFixtureReceipt,
     /// Actual worker producer capture, interpreted by deployment qualification.

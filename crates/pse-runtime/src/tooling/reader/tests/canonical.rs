@@ -76,11 +76,11 @@ fn project_study_workbench_reads_the_selected_store_and_refuses_foreign_cursor()
         (result.exit_code(), value["payload"].clone())
     };
     let browse = |cursor| ProjectRead::StudyWorkbench {
-        request: StudyWorkbenchRequest {
+        request: Box::new(StudyWorkbenchRequest {
             filter: Default::default(),
             maximum: 1,
             cursor,
-        },
+        }),
     };
     let (exit, payload) = query(issuing_store, browse(None));
     assert_eq!(exit, 0, "{payload}");

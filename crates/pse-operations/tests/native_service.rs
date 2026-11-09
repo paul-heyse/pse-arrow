@@ -7,9 +7,9 @@
 )]
 use pse_host::extraction::TargetSetupRefusal;
 use pse_operations::{
-    canonical::{CanonicalOptions, CanonicalStore},
+    canonical::{CanonicalError, CanonicalOptions, CanonicalStore},
     native_service::{
-        NativeCanonicalService, NativeModuleSource, NativeServiceError, NativeServiceSpec,
+        NativeCanonicalService, NativeServiceError, NativeServiceSpec,
     },
 };
 use std::{
@@ -26,36 +26,11 @@ fn fixture_spec() -> Result<NativeServiceSpec, NativeServiceError> {
     NativeServiceSpec::selected_fixture(Some(helper.into()))
 }
 
-// The fixture may select retained immutable bytes directly without synthesizing
-// a deployment state. Native artifact admission still validates the exact record.
-fn predecessor_module() -> Result<NativeModuleSource, NativeServiceError> {
-    if let Some(record) = std::env::var_os(pse_host::fixtures::PREDECESSOR_MODULE_RECEIPT_ENV) {
-        Ok(NativeModuleSource::Prepared(
-            pse_host::study_module::select(
-                PathBuf::from(record).as_path(),
-                pse_host::study_module::Variant::Production,
-            )?,
-        ))
-    } else {
-        Ok(NativeModuleSource::RecordedState(PathBuf::from(
-            std::env::var_os(pse_host::fixtures::PREDECESSOR_MODULE_STATE_ENV).ok_or(
-                NativeServiceError::Refused(
-                    "explicit predecessor receipt or recorded module state required",
-                ),
-            )?,
-        )))
-    }
-}
-fn fixture_with_schema(pre_epoch: bool) -> Result<NativeCanonicalService, NativeServiceError> {
+fn current_fixture() -> Result<NativeCanonicalService, NativeServiceError> {
     let spec = fixture_spec().inspect_err(|_| {
         eprintln!("{}", TargetSetupRefusal::NativeServiceInputs.marker());
     })?;
-    let service = if pre_epoch {
-        NativeCanonicalService::new_pre_epoch_fixture(spec)
-    } else {
-        NativeCanonicalService::new(spec)
-    }
-    .inspect_err(|_| {
+    let service = NativeCanonicalService::new(spec).inspect_err(|_| {
         eprintln!("{}", TargetSetupRefusal::NativeServiceConstruction.marker());
     })?;
     eprintln!(
@@ -108,7 +83,7 @@ async fn raw_native_rpc(
 
 #[tokio::test]
 async fn native_service_current_migration_joins_actual_ingress_and_reconstructs_ready() {
-    let mut service = fixture_with_schema(false).unwrap();
+    let mut service = current_fixture().unwrap();
     let state = service.state().to_path_buf();
     service
         .run(Instant::now() + Duration::from_secs(240), |service| {
@@ -197,8 +172,114 @@ async fn native_service_current_migration_joins_actual_ingress_and_reconstructs_
 }
 
 #[tokio::test]
+async fn native_service_refuses_foreign_catalog_version_and_payload_before_maintenance() {
+    use pse_operations::transport::client::{Client, RequestContext, Root};
+
+    let mut service = current_fixture().unwrap();
+    let deadline = Instant::now() + Duration::from_secs(90);
+    service
+        .run(deadline, |service| {
+            Box::pin(async move {
+                service.launch(deadline).await?;
+                let options = CanonicalOptions::from_state(service.state())?;
+                let maintenance = service.maintenance().await?;
+                let address = options.endpoint.strip_prefix("grpc://").unwrap().parse().unwrap();
+                let raw = Client::connect(address, pse_operations::canonical::MESSAGE_BYTES)
+                    .await
+                    .map_err(CanonicalError::from)?;
+                let context = || RequestContext::control(deadline);
+                raw.signin(Root {
+                    username: options.username.clone(),
+                    password: options.password.clone(),
+                })
+                .request_context(context())
+                .await
+                .map_err(CanonicalError::from)?;
+                raw.use_ns(&options.namespace)
+                    .use_db(&options.database)
+                    .request_context(context())
+                    .await
+                    .map_err(CanonicalError::from)?;
+                let original: surrealdb_types::Object = service
+                    .fixture_query(
+                        "SELECT * FROM ONLY canonical_interpretations:current;",
+                        surrealdb_types::Object::new(),
+                    )
+                    .await?
+                    .take::<Option<_>>(0)
+                    .map_err(CanonicalError::from)?
+                    .expect("original fixture marker");
+                let version = original.get("schema_version").unwrap().clone();
+                let payload = original.get("payload_incarnation").unwrap().clone();
+                let other_version = pse_operations::canonical_codec::encode_uint(3)
+                    .map_err(CanonicalError::from)?;
+                let other_payload = surrealdb_types::Value::String(uuid::Uuid::new_v4().to_string());
+                let update = "UPDATE ONLY canonical_interpretations:current SET schema_version=$version,payload_incarnation=$payload RETURN AFTER;";
+                for (version, payload) in [
+                    (other_version, payload.clone()),
+                    (version.clone(), other_payload),
+                ] {
+                    let mut replacement = surrealdb_types::Object::new();
+                    replacement.insert("version", version);
+                    replacement.insert("payload", payload);
+                    let before: Option<surrealdb_types::Object> = raw
+                        .query(update)
+                        .bind(replacement)
+                        .request_context(context())
+                        .await
+                        .map_err(CanonicalError::from)?
+                        .take(0)
+                        .map_err(CanonicalError::from)?;
+                    assert!(before.is_some());
+                    assert!(matches!(
+                        CanonicalStore::initialize_database(&options).await,
+                        Err(CanonicalError::Configuration(_))
+                    ));
+                    assert!(matches!(
+                        CanonicalStore::connect_ready(&options).await,
+                        Err(CanonicalError::Configuration(_))
+                    ));
+                    assert!(matches!(
+                        maintenance.request_current(uuid::Uuid::new_v4()).await,
+                        Err(CanonicalError::Configuration(_))
+                    ));
+                    let mut after = raw
+                        .query(
+                            "SELECT * FROM ONLY canonical_interpretations:current; SELECT * FROM ONLY canonical_maintenance_operations:current;",
+                        )
+                        .request_context(context())
+                        .await
+                        .map_err(CanonicalError::from)?;
+                    let marker: Option<surrealdb_types::Object> =
+                        after.take(0).map_err(CanonicalError::from)?;
+                    let pending: Option<surrealdb_types::Object> =
+                        after.take(1).map_err(CanonicalError::from)?;
+                    assert_eq!(marker, before);
+                    assert!(pending.is_none());
+                }
+                let mut restored = surrealdb_types::Object::new();
+                restored.insert("version", version);
+                restored.insert("payload", payload);
+                raw.query(update)
+                    .bind(restored)
+                    .request_context(context())
+                    .await
+                    .map_err(CanonicalError::from)?
+                    .check()
+                    .map_err(CanonicalError::from)?;
+                raw.disconnect().await.map_err(CanonicalError::from)?;
+                maintenance.disconnect().await?;
+                Ok(())
+            })
+        })
+        .await
+        .unwrap();
+    service.dispose().unwrap();
+}
+
+#[tokio::test]
 async fn native_service_process_stop_joins_without_database_transport() {
-    let mut service = fixture_with_schema(false).unwrap();
+    let mut service = current_fixture().unwrap();
     service
         .run(Instant::now() + Duration::from_secs(180), |service| {
             Box::pin(async move {
@@ -235,7 +316,7 @@ async fn native_service_independent_invocations_overlap_on_private_servers() {
         _ => panic!("select one exact overlap participant"),
     };
     assert!(exchange.is_absolute() && exchange.is_dir());
-    let mut service = fixture_with_schema(false).unwrap();
+    let mut service = current_fixture().unwrap();
     let state = service.state().to_owned();
     let work_end = Instant::now() + Duration::from_secs(120);
     service
@@ -297,7 +378,7 @@ async fn native_service_independent_invocations_overlap_on_private_servers() {
 async fn native_service_rejects_issued_session_on_another_accepted_connection() {
     use surrealdb_protocol::proto::rpc::v1::{AttachSessionRequest, RequestContext};
 
-    let mut service = fixture_with_schema(false).unwrap();
+    let mut service = current_fixture().unwrap();
     let state = service.state().to_path_buf();
     service
         .run(Instant::now() + Duration::from_secs(180), |service| {
@@ -347,85 +428,8 @@ async fn native_service_rejects_issued_session_on_another_accepted_connection() 
 }
 
 #[tokio::test]
-async fn native_service_adjacent_predecessor_migrates_only_after_original_native_join() {
-    let mut service = fixture_with_schema(true).unwrap();
-    service
-        .run(Instant::now() + Duration::from_secs(240), |service| {
-            Box::pin(async move {
-                service
-                    .launch(Instant::now() + Duration::from_secs(90))
-                    .await?;
-                assert!(
-                    service.ready().is_err(),
-                    "the supported predecessor does not grant current readiness"
-                );
-                let options = CanonicalOptions::from_state(service.state())?;
-                assert!(CanonicalStore::connect_ready(&options).await.is_err());
-                service
-                    .start_ingress(Instant::now() + Duration::from_secs(30))
-                    .await?;
-                report_ingresses(service);
-                assert_eq!(
-                    service
-                        .probe_ingress(Instant::now() + Duration::from_secs(30))
-                        .await?,
-                    "maintenance"
-                );
-                let maintenance = service.maintenance().await?;
-                let outcome = async {
-                    let request = maintenance.request_current(uuid::Uuid::new_v4()).await?;
-                    let pending = maintenance.begin(request.clone()).await.inspect_err(|error| eprintln!("pre-epoch migration begin failed: {error:?}"))?;
-                    let quiescent = pending
-                        .quiesce(
-                            service.stop_ingress_and_join(Instant::now() + Duration::from_secs(30)),
-                            &[],
-                        )
-                        .await.inspect_err(|error| eprintln!("pre-epoch migration quiesce failed: {error:?}"))?;
-                    let ready = match quiescent.apply().await {
-                        Ok(ready) => ready,
-                        Err(error) => {
-                            let receipt = maintenance.reconcile_receipt(&request).await;
-                            eprintln!("pre-epoch migration apply failed: {error:?}; original receipt readback: {receipt:?}");
-                            return Err(error.into());
-                        }
-                    };
-                    service.retain_connection(ready.store().clone())?;
-                    ready.store().canonical_run("native-fixture-probe").await?;
-                    let reconciled = maintenance
-                        .reconcile(&request)
-                        .await?
-                        .expect("original immutable activation receipt must reconcile");
-                    assert_eq!(reconciled.fence(), ready.fence());
-                    service.retain_connection(reconciled.store().clone())?;
-                    let drains = futures_util::future::join_all([
-                        ready.store().drain_owned_connection_until(
-                            pse_operations::transport::original_deadline(Duration::from_secs(30)),
-                        ),
-                        reconciled.store().drain_owned_connection_until(
-                            pse_operations::transport::original_deadline(Duration::from_secs(30)),
-                        ),
-                    ])
-                    .await;
-                    for drain in drains {
-                        drain?;
-                    }
-                    Ok::<(), NativeServiceError>(())
-                }
-                .await;
-                let cleanup = maintenance.disconnect().await;
-                outcome?;
-                cleanup?;
-                Ok(())
-            })
-        })
-        .await
-        .unwrap();
-    service.dispose().unwrap();
-}
-
-#[tokio::test]
 async fn native_service_listener_collision_refuses_foreign_listener_adoption() {
-    let mut service = fixture_with_schema(false).unwrap();
+    let mut service = current_fixture().unwrap();
     let configuration: serde_json::Value =
         serde_json::from_slice(&std::fs::read(service.state().join("config.json")).unwrap())
             .unwrap();
@@ -456,7 +460,7 @@ async fn native_service_listener_collision_refuses_foreign_listener_adoption() {
 #[tokio::test]
 async fn native_service_body_panic_still_joins_original_owned_units() {
     use futures_util::FutureExt;
-    let mut service = fixture_with_schema(false).unwrap();
+    let mut service = current_fixture().unwrap();
     let outcome = std::panic::AssertUnwindSafe(service.run(
         Instant::now() + Duration::from_secs(180),
         |service| {
@@ -491,7 +495,7 @@ async fn native_service_body_panic_still_joins_original_owned_units() {
 #[tokio::test]
 #[ignore = "manual managed-retention control deliberately fails after physical settlement"]
 async fn native_service_managed_release_after_assertion_failure_control() {
-    let mut service = fixture_with_schema(false).unwrap();
+    let mut service = current_fixture().unwrap();
     let state = service.state().to_owned();
     service
         .run(Instant::now() + Duration::from_secs(180), |service| {
@@ -513,471 +517,9 @@ async fn native_service_managed_release_after_assertion_failure_control() {
 }
 
 #[tokio::test]
-async fn native_service_retained_nonempty_v2_reopens_then_migrates_with_original_identity() {
-    let mut service = NativeCanonicalService::new_v2_fixture(fixture_spec().unwrap()).unwrap();
-    let state = service.state().to_path_buf();
-    let original_unit = service.intent().unit().to_owned();
-    eprintln!(
-        "native retained fixture state={} original_service={original_unit}",
-        state.display()
-    );
-    let config = std::fs::read(state.join("config.json")).unwrap();
-    let credentials = std::fs::read(state.join("credentials.json")).unwrap();
-    let module = std::fs::read(state.join("original-module-receipt.json")).unwrap();
-    let original = service
-        .run(Instant::now() + Duration::from_secs(240), |service| {
-            Box::pin(async move {
-                service
-                    .launch(Instant::now() + Duration::from_secs(90))
-                    .await?;
-                assert!(service.ready().is_err());
-                service
-                    .start_ingress(Instant::now() + Duration::from_secs(30))
-                    .await?;
-                report_ingresses(service);
-                assert_eq!(
-                    service
-                        .probe_ingress(Instant::now() + Duration::from_secs(30))
-                        .await?,
-                    "maintenance"
-                );
-                let maintenance = service.maintenance().await?;
-                let original = maintenance.request_current(uuid::Uuid::new_v4()).await?;
-                let encoded = serde_json::to_value(&original).unwrap();
-                assert_eq!(encoded["predecessor"]["schema_version"], 2);
-                assert_eq!(
-                    encoded["predecessor"]["schema_digest"],
-                    pse_schema::catalog::substrate::SCHEMA_V2_DIGEST
-                );
-                maintenance.disconnect().await?;
-                service
-                    .stop_ingress_and_join(Instant::now() + Duration::from_secs(30))
-                    .await?;
-                Ok(original)
-            })
-        })
-        .await
-        .unwrap();
-    assert!(
-        std::fs::read_dir(state.join("database"))
-            .unwrap()
-            .next()
-            .is_some()
-    );
-    assert!(
-        service
-            .launch(Instant::now() + Duration::from_secs(1))
-            .await
-            .is_err()
-    );
-    let stopped = service.try_into_stopped().unwrap();
-    assert_eq!(stopped.state(), state);
-    let mut service = stopped.reopen().unwrap();
-    assert_eq!(service.state(), state);
-    assert_ne!(service.intent().unit(), original_unit);
-    eprintln!(
-        "native retained fixture state={} reopened_service={}",
-        state.display(),
-        service.intent().unit()
-    );
-    service
-        .run(Instant::now() + Duration::from_secs(240), |service| {
-            Box::pin(async move {
-                service
-                    .launch(Instant::now() + Duration::from_secs(90))
-                    .await?;
-                assert!(service.ready().is_err());
-                let maintenance = service.maintenance().await?;
-                let inspected = maintenance.inspect().await?;
-                let recorded = serde_json::to_value(&original).unwrap();
-                assert_eq!(
-                    serde_json::to_value(&inspected.predecessor).unwrap(),
-                    recorded["predecessor"]
-                );
-                let pending = maintenance.begin(original.clone()).await?;
-                let closed = pending
-                    .quiesce(
-                        service.stop_ingress_and_join(Instant::now() + Duration::from_secs(30)),
-                        &[],
-                    )
-                    .await?;
-                let ready = closed.apply().await?;
-                service.retain_connection(ready.store().clone())?;
-                assert_eq!(
-                    ready.fence().version(),
-                    pse_schema::catalog::substrate::SCHEMA_VERSION
-                );
-                assert_eq!(
-                    ready.fence().issuer(),
-                    recorded["predecessor"]["issuing_store"].as_str().unwrap()
-                );
-                let after =
-                    serde_json::to_value(&maintenance.inspect().await?.predecessor).unwrap();
-                assert_eq!(
-                    after["payload_incarnation"],
-                    recorded["predecessor"]["payload_incarnation"]
-                );
-                assert_eq!(
-                    after["study_module_sha256"],
-                    recorded["predecessor"]["study_module_sha256"]
-                );
-                let receipt = maintenance.reconcile_receipt(&original).await?.unwrap();
-                assert_eq!(receipt.request(), &original);
-                ready.store().canonical_run("native-fixture-probe").await?;
-                ready
-                    .store()
-                    .drain_owned_connection_until(pse_operations::transport::original_deadline(
-                        Duration::from_secs(30),
-                    ))
-                    .await?;
-                maintenance.disconnect().await?;
-                Ok(())
-            })
-        })
-        .await
-        .unwrap();
-    assert_eq!(std::fs::read(state.join("config.json")).unwrap(), config);
-    assert_eq!(
-        std::fs::read(state.join("credentials.json")).unwrap(),
-        credentials
-    );
-    assert_eq!(
-        std::fs::read(state.join("original-module-receipt.json")).unwrap(),
-        module
-    );
-    assert_eq!(std::fs::read_dir(state.join("runs")).unwrap().count(), 2);
-    service.dispose().unwrap();
-    assert!(!state.exists());
-}
-
-#[tokio::test]
-async fn native_service_original_v2_target_and_old_module_resume_after_restart() {
-    use pse_operations::canonical::migration::SchemaMigrationRequest;
-    let mut spec = fixture_spec().unwrap();
-    spec.module_source = predecessor_module().unwrap();
-    let mut service = NativeCanonicalService::new_pre_epoch_fixture(spec).unwrap();
-    let state = service.state().to_owned();
-    let original = service
-        .run(Instant::now() + Duration::from_secs(180), |service| {
-            Box::pin(async move {
-                service
-                    .launch(Instant::now() + Duration::from_secs(90))
-                    .await?;
-                let maintenance = service.maintenance().await?;
-                // Decode the exact historical wire shape; current constructors correctly
-                // issue the current target. No effect has yet been dispatched under this original intent.
-                let mut wire =
-                    serde_json::to_value(maintenance.request_current(uuid::Uuid::new_v4()).await?)
-                        .unwrap();
-                wire["target_version"] =
-                    serde_json::json!(pse_schema::catalog::substrate::SCHEMA_V2_VERSION);
-                wire["target_digest"] =
-                    serde_json::json!(pse_schema::catalog::substrate::SCHEMA_V2_DIGEST);
-                let original: SchemaMigrationRequest = serde_json::from_value(wire).unwrap();
-                maintenance
-                    .begin(original.clone())
-                    .await?
-                    .quiesce(async { Ok(()) }, &[])
-                    .await?;
-                assert!(maintenance.reconcile_receipt(&original).await?.is_none());
-                Ok(original)
-            })
-        })
-        .await
-        .unwrap();
-    let original_wire = serde_json::to_value(&original).unwrap();
-    let mut service = service.try_into_stopped().unwrap().reopen().unwrap();
-    service
-        .run(Instant::now() + Duration::from_secs(180), |service| {
-            Box::pin(async move {
-                service
-                    .launch(Instant::now() + Duration::from_secs(90))
-                    .await?;
-                let maintenance = service.maintenance().await?;
-                let receipt = maintenance
-                    .begin(original.clone())
-                    .await?
-                    .quiesce(async { Ok(()) }, &[])
-                    .await?
-                    .apply_receipt()
-                    .await?;
-                assert_eq!(
-                    serde_json::to_value(receipt.request()).unwrap(),
-                    original_wire
-                );
-                let replay = maintenance
-                    .reconcile_receipt(&original)
-                    .await?
-                    .expect("original v2 receipt survives restart");
-                assert_eq!(
-                    serde_json::to_value(replay.request()).unwrap(),
-                    original_wire
-                );
-                let original_receipt = replay;
-                assert!(
-                    maintenance.reconcile(&original).await.is_err(),
-                    "a v2 receipt cannot grant current readiness"
-                );
-                let options = CanonicalOptions::from_state(service.state())?;
-                assert!(CanonicalStore::connect_ready(&options).await.is_err());
-                let current = maintenance.request_current(uuid::Uuid::new_v4()).await?;
-                let current_wire = serde_json::to_value(&current).unwrap();
-                assert_eq!(
-                    current_wire["target_version"],
-                    pse_schema::catalog::substrate::SCHEMA_VERSION
-                );
-                assert_ne!(
-                    current_wire["target_digest"],
-                    original_wire["target_digest"]
-                );
-                assert_ne!(current_wire["operation"], original_wire["operation"]);
-                assert_ne!(
-                    current_wire["successor_epoch"],
-                    original_wire["successor_epoch"]
-                );
-                // The current authored capture transaction requires the same pure
-                // module API as this genuine retained artifact. Artifact age alone
-                // cannot refuse a separately issued current-target activation.
-                let activated = maintenance
-                    .begin(current.clone())
-                    .await?
-                    .quiesce(async { Ok(()) }, &[])
-                    .await?
-                    .apply_receipt()
-                    .await?;
-                assert_eq!(
-                    serde_json::to_value(activated.request()).unwrap(),
-                    current_wire
-                );
-                for field in [
-                    "issuing_store",
-                    "payload_incarnation",
-                    "study_module_sha256",
-                ] {
-                    assert_eq!(
-                        current_wire["predecessor"][field],
-                        original_wire["predecessor"][field]
-                    );
-                }
-                let ready = maintenance
-                    .reconcile(&current)
-                    .await?
-                    .expect("only the separately issued current activation grants readiness");
-                assert_eq!(
-                    ready.fence().version(),
-                    pse_schema::catalog::substrate::SCHEMA_VERSION
-                );
-                assert_eq!(
-                    ready.fence().epoch(),
-                    current_wire["successor_epoch"].as_str().unwrap()
-                );
-                assert_eq!(
-                    ready.fence().issuer(),
-                    original_wire["predecessor"]["issuing_store"]
-                        .as_str()
-                        .unwrap()
-                );
-                ready.store().canonical_run("native-fixture-probe").await?;
-                ready
-                    .store()
-                    .drain_owned_connection_until(pse_operations::transport::original_deadline(
-                        Duration::from_secs(30),
-                    ))
-                    .await?;
-                let after =
-                    serde_json::to_value(&maintenance.inspect().await?.predecessor).unwrap();
-                for field in [
-                    "issuing_store",
-                    "payload_incarnation",
-                    "study_module_sha256",
-                ] {
-                    assert_eq!(after[field], original_wire["predecessor"][field]);
-                }
-                assert_eq!(after["schema_digest"], current_wire["target_digest"]);
-                assert_eq!(
-                    maintenance.reconcile_receipt(&original).await?.unwrap(),
-                    original_receipt
-                );
-                assert!(maintenance.reconcile(&original).await.is_err());
-                Ok(())
-            })
-        })
-        .await
-        .unwrap();
-    service.dispose().unwrap();
-    assert!(!state.exists());
-}
-
-#[tokio::test]
-async fn native_service_retained_v2_old_module_upgrades_to_explicit_prepared_target()
--> Result<(), NativeServiceError> {
-    retained_old_module_upgrade(false).await
-}
-
-#[tokio::test]
-async fn native_service_retained_v3_old_module_upgrades_to_explicit_prepared_target()
--> Result<(), NativeServiceError> {
-    retained_old_module_upgrade(true).await
-}
-
-async fn retained_old_module_upgrade(schema_v3: bool) -> Result<(), NativeServiceError> {
-    let mut spec = fixture_spec()?;
-    spec.module_source = predecessor_module()?;
-    let target = if let Some(record) = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT") {
-        NativeModuleSource::Prepared(pse_host::study_module::select(
-            &PathBuf::from(record),
-            pse_host::study_module::Variant::Production,
-        )?)
-    } else {
-        NativeModuleSource::RecordedState(PathBuf::from(
-            std::env::var_os("PSE_NATIVE_FIXTURE_TARGET_MODULE_STATE").ok_or(
-                NativeServiceError::Refused("explicit new module source state required"),
-            )?,
-        ))
-    };
-    let mut service = if schema_v3 {
-        NativeCanonicalService::new_v3_upgrade_fixture(spec, target)?
-    } else {
-        NativeCanonicalService::new_v2_upgrade_fixture(spec, target)?
-    };
-    let state = service.state().to_path_buf();
-    let configuration: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(state.join("config.json"))?)
-            .map_err(std::io::Error::other)?;
-    let old_hash = configuration["study_module"]["sha256"]
-        .as_str()
-        .ok_or(NativeServiceError::Refused(
-            "original module hash absent from fixture configuration",
-        ))?
-        .to_owned();
-    let target_hash = configuration["schema_migration_target"]["sha256"]
-        .as_str()
-        .ok_or(NativeServiceError::Refused(
-            "migration target module hash absent from fixture configuration",
-        ))?
-        .to_owned();
-    assert_ne!(old_hash, target_hash);
-    let credentials = std::fs::read(state.join("credentials.json"))?;
-    let original_receipt = std::fs::read(state.join("original-module-receipt.json"))?;
-    eprintln!(
-        "native module-upgrade fixture state={} original_service={} old_module={old_hash} target_module={target_hash}",
-        state.display(),
-        service.intent().unit()
-    );
-    let request = service
-        .run(Instant::now() + Duration::from_secs(240), |service| {
-            Box::pin(async move {
-                service
-                    .launch(Instant::now() + Duration::from_secs(90))
-                    .await?;
-                let maintenance = service.maintenance().await?;
-                let request = maintenance.request_current(uuid::Uuid::new_v4()).await?;
-                maintenance.disconnect().await?;
-                Ok(request)
-            })
-        })
-        .await?;
-    let recorded = serde_json::to_vec(&request).map_err(std::io::Error::other)?;
-    let old = serde_json::to_value(&request).map_err(std::io::Error::other)?;
-    assert_eq!(old["predecessor"]["study_module_sha256"], old_hash);
-    assert_eq!(old["target_module"]["receipt"]["sha256"], target_hash);
-    let stopped = service.try_into_stopped().map_err(std::io::Error::other)?;
-    let mut service = stopped.reopen().map_err(std::io::Error::other)?;
-    eprintln!(
-        "native module-upgrade fixture state={} reopened_service={}",
-        state.display(),
-        service.intent().unit()
-    );
-    service
-        .run(Instant::now() + Duration::from_secs(240), |service| {
-            Box::pin(async move {
-                service
-                    .launch(Instant::now() + Duration::from_secs(90))
-                    .await?;
-                let maintenance = service.maintenance().await?;
-                assert_eq!(
-                    serde_json::to_value(maintenance.inspect().await?.predecessor)
-                        .map_err(std::io::Error::other)?,
-                    old["predecessor"]
-                );
-                let pending = maintenance.begin(request.clone()).await?;
-                let closed = pending
-                    .quiesce(
-                        service.stop_ingress_and_join(Instant::now() + Duration::from_secs(30)),
-                        &[],
-                    )
-                    .await?;
-                let receipt = closed.apply_receipt().await?;
-                assert_eq!(
-                    serde_json::to_vec(receipt.request()).map_err(std::io::Error::other)?,
-                    recorded
-                );
-                // Publication is explicitly separate from the committed database activation.
-                assert!(
-                    CanonicalStore::connect_ready(&CanonicalOptions::from_state(service.state())?)
-                        .await
-                        .is_err()
-                );
-                service.promote_activated_module(&receipt)?;
-                // Recover selection from the original durable receipt after discarding local success.
-                let recovered = maintenance.reconcile_receipt(&request).await?.ok_or(
-                    NativeServiceError::Refused(
-                        "original module activation receipt absent during publication recovery",
-                    ),
-                )?;
-                service.promote_activated_module(&recovered)?;
-                let ready = service.connect().await?;
-                assert_eq!(
-                    ready.fence().version(),
-                    pse_schema::catalog::substrate::SCHEMA_VERSION
-                );
-                let marker = serde_json::to_value(maintenance.inspect().await?.predecessor)
-                    .map_err(std::io::Error::other)?;
-                assert_eq!(marker["study_module_sha256"], target_hash);
-                for field in ["issuing_store", "payload_incarnation", "interpretation"] {
-                    assert_eq!(marker[field], old["predecessor"][field]);
-                }
-                assert_eq!(
-                    marker["study_module_sha256"],
-                    receipt
-                        .target_module()
-                        .ok_or(NativeServiceError::Refused(
-                            "original activation receipt has no prepared target module"
-                        ),)?
-                        .sha256()
-                );
-                let reconciled = maintenance.reconcile_receipt(&request).await?.ok_or(
-                    NativeServiceError::Refused(
-                        "original module activation receipt absent during final reconciliation",
-                    ),
-                )?;
-                assert_eq!(reconciled.request(), &request);
-                ready.store().canonical_run("native-fixture-probe").await?;
-                ready
-                    .store()
-                    .drain_owned_connection_until(pse_operations::transport::original_deadline(
-                        Duration::from_secs(30),
-                    ))
-                    .await?;
-                maintenance.disconnect().await?;
-                Ok(())
-            })
-        })
-        .await?;
-    assert_eq!(std::fs::read(state.join("credentials.json"))?, credentials);
-    assert_eq!(
-        std::fs::read(state.join("original-module-receipt.json"))?,
-        original_receipt
-    );
-    service.dispose()?;
-    assert!(!state.exists());
-    Ok(())
-}
-
-#[tokio::test]
 async fn native_service_closed_admission_preserves_original_attempt_settlement_only() {
     use pse_operations::canonical_execution::RunRequest;
-    let mut service = fixture_with_schema(false).unwrap();
+    let mut service = current_fixture().unwrap();
     service
         .run(Instant::now() + Duration::from_secs(180), |service| {
             Box::pin(async move {

@@ -472,40 +472,55 @@ impl bindings::EngineeringService for Implementation {
                 if done {
                     return None;
                 }
-                loop {
-                    if deadline.is_some_and(|deadline| std::time::Instant::now() >= deadline) {
-                        return Some((
-                            Err(ConnectError::deadline_exceeded(
-                                "observation allowance elapsed; original work remains under its retained owner",
-                            )),
-                            (engine, key, previous, true),
-                        ));
-                    }
-                    let current = match engine.run_status(&key).await {
-                        Ok(current) => current,
-                        Err(error) => {
-                            return Some((Err(transport(error)), (engine, key, previous, true)));
+                let next = async {
+                    loop {
+                        check_run_observation_deadline(deadline)?;
+                        // Terminal status can acquire original completion protection.
+                        // Once started, preserve that read's outcome before reporting expiry.
+                        let current = engine.run_status(&key).await.map_err(transport)?;
+                        check_run_observation_deadline(deadline)?;
+                        if previous.as_ref() != Some(&current) {
+                            return Ok(current);
                         }
-                    };
-                    let done = current.settled || current.failure.is_some();
-                    if previous.as_ref() != Some(&current) {
-                        previous = Some(current.clone());
-                        let encoded =
-                            crate::engineering_projection::encode_engineering_run_status(current)
-                                .map(outgoing::Validated)
-                                .map_err(study::projection_error);
-                        let done = done || encoded.is_err();
-                        return Some((encoded, (engine, key, previous, done)));
+                        let changed = engine.observation_changed(&key);
+                        match deadline {
+                            Some(deadline) => tokio::time::timeout_at(deadline.into(), changed)
+                                .await
+                                .map_err(|_| run_observation_deadline_error())?,
+                            None => changed.await,
+                        }
+                        .map_err(transport)?;
                     }
-                    if let Err(error) = engine.observation_changed(&key).await {
-                        return Some((Err(transport(error)), (engine, key, previous, true)));
-                    }
-                }
+                };
+                let current = match next.await {
+                    Ok(current) => current,
+                    Err(error) => return Some((Err(error), (engine, key, previous, true))),
+                };
+                let done = current.settled || current.failure.is_some();
+                previous = Some(current.clone());
+                let encoded = crate::engineering_projection::encode_engineering_run_status(current)
+                    .map(outgoing::Validated)
+                    .map_err(study::projection_error);
+                let done = done || encoded.is_err();
+                Some((encoded, (engine, key, previous, done)))
             },
         );
         let stream: ServiceStream<outgoing::Validated<pb::EngineeringRunStatus>> = Box::pin(stream);
         Ok(connectrpc::Response::new(stream))
     }
+}
+
+fn check_run_observation_deadline(deadline: Option<std::time::Instant>) -> Result<(), ConnectError> {
+    if deadline.is_some_and(|deadline| std::time::Instant::now() >= deadline) {
+        return Err(run_observation_deadline_error());
+    }
+    Ok(())
+}
+
+fn run_observation_deadline_error() -> ConnectError {
+    ConnectError::deadline_exceeded(
+        "observation allowance elapsed; original work remains under its retained owner",
+    )
 }
 
 /// Host one prepared service, draining original work on shutdown or listener failure.

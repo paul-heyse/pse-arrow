@@ -1520,7 +1520,7 @@ fn plan47f_growth_and_skew_analyze_export_and_relocated_readback() {
         array::{Array, Float64Array, UInt64Array},
         ipc::reader::StreamReader,
     };
-    use std::io::{Read, Write};
+    use std::io::{Cursor, Write};
     for members in [16usize, 129] {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("pack");
@@ -1811,9 +1811,10 @@ fn plan47f_growth_and_skew_analyze_export_and_relocated_readback() {
         std::fs::write(path.join("index.json"), b"conflicting live neighbour").unwrap();
         let reader = PackReader::open(&relocated, MAXIMUM_PACK_DOCUMENT_BYTES).unwrap();
         let restored = reader.read_frozen().unwrap();
-        assert!(reader.open_member("optional_profile").is_err());
-        assert!(reader.open_member("selected_result").is_err());
-        assert!(reader.open_member("unrequested_result").is_err());
+        let cancel = pse_columnar::CancellationToken::new();
+        for member in ["optional_profile", "selected_result", "unrequested_result"] {
+            assert!(reader.copy_member_verified(member, &mut std::io::sink(), &cancel).is_err());
+        }
         let result_scope = reader
             .index()
             .members
@@ -1836,14 +1837,12 @@ fn plan47f_growth_and_skew_analyze_export_and_relocated_readback() {
             opaque_payload_bytes
         );
         for index in 0..members {
-            let mut bytes = String::new();
+            let mut bytes = Vec::new();
             reader
-                .open_member(&format!("attempt-{index}"))
-                .unwrap()
-                .read_to_string(&mut bytes)
+                .copy_member_verified(&format!("attempt-{index}"), &mut bytes, &cancel)
                 .unwrap();
             assert_eq!(
-                bytes,
+                String::from_utf8(bytes).unwrap(),
                 format!(
                     "original attempt-{index}; run-{}; generation {}; prefix {}\n",
                     index / 2,
@@ -1860,8 +1859,9 @@ fn plan47f_growth_and_skew_analyze_export_and_relocated_readback() {
                 Value::Count(u64::MAX - index as u64 - 1)
             );
         }
-        let stream =
-            StreamReader::try_new(reader.open_member("diagnostic").unwrap(), None).unwrap();
+        let mut diagnostic = Vec::new();
+        reader.copy_member_verified("diagnostic", &mut diagnostic, &cancel).unwrap();
+        let stream = StreamReader::try_new(Cursor::new(diagnostic), None).unwrap();
         let mut rows = 0;
         for batch in stream {
             let batch = batch.unwrap();

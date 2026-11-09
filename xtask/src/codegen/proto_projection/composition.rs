@@ -6,7 +6,14 @@ use buffa_codegen::{
     GeneratedFile, GeneratedFileKind,
     generated::compiler::{CodeGeneratorRequest, code_generator_response::File},
 };
-use pse_codegen::codegen::{GeneratedTree, boundary_projection::ProjectionGeneration};
+#[cfg(any(
+    feature = "product-schemas",
+    feature = "host-contracts",
+    feature = "scientific-worker-contracts",
+    feature = "reference-contracts"
+))]
+use pse_codegen::codegen::GeneratedTree;
+use pse_codegen::codegen::boundary_projection::ProjectionGeneration;
 use std::path::Path;
 
 pub(in crate::codegen) struct Suppliers {
@@ -114,6 +121,12 @@ impl Suppliers {
         super::admit_paths(paths)
     }
 
+    #[cfg(any(
+        feature = "product-schemas",
+        feature = "host-contracts",
+        feature = "scientific-worker-contracts",
+        feature = "reference-contracts"
+    ))]
     pub(in crate::codegen) fn insert(
         self,
         tree: &mut GeneratedTree,

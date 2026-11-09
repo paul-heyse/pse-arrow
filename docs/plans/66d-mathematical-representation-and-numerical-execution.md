@@ -249,9 +249,9 @@ native quality check was weakened. The source controls are
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | D01 | in-progress | Actual remaining G/H/I/J blocks; current source-owned evaluator/accuracy contracts | Selected affine construction and actual shared-allocation accounting corrections are integrated. H03 now separates physical row floors, actual numerical requirements and a discrete scheme/domain conflict through an independently checked refusal plus passing interior-cohort refinement. Remaining family-specific mathematical demands stay open. |
-| D02 | in-progress | D01 selected transforms; A semantic dependencies and C preparation | Selected affine producer/retention and H03 precision/domain receiving are implemented. Continue other demanded evaluator/batch/layout consumers. Canonical reconstruction's separate preallocation gate remains open. |
-| D03 | in-progress | A selected large-response consumer; current direct factor/SVD route | Retain factors and SVD for the traced current consumers. A large-response comparison is pending a named workload and an admitted operator/preconditioner. |
-| D04 | in-progress | Changed maintained arithmetic/provider consumers | The working tree adds opt-in, invocation-bound regime observations under ADR-0251 and a native BT receiving control. Run the actual liquid, two-phase and vapor control and complete the affected provider, generated readback and solver populations. |
+| D02 | in-progress | D01 selected transforms; A semantic dependencies and C preparation | Selected affine producer/retention and H03 precision/domain receiving are implemented. The active recipe checks cancellation before decoding and before symbolic construction. The preallocation gate remains open for normalization, coefficients, partials and process-wide symbol registration. Continue the other demanded evaluator, batch and layout consumers. |
+| D03 | complete | Current direct factor and SVD routes and their selected consumers | Retain factors and SVD for the traced workloads. Reopen for a named large repeated-response workload with an admitted operator and preconditioner candidate. |
+| D04 | in-progress | Changed maintained arithmetic/provider consumers | Direct and joined modeling results carry the opt-in invocation observation in `runtime.provider_selections`. Run the actual BT liquid, two-phase and vapor control with original ordered provider ports and typed component membership. Complete the persisted independent read, other affected providers and solver populations. |
 | D05 | planned | D02–D04 selected deliveries; family consumers | Retire replaced numeric paths after targeted controls and caller migration; supply complete-operation comparisons and enduring mathematical contracts to L. |
 
 D03 is a decision obligation, not a mandatory second backend. Likewise expression streaming,
@@ -259,6 +259,23 @@ new tensor machinery or another property/DAE library requires a demonstrated rem
 record the concrete gap before adopting it. Existing native mathematical meaning stays authoritative.
 
 ## Verification and outcome
+
+**Tested, partial.** The default-profile, force-validated native runtime selection
+`01a1bdf2-e013-7126-9634-28bb9baf13d8` passed three of five library controls and all sixteen
+coordinator controls with complete settlement. The BT liquid case accepted the original solve,
+closure and physical expectations, then reported eight suspicious Jacobian differences in the
+independent derivative comparison. This matches the existing liquid fixture discrepancy recorded
+in [Plan 28e](28e-rebuild-retirement-and-qualification.md). The original derivative requirement
+remains in the BT receiving control, so two-phase and vapor invocation readback remains open.
+The selected implicit-regime owner now uses the current authored start when it lies inside
+the retained certified uniqueness chart. It uses the previous root as a fallback for starts
+outside the chart. This avoids replacing a valid current start with an older point that the
+inner solver could accept within its residual tolerance. The original proof and residual gates
+still apply. The maintainer stopped the rerun before it established derivative results.
+The failed-block control retained the original mathematical cause and a stable repeated-call
+allocation plateau, then failed its final pool balance. After joining native service owners
+explicitly, the same default-profile control passed its original cause, allocation plateau and
+zero-balance assertions with complete settlement (`01a1be0e-2bc5-744e-b07a-16b0110a5bcc`).
 
 The new observation path seals the original winning provider invocation only when the
 consumer requests the fact. Its native and kernel controls await verification. JSON v3

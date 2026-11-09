@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Compiler-issued conditional equations executed in one original task.
-use super::super::initialization::{Dependencies, Iterations, consumed_inputs};
+use super::super::initialization::{Dependencies, Iterations, block_candidate, consumed_inputs};
 use super::*;
 use futures_util::{FutureExt, StreamExt};
 use pse_kernels::ExecutionScope;
@@ -952,26 +952,37 @@ impl MathService {
                         Ok(Outcome::Native(report)) => report.evidence.work.iterations,
                         _ => None,
                     };
-                    if let Err(error) = iterations.complete(index, actual) {
-                        errors.entry(index).or_insert(error.into());
-                        stopped = true;
-                    }
+                    // Settle every issued grant. Unknown work cannot be refunded, but
+                    // missing coverage must not replace an original child failure.
+                    let coverage = iterations.complete(index, actual);
                     match &outcome {
                         Ok(Outcome::Native(report)) => {
-                            match super::super::initialization::commit_block(
-                                &mut values,
-                                &prepared.boundaries[index].boundary,
+                            let boundary = &prepared.boundaries[index].boundary;
+                            let candidate = block_candidate(
+                                boundary,
                                 Some(report),
                                 &prepared.original.numerics.policy,
-                            ) {
-                                Ok(()) if !errors.contains_key(&index) => {
+                            );
+                            match (candidate, coverage) {
+                                (Ok(primal), Ok(())) => {
+                                    values.scalars.extend(
+                                        boundary
+                                            .members
+                                            .columns
+                                            .iter()
+                                            .copied()
+                                            .zip(primal.iter().copied()),
+                                    );
                                     if let Err(error) = readiness.commit(index) {
                                         errors.insert(index, error.into());
                                         stopped = true;
                                     }
                                 }
-                                Ok(()) => {}
-                                Err(cause) => {
+                                (Ok(_), Err(error)) => {
+                                    errors.entry(index).or_insert(error.into());
+                                    stopped = true;
+                                }
+                                (Err(cause), _) => {
                                     refused.insert(index, cause);
                                     stopped = true;
                                 }

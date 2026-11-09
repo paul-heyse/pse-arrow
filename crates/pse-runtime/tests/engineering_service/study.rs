@@ -536,6 +536,43 @@ async fn phase_recover() {
     );
     assert!(!pending_page.status.header.cancelled && !pending_page.status.header.terminal);
     drop(pending);
+    // Send a server allowance without arming a competing generated client timer.
+    let mut bounded = client
+        .generated()
+        .observe_study_with_options(
+            codec::encode_engineering_observe_study(observation(
+                &handoff.submitted,
+                Some(pending_page.cursor),
+            ))
+            .unwrap(),
+            connectrpc::client::CallOptions::default().with_header("grpc-timeout", "500m"),
+        )
+        .await
+        .unwrap();
+    let expired = tokio::time::timeout(Duration::from_secs(90), async {
+        loop {
+            match bounded.message::<pb::StudyObservationPage>().await {
+                Ok(Some(page)) => {
+                    let page = codec::decode_study_observation_page(page.to_owned_message()).unwrap();
+                    assert!(!page.status.header.terminal && !page.status.header.cancelled);
+                }
+                Ok(None) => panic!("queued study observation ended without a terminal refusal"),
+                Err(error) => break error,
+            }
+        }
+    })
+    .await
+    .unwrap();
+    drop(bounded);
+    assert_eq!(expired.code, connectrpc::ErrorCode::DeadlineExceeded);
+    assert!(
+        expired.message.as_deref().is_some_and(|message|
+            message.contains("study observation allowance elapsed"))
+    );
+    assert_eq!(
+        status(&client, &handoff.submitted).await.canonical.as_ref(),
+        Some(&handoff.queued)
+    );
     let retired = EngineeringStudyHeaderPage {
         operation: handoff.retired_capture,
         request: pse_runtime::workflow::StudyCohortHeaderRequest {

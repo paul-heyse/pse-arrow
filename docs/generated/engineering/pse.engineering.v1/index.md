@@ -303,7 +303,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `AuthoredFitCasesFieldExperimentsItem`
 
-Rust owner: `pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldExperimentsItem`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 4. Direction: `Both`.
+Rust owner: `pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldExperimentsItem`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 5. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -316,7 +316,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `AuthoredFitCasesFieldExperimentsItemBindingsItem`
 
-Rust owner: `pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldExperimentsItemBindingsItem`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 4. Direction: `Both`.
+Rust owner: `pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldExperimentsItemBindingsItem`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 5. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -324,10 +324,11 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `parameter_id` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "1", "pse.domain.extension": "pse.semantic_id"}` |
 | `path` | 2 | `Scalar(String)` | `Both` | `[]` | `{"pse.domain.boundary.tag": "2"}` |
+| `schedule_start` | 3 | `Optional(Scalar(F64Bits))` | `Both` | `[]` | `{"pse.domain.boundary.tag": "3"}` |
 
 ## `AuthoredFitCasesFieldObservationsItem`
 
-Rust owner: `pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldObservationsItem`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 4. Direction: `Both`.
+Rust owner: `pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldObservationsItem`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 5. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -346,7 +347,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `AuthoredFitCasesFieldParametersItem`
 
-Rust owner: `pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldParametersItem`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 4. Direction: `Both`.
+Rust owner: `pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldParametersItem`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 5. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -361,7 +362,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `AuthoredFitCasesRow`
 
-Rust owner: `pse_model::generated::authored::fit_cases::AuthoredFitCasesRow`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 4. Direction: `Both`.
+Rust owner: `pse_model::generated::authored::fit_cases::AuthoredFitCasesRow`. Source: `crates/pse-schema/src/catalog/native_math.rs`. Interpretation version: 5. Direction: `Both`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
@@ -6057,7 +6058,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `PhysicalQuantityDescription`
 
-Rust owner: `pse_runtime::workflow::physical_inspection::PhysicalQuantityDescription`. Source: `crates/pse-runtime/src/workflow/physical_inspection.rs`. Interpretation version: 1. Direction: `Output`.
+Rust owner: `pse_quantity::boundary::physical_description::PhysicalQuantityDescription`. Source: `crates/pse-quantity/src/boundary/physical_description.rs`. Interpretation version: 1. Direction: `Output`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 

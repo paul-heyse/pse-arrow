@@ -127,17 +127,19 @@ DEFINE FUNCTION fn::pse_schema_v1::close($expiry:int,$expected:object,$operation
     fn::pse_execution_v1::deadline($expiry);
     LET $marker=SELECT * FROM ONLY canonical_interpretations:current FOR UPDATE;
     LET $old=SELECT * FROM ONLY canonical_maintenance_operations:current FOR UPDATE;
-    IF $old!=NONE AND $old.kind='schema' AND $old.operation=$operation AND $old.generation=$generation AND $old.after=$request AND $old.target=$target AND !$old.complete { RETURN $old; };
-    IF $marker=NONE OR !$marker.admission_open OR $marker.schema_epoch!=$expected.schema_epoch OR $marker.schema_version!=$expected.schema_version OR $marker.schema_digest!=$expected.schema_digest OR $marker.issuing_store!=$expected.issuing_store OR ($old!=NONE AND !$old.complete) { THROW 'PSE_REFUSAL:schema_migration_original_differs'; };
+    IF $marker=NONE OR $marker.interpretation!=$expected.interpretation OR $marker.schema_epoch!=$expected.schema_epoch OR $marker.schema_version!=$expected.schema_version OR $marker.schema_digest!=$expected.schema_digest OR $marker.issuing_store!=$expected.issuing_store OR $marker.study_module_sha256!=$expected.study_module_sha256 OR $marker.payload_incarnation!=$expected.payload_incarnation { THROW 'PSE_REFUSAL:schema_migration_original_differs'; };
+    IF $old!=NONE AND $old.kind='schema' AND $old.operation=$operation AND $old.generation=$generation AND $old.after=$request AND $old.target=$target AND !$old.complete AND $marker.admission_open=false { RETURN $old; };
+    IF $marker.admission_open!=true OR ($old!=NONE AND !$old.complete) { THROW 'PSE_REFUSAL:schema_migration_original_differs'; };
     UPDATE ONLY canonical_interpretations:current SET admission_open=false RETURN NONE;
     LET $saved=UPSERT ONLY canonical_maintenance_operations:current SET key='current',operation=$operation,generation=$generation,phase='schema-draining',source=$expected.schema_digest,target=$target,kind='schema',after=$request,next=$expected.schema_epoch,count=0dec,complete=false;
     RETURN $saved;
 } PERMISSIONS NONE;
-DEFINE FUNCTION fn::pse_schema_v1::quiescent($expiry:int,$operation:string,$generation:string,$request:string) -> bool {
+DEFINE FUNCTION fn::pse_schema_v1::quiescent($expiry:int,$expected:object,$operation:string,$generation:string,$request:string) -> bool {
     fn::pse_execution_v1::deadline($expiry);
     LET $owner=SELECT * FROM ONLY canonical_maintenance_operations:current FOR UPDATE;
     LET $marker=SELECT * FROM ONLY canonical_interpretations:current FOR UPDATE;
-    IF $owner=NONE OR $owner.kind!='schema' OR $owner.operation!=$operation OR $owner.generation!=$generation OR $owner.after!=$request OR $owner.complete OR $marker=NONE OR ($marker.admission_open ?? false) { THROW 'PSE_REFUSAL:schema_migration_original_differs'; };
+    IF $owner=NONE OR $owner.kind!='schema' OR $owner.operation!=$operation OR $owner.generation!=$generation OR $owner.after!=$request OR $owner.complete OR $owner.phase NOT IN ['schema-draining','schema-applying'] { THROW 'PSE_REFUSAL:schema_migration_original_differs'; };
+    IF $marker=NONE OR $marker.interpretation!=$expected.interpretation OR $marker.schema_epoch!=$expected.schema_epoch OR $marker.schema_version!=$expected.schema_version OR $marker.schema_digest!=$expected.schema_digest OR $marker.issuing_store!=$expected.issuing_store OR $marker.study_module_sha256!=$expected.study_module_sha256 OR $marker.payload_incarnation!=$expected.payload_incarnation OR $marker.admission_open!=false { THROW 'PSE_REFUSAL:schema_migration_original_differs'; };
     LET $writers=SELECT key FROM canonical_attempts WHERE phase NOT IN ['terminal','terminal_compacted'] LIMIT 1;
     LET $owners=SELECT key FROM canonical_file_owners WHERE !drained LIMIT 1;
     LET $pins=SELECT key FROM canonical_protections WHERE !released AND expires_at>time::micros() LIMIT 1;

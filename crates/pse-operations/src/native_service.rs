@@ -7,7 +7,7 @@
 use crate::{
     canonical::{
         CanonicalError, CanonicalOptions, CanonicalStore, MESSAGE_BYTES,
-        migration::{SchemaMaintenance, SchemaMigrationReceipt, SchemaReady},
+        migration::{SchemaMaintenance, SchemaReady},
         study_module::{QUALIFICATION_RECORD, StudyModuleReceipt},
     },
     deployment::{CanonicalConnectionSettings, ServiceIdentity},
@@ -287,12 +287,12 @@ impl std::fmt::Display for ViewerBootstrapFailure {
 // Deliberately no Error::source: the original SQL-bearing cause is private.
 impl std::error::Error for ViewerBootstrapFailure {}
 
-/// Original prepared module, or an explicitly selected historical receipt source.
+/// Prepared module or an explicitly selected immutable receipt in a recorded state.
 #[derive(Clone, Debug)]
 pub enum NativeModuleSource {
     /// Direct Rust construction/admission capability; no JSON selector is needed.
     Prepared(pse_host::study_module::StudyModuleReceipt),
-    /// Historical state contributes its original immutable module receipt only.
+    /// Recorded state supplies the module receipt, which must pass current native admission.
     RecordedState(PathBuf),
 }
 impl NativeModuleSource {
@@ -310,14 +310,14 @@ pub struct NativeServiceSpec {
     pub server: PreparedServer,
     /// Explicit application helper executable built with native-service.
     pub helper: PathBuf,
-    /// Exact prepared native capability or retained historical module source.
+    /// Exact prepared native capability or explicitly recorded module source.
     pub module_source: NativeModuleSource,
     /// Parent for a newly created private disposable directory.
     pub state_parent: PathBuf,
 }
 
 impl NativeServiceSpec {
-    /// Select a prepared test server and module, or the explicitly retained historical module.
+    /// Select a prepared test server and an explicitly admitted production module.
     /// An integration target can supply the exact helper admitted by Cargo and Nextest.
     pub fn selected_fixture(helper: Option<PathBuf>) -> Result<Self, NativeServiceError> {
         let module = if let Some(receipt) = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_RECEIPT") {
@@ -328,7 +328,7 @@ impl NativeServiceSpec {
         } else {
             let state = std::env::var_os("PSE_NATIVE_FIXTURE_MODULE_STATE").ok_or(
                 NativeServiceError::Refused(
-                    "explicit prepared receipt or historical module state required",
+                    "explicit prepared receipt or recorded module state required",
                 ),
             )?;
             NativeModuleSource::RecordedState(state.into())
@@ -365,10 +365,6 @@ impl NativeServiceSpec {
             state_parent: std::env::temp_dir(),
         })
     }
-}
-enum ModuleCompanion {
-    Migration(NativeModuleSource),
-    Qualification(StudyModuleReceipt),
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -413,10 +409,6 @@ struct Configuration {
     study_module: StudyModuleReceipt,
     #[serde(skip_serializing_if = "Option::is_none")]
     study_module_qualification_controllers: Option<usize>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    schema_migration_predecessor: Option<StudyModuleReceipt>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    schema_migration_target: Option<StudyModuleReceipt>,
 }
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -431,30 +423,9 @@ struct RetainedRecords {
 impl RetainedRecords {
     fn read(state: &Path) -> Result<Self, NativeServiceError> {
         let config: serde_json::Value = private_read(&state.join("config.json"))?;
-        let mut source = config.clone();
-        let mut target = config.clone();
-        if let Some(predecessor) = config.get("schema_migration_predecessor") {
-            source["study_module"] = predecessor.clone();
-        }
-        if let Some(prepared) = config.get("schema_migration_target") {
-            target["study_module"] = prepared.clone();
-        }
-        if config != source && config != target {
-            return Err(NativeServiceError::Refused(
-                "local module selection is neither prepared source nor prepared target",
-            ));
-        }
-        let mut hashes = vec![
-            hex::encode(Sha256::digest(json(&source)?)),
-            hex::encode(Sha256::digest(json(&target)?)),
-        ];
+        let mut hashes = vec![hex::encode(Sha256::digest(json(&config)?))];
         for name in ["credentials.json", "original-module-receipt.json"] {
             let value: serde_json::Value = private_read(&state.join(name))?;
-            hashes.push(hex::encode(Sha256::digest(json(&value)?)));
-        }
-        if config.get("schema_migration_target").is_some() {
-            let value: serde_json::Value =
-                private_read(&state.join("target-module-source-receipt.json"))?;
             hashes.push(hex::encode(Sha256::digest(json(&value)?)));
         }
         if config
@@ -617,17 +588,7 @@ struct WorkerPayload {
     run: PathBuf,
     nonce: String,
     index: usize,
-    initial_schema: InitialSchema,
 }
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-enum InitialSchema {
-    Current,
-    PreEpoch,
-    SchemaV2,
-    SchemaV3,
-}
-
 /// Retained ownership of one newly constructed service. Not cloneable and no Drop cleanup claims.
 #[derive(Debug)]
 pub struct NativeCanonicalService {
@@ -638,7 +599,6 @@ pub struct NativeCanonicalService {
     module_root: PathBuf,
     run: PathBuf,
     reopening: bool,
-    initial_schema: InitialSchema,
     initialized: bool,
     helper: PathBuf,
     bind: SocketAddr,
@@ -790,70 +750,17 @@ impl NativeCanonicalService {
     /// # Errors
     /// Invalid prepared inputs, private-state creation failure, or module admission failure.
     pub fn new(spec: NativeServiceSpec) -> Result<Self, NativeServiceError> {
-        Self::new_with_schema(spec, InitialSchema::Current)
+        Self::new_with_companion(spec, None)
     }
     pub(crate) fn new_qualification_fixture(
         spec: NativeServiceSpec,
         qualification: pse_host::study_module::StudyModuleReceipt,
     ) -> Result<Self, NativeServiceError> {
-        Self::new_with_companion(
-            spec,
-            InitialSchema::Current,
-            Some(ModuleCompanion::Qualification(
-                StudyModuleReceipt::from_prepared(qualification),
-            )),
-        )
-    }
-    /// Construct a newly owned predecessor fixture only, for explicit adjacent migration.
-    /// The predecessor never grants ordinary application readiness.
-    /// # Errors
-    /// The same private construction and artifact admission failures as [`Self::new`].
-    pub fn new_pre_epoch_fixture(spec: NativeServiceSpec) -> Result<Self, NativeServiceError> {
-        Self::new_with_schema(spec, InitialSchema::PreEpoch)
-    }
-    /// Create an exact frozen schema-v2 fixture in a newly owned absent catalog.
-    /// # Errors
-    /// The same private construction and artifact admission failures as [`Self::new`].
-    pub fn new_v2_fixture(spec: NativeServiceSpec) -> Result<Self, NativeServiceError> {
-        Self::new_with_schema(spec, InitialSchema::SchemaV2)
-    }
-    /// Create a private v2 store with separate copied old and prepared target artifacts.
-    /// The existing configured source stores supply immutable artifacts only.
-    /// # Errors
-    /// Private artifact admission, immutable copy or fixture construction fails.
-    pub fn new_v2_upgrade_fixture(
-        spec: NativeServiceSpec,
-        target_source: NativeModuleSource,
-    ) -> Result<Self, NativeServiceError> {
-        Self::new_with_companion(
-            spec,
-            InitialSchema::SchemaV2,
-            Some(ModuleCompanion::Migration(target_source)),
-        )
-    }
-    /// Create a private frozen v3 store with its original module and a prepared target.
-    /// # Errors
-    /// Private artifact admission, immutable copy or fixture construction fails.
-    pub fn new_v3_upgrade_fixture(
-        spec: NativeServiceSpec,
-        target_source: NativeModuleSource,
-    ) -> Result<Self, NativeServiceError> {
-        Self::new_with_companion(
-            spec,
-            InitialSchema::SchemaV3,
-            Some(ModuleCompanion::Migration(target_source)),
-        )
-    }
-    fn new_with_schema(
-        spec: NativeServiceSpec,
-        initial_schema: InitialSchema,
-    ) -> Result<Self, NativeServiceError> {
-        Self::new_with_companion(spec, initial_schema, None)
+        Self::new_with_companion(spec, Some(StudyModuleReceipt::from_prepared(qualification)))
     }
     fn new_with_companion(
         spec: NativeServiceSpec,
-        initial_schema: InitialSchema,
-        companion: Option<ModuleCompanion>,
+        companion: Option<StudyModuleReceipt>,
     ) -> Result<Self, NativeServiceError> {
         if !spec.helper.is_absolute() || !spec.helper.is_file() {
             return Err(NativeServiceError::Refused(
@@ -877,30 +784,16 @@ impl NativeCanonicalService {
         if companion.is_some() {
             private_directory(&module_root)?;
         }
-        let (module, target, qualification) =
-            match companion {
-                Some(ModuleCompanion::Migration(target_source)) => {
-                    let old = module.copy_into_private(&path, &module_root.join("predecessor"))?;
-                    let target = target_source.into_canonical()?;
-                    private_write(&path.join("target-module-source-receipt.json"), &target)?;
-                    let target = target.copy_into_private(&path, &module_root.join("target"))?;
-                    if target.sha256 == old.sha256 {
-                        return Err(NativeServiceError::Refused(
-                            "module upgrade fixture requires distinct old and target artifacts",
-                        ));
-                    }
-                    (old, Some(target), None)
-                }
-                Some(ModuleCompanion::Qualification(qualification)) => (
-                    module.copy_into_private(&path, &module_root.join("production"))?,
-                    None,
-                    Some(qualification.copy_qualification_into_private(
-                        &path,
-                        &module_root.join("qualification"),
-                    )?),
-                ),
-                None => (module.copy_into_private(&path, &module_root)?, None, None),
-            };
+        let (module, qualification) = match companion {
+            Some(qualification) => (
+                module.copy_into_private(&path, &module_root.join("production"))?,
+                Some(qualification.copy_qualification_into_private(
+                    &path,
+                    &module_root.join("qualification"),
+                )?),
+            ),
+            None => (module.copy_into_private(&path, &module_root)?, None),
+        };
         if let Some(receipt) = &qualification {
             let record = path.join(QUALIFICATION_RECORD);
             private_write(&record, receipt)?;
@@ -954,8 +847,6 @@ impl NativeCanonicalService {
             },
             payload_incarnation: uuid::Uuid::new_v4().to_string(),
             accepting_writes: true,
-            schema_migration_predecessor: target.as_ref().map(|_| module.clone()),
-            schema_migration_target: target,
             study_module_qualification_controllers: qualification
                 .as_ref()
                 .map(|_| payload.module_capacity.controllers),
@@ -987,7 +878,6 @@ impl NativeCanonicalService {
             module_root,
             run,
             reopening: false,
-            initial_schema,
             initialized: false,
             helper: spec.helper,
             bind,
@@ -1133,32 +1023,12 @@ impl NativeCanonicalService {
         }
         let options = CanonicalOptions::from_state(&self.state.path)?;
         crate::transport::operation_scope(deadline, async {
-            match self.initial_schema {
-                InitialSchema::Current => {
-                    if !self.reopening {
-                        CanonicalStore::initialize_database(&options).await?;
-                    }
-                    let ready = CanonicalStore::connect_ready(&options).await?;
-                    self.connections.push(ready.store().clone());
-                    self.ready = Some(ready);
-                }
-                InitialSchema::PreEpoch | InitialSchema::SchemaV2 | InitialSchema::SchemaV3
-                    if self.reopening =>
-                {
-                    let maintenance = SchemaMaintenance::connect(&options).await?;
-                    self.maintenances.push(maintenance.clone());
-                    maintenance.inspect().await?;
-                }
-                InitialSchema::PreEpoch => {
-                    CanonicalStore::install_pre_epoch_fixture(&options).await?
-                }
-                InitialSchema::SchemaV2 => {
-                    CanonicalStore::install_schema_v2_fixture(&options).await?
-                }
-                InitialSchema::SchemaV3 => {
-                    CanonicalStore::install_schema_v3_fixture(&options).await?
-                }
+            if !self.reopening {
+                CanonicalStore::initialize_database(&options).await?;
             }
+            let ready = CanonicalStore::connect_ready(&options).await?;
+            self.connections.push(ready.store().clone());
+            self.ready = Some(ready);
             self.initialized = true;
             Ok::<(), CanonicalError>(())
         })
@@ -1283,9 +1153,7 @@ impl NativeCanonicalService {
                 "original native fixture schema installation did not complete",
             ));
         }
-        if matches!(self.initial_schema, InitialSchema::Current) {
-            self.ready()?;
-        }
+        self.ready()?;
         self.state.verify()?;
         deadline_left(deadline)?;
         let manager = self
@@ -1302,7 +1170,6 @@ impl NativeCanonicalService {
             run: self.run.clone(),
             nonce: self.state.nonce.clone(),
             index,
-            initial_schema: self.initial_schema,
         };
         let path = self.run.join(format!("worker-{index}.json"));
         private_write(&path, &payload)?;
@@ -1539,47 +1406,6 @@ impl NativeCanonicalService {
             SchemaMaintenance::connect(&CanonicalOptions::from_state(&self.state.path)?).await?;
         self.maintenances.push(maintenance.clone());
         Ok(maintenance)
-    }
-    /// Atomically select the prepared target only after its exact verified activation.
-    /// Repeating this with the original receipt settles a lost local publication ACK.
-    /// No database transformation is replayed and no existing external state is edited.
-    /// # Errors
-    /// Original fixture admission, receipt target, private configuration or publication differs.
-    pub fn promote_activated_module(
-        &mut self,
-        receipt: &SchemaMigrationReceipt,
-    ) -> Result<(), NativeServiceError> {
-        if self.closing || self.disposed {
-            return Err(NativeServiceError::Refused(
-                "original native service admission is closed",
-            ));
-        }
-        self.state.verify()?;
-        self.records.verify(&self.state.path)?;
-        let target = receipt.target_module().ok_or(NativeServiceError::Refused(
-            "activation has no explicit prepared target module",
-        ))?;
-        let path = self.state.path.join("config.json");
-        let mut configuration: serde_json::Value = private_read(&path)?;
-        let prepared = serde_json::to_value(&target.receipt)
-            .map_err(|_| NativeServiceError::Refused("cannot encode prepared module selection"))?;
-        if configuration.get("schema_migration_target") != Some(&prepared) {
-            return Err(NativeServiceError::Refused(
-                "verified activation belongs to a different prepared module selection",
-            ));
-        }
-        if configuration.get("study_module") == Some(&prepared) {
-            return Ok(());
-        }
-        configuration["study_module"] = prepared;
-        let temporary = self
-            .state
-            .path
-            .join(format!("module-selection-{}.json", uuid::Uuid::new_v4()));
-        private_write(&temporary, &configuration)?;
-        fs::rename(&temporary, &path)?;
-        File::open(&self.state.path)?.sync_all()?;
-        self.records.verify(&self.state.path)
     }
     /// Admit one fixed schema-fenced guard write and retain its original held driver.
     /// This fixture-only control never accepts SQL, arbitrary rows or another deployment.
@@ -2062,26 +1888,7 @@ pub async fn run_worker(path: &Path) -> Result<(), NativeServiceError> {
     }
     let mut term = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
     let options = CanonicalOptions::from_state(&payload.state)?;
-    let connection = match payload.initial_schema {
-        InitialSchema::Current => {
-            WorkerConnection::Current(CanonicalStore::connect_ready(&options).await?)
-        }
-        InitialSchema::PreEpoch | InitialSchema::SchemaV2 | InitialSchema::SchemaV3 => {
-            let connection = SchemaMaintenance::connect(&options).await?;
-            let inspected = connection.inspect().await;
-            if let Err(error) = inspected {
-                let drained = connection.disconnect().await;
-                return match drained {
-                    Ok(()) => Err(error.into()),
-                    Err(cleanup) => Err(NativeServiceError::Settlement {
-                        state: payload.state,
-                        failures: vec![error.into(), cleanup.into()],
-                    }),
-                };
-            }
-            WorkerConnection::PreEpoch(connection)
-        }
-    };
+    let connection = WorkerConnection(CanonicalStore::connect_ready(&options).await?);
     let socket = payload.run.join(format!("worker-{}.sock", payload.index));
     let listener = match tokio::net::UnixListener::bind(&socket) {
         Ok(listener) => listener,
@@ -2168,35 +1975,21 @@ fn canonical_drain_failure(error: NativeServiceError) -> CanonicalError {
     }
 }
 
-enum WorkerConnection {
-    Current(SchemaReady),
-    PreEpoch(SchemaMaintenance),
-}
+struct WorkerConnection(SchemaReady);
+
 impl WorkerConnection {
     async fn probe(&self) -> Result<String, CanonicalError> {
-        match self {
-            Self::Current(ready) => {
-                ready.store().canonical_run("native-fixture-probe").await?;
-                Ok(ready.fence().epoch().to_owned())
-            }
-            Self::PreEpoch(maintenance) => {
-                maintenance.inspect().await?;
-                Ok("maintenance".into())
-            }
-        }
+        self.0.store().canonical_run("native-fixture-probe").await?;
+        Ok(self.0.fence().epoch().to_owned())
     }
+
     async fn disconnect(&self) -> Result<(), CanonicalError> {
-        match self {
-            Self::Current(ready) => {
-                ready
-                    .store()
-                    .drain_owned_connection_until(crate::transport::original_deadline(
-                        Duration::from_secs(30),
-                    ))
-                    .await
-            }
-            Self::PreEpoch(maintenance) => maintenance.disconnect().await,
-        }
+        self.0
+            .store()
+            .drain_owned_connection_until(crate::transport::original_deadline(
+                Duration::from_secs(30),
+            ))
+            .await
     }
 }
 
@@ -2412,7 +2205,6 @@ mod tests {
             module_root: PathBuf::from("/unprepared-unit-test-modules"),
             run,
             reopening: false,
-            initial_schema: InitialSchema::Current,
             initialized: false,
             helper: PathBuf::from("/usr/bin/false"),
             bind: SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
@@ -2515,39 +2307,6 @@ mod tests {
             assert!(service.records.verify(service.state()).is_err(), "{name}");
             fs::remove_file(&path).unwrap();
             private_write(&path, &serde_json::json!({})).unwrap();
-        }
-    }
-    #[test]
-    fn native_service_prepared_config_variants_preserve_endpoint_and_credentials() {
-        let (_temporary, service) = unlaunched_service();
-        let path = service.state().join("config.json");
-        fs::remove_file(&path).unwrap();
-        let mut configuration = serde_json::json!({
-            "endpoint":"grpc://original", "credentials_file":"original-private-credentials",
-            "study_module":{"sha256":"old"}, "schema_migration_predecessor":{"sha256":"old"},
-            "schema_migration_target":{"sha256":"new"},
-        });
-        private_write(&path, &configuration).unwrap();
-        private_write(
-            &service.state().join("target-module-source-receipt.json"),
-            &serde_json::json!({}),
-        )
-        .unwrap();
-        let records = RetainedRecords::read(service.state()).unwrap();
-        configuration["study_module"] = configuration["schema_migration_target"].clone();
-        fs::remove_file(&path).unwrap();
-        private_write(&path, &configuration).unwrap();
-        records.verify(service.state()).unwrap();
-        for (field, value) in [
-            ("endpoint", serde_json::json!("grpc://foreign")),
-            ("credentials_file", serde_json::json!("foreign-credentials")),
-            ("study_module", serde_json::json!({"sha256":"third"})),
-        ] {
-            let mut changed = configuration.clone();
-            changed[field] = value;
-            fs::remove_file(&path).unwrap();
-            private_write(&path, &changed).unwrap();
-            assert!(records.verify(service.state()).is_err(), "{field}");
         }
     }
     #[test]

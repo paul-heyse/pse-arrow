@@ -569,7 +569,6 @@ struct ProjectionTargetIndex<'a> {
     rates: BTreeSet<SemanticId>,
     used_dynamic_rows: BTreeSet<SemanticId>,
     annotated: BTreeSet<SemanticId>,
-    row_declarations: BTreeMap<SemanticId, DeclarationId>,
 }
 impl<'a> ProjectionTargetIndex<'a> {
     fn new(p: &'a Projection) -> Self {
@@ -611,12 +610,6 @@ impl<'a> ProjectionTargetIndex<'a> {
                     )
                 })
                 .map(|annotation| annotation.target)
-                .collect(),
-            row_declarations: p
-                .model
-                .equations
-                .iter()
-                .map(|row| (row.id, row.lineage.declaration))
                 .collect(),
         }
     }
@@ -784,16 +777,11 @@ fn projection_targets(
         );
     }
     for system in &p.implicit {
-        for (position, id, quantity, region) in system.annotation_rows() {
+        for (position, id, declaration, quantity, region) in system.annotation_rows() {
             let unit = registry
                 .quantity_type(quantity)
                 .map_err(MathError::from)?
                 .canonical_unit;
-            let declaration = index
-                .row_declarations
-                .get(&id)
-                .copied()
-                .ok_or_else(|| CompileError::Missing("nested numerical row source".into()))?;
             targets.entry(id).or_insert_with(|| NumericalTargetFact {
                 id,
                 kind: NumericalTarget::Row,

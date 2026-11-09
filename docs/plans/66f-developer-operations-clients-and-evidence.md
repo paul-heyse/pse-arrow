@@ -203,7 +203,7 @@ Private per-group verdict facts and full F04/E07 population are still open.
 | F02 | in-progress | Existing original evidence owners; B's one-way report/manifest projection; E05 sequential delivery contract and E custody where consumed | Native sequential OpenedFile delivery and actual offline member publication are integrated; main's thirteen selected semantic/developer controls pass. Completed publication survives an independent control-listener failure; combined failures retain both causes. Complete remaining report/consumer population; compact/range contracts, original omissions, provisional prefixes and separate publication outcomes remain intact. |
 | F03 | in-progress | F01 exact current listing and F02 original result inventory | Historical failed intent uses committed original correspondence after old executable disposal; new listing/selection/launch authenticate current captures. Main passes actual failure→commit→old-binary disposal→fresh invocation, expected-refusal/zero-failed rerun, and setup-failure controls. Actual CLI failed-rerun also passed the three original timeout identities after their shared Cargo prerequisite settled. Remaining changed-feature/renamed/independent consumer population stays open; retire parallel routes with their last callers. |
 | F04 | in-progress | Existing lightweight schema reader; B01/B02/B03 contracts for each actual family; E07 factual projection agreement | Complete finite independent-host/code-intelligence families and semantic comparison; supply original invocation facts to E07 and migrate the selected ephemeral analytical consumer without product-runtime coupling or changed verdict authority. |
-| F05 | planned | C's actual operation/authentication/lifecycle slice; B family mapping; A/E selected products | Generated Rust engineering clients and separately driven tool/reference clients complete their entire selected workflows, including errors, reconnect/cancel/lost ACK and protected read; superseded client translations/fixtures retire. |
+| F05 | in-progress | C's actual operation/authentication/lifecycle slice; B family mapping; A/E selected products | The Study qualification coordinator includes separate exact endpoint identity and edit, run and reconnect phases against the original keeper. Run the prepared sequence and independent tool and reference clients. Complete the selected error, cancel, lost-ACK and protected-read population and retire the replaced client translations and fixtures. |
 | F06 | in-progress | Working F01–F05 slices, E05/E07 actual delivery/analysis consumers and native/scientific owners | Selected original setup/signal/refusal/rerun controls pass on main, with original incomplete runs retained separately. Complete remaining developer/client and sequential-delivery failures plus useful cross-invocation query acceptance; original evidence, physical settlement and native verdict remain distinct. |
 
 ### F01 — Complete native developer action consumers
@@ -291,6 +291,32 @@ duplicate changed request, explicit cancellation/settlement and protected read a
 Run the simulation/fit/horizon client through fresh original observations and scientific controls;
 prior linking or three-phase acceptance cannot close the full current client population.
 
+**Tested, selected:** independently installed `grpcurl` reached the explicitly prepared
+frontend and its replacement over the Unix sockets named by their original readiness records.
+Using the published engineering descriptor, `EngineeringService/DescribeContract` returned 29
+methods and the same descriptor digest from both, with zero request failures. The original
+Study coordinator passed Submit, Recover and Complete with complete original selections.
+Routes failed before simulation because its client fixture counted the generated derivative
+coordinate as another authored state (`01a1bde7-2ebd-7547-ad0b-73507cd795b6`). The native owner
+proved complete drain for the failed phase and both frontends. The client now selects the state
+by its original declaration, and the coordinator separates failed phase verdicts from complete
+physical settlement. The next original Routes run (`01a1be06-b60c-732f-b033-9865b6e8a867`)
+passed state selection and failed when the combined request's refusal lacked the expected
+physical-binding rule. Submit, Recover and Complete passed again. The failed Routes verdict
+retained complete capture, and the coordinator verified and released the original socket owners.
+The negative request now isolates the exact incompatible Horizon point and displays the original
+typed refusal on mismatch. The complete three-point positive request still needs receiving.
+Endpoint refusal and edit/run/reconnect remain unexercised by the live coordinator.
+
+The coordinator now gives every phase the same solver-enabled Cargo feature set as the
+prepared frontend and worker. Exact test identities and separate original results still
+select each phase. In the initial capture, the KINSOL-only Submit target built in 7m 26s
+and ran for 9.1s. Switching to the Diffsol/Ipopt-enabled Routes target built in 7m 51s
+and ran for 5.0s. The unchanged Recover and Complete target builds reused their artifacts
+in under half a second each. Cargo also built six enabled `pse-runtime` executables for
+the integration target. [Cargo integration-test target selection](https://doc.rust-lang.org/cargo/commands/cargo-test.html#target-selection)
+The maintainer stopped this execution before a live run of the consolidated test selection.
+
 ### F06 — Close the selected population and teach extension
 
 Exercise one real source-owned request/fact/diagnostic/result-facet extension across its generator,
@@ -308,13 +334,40 @@ owns full product/science assembled acceptance; F supplies actual journeys and p
 
 ## Verification, decisions and completion
 
-Implementation is active, with selected original-evidence and semantic comparison changes
-integrated and bounded receiving recorded above and at the coordinator. Implementation uses targeted
-native routes with explicit fixture preparation and Arrow `force_validate` where consumed. Default
+Implementation is active. Report observation, inventory and compact and directory evidence
+admit the current report interpretation and its original dependency account, with explicit
+omissions. Compiler investigation checks the original whole-stream commitment before selecting a
+record. The independent host consumes the source-generated native dependency-usage contracts.
+`pse inspect schema --semantic-policy native-usage` reported zero structural differences and
+compatible native semantics for the exact current descriptor. Against the `757ce921c` descriptor,
+it reported structural differences and unavailable native coverage. **Tested, selected.** The
+explicit `pse tools prepare native-analysis` and `pse code session prepare --backend native-snapshot`
+prepared the `tests/fixtures/buffa-stock` project without macro builds. `pse inspect dependency-usage`
+selected the exact Buffa 0.9.2 package and returned three written references with the matching
+source SHA-256 and one library profile each, zero unavailable packages or unmapped definitions
+(`01a1be0d-bdfd-7544-a5da-40d6aca77311`). `pse code session stop` proved complete original drain
+with zero failures or limitations (`01a1be0d-f77a-73e5-b262-79a2c1c9b0b9`). Implementation uses
+targeted native routes with explicit fixture preparation and Arrow `force_validate` where consumed. Default
 independent-host, generated Rust client and engineering-service receiving closures are distinct
 checks. Independent readers and protocol clients must inspect original bytes/outcomes, not copies
 produced by the same helper under test. Measure any claimed serialization/capture benefit across
 producer, encoding, transport/storage, reader and release with declared retention/compression.
+
+The current `pse inspect developer-evidence` reader exported compact selection and full directory
+evidence from the original catalog test invocation `01a1bd70-bca1-7202-90b2-e15508b2268e`.
+`pse inspect developer-evidence-bundle` verified offline readback and
+`pse inspect developer-evidence-member` published an exact whole member. A separate scratch export
+with a same-length member mutation refused and produced no destination. The original test verdict
+and settlement remained independent of those delivery outcomes.
+
+**Tested, selected.** `scripts/pse test pse-host:pse_host pse-host:context_comparisons` with the
+default-profile report, compiler evidence, native wire and original rerun filters selected 77
+host library controls in `01a1bdba-39bb-71bf-a8c4-9c378e11e30f`. Sixty-seven passed, including
+the original failed-rerun and native wire controls. Ten fixture failures used incomplete current
+evidence or an obsolete descriptor expectation. The exact `scripts/pse test --rerun-failed`
+invocation `01a1bdc0-744b-7165-97de-ff45b928e2cb` passed all ten corrected controls against the zero
+baseline with complete settlement. The prepared Study client journey has separate receiving
+requirements and its live phase evidence is recorded under F05.
 
 No new rule waiver is introduced. Metadata/hashing/commit or Python-boundary changes require the
 coordinator's applicable decision route before implementation. Existing isolated reference and

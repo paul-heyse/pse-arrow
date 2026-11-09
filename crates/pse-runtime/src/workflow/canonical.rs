@@ -64,7 +64,7 @@ impl super::Runtime {
     }
 }
 
-/// Actual composition-root evidence supplied by a controlled worker or imported module.
+/// Actual composition-root evidence supplied by a controlled native host.
 pub struct DeploymentHost {
     /// Loaded artifact selected and reverified by the host.
     pub artifact: std::path::PathBuf,

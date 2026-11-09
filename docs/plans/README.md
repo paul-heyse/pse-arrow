@@ -14,8 +14,11 @@ own the remaining implementation and acceptance packages; follow the coordinator
 map and narrow prerequisite order. Implemented foundations are dependencies, not new work.
 Unperformed acceptance is distinguished from missing implementation.
 
-Plan66 execution is active under the maintainer's November6 instruction. The coordinator
-records integrated changes and bounded evidence; package owners retain remaining scope.
+The maintainer stopped the current 66a–f execution at the November 8 checkpoint. The
+[November 8 checkpoint](66-integrated-simulation-target.md#66af-checkpoint--november-8)
+records the current cutover, clean workspace Clippy results, interrupted runtime rerun and
+remaining receiving gates.
+The companion package tables own the remaining scope.
 Plans64/65 and their old native
 bindings remain only for separately assigned final-state reconciliation and cleanup; they
 assign no go-forward work. Retired plans likewise supply no obligations.

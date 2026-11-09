@@ -304,11 +304,7 @@ fn optional_unreceipted_executable_is_never_planned_for_execution() -> Result {
         include_str!("../../../.config/diagnostic-tools.toml"),
     )?;
     let values = Environment::from([("HOME".into(), root.path().as_os_str().to_owned())]);
-    let binary = crate::diagnostic_tools::binary_path(
-        root.path(),
-        crate::diagnostic_tools::Tool::Mcpls,
-        &values,
-    )?;
+    let binary = diagnostic_tools::binary_path(root.path(), Tool::Mcpls, &values)?;
     std::fs::create_dir_all(binary.parent().ok_or("tool parent")?)?;
     std::fs::write(&binary, b"unreceipted executable")?;
     let (checks, probes) = declarations(root.path(), &values);

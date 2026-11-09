@@ -3,7 +3,7 @@
 
 //! The pinned SurrealKit suite on a fresh native service and a separate namespace.
 
-use super::{NativeServiceError, fixture_with_schema};
+use super::{NativeServiceError, current_fixture};
 use pse_diagnostics::{SupervisedChild, SupervisionError};
 use pse_operations::{
     canonical::{CanonicalOptions, MESSAGE_BYTES},
@@ -712,7 +712,7 @@ fn verify_rejected_reports() {
 async fn surrealkit_generated_contract_uses_owned_service_and_disposes() {
     verify_rejected_reports();
     let binary = prepared_tool().unwrap();
-    let mut service = fixture_with_schema(false).unwrap();
+    let mut service = current_fixture().unwrap();
     let state = service.state().to_path_buf();
     let work_end = Instant::now() + Duration::from_secs(600);
     let settlement_end = work_end + Duration::from_secs(60);

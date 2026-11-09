@@ -1080,20 +1080,21 @@ fn actual_abandoned_close_preserves_original_native_retirement_failure() {
         let p::Failure::Diagnostic(detail) = cause else {
             panic!("typed handle retirement facts required");
         };
-        assert_eq!(detail.observations.get("action"), Some(&Observation::Text(action.into())));
-        assert_eq!(
+        assert!(matches!(detail.observations.get("action"), Some(Observation::Text(actual)) if actual == action));
+        assert!(matches!(
             detail.observations.get("generation"),
-            Some(&Observation::Text(generation.clone()))
-        );
+            Some(Observation::Text(actual)) if actual == &generation
+        ));
         assert_eq!(detail.causes.len(), 1);
         assert_eq!(detail.causes[0].causes.len(), 1);
         let keyed = &detail.causes[0].causes[0];
         assert_eq!(keyed.causes.len(), 1);
         assert_eq!(keyed.causes[0].code, pse_diagnostics::DiagnosticCode::KernelUnboundParameter);
-        assert_eq!(
+        let expected_detail = format!("provider contract: controlled native retirement failure {generation}");
+        assert!(matches!(
             keyed.causes[0].observations.get("detail"),
-            Some(&Observation::Text(format!("provider contract: controlled native retirement failure {generation}")))
-        );
+            Some(Observation::Text(actual)) if actual == &expected_detail
+        ));
     }
 }
 

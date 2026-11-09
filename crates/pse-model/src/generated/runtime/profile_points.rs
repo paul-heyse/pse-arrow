@@ -896,14 +896,12 @@ pub struct RuntimeProfilePointsRow {
     pub r#qualifiers: Vec<crate::generated::enums::CandidateQualifier>,
     ///termination
     pub r#termination: Option<crate::generated::enums::NativeTermination>,
-    ///An actual terminal callback latch, absent in historical records that did not observe it.
-    pub r#callback_terminal_failure: Option<bool>,
+    ///Whether the original pin's callback owner latched a terminal failure.
+    pub r#callback_terminal_failure: bool,
     ///failures
     pub r#failures: Vec<RuntimeProfilePointsFieldFailuresItem>,
-    ///Original assessment of this exact pin: derived completeness, declared-order experiment evidence, and only an assessment-wide interruption. Member ranges refer to this pin's retained native check/report buffers. Absent historical records remain unavailable; this observation grants no use permission.
-    pub r#original_assessment: Option<
-        crate::generated::structures::FitOriginalAssessmentObservation,
-    >,
+    ///Original assessment of this exact pin: derived completeness, declared-order experiment evidence, and only an assessment-wide interruption. Member ranges refer to this pin's retained native check/report buffers. This observation grants no use permission.
+    pub r#original_assessment: crate::generated::structures::FitOriginalAssessmentObservation,
     ///The pinned fit's objective f, half the weighted residual sum of squares.
     pub r#objective: Option<f64>,
     ///√(2·max(f - f*, 0)) against the estimate's objective f*.

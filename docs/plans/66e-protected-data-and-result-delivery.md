@@ -214,8 +214,11 @@ preparation, rerun or scientific permission. 66f remains the sole owner of those
 
 Qualify the atomic capture, witness, protection and receipt population. Cover future matching
 inserts and selector changes, same-request lost-ACK replay, stale-owner refusal, cancellation
-and unrelated lease liveness. The working tree deletes `canonical_capture_legacy` and its
-controls. The cutover refuses predecessor capture records and requires a fresh catalog.
+and unrelated lease liveness. The native entry points require the current catalog. Earlier
+catalogs require fresh initialization. The pre-epoch, v2 and v3 replay declarations, activation
+branches and fixture routes are deleted. Maintenance keeps the current module and verifies the
+complete original catalog identity, including its payload incarnation, at close and quiescence.
+Current-epoch activation retains its original receipt and physical drain contract.
 Use current `canonical_explanations` bound plan inspection and native
 `EXPLAIN FORMAT JSON`/optional `EXPLAIN ANALYZE FORMAT JSON`, with raw output and scope limits.
 Absent counters are not inferred cache misses or inner-function costs.
@@ -299,16 +302,30 @@ selected. These three decisions discharge E09's bounded choice; E01–E08/E10 an
 | E05 | in-progress | Existing original opened-file/directory owners; shared contract agreed with 66f; 66c settlement outcomes where consumed | Developer sequential delivery/offline staged publication and project actual-transfer/archive/materialized consumers are integrated. Main's four project and thirteen selected semantic/developer controls pass with complete capture/settlement and zero failures/pending/build warnings. Remaining scientific/review-pack delivery population stays open; original commitments, provisional prefixes and independent publication/release outcomes remain distinct. |
 | E06 | planned | Source diagnostic/outcome owners; 66b directional adapters; working 66c/66f producer outcomes | Complete native diagnostic/result-description and CLI/local-service/sink population. Preserve coverage, qualifiers, original attempt, typed multi-cause and detail dispositions/redaction. Migrate OTLP/Perfetto correlations from common facts, removing string classification and duplicate semantic maps without replacing external protocols. |
 | E07 | in-progress | Acquired 66f original evidence and shared source-fact projections; E06 needed facts | Original invocation/diagnostic analysis and typed prerequisite facts are integrated on main. Fourteen focused controls, full combined generation and selected 23-control main receiving pass. Main's explicitly prepared immutable reader now also returns seven prerequisite patterns over two original members; every original pointer/commitment is checked. Exact member/hash/pointer, absent/empty/Unknown and settlement distinctions remain. Private per-group cause trees and broader analytical population stay open; an empty joined failure tree is not absence of all causes. |
-| E08 | in-progress | Implemented atomic capture, witness and receipt; actual study consumers | Finish current capture receiving, including future membership and selector updates, both retirement orderings and complete paging. The predecessor recovery and cleanup obligation is removed. |
+| E08 | complete | Implemented atomic capture, witness and receipt; actual study consumers | Current catalog admission and exact same-schema epoch settlement replace predecessor migration. Actual controls passed for foreign admission refusal, current receipt recovery, future membership and selector updates, both retirement orderings, complete paging and scale rollback. |
 | E09 | complete | Concrete consumer/workload inventory; current plan inspection; DRE04/DRE06 alternatives | Retain current witness, local immutable archive and native immediate-neighborhood queries for the identified current consumers, with source-backed dependency/scope limits and observable reopening triggers above. No narrower-guard equivalence, remote backend or transitive-graph qualification is inferred. |
 | E10 | planned | E01–E08 selected migrations; E09 dispositions; relevant 66b/66c/66f/science consumers | Reconcile exact producer→publication→query→protected read→original interpretation→delivery→release population, deletions and enduring recovery guidance. Supply required evidence to 66l, including late failures and assembled cross-domain journeys below. Targeted success closes only its named population; scope-end qualification and claimed-benefit measurements remain separately identified. |
 
 ## Migration, recovery and acceptance
 
-The working tree adds verified review-pack transfer, staging ownership, typed independent
-publication failures and original developer dependency facts. Finish the current-only pack
-and evidence readers, regenerate their affected contracts and run their native controls.
-The latest combined runtime invocation was cancelled before compilation.
+Available review-pack members require the exact finalized extent and a digest, including
+empty members. Whole-member delivery verifies the transferred bytes. A failed member's
+acknowledged prefix has a separate provisional reader. Live export admits regular file
+descriptors before staging, including when given a path to a FIFO with no peer. Run the
+native pack and developer evidence controls against the regenerated current contracts.
+
+Source publication closes the staged manifest through bounded pages of exact version IDs.
+Initial activation proves membership absence under the same head and retention guards, then
+checks the complete incoming namespace for duplicate names. Existing heads also check each
+surviving name. Both paths retain the original manifest, guard and immutable receipt checks,
+and share the same 90-second original publication clock.
+
+**Tested, selected.** `scripts/pse test pse-operations --lib --features
+canonical-maintenance,native-service` passed all six staging and atomic publication controls
+in the default profile with force validation and complete original settlement
+(`01a1be1d-de2b-7631-81c2-21cbb8f9e80f`). The controls cover the wire bound, atomic inventory,
+exact replay and stale-head fencing. The full protected aqueous receiving case still needs a run
+under its original deadline.
 
 **Tested, selected:** the three canonical snapshot pruning controls passed in
 `01a1bd26-6f64-7207-8da5-08ef8c807c89`. The snapshot provider checks its complete
@@ -318,6 +335,25 @@ full typed path for callers requiring full native admission. Sparse takes share
 the existing allocation-owning Arrow take core. The combined native command and
 remaining aqueous failure are recorded in [66a verification](66a-scientific-operations-and-product-semantics.md#verification-and-outcome).
 [Snapshot provider](../../crates/pse-runtime/src/workflow/result_snapshot.rs)
+
+**Tested, selected.** `scripts/pse test pse-operations:pse_operations
+pse-operations:native_service --features canonical-maintenance,native-service` passed all 23
+selected current-catalog controls in default mode with force-validation, zero failures and
+complete settlement (`01a1bd8c-a526-7500-93b5-595595b0b78e`). This includes foreign version and
+payload refusal before maintenance, current-epoch writer and receipt settlement, both capture
+and retirement commit orders, and future membership and selector updates. The first run's
+foreign-marker control hit the epoch fence on its ordinary query. The revised control uses
+an independent authenticated connection to inspect the disposable fixture. Scale paging is a
+separate selection.
+
+**Tested, selected.** The latest source activation checks passed all five native staging and
+publication controls. Their first wire-size unit control used overlong identifiers and was fixed.
+`scripts/pse test pse-operations --lib --features canonical-maintenance,native-service --profile local`
+then passed both the corrected wire-size unit and the isolated 10,000-member capture paging and
+receipt control (`01a1bdc4-e1ed-7484-8da8-3b2b16f5d5b7`). The same command mode, with the
+separate `capture_native_10000_phase_profile_rolls_back_complete_host_sql` filter, passed the
+10,000-member rollback control (`01a1bdce-dcaf-72bf-a07b-f0245e33f0d4`). Both runs had zero
+failures and complete settlement.
 
 **Tested, partial:** `scripts/pse test pse-operations --lib --features
 canonical-maintenance,native-service` with the staging, atomic-capture and legacy

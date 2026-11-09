@@ -4308,7 +4308,7 @@ mod exact_constant_tests {
                     let Value::Select(select) =
                         nested_predicate_select(&mut builder, comparison, left, right, one, zero)
                     else {
-                        unreachable!()
+                        panic!("expected a selection for the nonzero comparison")
                     };
                     let truth = builder.comparison(&select, negate).unwrap();
                     assert!(matches!(truth, Truth::When(ref predicates, true)
@@ -4366,7 +4366,7 @@ mod exact_constant_tests {
                         one,
                         zero,
                     ) else {
-                        unreachable!()
+                        panic!("expected a selection for the exact nonzero comparison")
                     };
                     let Truth::When(predicates, true) = builder.comparison(&select, false).unwrap()
                     else {
@@ -4632,7 +4632,7 @@ mod exact_constant_tests {
                         let expected = match comparison {
                             Comparison::Eq => x < 0.,
                             Comparison::Ne => x >= 0.,
-                            _ => unreachable!(),
+                            _ => panic!("expected an equality or inequality comparison"),
                         };
                         assert_eq!(
                             nested_predicate_truth_at(&truth, &builder.nodes, &[x]),

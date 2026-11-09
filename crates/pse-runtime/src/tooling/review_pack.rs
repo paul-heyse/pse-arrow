@@ -299,7 +299,7 @@ pub struct PackMember {
     pub readable_bytes: u64,
     /// Whether the selected member writer completed and drained.
     pub finalized: bool,
-    /// Plain BLAKE3 commitment of the finalized bytes. Retained predecessors have no commitment.
+    /// Plain BLAKE3 commitment, required for every available member, including an empty one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub digest: Option<pse_ids::ContentHash>,
 }
@@ -533,9 +533,7 @@ fn validate_selection(selection: &PackSelection) -> Result<(), PackError> {
                 (PackMemberRole::Context, PackFormat::Json) => Some(&[1]),
                 (PackMemberRole::Capture | PackMemberRole::Detail, PackFormat::Json) => Some(&[2]),
                 (PackMemberRole::Detail, PackFormat::JsonLines) => Some(&[2]),
-                // Retained query documents use v1; current investigation export
-                // uses v2. The declared codec must still match the actual bytes.
-                (PackMemberRole::Query, PackFormat::Json) => Some(&[1, 2]),
+                (PackMemberRole::Query, PackFormat::Json) => Some(&[2]),
                 _ => None,
             };
             if version == 0 || supported.is_some_and(|supported| !supported.contains(&version)) {
@@ -1033,13 +1031,22 @@ impl PackSession {
     }
     /// Export only explicitly supplied prefix inputs. Source opening failures are indexed.
     pub fn copy_file(&mut self, input: &PackFileInput) -> Result<(), PackError> {
+        use rustix::fs::{Mode, OFlags};
         let pos = self.position(&input.member)?;
-        let file = match File::open(&input.path) {
-            Ok(file) => file,
-            Err(source) => {
-                return Err(self.fail_at(pos, PackError::Io(source), None, Some(0)));
-            }
-        };
+        let file = self
+            .checkpoint()
+            .and_then(|()| {
+                // Keep explicit source paths resolvable through symlinks. A FIFO
+                // must reach descriptor admission even without a writer.
+                rustix::fs::open(
+                    &input.path,
+                    OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NONBLOCK,
+                    Mode::empty(),
+                )
+                .map(File::from)
+                .map_err(|error| PackError::Io(error.into()))
+            })
+            .map_err(|error| self.fail_at(pos, error, None, Some(0)))?;
         self.copy_prefix(&input.member, file, input.readable_prefix_bytes)
     }
     /// Copy exactly an acknowledged immutable prefix from an explicitly supplied open file.
@@ -1062,6 +1069,9 @@ impl PackSession {
                     | PackMemberRole::Report
             ) {
                 return Err(invalid("typed selected member requires its owner exporter"));
+            }
+            if !source.metadata()?.is_file() {
+                return Err(invalid("supplied pack member source must be a regular file"));
             }
             if readable_bytes
                 > self
@@ -1451,16 +1461,12 @@ impl PackReader {
                 return Err(invalid("member path outside indexed member directory"));
             }
             if member.availability == PackAvailability::Available {
-                if !member.finalized {
-                    return Err(invalid("available member lacks finalization"));
+                if !member.finalized || member.digest.is_none() {
+                    return Err(invalid("available member lacks a finalized commitment"));
                 }
                 let file = open_contained(&directory, &member.relative_path)?;
                 let metadata = file.metadata()?;
-                if !metadata.is_file()
-                    || metadata.len() < member.readable_bytes
-                    || (index.publication == PackPublication::Sealed
-                        && metadata.len() != member.readable_bytes)
-                {
+                if metadata.len() != member.readable_bytes {
                     return Err(invalid("indexed byte boundary differs from available file"));
                 }
                 validate_encoding(member, file, member.readable_bytes, maximum_document_bytes)?;
@@ -1582,15 +1588,14 @@ impl PackReader {
         let member = self.member(id).map_err(|_| rejected("unindexed member"))?;
         copy_member(&self.directory, member, output, || pack_copy_checkpoint(cancel))
     }
-    /// Open the indexed acknowledged prefix for inspection or scientific decoding.
-    /// Use `copy_member_verified` for a complete delivery receipt.
-    pub fn open_member(&self, id: &str) -> Result<std::io::Take<File>, PackError> {
+    /// Open only an acknowledged provisional prefix of a failed member.
+    /// Available members use `copy_member_verified`.
+    pub fn open_provisional_member(&self, id: &str) -> Result<std::io::Take<File>, PackError> {
         let member = self.member(id)?;
-        if member.availability != PackAvailability::Available
-            && !(matches!(member.availability, PackAvailability::Failed { .. })
-                && member.readable_bytes > 0)
+        if !matches!(member.availability, PackAvailability::Failed { .. })
+            || member.readable_bytes == 0
         {
-            return Err(invalid("selected member unavailable"));
+            return Err(invalid("selected member has no provisional prefix"));
         }
         let file = open_contained(&self.directory, &member.relative_path)?;
         if file.metadata()?.len() < member.readable_bytes {
@@ -1673,12 +1678,6 @@ fn decode_member<T: serde::de::DeserializeOwned>(
 ) -> Result<T, PackError> {
     if member.availability != PackAvailability::Available || member.readable_bytes > maximum as u64 {
         return Err(invalid("typed member is unavailable or exceeds the document allowance"));
-    }
-    if member.digest.is_none() {
-        return decode(
-            open_contained(directory, &member.relative_path)?.take(member.readable_bytes),
-            maximum,
-        );
     }
     let mut bytes = Vec::new();
     copy_member(directory, member, &mut bytes, || Ok(()))?;

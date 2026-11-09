@@ -23,9 +23,11 @@ use pse_model::generated::runtime::{
 };
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
+use surrealdb_protocol::proto::v1 as proto;
 #[cfg(test)]
 use surrealdb_types::QueryError;
 use surrealdb_types::{Object, Value};
+use surrealdb_types::prost::Message as _;
 
 /// Each native request/response carries one source block below the protocol limit.
 pub const SOURCE_BLOCK_BYTES: usize = 512 * 1024;
@@ -42,13 +44,11 @@ pub(crate) const IDENTITY_BYTES: usize = 4096;
 #[cfg(test)]
 const MUTATION_CONFLICT_ATTEMPTS: usize = 32;
 const STAGE_LIFETIME: Duration = Duration::from_secs(300);
-// Eight small edits, each with at most sixteen bounded references and 64 KiB
-// of bytes, fit below the 3 MiB submission budget even at the identity limit.
-// They use the same immutable guards and declarations as separately blocked
-// versions, but share one durable transaction and transport round trip.
-const SMALL_STAGE_EDITS: usize = 8;
+// Bound the work of one guarded transaction independently of its wire extent.
+const SMALL_STAGE_EDITS: usize = 64;
 const SMALL_STAGE_BYTES: usize = 64 * 1024;
 const SMALL_STAGE_REFERENCES: usize = 16;
+const SMALL_STAGE_WIRE_BYTES: usize = crate::canonical::PAYLOAD_BYTES - 64 * 1024;
 
 /// Maximum selected source manifests in one protected acquisition frontier.
 pub const SELECTED_OBJECT_BATCH: usize = 64;
@@ -546,6 +546,41 @@ fn staging_item(
     Ok(Some(Value::Object(item)))
 }
 
+#[derive(Default)]
+struct SmallStageBatch {
+    items: Vec<Value>,
+    wire_bytes: usize,
+}
+
+impl SmallStageBatch {
+    fn take(&mut self) -> Vec<Value> {
+        self.wire_bytes = 0;
+        std::mem::take(&mut self.items)
+    }
+
+    fn push(&mut self, item: Value) -> Result<Option<Vec<Value>>, CanonicalError> {
+        // Include the array entry's protobuf tag and length prefix. The separate
+        // reserve covers the array wrapper, guarded SQL, bindings and framing.
+        let extent = proto::Value::try_from(item.clone())
+            .map_err(|error| CanonicalError::Configuration(error.to_string()))?
+            .encoded_len()
+            + 8;
+        if extent > SMALL_STAGE_WIRE_BYTES {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        let previous = if self.items.len() == SMALL_STAGE_EDITS
+            || self.wire_bytes + extent > SMALL_STAGE_WIRE_BYTES
+        {
+            Some(self.take())
+        } else {
+            None
+        };
+        self.items.push(item);
+        self.wire_bytes += extent;
+        Ok(previous)
+    }
+}
+
 impl CanonicalStore {
     pub(crate) async fn stage_edits(
         &self,
@@ -871,19 +906,16 @@ impl CanonicalStore {
         plan: &EditPlan,
         edits: &[ObjectEdit],
     ) -> Result<(), CanonicalError> {
-        let mut batch = Vec::with_capacity(SMALL_STAGE_EDITS);
+        let mut batch = SmallStageBatch::default();
         for (ordinal, (change, edit)) in plan.changes.iter().zip(edits).enumerate() {
             if let Some(item) = staging_item(token, ordinal, change, edit)? {
-                batch.push(item);
-                if batch.len() == SMALL_STAGE_EDITS {
-                    self.stage_small_edits(token, std::mem::take(&mut batch))
-                        .await?;
+                if let Some(previous) = batch.push(item)? {
+                    self.stage_small_edits(token, previous).await?;
                 }
                 continue;
             }
-            if !batch.is_empty() {
-                self.stage_small_edits(token, std::mem::take(&mut batch))
-                    .await?;
+            if !batch.items.is_empty() {
+                self.stage_small_edits(token, batch.take()).await?;
             }
             self.stage_metadata(token, ordinal, change).await?;
             if let (Some(description), Some(version)) = (&change.version, &edit.version) {
@@ -891,8 +923,8 @@ impl CanonicalStore {
                     .await?;
             }
         }
-        if !batch.is_empty() {
-            self.stage_small_edits(token, batch).await?;
+        if !batch.items.is_empty() {
+            self.stage_small_edits(token, batch.take()).await?;
         }
         self.close_stage(token).await?;
         Ok(())
@@ -1972,11 +2004,11 @@ UPSERT $version_guard SET key = 'version:' + $version, generation = (generation 
 
 const CLOSE_STAGE: &str = r#"LET $edits = SELECT * FROM canonical_staged_edits WHERE stage = $operation ORDER BY ordinal LIMIT /* EDIT_SCAN_LIMIT */;
 IF array::len($edits) != $lease.edit_count OR array::len($edits) > /* EDIT_LIMIT */ { THROW 'PSE_REFUSAL:staged_metadata_manifest_incomplete'; };
-FOR $edit IN $edits {
-    IF $edit.version != NONE {
-        LET $header = SELECT * FROM ONLY type::record('canonical_version_manifests', $edit.version);
-        IF $header = NONE OR $header.closed = false { THROW 'PSE_REFUSAL:staged_source_manifest_incomplete'; };
-    };
+LET $versions = array::distinct($edits.filter(|$edit| $edit.version != NONE).version);
+FOR $page IN array::clump($versions, 64) {
+    LET $records = $page.map(|$version| type::record('canonical_version_manifests', $version));
+    LET $closed = SELECT id FROM $records WHERE closed = true;
+    IF array::len($closed) != array::len($records) { THROW 'PSE_REFUSAL:staged_source_manifest_incomplete'; };
 };
 IF $lease.closed = false { UPDATE type::record('canonical_stages', $operation) SET closed = true; };"#;
 
@@ -2177,14 +2209,11 @@ mod canonical_staging_unit {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[test]
-    fn full_width_small_edit_batch_stays_inside_the_native_request_envelope() {
-        use surrealdb_protocol::proto::v1 as proto;
-        use surrealdb_types::prost::Message as _;
-
+    fn small_edit_batch_bounds_exact_wire_extent_and_transaction_work() {
         let identity = "x".repeat(IDENTITY_BYTES);
         let edits = (0..SMALL_STAGE_EDITS)
             .map(|ordinal| {
-                let logical = format!("{ordinal}{}", &identity[1..]);
+                let logical = format!("{ordinal:02}{}", &identity[2..]);
                 ObjectEdit {
                     logical: logical.clone(),
                     scope: identity.clone(),
@@ -2213,18 +2242,26 @@ mod canonical_staging_unit {
             request_digest: plan.request_digest.clone(),
             lifetime_micros: STAGE_LIFETIME.as_micros().try_into().unwrap(),
         };
-        let items = plan
-            .changes
-            .iter()
-            .zip(&edits)
-            .enumerate()
-            .map(|(ordinal, (change, edit))| {
-                staging_item(&stage, ordinal, change, edit).unwrap().unwrap()
-            })
-            .collect::<Vec<_>>();
-        let items = proto::Value::try_from(Value::Array(items.into())).unwrap();
-        // Reserve space for the guarded SQL, stage bindings and RPC framing.
-        assert!(items.encoded_len() + 64 * 1024 <= crate::canonical::PAYLOAD_BYTES);
+        let mut batch = SmallStageBatch::default();
+        let mut chunks = Vec::new();
+        for (ordinal, (change, edit)) in plan.changes.iter().zip(&edits).enumerate() {
+            let item = staging_item(&stage, ordinal, change, edit).unwrap().unwrap();
+            chunks.extend(batch.push(item).unwrap());
+        }
+        chunks.push(batch.take());
+        assert!(chunks.len() > 1);
+        assert_eq!(chunks.iter().map(Vec::len).sum::<usize>(), edits.len());
+        for chunk in chunks {
+            let items = proto::Value::try_from(Value::Array(chunk.into())).unwrap();
+            assert!(items.encoded_len() <= SMALL_STAGE_WIRE_BYTES);
+        }
+
+        for _ in 0..SMALL_STAGE_EDITS {
+            assert!(batch.push(Value::Object(Object::new())).unwrap().is_none());
+        }
+        let full = batch.push(Value::Object(Object::new())).unwrap().unwrap();
+        assert_eq!(full.len(), SMALL_STAGE_EDITS);
+        assert_eq!(batch.take().len(), 1);
     }
 
     fn rejected_mutation() -> CanonicalError {

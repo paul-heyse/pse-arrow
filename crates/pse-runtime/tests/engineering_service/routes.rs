@@ -400,10 +400,26 @@ async fn prepared_engineering_study_client_simulation_fit_and_horizon_keep_origi
         .find(|member| member.lineage.path.ends_with(".rate"))
         .unwrap()
         .id;
+    let state_declaration = DeclarationId::from_id(SemanticId::from_bytes(
+        source_headers
+            .declarations
+            .iter()
+            .find(|row| row.name == "total")
+            .unwrap()
+            .declaration
+            .as_slice()
+            .try_into()
+            .unwrap(),
+    ));
+    // The integrated derivative has its own generated Variable coordinate.
+    // The physical state is the coordinate of the original authored variable.
     let states = inspection
         .members
         .iter()
-        .filter(|member| member.role == ModelingDeclarationKind::Variable)
+        .filter(|member| {
+            member.role == ModelingDeclarationKind::Variable
+                && member.lineage.declaration == state_declaration
+        })
         .collect::<Vec<_>>();
     assert_eq!(
         states.len(),
@@ -503,14 +519,13 @@ async fn prepared_engineering_study_client_simulation_fit_and_horizon_keep_origi
     };
     let mut incompatible = prepare.clone();
     incompatible.operation.push_str("-physical-refusal");
-    let StudyInputs::Explicit(points) = &mut incompatible.request.inputs else {
-        panic!("explicit source fixture")
-    };
-    let OperationRequest::Horizon(request) = &mut points[2].operation else {
-        panic!("original horizon")
-    };
-    request.inputs[0].initial.quantity = length.quantity.id;
-    request.inputs[0].initial.unit = length.canonical_unit.id;
+    let mut incompatible_horizon = horizon;
+    incompatible_horizon.inputs[0].initial.quantity = length.quantity.id;
+    incompatible_horizon.inputs[0].initial.unit = length.canonical_unit.id;
+    incompatible.request.inputs = StudyInputs::Explicit(vec![point(
+        OperationRequest::Horizon(Box::new(incompatible_horizon)),
+        3,
+    )]);
     let refused = failure(
         client
             .generated()
@@ -520,7 +535,8 @@ async fn prepared_engineering_study_client_simulation_fit_and_horizon_keep_origi
     );
     assert_eq!(
         refused.rule.as_deref(),
-        Some(pse_diagnostics::DiagnosticRule::StudyBindingPhysical.as_str())
+        Some(pse_diagnostics::DiagnosticRule::StudyBindingPhysical.as_str()),
+        "original Horizon admission refusal: {refused:?}"
     );
     assert_eq!(
         refused.code,

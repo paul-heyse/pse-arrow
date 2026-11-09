@@ -163,20 +163,26 @@ point-product accuracy and derivative permission still need their own original e
 
 The Case entry now identifies the authored case when its integration procedure requires the
 Simulation entry and integration controls. Its paired control is in the aqueous protected
-journey. Current receiving stops during canonical source publication with `SourceEditUnsettled`
-after the driver reports `ConnectionFailed` and an unknown server outcome. Explicit setup
-settlement exposes that original error, which was previously masked by fallback fixture drain.
-The scientific assertions in this receiving run remain pending while original source publication
-is unresolved. The separate standalone sampled-value control passed under native Diffsol.
+journey. The latest receiving run completed source staging and reached canonical activation.
+The original 90-second publication clock expired before activation produced an immutable receipt,
+and original readback could not dispatch on the expired clock. This occurred while publishing
+the initial authored package, before project fork or solver execution. The separate standalone
+sampled-value control and the local four-cell original physical-clock control passed under native
+Diffsol. The local control used the default profile and force validation in invocation
+`01a1bdf2-e013-7126-9634-28bb9baf13d8`, with complete settlement.
+The latest guarded source-publication changes passed the selected
+[66e controls](66e-protected-data-and-result-delivery.md#migration-recovery-and-acceptance).
+The full aqueous export and portable read still need receiving after the maintainer stopped the
+combined runtime rerun described in the [Plan 66 checkpoint](66-integrated-simulation-target.md#66af-checkpoint--november-8).
 
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | A01 | in-progress | Existing declared/prepared/completion owners; first scientific and developer consumers | First passive result and bounded physical inventory consuming agreements are recorded; remaining operation/input/product gaps follow their actual consumers without replacing working admission. |
-| A02 | in-progress | A01; actual fit/Study/trajectory product producers | Fit and standalone consumers now share exact sampled-output lookup under original member permission. Verify the current profile contract and finish broader point/product authority and Study receiving. |
+| A02 | in-progress | A01; actual fit/Study/trajectory product producers | Fit and standalone consumers share exact sampled-output lookup under original member permission. The selected Study control checks the original result identity and sibling refusal. Verify the current profile and Study controls, then finish the broader point and product authority population. |
 | A03 | planned | Selected G/H/I physical consumers | Extend material/coordinate and physical operating-program contracts only at exposed shared gaps; retain explicit unsupported combinations and datum/derivative premises. |
-| A04 | in-progress | A01/A03; J mixed experiments | The working tree binds exact authored later intervals to local fit axes and keeps the initial interval as the current default when the field is absent. Finish generation and run mixed steady/transient, replay and wrong-boundary controls. |
+| A04 | in-progress | A01/A03; J mixed experiments | The mixed steady/transient control checks that the current portable inputs reconstruct the exact authored later interval and forward axes. An absent selection still uses the initial interval. Run the native and replay controls, including refusal of a caller-only schedule. |
 | A05 | planned | A02/A04; E/F and selected G–K deliveries | Finish changed consumer population and remove superseded mode/scope interpretations; update enduring contracts through applicable decision routes. |
 
 Packages consume narrow working prerequisites rather than entire companions. In particular,

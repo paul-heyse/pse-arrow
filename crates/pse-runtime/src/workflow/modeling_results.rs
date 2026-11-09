@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Original-space authored solves use the same retained result and publication boundary.
-use super::{RunRequest, RunResult, WorkflowError, contract, relation};
+use super::{RunDurability, RunRequest, RunResult, WorkflowError, contract, relation};
 use crate::math::solves::Outcome;
 #[cfg(test)]
 use pse_ids::SemanticId;
@@ -10,7 +10,7 @@ use pse_relations::generated::{
     enums::DualQualification,
     runtime::{
         incumbents, infeasibility_certificates as certificates, modeling_checks, modeling_findings,
-        modeling_reports, solution_pool as pool, solve_constraints as constraints,
+        modeling_reports, provider_selections, solution_pool as pool, solve_constraints as constraints,
         solve_metrics as metrics, solve_runs as runs, solve_strategy_events,
         solve_variables as variables,
     },
@@ -79,6 +79,9 @@ impl RunResult {
             .map_err(relation)?;
         collection
             .ensure::<modeling_findings::Row>()
+            .map_err(relation)?;
+        collection
+            .ensure::<provider_selections::Row>()
             .map_err(relation)?;
         if let Ok(super::RunReport::Initialization(report)) = self.report() {
             use pse_relations::generated::runtime::modeling_initializations;
@@ -168,6 +171,17 @@ impl RunResult {
             let original = self.modeling_step(ordinal);
             let step = original as i64;
             let result = self.modeling_result(ordinal);
+            if projection.wants(provider_selections::RELATION_ID)
+                && let Some(result) = result
+            {
+                let attempt = match self.durability() {
+                    RunDurability::Ephemeral => None,
+                    RunDurability::Durable(record) => Some(record.attempt_id),
+                };
+                result
+                    .project_provider_selections(self.run_id, attempt, step, &mut collection)
+                    .await?;
+            }
             let trace = result
                 .and_then(|result| result.strategy.as_ref())
                 .or_else(|| {

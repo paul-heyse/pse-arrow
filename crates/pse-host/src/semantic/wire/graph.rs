@@ -233,27 +233,27 @@ pub(super) fn answer_to_pb(value: GraphAnswer) -> Result<pb::NativeGraphAnswer> 
         nodes: value
             .nodes
             .into_iter()
-            .map(|node| pb::NativeGraphNode {
-                location: native_location_to_pb(node.location).into(),
+            .map(|node| Ok(pb::NativeGraphNode {
+                location: native_location_to_pb(node.location)?.into(),
                 name: node.name,
                 source_sha256: node.source_sha256,
                 declaration: node.declaration,
                 ..Default::default()
-            })
-            .collect(),
+            }))
+            .collect::<Result<_>>()?,
         witnesses: value
             .witnesses
             .into_iter()
-            .map(|w| pb::NativeGraphWitness {
-                location: w.location.map(native_location_to_pb).into(),
+            .map(|w| Ok(pb::NativeGraphWitness {
+                location: w.location.map(native_location_to_pb).transpose()?.into(),
                 source_sha256: w.source_sha256,
                 role: role_to_pb(w.role).into(),
                 declared_type: w.declared_type,
                 instantiated_type: w.instantiated_type,
                 limitations: w.limitations,
                 ..Default::default()
-            })
-            .collect(),
+            }))
+            .collect::<Result<_>>()?,
         traversal: pb::NativeGraphTraversal {
             reached: t
                 .reached

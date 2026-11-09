@@ -8,6 +8,7 @@ use schemars::JsonSchema;
 use serde::Serialize;
 
 const RECORDED_RESULT_FILE: &str = "recorded_result.proto";
+const NATIVE_USAGE_FILE: &str = "pse/code_intelligence/v1/native_usage.proto";
 #[path = "../../generated/recorded-result-policy/native-policy.rs"]
 #[rustfmt::skip]
 #[allow(unreachable_pub, reason = "generated policy constants are private to this comparator")]
@@ -28,6 +29,21 @@ impl DescriptorPolicy for RecordedResultPolicy {
     }
 }
 
+struct NativeUsagePolicy;
+impl metadata::InterpretationPolicy for NativeUsagePolicy {
+    fn name(&self) -> &str {
+        "pse.code_intelligence.v1/native-usage"
+    }
+    fn supports_interpretation(&self, subject: &str, version: u32) -> bool {
+        crate::code_intelligence_contracts::native_policy::INTERPRETATIONS.contains(&(subject, version))
+    }
+}
+impl DescriptorPolicy for NativeUsagePolicy {
+    fn native_selection(&self) -> Option<pse_contract_proto::NativeSelection<'_>> {
+        Some(crate::code_intelligence_contracts::native_policy::NATIVE_SELECTION)
+    }
+}
+
 /// An explicitly selected available native policy, never supplied by acquired options.
 #[derive(Clone, Copy, Debug, Default, clap::ValueEnum)]
 pub enum Policy {
@@ -38,6 +54,8 @@ pub enum Policy {
     DeveloperEvidence,
     /// Original recorded-result observation metadata for the explicitly selected result file.
     RecordedResult,
+    /// Source-owned dependency usage and its shared native context declarations.
+    NativeUsage,
 }
 /// A conclusion under the selected policy, independent of wire compatibility.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, JsonSchema)]
@@ -139,6 +157,14 @@ pub fn assess(
                 &RecordedResultPolicy,
                 true,
             )
+        }
+        Policy::NativeUsage => {
+            if selected_files.iter().any(|file| file != NATIVE_USAGE_FILE) {
+                return Err(SchemaError::Invalid(
+                    "native-usage policy covers only the source-owned native_usage.proto file".into(),
+                ));
+            }
+            compare_with_policy(current, baseline, selected_files, &NativeUsagePolicy, true)
         }
     }
 }
@@ -296,6 +322,20 @@ mod tests {
                 .iter()
                 .any(|finding| finding.reason.contains("interpretation"))
         );
+    }
+
+    #[test]
+    fn native_usage_semantics_refuses_foreign_file_and_requires_original_interpretation() {
+        let original = FileDescriptorSet::decode_from_slice(crate::code_intelligence_contracts::DESCRIPTORS).unwrap();
+        let world = bundle(&original);
+        let file = [NATIVE_USAGE_FILE.into()];
+        let assessment = assess(&world, &world, &file, Policy::NativeUsage).unwrap();
+        assert_eq!(assessment.disposition, Disposition::Compatible, "{assessment:?}");
+        assert!(assessment.native_coverage_available);
+        assert!(assess(&world, &bundle(&source()), &[FILE.into()], Policy::NativeUsage).is_err());
+        let unsupported = with_unknown_version(&original, NATIVE_USAGE_FILE, "NativeDependencyUsageAnswer");
+        let assessment = assess(&world, &bundle(&unsupported), &file, Policy::NativeUsage).unwrap();
+        assert_eq!(assessment.disposition, Disposition::Unknown, "{assessment:?}");
     }
 
     #[test]

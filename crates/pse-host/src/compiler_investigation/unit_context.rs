@@ -188,7 +188,12 @@ mod tests {
             native_capabilities: Default::default(),
         })
         .unwrap();
-        let report = serde_json::json!({"version":1,"invocation":id,"action":"check","outcome":"check_succeeded","selection":{},"admission":[group.clone(),group],"phases":[],"observations":[],"required_capture_complete":true,"failures":[]});
+        let report = serde_json::json!({
+            "version":3,"invocation":id,"action":"check","outcome":"check_succeeded",
+            "selection":{},"admission":[group.clone(),group],"phases":[],"observations":[],
+            "required_capture_complete":true,"failures":[],
+            "evidence":[{"root":"invocation","path":"workflow-input.json","role":"input","omission":"unsettled"}]
+        });
         let bytes = serde_json::to_vec(&report).unwrap();
         use crate::test_workflow::execute::{Outcome, ReportReference, TerminalRecord};
         let terminal = TerminalRecord {

@@ -212,38 +212,6 @@ impl StudyModuleReceipt {
         receipt.study_module.validate(state)?;
         Ok(receipt.study_module)
     }
-    pub(crate) fn read_migration_source(
-        state: &Path,
-        expected: &str,
-    ) -> Result<Self, CanonicalError> {
-        let selected = Self::read(state)?;
-        if selected.sha256 == expected {
-            return Ok(selected);
-        }
-        #[derive(Deserialize)]
-        struct Selection {
-            schema_migration_predecessor: StudyModuleReceipt,
-        }
-        let bytes = std::fs::read(state.join("config.json")).map_err(invalid)?;
-        let selection: Selection = serde_json::from_slice(&bytes).map_err(invalid)?;
-        selection.schema_migration_predecessor.validate(state)?;
-        if selection.schema_migration_predecessor.sha256 != expected {
-            return Err(invalid("original migration module differs"));
-        }
-        Ok(selection.schema_migration_predecessor)
-    }
-    pub(crate) fn read_migration_target(state: &Path) -> Result<Option<Self>, CanonicalError> {
-        #[derive(Deserialize)]
-        struct Selection {
-            schema_migration_target: Option<StudyModuleReceipt>,
-        }
-        let bytes = std::fs::read(state.join("config.json")).map_err(invalid)?;
-        let selection: Selection = serde_json::from_slice(&bytes).map_err(invalid)?;
-        if let Some(receipt) = &selection.schema_migration_target {
-            receipt.validate(state)?;
-        }
-        Ok(selection.schema_migration_target)
-    }
     #[cfg(any(test, feature = "native-service"))]
     pub(crate) fn read_qualification(state: &Path) -> Result<Self, CanonicalError> {
         use std::os::unix::fs::{MetadataExt, OpenOptionsExt};

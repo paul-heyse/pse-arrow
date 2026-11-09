@@ -14,21 +14,12 @@ use futures_util::FutureExt;
 use pse_admission::authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned};
 use pse_runtime::{
     CancelSource,
-    workflow::{ModelingPackage, SourceDelta},
+    workflow::{ModelingPackage, OriginalSourceFileRequest, SourceDelta},
 };
-use reference_support::{NativeContext, Result, root};
+use reference_support::{NativeContext, Result};
 use std::{collections::BTreeMap, panic::AssertUnwindSafe};
 
 const SOURCE: &str = "package reload {param a:Scalar=1;}";
-fn sources() -> Result<BTreeMap<String, Vec<u8>>> {
-    let manifest = std::fs::read_to_string(root().join("tests/fixtures/packages/minimal_explicit/package.toml"))?
-        .replace("id_policy = \"explicit\"", "id_policy = \"named\"")
-        .replace("dependencies = []", "dependencies = [{ package_id = \"5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a\", version_req = { operator = \"exact\", major = 1, minor = 0, patch = 0 } }]");
-    Ok(BTreeMap::from([
-        ("package.toml".into(), manifest.into_bytes()),
-        ("models/model.pse".into(), SOURCE.as_bytes().to_vec()),
-    ]))
-}
 async fn fresh(
     context: &NativeContext,
     original: &ModelingPackage,
@@ -93,10 +84,27 @@ async fn public_parsed_reload_preserves_exact_parent_and_complete_immutable_hist
 {
     let context = NativeContext::new()?;
     let body = AssertUnwindSafe(async {
-        let package = context.package(SOURCE).await?;
+        let (package, _) = context.package(SOURCE).await?;
         let services = context.runtime.source_services();
         let cancel = CancelSource::new();
-        let original = sources()?;
+        let package_id = pse_ids::SemanticId::parse_hex("01991d6a13a070008000000000000001")?;
+        let mut original = BTreeMap::new();
+        for path in ["package.toml", "models/model.pse"] {
+            let selected = package
+                .original_source_file(
+                    &context.runtime.preparation_services(),
+                    &OriginalSourceFileRequest {
+                        parent: package.revision_id().into(),
+                        package: package_id,
+                        path: path.into(),
+                        maximum_bytes: 1 << 20,
+                    },
+                    &cancel,
+                )
+                .await?;
+            original.insert(path.into(), selected.document().body.clone());
+        }
+        assert_eq!(original["models/model.pse"], SOURCE.as_bytes());
         let original_rows = inventory(&context, &package).await?;
         let original_source = revision(&context, &package).await?;
         let same = Box::pin(package.reload_from_parent(
@@ -112,8 +120,12 @@ async fn public_parsed_reload_preserves_exact_parent_and_complete_immutable_hist
             "models/a.pse".into(),
             b"package earlier {param b:Scalar=2;}".to_vec(),
         );
-        let changed =
-            Box::pin(package.reload_from_parent(&services, &[expanded.clone()], &cancel)).await?;
+        let changed = Box::pin(package.reload_from_parent(
+            &services,
+            std::slice::from_ref(&expanded),
+            &cancel,
+        ))
+        .await?;
         let independent = fresh(&context, &package, &expanded).await?;
         assert_ne!(changed.revision_id(), package.revision_id());
         let changed_rows = inventory(&context, &changed).await?;

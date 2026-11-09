@@ -355,12 +355,7 @@ pub(super) fn generate(
     set: &FileDescriptorSet,
     tree: &mut GeneratedTree,
 ) -> Result<()> {
-    let hash = |bytes: &[u8]| {
-        sha2::Sha256::digest(bytes)
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>()
-    };
+    let hash = source_sha256;
     let declarations = messages(set);
     // Parse each authenticated authored file once, independent of the number of
     // generated Rust types/views and accessor associations it supplies.

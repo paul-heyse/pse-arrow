@@ -140,9 +140,9 @@ Version: 1. Snapshot class: `model`. Primary key: `entity_id`.
 
 ## `fit_cases`
 
-Shared-parameter fitting over authored modeling cases. Each experiment binds shared parameter identities to local source paths in canonical physical units. Observation paths select original members. Elapsed time is relative to the integration start; model_clock is the authored axis coordinate. Measurement values, full quantity conventions, uncertainty and provenance are selected from admitted typed record attributes; fit declarations carry only experiment and attribute selection intent.
+Shared-parameter fitting over authored modeling cases. Each experiment binds fit parameter identities to local source paths in canonical physical units. An optional schedule_start selects the interval beginning at that exact authored schedule change in canonical model-clock seconds. Without it, a transient binding selects the initial interval. Observation paths select original members. Elapsed time is relative to the integration start; model_clock is the authored axis coordinate. Measurement values, full quantity conventions, uncertainty and provenance are selected from admitted typed record attributes; fit declarations carry experiment, input and attribute selection intent.
 
-Version: 4. Snapshot class: `case`. Primary key: `fit_id`.
+Version: 5. Snapshot class: `case`. Primary key: `fit_id`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -164,6 +164,7 @@ Version: 4. Snapshot class: `case`. Primary key: `fit_id`.
 | `experiments.item.bindings.item` | `Struct` | false | `payload` | — | — |
 | `experiments.item.bindings.item.parameter_id` | `semantic_id` | false | `payload` | — | — |
 | `experiments.item.bindings.item.path` | `Utf8` | false | `payload` | — | — |
+| `experiments.item.bindings.item.schedule_start` | `Float64` | true | `payload` | — | — |
 | `observations` | `List` | false | `payload` | — | — |
 | `observations.item` | `Struct` | false | `payload` | — | — |
 | `observations.item.observation_id` | `semantic_id` | false | `payload` | — | — |

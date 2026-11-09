@@ -182,7 +182,7 @@ and physical-settlement population; no new shutdown test or memory benefit is cl
 | C02 | in-progress | Existing native operation/supervision foundation; B's needed family correspondence; A's governing scope | Common RPC mapping removal is integrated with contextual effects/authentication retained; selected main service/result receiving passes. Complete remaining typed effects, reconnect and original identity consumers with their replaced maps deleted. |
 | C03 | in-progress | Existing queue/retirement owners; C02 selected operations; D's provider support | Actual-child pending Close, abandoned generated Prepare, and failed orphan retirement have selected receiving evidence on main. The bounded diagnostic transfer preserves keyed causes and refuses opaque rendering before projection. Remaining session, batch and departure populations stay open. |
 | C04 | planned | Complete passive recipe and admitted-body foundations; A/D operation-specific permission; D's preallocation-bounded canonical reconstruction gate | Remaining selected live/receiving/reference contexts use exact native permission and original memberships; canonical binary activation requires bounded native reconstruction or a qualified alternative, and obsolete routes retire only with their actual consumers. |
-| C05 | in-progress | Working C02–C04 producer/consumer slices and B04 where representation changes | Checkout activation and process-root observer token/nonblocking I/O/native-error retention are integrated. Actual prepared main reader succeeds and refuses nonregular input; selected host/product controls pass with corrected expectations and complete settlement. Preserve original interrupted/OOM evidence. Complete canonical cancellation/drain, broader transport/process failures, independent sessions and retained response lifetime. |
+| C05 | in-progress | Working C02–C04 producer/consumer slices and B04 where representation changes | Checkout activation and process-root observer token, nonblocking I/O and native error retention are integrated. `ObserveRun` bounds its passive wait by the request deadline and preserves settlement of an already admitted protected read. Verify the real UDS progress frame and terminal trailer control. Study observation still needs its effect-bearing capture and original failure to settle under its own deadline contract. |
 
 ### C01 — Make preparation representations compose
 
@@ -397,11 +397,20 @@ coverage gap instead. No task-library substitution is a package-completion requi
 
 ## Verification and decision limits
 
-The working tree closes the Unix listener before native drain and retains an original
-retirement failure after confirmed method departure. Their actual listener and worker
-controls await a new runtime invocation. The prepared Study client journey and the aqueous
-source-to-export rerun remain open. The prior combined runtime invocation was cancelled
-before compilation.
+The Unix listener closes before native drain, and an original retirement failure remains
+visible after confirmed method departure. Run and Study observation stop admitting work at the
+original request deadline. An admitted status or capture retains its native settlement and
+original error.
+
+The selected runtime invocation `01a1bd97-fbbf-74ba-8f07-4fbfdd513645` passed the Run and Study
+observation controls and the 16 coordinator controls. The aqueous case reached source staging
+and exhausted the original activation clock before a solve. The staging owner now bounds each
+batch by encoded protobuf extent and edit count, so narrow source edits can share a larger
+transaction while wide edits split under the existing transport allowance. The original four
+failed identities had a focused rerun. Aqueous publication then reached atomic activation and
+exhausted the same clock. The activation transaction now verifies an empty destination once
+under its original guards before skipping displaced-interval work for that fresh destination.
+The actual aqueous receiving run and prepared live Study client journey remain open.
 
 For canonical recipe receiving, JSON v3 is the active implementation. C04 activates the
 binary reader only after D02 establishes bounded reconstruction for its consumers. The

@@ -1453,11 +1453,20 @@
         "path": {
           "description": "path",
           "type": "string"
+        },
+        "schedule_start": {
+          "description": "schedule_start",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
         }
       },
       "required": [
         "parameter_id",
-        "path"
+        "path",
+        "schedule_start"
       ],
       "type": "object"
     },

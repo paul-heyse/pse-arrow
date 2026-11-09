@@ -7,6 +7,7 @@ use super::*;
 use pse_modeling::resolved::{ResolvedRecord, SupportRecord, SymbolIx};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
+use std::sync::atomic::Ordering;
 #[path = "typed_math_portable_generated.rs"]
 mod generated;
 const INTERPRETATION: &str = pse_ids::scientific_replay::ADMITTED_RECIPE_INTERPRETATION;
@@ -413,13 +414,17 @@ pub(super) fn attach_identity(
 pub fn portable_payload_hash(payload: &[u8]) -> ContentHash {
     pse_ids::scientific_replay::admitted_recipe_payload_hash(payload)
 }
-/// Reconstruct an exact caller-qualified immutable product. Restored model/provider
-/// evidence cannot observe or manufacture a mutable preparation context.
+/// Reconstruct an exact caller-qualified immutable product through the current JSON v3 path.
+/// Receipt and payload admission cover decoding. They do not bound Symbolica construction
+/// or formal symbol registration. Restored evidence supplies no mutable preparation context.
 pub fn reconstruct_portable(
     permit: &pse_ids::scientific_replay::QualifiedScientificRecipe,
     registry: &QuantityRegistry,
     cancelled: &Arc<AtomicBool>,
 ) -> Result<AdmittedBody, MathError> {
+    if cancelled.load(Ordering::Relaxed) {
+        return Err(MathError::Cancelled);
+    }
     let payload = permit.payload();
     let recipe = Recipe::decode(payload)?;
     let mut body = reconstruct_recipe(recipe, permit.records(), registry, cancelled)?;
@@ -434,6 +439,9 @@ fn reconstruct_recipe(
     registry: &QuantityRegistry,
     cancelled: &Arc<AtomicBool>,
 ) -> Result<AdmittedBody, MathError> {
+    if cancelled.load(Ordering::Relaxed) {
+        return Err(MathError::Cancelled);
+    }
     let expected = &recipe.spec;
     let limits = BodyLimits {
         slots: recipe.slots,

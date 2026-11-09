@@ -255,9 +255,7 @@ impl Client {
         environment: &Environment,
         record: &super::SessionRecord,
     ) -> Result<Self> {
-        if record.version != super::SESSION_PROTOCOL_VERSION {
-            return Err(Error::Unavailable("prepared semantic helper uses an incompatible protocol; stop it and explicitly prepare a new session".into()));
-        }
+        record.require_current()?;
         let connector = AuthenticatedConnector {
             socket: super::service::socket_path(root, environment, &record.invocation, false)?,
             root: root.to_owned(),
@@ -322,11 +320,11 @@ impl Client {
             Request::Query(_)
             | Request::WorkspaceSymbols(_)
             | Request::Graph(_)
-            | Request::DependencyUsage { .. } => {
+            | Request::DependencyUsage(_) => {
                 // A workspace-wide census intentionally returns many source witnesses.
                 // Keep other operations on the SDK defaults and bound both wire bytes
                 // and decoded element storage for this bulk response explicitly.
-                let options = if matches!(request, Request::DependencyUsage { .. }) {
+                let options = if matches!(request, Request::DependencyUsage(_)) {
                     connectrpc::client::CallOptions::default()
                         .with_max_message_size(64 * 1024 * 1024)
                         .with_element_memory_limit(256 * 1024 * 1024)
@@ -667,7 +665,7 @@ fn operation_name(request: &Request) -> &'static str {
         Request::Query(_) => "query",
         Request::WorkspaceSymbols(_) => "workspace_symbols",
         Request::Graph(_) => "bounded_relationships",
-        Request::DependencyUsage { .. } => "dependency_usage",
+        Request::DependencyUsage(_) => "dependency_usage",
         Request::PackageContext { .. } => "package_context",
     }
 }
@@ -785,7 +783,7 @@ impl ServiceEngine {
                         Request::Graph(_) => Err(Error::unsupported(
                             "bounded relationships require one explicitly prepared native_snapshot world",
                         )),
-                        Request::DependencyUsage { .. } => Err(Error::unsupported(
+                        Request::DependencyUsage(_) => Err(Error::unsupported(
                             "dependency usage requires a prepared native snapshot",
                         )),
                     }
@@ -814,8 +812,8 @@ impl ServiceEngine {
                             .await
                             .map(Response::Graph)
                     }
-                    Request::DependencyUsage { package_ids } => settle_cpu(
-                        engine.start_dependency_usage(package_ids, token.clone()),
+                    Request::DependencyUsage(query) => settle_cpu(
+                        engine.start_dependency_usage(query.package_ids, token.clone()),
                         &token,
                     )
                     .await

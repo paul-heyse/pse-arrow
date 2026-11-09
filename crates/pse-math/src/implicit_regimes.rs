@@ -3271,9 +3271,18 @@ impl RegimeSelection {
             let cached = numerical_hit
                 .then(|| proposals.get(index).and_then(Clone::clone))
                 .flatten();
+            // Resolve the root at the current inputs. Within the certified sheet,
+            // the authored start can already track parameter changes smaller than
+            // the inner solver's residual tolerance.
             if !numerical_hit
                 && useful_chart == Some(index)
                 && let Some(previous) = &self.numerical
+                && let Some(chart) = &self.chart
+                && chart
+                    .uniqueness
+                    .iter()
+                    .zip(&options.start)
+                    .any(|(interval, start)| !interval.interior_contains(*start))
             {
                 options.start = previous.selected.values.clone();
             }

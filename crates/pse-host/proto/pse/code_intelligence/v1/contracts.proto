@@ -4,6 +4,7 @@ syntax = "proto3";
 package pse.code_intelligence.v1;
 import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
+import "pse/code_intelligence/v1/native_usage.proto";
 
 // Wire identities retain their native source and provider-world premises.
 message ContextGuard {
@@ -277,45 +278,8 @@ message NativeGraphQuery {
   SeedMatch seed_match = 9;
   bool exists = 10;
 }
-message NativeDependencyUsageQuery { repeated string package_ids = 1 [(buf.validate.field).repeated.min_items = 1]; }
-message NativeDependencyReference {
-  NativeByteLocation definition = 1 [(buf.validate.field).required = true];
-  repeated NativeLibraryProfile profiles = 2;
-  NativeByteLocation occurrence = 3 [(buf.validate.field).required = true];
-  string source_sha256 = 4;
-  string symbol_kind = 5;
-  optional string name = 6;
-  string role = 7;
-}
-message NativeDependencyUsageAnswer {
-  NativeAnalysisContext session = 1 [(buf.validate.field).required = true];
-  uint64 generation = 2;
-  repeated string package_ids = 3;
-  repeated NativeDependencyReference references = 4;
-  uint64 indexed_files = 5;
-  uint64 unmapped_definitions = 6;
-  repeated string limitations = 7;
-  repeated string unavailable_package_ids = 8;
-}
 message NativeRequest {
   oneof operation { option (buf.validate.oneof).required = true; NativeQuery query = 1; NativeWorkspaceQuery workspace = 2; NativeGraphQuery graph = 3; NativeDependencyUsageQuery dependency_usage = 4; }
-}
-message NativeConfiguration {
-  enum Backend { LIVE_LSP = 0; NATIVE_SNAPSHOT = 1; }
-  Backend backend = 1;
-  bytes project = 2;
-  repeated string features = 3;
-  bool no_default_features = 4;
-  optional string target = 5;
-  bool build_macros = 6;
-  bool test_context = 7;
-}
-message NativeAnalysisContext {
-  string backend = 1;
-  NativeConfiguration configuration = 2;
-  string position_encoding = 3;
-  OriginalEvidence backend_status = 4;
-  string preparation = 5;
 }
 message NativeSessionStatus {
   NativeConfiguration configuration = 1;
@@ -330,15 +294,6 @@ message NativeSessionStatus {
   bool automatic_reload_disabled = 10;
   optional string preparation_issue = 11;
   string preparation = 12;
-}
-message NativeLibraryProfile {
-  string package_id = 1;
-  bytes manifest = 2;
-  bytes source_root = 3;
-  bytes library_root = 4;
-  repeated string features = 5;
-  optional string target = 6;
-  string role = 7;
 }
 message NativeSourceHash { bytes path = 1; string source_sha256 = 2; }
 message NativePackageContext {
@@ -363,7 +318,6 @@ message NativePackageContextAnswer { NativeAnalysisContext session = 1; uint64 g
 message NativePackageReply { oneof result { NativePackageContextAnswer answer = 1; Failure failure = 2; } }
 message NativePosition { uint32 line = 1; uint32 character = 2; }
 message NativeRange { NativePosition start = 1; NativePosition end = 2; }
-message NativeByteLocation { bytes path = 1; uint64 start = 2; uint64 end = 3; }
 message NativeProtocolLocation { string uri = 1; NativeRange range = 2; }
 message NativeLocation {
   oneof coordinates { option (buf.validate.oneof).required = true; NativeByteLocation bytes = 1; NativeProtocolLocation protocol = 2; }

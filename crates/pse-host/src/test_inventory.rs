@@ -528,7 +528,7 @@ pub(crate) struct CapturedEvidence {
     pub terminal: crate::test_workflow::execute::TerminalRecord,
     /// Manager's recorded read-time settlement, independent of the helper commitment.
     pub manager_settlement: Option<crate::envelope::Settlement>,
-    /// Missing legacy observations stay unavailable rather than becoming false.
+    /// Unobserved manager facts stay unavailable.
     pub native_lifetime_pending: Option<bool>,
 }
 impl pse_contract::boundary_projection::ProjectionType for CapturedEvidence {
@@ -977,12 +977,14 @@ pub(crate) fn captured_full_report(
     maximum: usize,
 ) -> Result<CapturedReport, HostError> {
     let mut original = captured_report_at_limit(store, selector, session, Some(maximum))?;
-    let files = original.observation.evidence.as_deref().ok_or_else(|| invalid("legacy report has no original full-dependency commitment; report or selection scope remains available"))?;
     let budget = maximum
         .checked_sub(original.report.len())
         .ok_or_else(|| invalid("original report exceeds the selected portable extent"))?;
-    original.files =
-        crate::test_workflow::execute::evidence::capture(&original.parent, files, budget)?;
+    original.files = crate::test_workflow::execute::evidence::capture(
+        &original.parent,
+        original.observation.evidence().map_err(|error| HostError::Workflow(Box::new(error)))?,
+        budget,
+    )?;
     original.scope = crate::test_workflow::execute::EvidenceScope::Full;
     Ok(original)
 }
@@ -1013,11 +1015,7 @@ impl OpenedReport {
     pub fn dependencies(
         &self,
     ) -> Result<&[crate::test_workflow::execute::EvidenceFile], HostError> {
-        self.original
-            .observation
-            .evidence
-            .as_deref()
-            .ok_or_else(|| invalid("opened report lost its original dependency commitments"))
+        self.original.observation.evidence().map_err(|error| HostError::Workflow(Box::new(error)))
     }
     /// Exact original report bytes authenticated by the original terminal.
     pub fn report_original(&self) -> &[u8] {

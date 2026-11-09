@@ -57,6 +57,15 @@ macro_rules! dispatch {
         $arguments), "pse.code_intelligence.v1.NativeAdjustmentFact" => Some($callback ::
         <
         $crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::NativeAdjustmentFact
+        > $arguments), "pse.code_intelligence.v1.NativeAnalysisBackend" => Some($callback
+        :: <
+        $crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::NativeAnalysisBackend
+        > $arguments), "pse.code_intelligence.v1.NativeAnalysisBackend.Alternative1" =>
+        Some($callback :: <
+        $crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::native_analysis_backend::Alternative1
+        > $arguments), "pse.code_intelligence.v1.NativeAnalysisBackend.Alternative2" =>
+        Some($callback :: <
+        $crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::native_analysis_backend::Alternative2
         > $arguments), "pse.code_intelligence.v1.NativeAnalysisContext" => Some($callback
         :: <
         $crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::NativeAnalysisContext
@@ -208,6 +217,8 @@ macro_rules! dispatch {
         > $arguments), "pse.code_intelligence.v1.NativePackageRequest" => Some($callback
         :: <
         $crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::NativePackageRequest
+        > $arguments), "pse.code_intelligence.v1.NativePathBuf" => Some($callback :: <
+        $crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::NativePathBuf
         > $arguments), "pse.code_intelligence.v1.NativePlaceholder" => Some($callback ::
         <
         $crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::NativePlaceholder
@@ -283,6 +294,15 @@ macro_rules! dispatch {
         $crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::Observation
         > $arguments), "pse.code_intelligence.v1.OriginalEvidence" => Some($callback :: <
         $crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::OriginalEvidence
+        > $arguments), "pse.code_intelligence.v1.PlatformPathBytes" => Some($callback ::
+        <
+        $crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::PlatformPathBytes
+        > $arguments), "pse.code_intelligence.v1.PlatformPathBytes.Alternative1" =>
+        Some($callback :: <
+        $crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::platform_path_bytes::Alternative1
+        > $arguments), "pse.code_intelligence.v1.PlatformPathBytes.Alternative2" =>
+        Some($callback :: <
+        $crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::platform_path_bytes::Alternative2
         > $arguments), "pse.code_intelligence.v1.Predicate" => Some($callback :: <
         $crate::code_intelligence_contracts::pb::pse::code_intelligence::v1::Predicate >
         $arguments), "pse.code_intelligence.v1.PredicateFact" => Some($callback :: <

@@ -19314,7 +19314,7 @@ impl ::protovalidate_buffa::Validate for WorkflowReportObservation {
         &self,
     ) -> ::core::result::Result<(), ::protovalidate_buffa::ValidationError> {
         let mut violations: ::std::vec::Vec<::protovalidate_buffa::Violation> = ::std::vec::Vec::new();
-        if (self.version) < (1u32) || (self.version) > (3u32) {
+        if (self.version) < (3u32) || (self.version) > (3u32) {
             violations
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
@@ -19492,30 +19492,64 @@ impl ::protovalidate_buffa::Validate for WorkflowReportObservation {
                     );
             }
         }
-        if let Some(inner) = self.evidence.as_option() {
-            if let Err(sub) = inner.validate() {
-                violations
-                    .extend(
-                        sub
-                            .violations
-                            .into_iter()
-                            .map(|mut v| {
-                                v.field
-                                    .elements
-                                    .insert(
-                                        0,
-                                        ::protovalidate_buffa::FieldPathElement {
-                                            field_number: Some(10i32),
-                                            field_name: Some(::std::borrow::Cow::Borrowed("evidence")),
-                                            field_type: Some(::protovalidate_buffa::FieldType::Message),
-                                            key_type: None,
-                                            value_type: None,
-                                            subscript: None,
-                                        },
-                                    );
-                                v
-                            }),
-                    );
+        if !self.evidence.is_set() {
+            violations
+                .push(::protovalidate_buffa::Violation {
+                    field: ::protovalidate_buffa::FieldPath {
+                        elements: ::std::vec![
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(10i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("evidence")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                        ],
+                    },
+                    rule: ::protovalidate_buffa::FieldPath {
+                        elements: ::std::vec![
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                        ],
+                    },
+                    rule_id: ::std::borrow::Cow::Borrowed("required"),
+                    message: ::std::borrow::Cow::Borrowed("value is required"),
+                    for_key: false,
+                });
+        }
+        if self.evidence.is_set() {
+            if let Some(inner) = self.evidence.as_option() {
+                if let Err(sub) = inner.validate() {
+                    violations
+                        .extend(
+                            sub
+                                .violations
+                                .into_iter()
+                                .map(|mut v| {
+                                    v.field
+                                        .elements
+                                        .insert(
+                                            0,
+                                            ::protovalidate_buffa::FieldPathElement {
+                                                field_number: Some(10i32),
+                                                field_name: Some(::std::borrow::Cow::Borrowed("evidence")),
+                                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                                key_type: None,
+                                                value_type: None,
+                                                subscript: None,
+                                            },
+                                        );
+                                    v
+                                }),
+                        );
+                }
             }
         }
         if let Some(index) = violations
@@ -19553,7 +19587,7 @@ for __buffa::view::WorkflowReportObservationView<'_> {
         &self,
     ) -> ::core::result::Result<(), ::protovalidate_buffa::ValidationError> {
         let mut violations: ::std::vec::Vec<::protovalidate_buffa::Violation> = ::std::vec::Vec::new();
-        if (self.version) < (1u32) || (self.version) > (3u32) {
+        if (self.version) < (3u32) || (self.version) > (3u32) {
             violations
                 .push(::protovalidate_buffa::Violation {
                     field: ::protovalidate_buffa::FieldPath {
@@ -19731,30 +19765,64 @@ for __buffa::view::WorkflowReportObservationView<'_> {
                     );
             }
         }
-        if let Some(inner) = self.evidence.as_option() {
-            if let Err(sub) = inner.validate() {
-                violations
-                    .extend(
-                        sub
-                            .violations
-                            .into_iter()
-                            .map(|mut v| {
-                                v.field
-                                    .elements
-                                    .insert(
-                                        0,
-                                        ::protovalidate_buffa::FieldPathElement {
-                                            field_number: Some(10i32),
-                                            field_name: Some(::std::borrow::Cow::Borrowed("evidence")),
-                                            field_type: Some(::protovalidate_buffa::FieldType::Message),
-                                            key_type: None,
-                                            value_type: None,
-                                            subscript: None,
-                                        },
-                                    );
-                                v
-                            }),
-                    );
+        if !self.evidence.is_set() {
+            violations
+                .push(::protovalidate_buffa::Violation {
+                    field: ::protovalidate_buffa::FieldPath {
+                        elements: ::std::vec![
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(10i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("evidence")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                        ],
+                    },
+                    rule: ::protovalidate_buffa::FieldPath {
+                        elements: ::std::vec![
+                            ::protovalidate_buffa::FieldPathElement {
+                                field_number: Some(25i32),
+                                field_name: Some(::std::borrow::Cow::Borrowed("required")),
+                                field_type: Some(::protovalidate_buffa::FieldType::Bool),
+                                key_type: None,
+                                value_type: None,
+                                subscript: None,
+                            },
+                        ],
+                    },
+                    rule_id: ::std::borrow::Cow::Borrowed("required"),
+                    message: ::std::borrow::Cow::Borrowed("value is required"),
+                    for_key: false,
+                });
+        }
+        if self.evidence.is_set() {
+            if let Some(inner) = self.evidence.as_option() {
+                if let Err(sub) = inner.validate() {
+                    violations
+                        .extend(
+                            sub
+                                .violations
+                                .into_iter()
+                                .map(|mut v| {
+                                    v.field
+                                        .elements
+                                        .insert(
+                                            0,
+                                            ::protovalidate_buffa::FieldPathElement {
+                                                field_number: Some(10i32),
+                                                field_name: Some(::std::borrow::Cow::Borrowed("evidence")),
+                                                field_type: Some(::protovalidate_buffa::FieldType::Message),
+                                                key_type: None,
+                                                value_type: None,
+                                                subscript: None,
+                                            },
+                                        );
+                                    v
+                                }),
+                        );
+                }
             }
         }
         if let Some(index) = violations

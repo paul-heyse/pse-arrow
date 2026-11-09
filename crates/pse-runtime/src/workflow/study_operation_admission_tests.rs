@@ -1407,8 +1407,12 @@ async fn durable_origin_local_lazy_simulation_constructs_only_selected_occurrenc
         let RunReport::Simulation(trajectory) = original.report().unwrap() else {
             panic!("original selected simulation");
         };
-        assert_eq!(trajectory.report().samples.last().unwrap().time, 1.0);
-        assert!((trajectory.report().samples.last().unwrap().state[0] - 1.0).abs() < 1e-8);
+        let qualified = trajectory.qualified_report(original).unwrap();
+        assert!(std::ptr::eq(qualified, trajectory.report()));
+        assert_eq!(qualified.samples.last().unwrap().time, 1.0);
+        assert!((qualified.samples.last().unwrap().state[0] - 1.0).abs() < 1e-8);
+        let sibling = original_local_result(&report, 1 - index);
+        assert!(trajectory.qualified_report(sibling).is_none());
     }
     assert_ne!(
         report.results[0].as_ref().unwrap().run_id(),

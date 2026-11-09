@@ -95,7 +95,12 @@ impl Fixture {
         } else {
             Vec::new()
         };
-        let bytes=serde_json::to_vec(&json!({"version":1,"invocation":id,"action":"check","outcome":"check_succeeded","selection":if admitted {json!({"recorded":true})}else{Value::Null},"admission":groups,"phases":[],"observations":[],"failures":[],"required_capture_complete":true})).unwrap();
+        let bytes=serde_json::to_vec(&json!({
+            "version":3,"invocation":id,"action":"check","outcome":"check_succeeded",
+            "selection":if admitted {json!({"recorded":true})}else{Value::Null},"admission":groups,
+            "phases":[],"observations":[],"failures":[],"required_capture_complete":true,
+            "evidence":[{"root":"invocation","path":"workflow-input.json","role":"input","omission":"unsettled"}]
+        })).unwrap();
         let parent = directory.path().join("workflow");
         std::fs::DirBuilder::new()
             .mode(0o700)

@@ -15,6 +15,7 @@ use std::path::Path;
 pub(super) const PROTOCOL: &str = "pse.test-workflow";
 const REPORT: &str = "report.json";
 const INVENTORY: &str = "inventory/inventory.json";
+const REPORT_VERSION: u32 = 3;
 
 pse_contract::projection_enum! {
 /// Exact operation; a list is never interpreted as a successful test execution.
@@ -332,8 +333,8 @@ pub struct Report {
     pub inventory: Option<String>,
     /// Original inventory bytes committed by this report's interpretation.
     pub inventory_content: Option<ContentIdentity>,
-    /// Once-sealed original dependencies; absent only in historical interpretations.
-    pub evidence: Option<Vec<EvidenceFile>>,
+    /// Original dependencies, sealed before publication.
+    pub evidence: Vec<EvidenceFile>,
     /// Count of actual matching captured tests.
     pub selected_tests: Option<usize>,
     /// Original declarations under admitted compiler contexts; passive, never readiness.
@@ -368,7 +369,7 @@ pub struct Report {
 impl Report {
     pub(super) fn new(input: &Input) -> Self {
         Self {
-            version: 3,
+            version: REPORT_VERSION,
             invocation: input.invocation.clone(),
             action: input.action,
             outcome: Outcome::Incomplete,
@@ -376,7 +377,7 @@ impl Report {
             admission: Vec::new(),
             inventory: None,
             inventory_content: None,
-            evidence: None,
+            evidence: Vec::new(),
             selected_tests: None,
             fixture_requirements: Vec::new(),
             pending: Vec::new(),
@@ -407,11 +408,6 @@ impl Report {
     /// Publish the complete report before emitting a terminal reference. Source failure leaves
     /// original evidence in place; this neither emits stdout nor claims physical settlement.
     pub fn publish(&mut self, destination: &Path) -> Result<TerminalRecord, WorkflowError> {
-        if self.version != 3 {
-            return Err(WorkflowError::Invalid(
-                "current performer requires report interpretation 3".into(),
-            ));
-        }
         crate::test_inventory::checked_parent(destination)?;
         if self.inventory.is_some() {
             let bytes = crate::test_inventory::read_original_inventory(destination)?;
@@ -422,7 +418,7 @@ impl Report {
                 })?
                 .validate_content(&bytes, "original inventory")?;
         }
-        if self.evidence.is_none() {
+        if self.evidence.is_empty() {
             let (mut files, mut causes) = evidence::seal(destination, self.original_sources());
             for file in &mut files {
                 let retained = self.phases.iter().find_map(|phase| {
@@ -472,10 +468,10 @@ impl Report {
                 }
             }
             self.causes.extend(causes);
-            self.evidence = Some(files);
+            self.evidence = files;
         }
         let observation = ReportObservation::of(self);
-        observation.require_current()?;
+        observation.validate_interpretation()?;
         if self.inventory.is_some() {
             let bytes = crate::test_inventory::read_original_inventory(destination)?;
             observation.validate_inventory(&bytes)?;
@@ -492,12 +488,7 @@ impl Report {
             ));
         }
         self.sealed_content = Some(content.clone());
-        evidence::revalidate(
-            destination,
-            self.evidence.as_deref().ok_or_else(|| {
-                WorkflowError::Invalid("original evidence sealing is absent".into())
-            })?,
-        )?;
+        evidence::revalidate(destination, &self.evidence)?;
         crate::invocation::publish_bytes(&destination.join(REPORT), &bytes, None, 0o400)?;
         Ok(TerminalRecord {
             protocol: PROTOCOL.into(),
@@ -794,9 +785,9 @@ pse_contract::projection_struct! {
 /// physical-settlement capability. Additional report fields remain with their owners.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 pub struct ReportObservation {
-    projection: { name: "WorkflowReportObservation", rust_path: crate::test_workflow::execute::ReportObservation, version: 2, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
+    projection: { name: "WorkflowReportObservation", rust_path: crate::test_workflow::execute::ReportObservation, version: REPORT_VERSION, direction: pse_contract::BoundaryDirection::Output, reserved_tags: [], reserved_names: [] };
     /// Original report interpretation, not this reader's policy version.
-    pub version: u32 => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 1, max: 3 }] };
+    pub version: u32 => { tag: 1, direction: pse_contract::BoundaryDirection::Output, rules: [pse_contract::boundary_projection::LocalRule::UnsignedRange { min: REPORT_VERSION as u64, max: REPORT_VERSION as u64 }] };
     /// Original performing invocation.
     pub invocation: CliInvocationId => { tag: 2, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original action; listing and compiler success remain distinct from tests.
@@ -813,12 +804,11 @@ pub struct ReportObservation {
     pub required_capture_complete: bool => { tag: 7, direction: pse_contract::BoundaryDirection::Output, rules: [] };
     /// Original typed diagnostic observations.
     pub failures: Vec<ErrorRecord> => { tag: 8, direction: pse_contract::BoundaryDirection::Output, rules: [] };
-    /// Absent only for legacy interpretation or a report without inventory.
+    /// Absent when the performing owner did not capture an inventory.
     #[serde(default)]
     pub inventory_content: Option<ContentIdentity> => { tag: 9, direction: pse_contract::BoundaryDirection::Output, rules: [] };
-    /// Original dependency commitments and omissions, absent only for legacy interpretations.
-    #[serde(default)]
-    pub evidence: Option<Vec<EvidenceFile>> => { tag: 10, direction: pse_contract::BoundaryDirection::Output, rules: [] };
+    /// Required original account. Presence is checked before interpretation or readback.
+    pub evidence: Option<Vec<EvidenceFile>> => { tag: 10, direction: pse_contract::BoundaryDirection::Output, rules: [pse_contract::boundary_projection::LocalRule::Required] };
 }
 }
 impl ReportObservation {
@@ -834,7 +824,7 @@ impl ReportObservation {
             required_capture_complete: report.required_capture_complete,
             failures: report.failures.clone(),
             inventory_content: report.inventory_content.clone(),
-            evidence: report.evidence.clone(),
+            evidence: Some(report.evidence.clone()),
         }
     }
     /// Check recorded facts against the original terminal without granting authority.
@@ -856,19 +846,8 @@ impl ReportObservation {
         Ok(())
     }
     fn validate_interpretation(&self) -> Result<(), WorkflowError> {
-        let valid = match self.version {
-            1 => self.inventory_content.is_none() && self.evidence.is_none(),
-            2 => {
-                self.inventory.is_some() == self.inventory_content.is_some()
-                    && self.evidence.is_none()
-            }
-            3 => {
-                self.inventory.is_some() == self.inventory_content.is_some()
-                    && self.evidence.is_some()
-            }
-            _ => false,
-        };
-        if !valid
+        if self.version != REPORT_VERSION
+            || self.inventory.is_some() != self.inventory_content.is_some()
             || self
                 .inventory
                 .as_deref()
@@ -878,50 +857,47 @@ impl ReportObservation {
                 "unsupported report interpretation or missing original inventory commitment".into(),
             ));
         }
-        if let Some(files) = &self.evidence {
-            evidence::validate(files)?;
-            if files
-                .iter()
-                .filter(|file| file.role == EvidenceRole::Input)
-                .count()
-                != 1
-            {
-                return Err(WorkflowError::Invalid("original evidence account requires exactly one authenticated-input commitment or original omission".into()));
-            }
-            if files
-                .iter()
-                .filter(|file| file.role == EvidenceRole::Inventory)
-                .count()
-                != usize::from(self.inventory.is_some())
-            {
-                return Err(WorkflowError::Invalid(
-                    "original evidence account and inventory association disagree".into(),
-                ));
-            }
-            if files
-                .iter()
-                .find(|file| file.role == EvidenceRole::Inventory)
-                .and_then(|file| file.content.as_ref())
-                .is_some_and(|content| Some(content) != self.inventory_content.as_ref())
-            {
-                return Err(WorkflowError::Invalid(
-                    "original dependency and inventory commitments disagree".into(),
-                ));
-            }
+        let files = self.evidence()?;
+        evidence::validate(files)?;
+        if files
+            .iter()
+            .filter(|file| file.role == EvidenceRole::Input)
+            .count()
+            != 1
+        {
+            return Err(WorkflowError::Invalid("original evidence account requires exactly one authenticated-input commitment or original omission".into()));
         }
-        Ok(())
-    }
-    /// Current producers cannot publish legacy or partially bound original evidence.
-    pub fn require_current(&self) -> Result<(), WorkflowError> {
-        self.validate_interpretation()?;
-        if self.version != 3 {
+        if files
+            .iter()
+            .filter(|file| file.role == EvidenceRole::Inventory)
+            .count()
+            != usize::from(self.inventory.is_some())
+        {
             return Err(WorkflowError::Invalid(
-                "current performer requires report interpretation 3".into(),
+                "original evidence account and inventory association disagree".into(),
+            ));
+        }
+        if files
+            .iter()
+            .find(|file| file.role == EvidenceRole::Inventory)
+            .and_then(|file| file.content.as_ref())
+            .is_some_and(|content| Some(content) != self.inventory_content.as_ref())
+        {
+            return Err(WorkflowError::Invalid(
+                "original dependency and inventory commitments disagree".into(),
             ));
         }
         Ok(())
     }
-    /// Reconcile original inventory bytes; legacy path-only reports cannot supply a commitment.
+    /// Complete original dependency account, including explicit omissions.
+    /// # Errors
+    /// The report is incomplete when it supplies no original account.
+    pub fn evidence(&self) -> Result<&[EvidenceFile], WorkflowError> {
+        self.evidence.as_deref().ok_or_else(|| {
+            WorkflowError::Invalid("current report lacks its original evidence account".into())
+        })
+    }
+    /// Reconcile original inventory bytes with the current report commitment.
     pub fn validate_inventory(&self, bytes: &[u8]) -> Result<(), WorkflowError> {
         self.validate_inventory_identity(&ContentIdentity::of(bytes))
     }
@@ -930,16 +906,12 @@ impl ReportObservation {
         content: &ContentIdentity,
     ) -> Result<(), WorkflowError> {
         self.validate_interpretation()?;
-        if self.version == 1 {
-            return Err(WorkflowError::Invalid("legacy report interpretation 1 has no original inventory commitment; inventory adoption and exact rerun are unavailable".into()));
-        }
         let expected = self.inventory_content.as_ref().ok_or_else(|| {
             WorkflowError::Invalid("original report has no inventory commitment".into())
         })?;
         expected.validate_identity(content, "original inventory")
     }
-    /// Reconcile the exact input snapshot with its original performing report. Legacy
-    /// interpretations still require the native metadata binding at their owning caller.
+    /// Reconcile the exact input snapshot with its original performing report.
     pub(crate) fn validate_input_bytes(&self, bytes: &[u8]) -> Result<Input, WorkflowError> {
         self.validate_interpretation()?;
         let input: Input =
@@ -953,23 +925,19 @@ impl ReportObservation {
     ) -> Result<Input, WorkflowError> {
         self.validate_interpretation()?;
         input.validate_original(&self.invocation, self.action.command())?;
-        if self.version == 3 {
-            let file = self
-                .evidence
-                .as_ref()
-                .and_then(|files| files.iter().find(|file| file.role == EvidenceRole::Input))
-                .ok_or_else(|| {
-                    WorkflowError::Invalid("original input dependency is absent".into())
-                })?;
-            file.content
-                .as_ref()
-                .ok_or_else(|| {
-                    WorkflowError::Invalid(
-                        "original input dependency was unavailable at the performing cutoff".into(),
-                    )
-                })?
-                .validate_identity(content, "original workflow input")?;
-        }
+        let file = self
+            .evidence()?
+            .iter()
+            .find(|file| file.role == EvidenceRole::Input)
+            .ok_or_else(|| WorkflowError::Invalid("original input dependency is absent".into()))?;
+        file.content
+            .as_ref()
+            .ok_or_else(|| {
+                WorkflowError::Invalid(
+                    "original input dependency was unavailable at the performing cutoff".into(),
+                )
+            })?
+            .validate_identity(content, "original workflow input")?;
         Ok(input)
     }
     /// Reconcile an observed count with the actual native listing population, when known.
@@ -1114,7 +1082,7 @@ mod observation_tests {
             admission: vec![],
             inventory: None,
             inventory_content: None,
-            evidence: None,
+            evidence: Vec::new(),
             selected_tests: Some(2),
             fixture_requirements: vec![],
             pending: vec![],
@@ -1272,8 +1240,6 @@ mod observation_tests {
         assert!(report.publish(&workflow).is_err());
         let input = report
             .evidence
-            .as_ref()
-            .unwrap()
             .iter()
             .find(|file| file.role == EvidenceRole::Input)
             .unwrap();
@@ -1311,31 +1277,25 @@ mod observation_tests {
     }
 
     #[test]
-    fn legacy_report_facts_remain_readable_without_fabricating_inventory_commitment() {
-        let (legacy, terminal) = original();
-        legacy.validate_against(&terminal).unwrap();
-        assert!(legacy.require_current().is_err());
-        assert!(
-            legacy
-                .validate_inventory(b"original")
-                .unwrap_err()
-                .to_string()
-                .contains("legacy")
-        );
-        let mut current = legacy;
-        current.version = 2;
-        assert!(
-            current.validate_against(&terminal).is_err(),
-            "current inventory requires its original content commitment"
-        );
+    fn current_report_requires_original_inventory_commitment() {
+        let (mut observation, terminal) = original();
+        observation.validate_inventory(b"original").unwrap();
+        observation.inventory_content = None;
+        assert!(observation.validate_against(&terminal).is_err());
     }
 
     fn original() -> (ReportObservation, TerminalRecord) {
         let invocation = CliInvocationId::new();
+        let content = ContentIdentity::of(b"original");
         let observation = serde_json::from_value(serde_json::json!({
-            "version": 1, "invocation": invocation, "action": "test",
+            "version": REPORT_VERSION, "invocation": invocation, "action": "test",
             "outcome": "failed", "inventory": "inventory/inventory.json",
             "selected_tests": 2, "required_capture_complete": true, "failures": [],
+            "inventory_content": content,
+            "evidence": [
+                {"root":"invocation","path":"workflow-input.json","role":"input","omission":"unsettled"},
+                {"root":"workflow","path":INVENTORY,"role":"inventory","content":content}
+            ],
             "observations": [{"kind": "test", "private_native_verdict": "not reconstructed"}]
         }))
         .unwrap();
@@ -1378,9 +1338,11 @@ mod observation_tests {
     #[test]
     fn retained_report_facts_require_original_identity_interpretation_and_capture() {
         let (mut observation, terminal) = original();
-        observation.version = 2;
-        assert!(observation.validate_against(&terminal).is_err());
-        observation.version = 1;
+        for version in [1, 2, REPORT_VERSION + 1] {
+            observation.version = version;
+            assert!(observation.validate_against(&terminal).is_err());
+        }
+        observation.version = REPORT_VERSION;
         observation.invocation = CliInvocationId::new();
         assert!(observation.validate_against(&terminal).is_err());
         observation.invocation = terminal.invocation.clone();

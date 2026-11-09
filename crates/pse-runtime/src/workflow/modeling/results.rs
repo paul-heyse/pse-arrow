@@ -6,7 +6,7 @@ use super::*;
 use crate::math::solves::Outcome;
 use pse_compiler::workspace::{ModelingHint, ModelingOutput, ObjectiveBound, Profile};
 use pse_math::binding::CaseValues;
-use pse_model::generated::identities::RunId;
+use pse_model::generated::identities::{AttemptId, InstanceId, RunId};
 use pse_modeling::annotation::AnnotationValue;
 use std::{collections::BTreeSet, sync::Arc};
 mod reference_exchange;
@@ -174,6 +174,55 @@ impl ModelingResult {
         self.provider_selections
             .as_ref()
             .map_or(&[], |selections| &selections.visits)
+    }
+
+    pub(in crate::workflow) async fn project_provider_selections(
+        &self,
+        run_id: RunId,
+        attempt_id: Option<AttemptId>,
+        step: i64,
+        rows: &mut crate::workflow::result_export::SelectedCollection<'_>,
+    ) -> Result<(), WorkflowError> {
+        use pse_kernels::DerivativeOrder;
+        use pse_model::generated::runtime::provider_selections::Row;
+
+        let degree = |order| match order {
+            DerivativeOrder::Value => 0,
+            DerivativeOrder::First => 1,
+            DerivativeOrder::Second => 2,
+        };
+        let native_attempt = i64::try_from(self.original_attempt)
+            .map_err(|_| contract("provider selection attempt ordinal overflow"))?;
+        for (ordinal, visit) in self.provider_selections().iter().enumerate() {
+            if rows.skip_next::<Row>() {
+                continue;
+            }
+            let ordinal = i64::try_from(ordinal)
+                .map_err(|_| contract("provider selection visit ordinal overflow"))?;
+            let observation = visit.observation;
+            let selection = observation.selection();
+            rows.push(Row {
+                run_id,
+                step,
+                ordinal,
+                attempt_id,
+                native_attempt,
+                instance_id: InstanceId::from_id(visit.instance),
+                source_id: visit.source,
+                provider: observation.provider().0,
+                invocation: observation.invocation(),
+                selector_id: selection.selector,
+                regime_id: selection.regime,
+                policy: selection.policy,
+                product: selection.product,
+                requested_order: degree(observation.requested_order()),
+                selection_order: degree(selection.selection_order),
+                regularity: selection.regularity,
+            })
+            .await
+            .map_err(relation)?;
+        }
+        Ok(())
     }
 
     /// Build explicit original-coordinate transport using this completed result facade's capability.
@@ -1638,6 +1687,7 @@ impl ModelingResult {
             modeling_checks::RELATION_ID,
             modeling_reports::RELATION_ID,
             modeling_findings::RELATION_ID,
+            provider_selections::RELATION_ID,
             solve_strategy_events::RELATION_ID,
             solve_strategy_products::RELATION_ID,
         ]
@@ -1770,6 +1820,13 @@ impl ModelingResult {
         );
         columns.ensure::<ModelingCheck>().map_err(relation)?;
         columns.ensure::<ModelingReport>().map_err(relation)?;
+        columns
+            .ensure::<pse_model::generated::runtime::provider_selections::Row>()
+            .map_err(relation)?;
+        if request.wants(pse_relations::generated::runtime::provider_selections::RELATION_ID) {
+            self.project_provider_selections(self.run_id, None, 0, &mut columns)
+                .await?;
+        }
         columns
             .ensure::<pse_model::generated::runtime::solve_strategy_events::Row>()
             .map_err(relation)?;

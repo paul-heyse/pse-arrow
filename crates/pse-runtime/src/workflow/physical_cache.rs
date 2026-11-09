@@ -636,6 +636,59 @@ impl Runtime {
     }
 }
 
+fn checkpoint(cancel: &crate::CancelSource) -> Result<(), WorkflowError> {
+    if cancel.token().is_cancelled() {
+        Err(MathRuntimeError::Cancelled.into())
+    } else {
+        Ok(())
+    }
+}
+impl CacheComponent for PhysicalCache {
+    fn invalidate(&self) {
+        self.clear();
+    }
+    fn report(&self) -> Vec<CacheReport> {
+        vec![CacheReport {
+            name: NAME.into(),
+            capacity_bytes: 0,
+            policy_limit_bytes: self.retained.cache_limit(),
+            retained_bytes: self.retained.memory_used(),
+            entries: self.retained.len(),
+            hits: self.hits.load(Ordering::Relaxed),
+            misses: self.misses.load(Ordering::Relaxed),
+            bypasses: 0,
+            live_bytes: None,
+            pinned_bytes: None,
+            inflight_bytes: None,
+            active_loads: None,
+            evictions: None,
+        }]
+    }
+    fn details(
+        &self,
+        rows: &mut Vec<CacheEntryReport>,
+        limit: usize,
+        owner: &MemoryReservation,
+        budget: usize,
+    ) -> datafusion::common::Result<()> {
+        for report in self.report() {
+            if report.entries > 0 && rows.len() < limit {
+                pse_engine::cache_service::details::reserve_inventory(owner, 256, budget)?;
+                rows.push(CacheEntryReport {
+                    cache: report.name,
+                    key: "exact physical owners".into(),
+                    bytes: report.retained_bytes,
+                    hits: report.hits,
+                });
+            }
+        }
+        Ok(())
+    }
+    fn execution_report(&self) -> Vec<(&'static str, Option<usize>)> {
+        Vec::new()
+    }
+}
+
 #[cfg(test)]
 mod physical_admission_cache_unit {
     #![allow(
@@ -1356,57 +1409,5 @@ mod physical_admission_cache_unit {
             !first.sources.is_empty(),
             "clear preserves the old active immutable admission"
         );
-    }
-}
-fn checkpoint(cancel: &crate::CancelSource) -> Result<(), WorkflowError> {
-    if cancel.token().is_cancelled() {
-        Err(MathRuntimeError::Cancelled.into())
-    } else {
-        Ok(())
-    }
-}
-impl CacheComponent for PhysicalCache {
-    fn invalidate(&self) {
-        self.clear();
-    }
-    fn report(&self) -> Vec<CacheReport> {
-        vec![CacheReport {
-            name: NAME.into(),
-            capacity_bytes: 0,
-            policy_limit_bytes: self.retained.cache_limit(),
-            retained_bytes: self.retained.memory_used(),
-            entries: self.retained.len(),
-            hits: self.hits.load(Ordering::Relaxed),
-            misses: self.misses.load(Ordering::Relaxed),
-            bypasses: 0,
-            live_bytes: None,
-            pinned_bytes: None,
-            inflight_bytes: None,
-            active_loads: None,
-            evictions: None,
-        }]
-    }
-    fn details(
-        &self,
-        rows: &mut Vec<CacheEntryReport>,
-        limit: usize,
-        owner: &MemoryReservation,
-        budget: usize,
-    ) -> datafusion::common::Result<()> {
-        for report in self.report() {
-            if report.entries > 0 && rows.len() < limit {
-                pse_engine::cache_service::details::reserve_inventory(owner, 256, budget)?;
-                rows.push(CacheEntryReport {
-                    cache: report.name,
-                    key: "exact physical owners".into(),
-                    bytes: report.retained_bytes,
-                    hits: report.hits,
-                });
-            }
-        }
-        Ok(())
-    }
-    fn execution_report(&self) -> Vec<(&'static str, Option<usize>)> {
-        Vec::new()
     }
 }

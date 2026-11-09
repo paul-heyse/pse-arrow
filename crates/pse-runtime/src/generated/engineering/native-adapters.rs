@@ -2536,7 +2536,7 @@ impl NativeInto<
         layout(
             <pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldExperimentsItem as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldExperimentsItem as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            4,
+            5,
             &[(1, "experiment_id"), (2, "case_id"), (3, "route"), (4, "bindings")],
             path,
         )?;
@@ -2589,7 +2589,7 @@ impl NativeFrom<
         layout(
             <pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldExperimentsItem as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldExperimentsItem as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            4,
+            5,
             &[(1, "experiment_id"), (2, "case_id"), (3, "route"), (4, "bindings")],
             path,
         )?;
@@ -2654,11 +2654,11 @@ for pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldExperimentsI
         layout(
             <pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldExperimentsItemBindingsItem as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldExperimentsItemBindingsItem as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            4,
-            &[(1, "parameter_id"), (2, "path")],
+            5,
+            &[(1, "parameter_id"), (2, "path"), (3, "schedule_start")],
             path,
         )?;
-        let (field_0, field_1) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
+        let (field_0, field_1, field_2) = pse_contract::boundary_projection::ProjectionRecord::into_projection_fields(
             self,
         );
         Ok(crate::host_operations::engineering::generated::pb::pse::engineering::v1::AuthoredFitCasesFieldExperimentsItemBindingsItem {
@@ -2666,6 +2666,11 @@ for pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldExperimentsI
                 field_0,
             ),
             path: native_into::<_, String>(field_1, &child_path(path, "path"))?,
+            schedule_start: field_2
+                .map(|value| -> Result<_, AdapterError> {
+                    native_into::<_, u64>(value, &child_path(path, "schedule_start"))
+                })
+                .transpose()?,
             ..Default::default()
         })
     }
@@ -2682,8 +2687,8 @@ for pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldExperimentsI
         layout(
             <pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldExperimentsItemBindingsItem as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldExperimentsItemBindingsItem as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            4,
-            &[(1, "parameter_id"), (2, "path")],
+            5,
+            &[(1, "parameter_id"), (2, "path"), (3, "schedule_start")],
             path,
         )?;
         let fields = (
@@ -2692,6 +2697,12 @@ for pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldExperimentsI
                 &child_path(path, "parameter_id"),
             )?,
             native_from::<_, String>(wire.path, &child_path(path, "path"))?,
+            wire
+                .schedule_start
+                .map(|value| -> Result<_, AdapterError> {
+                    native_from::<_, u64>(value, &child_path(path, "schedule_start"))
+                })
+                .transpose()?,
         );
         pse_contract::boundary_projection::ProjectionRecord::from_projection_fields(
                 fields,
@@ -2712,7 +2723,7 @@ impl NativeInto<
         layout(
             <pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldObservationsItem as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldObservationsItem as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            4,
+            5,
             &[
                 (1, "observation_id"),
                 (2, "value_attribute"),
@@ -2810,7 +2821,7 @@ impl NativeFrom<
         layout(
             <pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldObservationsItem as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldObservationsItem as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            4,
+            5,
             &[
                 (1, "observation_id"),
                 (2, "value_attribute"),
@@ -2910,7 +2921,7 @@ impl NativeInto<
         layout(
             <pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldParametersItem as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldParametersItem as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            4,
+            5,
             &[
                 (1, "symbol_id"),
                 (2, "fixed"),
@@ -2956,7 +2967,7 @@ impl NativeFrom<
         layout(
             <pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldParametersItem as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <pse_model::generated::authored::fit_cases::AuthoredFitCasesFieldParametersItem as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            4,
+            5,
             &[
                 (1, "symbol_id"),
                 (2, "fixed"),
@@ -3007,7 +3018,7 @@ impl NativeInto<
         layout(
             <pse_model::generated::authored::fit_cases::AuthoredFitCasesRow as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <pse_model::generated::authored::fit_cases::AuthoredFitCasesRow as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            4,
+            5,
             &[(1, "fit_id"), (2, "parameters"), (3, "experiments"), (4, "observations")],
             path,
         )?;
@@ -3072,7 +3083,7 @@ impl NativeFrom<
         layout(
             <pse_model::generated::authored::fit_cases::AuthoredFitCasesRow as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
             <pse_model::generated::authored::fit_cases::AuthoredFitCasesRow as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
-            4,
+            5,
             &[(1, "fit_id"), (2, "parameters"), (3, "experiments"), (4, "observations")],
             path,
         )?;
@@ -55097,7 +55108,7 @@ impl NativeFrom<
 }
 impl NativeInto<
     crate::host_operations::engineering::generated::pb::pse::engineering::v1::PhysicalQuantityDescription,
-> for crate::workflow::PhysicalQuantityDescription {
+> for pse_quantity::boundary::PhysicalQuantityDescription {
     fn into_wire(
         self,
         path: &str,
@@ -55106,8 +55117,8 @@ impl NativeInto<
         AdapterError,
     > {
         layout(
-            <crate::workflow::PhysicalQuantityDescription as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::workflow::PhysicalQuantityDescription as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::boundary::PhysicalQuantityDescription as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::boundary::PhysicalQuantityDescription as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "quantity"),
@@ -55226,15 +55237,15 @@ impl NativeInto<
 }
 impl NativeFrom<
     crate::host_operations::engineering::generated::pb::pse::engineering::v1::PhysicalQuantityDescription,
-> for crate::workflow::PhysicalQuantityDescription {
+> for pse_quantity::boundary::PhysicalQuantityDescription {
     fn from_wire(
         wire: crate::host_operations::engineering::generated::pb::pse::engineering::v1::PhysicalQuantityDescription,
         path: &str,
     ) -> Result<Self, AdapterError> {
         unknown_fields(&wire.__buffa_unknown_fields, path)?;
         layout(
-            <crate::workflow::PhysicalQuantityDescription as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
-            <crate::workflow::PhysicalQuantityDescription as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
+            <pse_quantity::boundary::PhysicalQuantityDescription as pse_contract::boundary_projection::ProjectionRecord>::VERSION,
+            <pse_quantity::boundary::PhysicalQuantityDescription as pse_contract::boundary_projection::ProjectionRecord>::FIELD_LAYOUT,
             1,
             &[
                 (1, "quantity"),

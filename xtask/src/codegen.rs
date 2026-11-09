@@ -25,7 +25,16 @@ mod grpc_wire;
 mod native_root;
 mod ownership;
 mod private_store;
+#[cfg(any(test, feature = "host-contracts"))]
 mod proto_dispatch;
+#[cfg(any(
+    test,
+    feature = "product-schemas",
+    feature = "host-contracts",
+    feature = "recorded-result-contracts",
+    feature = "scientific-worker-contracts",
+    feature = "reference-contracts"
+))]
 mod proto_projection;
 mod publication;
 #[cfg(feature = "recorded-result-contracts")]

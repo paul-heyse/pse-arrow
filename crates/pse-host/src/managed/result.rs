@@ -153,7 +153,7 @@ pub struct ManagedSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bundle: Option<crate::cli::bundle::Summary>,
     /// Child/capture evidence may be complete while its reporting service is still alive.
-    /// Absence in a retained legacy record means unobserved, never known false.
+    /// An absent observation leaves the original lifetime state unobserved.
     #[serde(default)]
     pub native_lifetime_pending: Option<bool>,
     /// Authenticated fixed workflow transport, absent for generic commands or unknown recovery.

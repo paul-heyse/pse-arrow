@@ -511,14 +511,14 @@ pub(super) fn measure(
         })
     });
     group.finish();
-    let mode = pse_benches::CriterionMode::current();
+    let mode = CriterionMode::current();
     let sampling = match mode {
-        pse_benches::CriterionMode::Smoke => "one Criterion callback for the selected smoke case",
-        pse_benches::CriterionMode::Measure => {
+        CriterionMode::Smoke => "one Criterion callback for the selected smoke case",
+        CriterionMode::Measure => {
             "10 flat Criterion samples, separate from callback records including warm-up"
         }
-        pse_benches::CriterionMode::Profile => "Criterion profiling callbacks",
-        pse_benches::CriterionMode::List => "Criterion registration listing",
+        CriterionMode::Profile => "Criterion profiling callbacks",
+        CriterionMode::List => "Criterion registration listing",
     };
     let record = json!({"experiment":"modeling_preparation","id":name,"workload":spec,"threads":1,"native_threads":1,"pool_limit_bytes":64_u64<<30,"force_validation":"collector enables pse-relations/force-validate","mode":mode.label(),"iterations":records.len(),"scope":"actual source admission, specialization, solver-view resolution and derivative assembly; pressure uses bare semantic preparation without native solves; every iteration retains its own runtime only","sampling":sampling,"records":records});
     println!("{record}");

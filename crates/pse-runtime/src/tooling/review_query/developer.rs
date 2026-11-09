@@ -124,7 +124,7 @@ pub struct Pattern {
     pub selected_tests_max: Option<u64>,
     /// Source ordinals resolving every contributing original report.
     pub members: Vec<u64>,
-    /// Exact paired member and original diagnostic pointer; absence preserves an empty cause.
+    /// Exact paired member and original pointer to a cause or its empty evidence account.
     pub references: Vec<Reference>,
 }
 /// Original pending-input/capability pattern, independent of the cause question.
@@ -201,14 +201,10 @@ impl Analysis {
         &self.document
     }
 }
-/// The original report reader requires the dependency account in version three
-/// and refuses it in predecessor interpretations. Use that coverage in empty joins.
+/// Join the current report's original operation and dependency causes.
 pub const SQL: &str = "WITH original_causes AS (
-    SELECT i.*, c.code, c.class,
-        CASE WHEN c.kind IS NULL AND i.report_version = 3
-             THEN 'evidence_causes_empty' ELSE c.kind END AS diagnostic_kind,
-        CASE WHEN c.kind IS NULL AND i.report_version = 3
-             THEN '/evidence' ELSE c.pointer END AS pointer
+    SELECT i.*, c.code, c.class, c.kind AS diagnostic_kind,
+        COALESCE(c.pointer, '/evidence') AS pointer
     FROM selected_invocations i LEFT JOIN selected_causes c
         ON i.invocation = c.invocation AND i.report_sha256 = c.report_sha256
 ) SELECT action, outcome, diagnostic_kind, code, class, required_capture_complete,
@@ -388,7 +384,7 @@ pub async fn analyze(request: Request, cancel: &CancellationToken) -> Result<Ana
             "This finite query summarizes supplied original observations; portable agreement does not authenticate producers or issue native verdicts or action permission.".into(),
             "These original portable roots do not record producer generation or source-clock coordinates. No duration, causal order or scientific run/attempt association is inferred.".into(),
             "Recorded manager settlement and pending state describe the original recorded-at-read observation, never present physical control or current readiness.".into(),
-            "Cause patterns use the original report's failure and dependency accounts. An empty join for a legacy report has no dependency coverage. A known-empty dependency cause group points to the original evidence account. Private runner and compiler outputs remain outside this observation.".into(),
+            "Cause patterns use the original report's failure and dependency accounts. An empty cause group points to the original evidence account. Private runner and compiler outputs remain outside this observation.".into(),
             "The independent prerequisite question reads only the original pending account. Missing is unknown; a present empty list is known empty, not current readiness. Recorded paths/argv are not followed. Per-group private test/compiler outcomes remain outside this observation.".into(),
         ],
     }, _owners: owners })

@@ -188,7 +188,7 @@ pub struct Readback {
     pub scope: EvidenceScope,
     /// Exact included file observations; narrower scopes include none.
     pub included_files: usize,
-    /// Original cutoff omissions, unavailable for historical reports and narrower scopes.
+    /// Original cutoff omissions when the full account is consumed.
     pub original_dependency_omissions: Option<usize>,
     /// Original byte availability, independent of workload, raw capture and population success.
     pub full_original_bytes_available: Option<bool>,
@@ -196,7 +196,7 @@ pub struct Readback {
     pub invocation: CliInvocationId,
     /// Exact retained report bytes committed by the included terminal.
     pub report_sha256: String,
-    /// Original report interpretation; legacy one has no inventory commitment.
+    /// Original report interpretation.
     pub report_version: u32,
     /// Present when included inventory bytes match the original report commitment.
     pub inventory_sha256: Option<String>,
@@ -206,7 +206,7 @@ pub struct Readback {
     pub selected_population_complete: Option<bool>,
     /// Manager's original recorded-at-read claim, separate from physical state now.
     pub recorded_manager_settlement: Option<crate::envelope::Settlement>,
-    /// Missing historical native observations stay unavailable.
+    /// Original native lifetime observation, when established by the manager.
     pub recorded_native_lifetime_pending: Option<bool>,
     /// Content consistency does not independently authenticate portable producer identity.
     pub limitations: Vec<String>,
@@ -222,8 +222,8 @@ pub struct InvocationFacts {
     pub report: ReportObservation,
     /// Acquisition/interpretation scope and recorded-at-read manager observations.
     pub readback: Readback,
-    /// Exact original passive prerequisite account. Missing historical field is
-    /// unknown; a present empty list is known empty, never current readiness.
+    /// Exact original passive prerequisite account. An omitted account is
+    /// unobserved, while a present empty list records no pending prerequisites.
     pub prerequisites: Option<Vec<crate::test_workflow::execute::Pending>>,
 }
 
@@ -603,9 +603,7 @@ fn finish_members(
     verified: &mut VerifiedReport,
     identities: &[(usize, ContentIdentity)],
 ) -> Result<(), EvidenceError> {
-    let manifest = verified.observation.evidence.as_deref().ok_or_else(|| {
-        EvidenceError::Invalid("legacy report has no original full dependency commitment".into())
-    })?;
+    let manifest = verified.observation.evidence()?;
     crate::test_workflow::execute::evidence::validate_members(
         manifest,
         identities
@@ -632,13 +630,7 @@ fn adopt_inline_members(verified: &mut VerifiedReport) -> Result<(), EvidenceErr
         .collect();
     finish_members(verified, &identities)?;
     for (file, (_, content)) in files.iter().zip(&identities) {
-        let role = verified
-            .observation
-            .evidence
-            .as_ref()
-            .ok_or_else(|| EvidenceError::Invalid("missing original commitment".into()))?
-            [file.dependency]
-            .role;
+        let role = verified.observation.evidence()?[file.dependency].role;
         let meaning = read_member_meaning(role, &mut file.original.as_slice()).map_err(
             |error| match error {
                 HostError::DeveloperEvidence(error) => *error,
@@ -678,7 +670,11 @@ pub(crate) mod tests {
             &HostError::Ownership("original prerequisite unavailable".into()),
             &RedactionPolicy::default(),
         );
-        let report = serde_json::to_vec(&serde_json::json!({"version":1,"invocation":id,"action":"test","outcome":"incomplete","required_capture_complete":false,"failures":[failure],"observations":[]})).unwrap();
+        let report = serde_json::to_vec(&serde_json::json!({
+            "version":3,"invocation":id,"action":"test","outcome":"incomplete",
+            "required_capture_complete":false,"failures":[failure],"observations":[],
+            "evidence":[{"root":"invocation","path":"workflow-input.json","role":"input","omission":"unsettled"}]
+        })).unwrap();
         let observation: ReportObservation = serde_json::from_slice(&report).unwrap();
         let terminal = TerminalRecord {
             protocol: "pse.test-workflow".into(),
@@ -1025,7 +1021,7 @@ pub(crate) mod tests {
         assert_eq!(wire.files[1].original, [0xff, b'\n', 0, b'a']);
     }
     #[test]
-    fn full_scope_requires_exact_manifest_bijection_and_refuses_legacy_missing_commitment() {
+    fn full_scope_requires_exact_manifest_bijection() {
         let original = full_original(false);
         let mut wire = original.clone();
         wire.files.pop();
@@ -1047,14 +1043,6 @@ pub(crate) mod tests {
         .unwrap()
         .into();
         assert!(read(&wire).is_err());
-        let mut legacy = self::original();
-        legacy.scope = pse_contract_proto::support::encode_root::<_, pb::WorkflowEvidenceScope>(
-            EvidenceScope::Full,
-            "scope",
-        )
-        .unwrap()
-        .into();
-        assert!(read(&legacy).is_err());
     }
     #[test]
     fn full_scope_original_omission_stays_explicit_and_cannot_accept_later_bytes() {
@@ -1072,10 +1060,10 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn independent_legacy_report_preserves_original_failure_and_unavailable_facts() {
+    fn independent_current_report_preserves_original_failure_and_unobserved_facts() {
         let wire = original();
         let result = read(&wire).unwrap();
-        assert_eq!(result.report_version, 1);
+        assert_eq!(result.report_version, 3);
         assert!(result.inventory_sha256.is_none());
         assert!(result.selected_population_complete.is_none());
         assert!(result.recorded_native_lifetime_pending.is_none());
@@ -1089,6 +1077,12 @@ pub(crate) mod tests {
     #[test]
     fn independent_report_refuses_changed_original_bytes_and_passive_facts() {
         let wire = original();
+        let mut changed = wire.clone();
+        changed.report_observation.as_option_mut().unwrap().evidence = Default::default();
+        assert!(read(&changed).is_err());
+        let mut changed = wire.clone();
+        changed.report_observation.as_option_mut().unwrap().version = 2;
+        assert!(read(&changed).is_err());
         let mut changed = wire.clone();
         changed.report_original[0] = b'[';
         assert!(read(&changed).is_err());
@@ -1267,8 +1261,21 @@ pub(crate) mod tests {
         let foreign =
             FileDescriptorSet::decode_from_slice(crate::code_intelligence_contracts::DESCRIPTORS)
                 .unwrap();
+        assert!(matches!(
+            inspect(
+                &foreign,
+                "pse.developer.evidence.v1.CapturedWorkflowReport",
+                &wire,
+                &binary_options(),
+            ),
+            Err(EvidenceError::Metadata(pse_contract_proto::MetadataError::Invalid { reason }))
+                if reason == "selected metadata file developer_evidence.proto is absent"
+        ));
+        let without_core = FileDescriptorSet::decode_from_slice(
+            include_bytes!("generated/plan61/descriptor.bin").as_slice(),
+        ).unwrap();
         let Err(EvidenceError::Interpretation { assessment }) = inspect(
-            &foreign,
+            &without_core,
             "pse.developer.evidence.v1.CapturedWorkflowReport",
             &wire,
             &binary_options(),

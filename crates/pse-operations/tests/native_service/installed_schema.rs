@@ -2,7 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Connection-only CLI observation of an owned v4 canonical fixture.
 
-use super::{NativeServiceError, fixture_with_schema};
+use super::{NativeServiceError, current_fixture};
 use pse_operations::{generated::surreal::SCHEMA_DIGEST, native_service::NativeCanonicalService};
 use serde_json::Value;
 use std::{
@@ -76,7 +76,7 @@ async fn installed_schema_cli_observes_only_the_original_v4_issuer()
 -> Result<(), NativeServiceError> {
     let reader = std::env::var("PSE_TEST_INSTALLED_SCHEMA_READER")
         .expect("pass the original `pse observe prepare --installed-schema` reader ID");
-    let mut service = fixture_with_schema(false)?;
+    let mut service = current_fixture()?;
     let state = service.state().to_path_buf();
     let (issuer, address) = service
         .run(Instant::now() + Duration::from_secs(180), |service| {

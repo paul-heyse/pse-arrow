@@ -5,7 +5,7 @@ use super::*;
 use crate::{
     math::solves::NumericalInputs,
     reference_source_fixture::{reference_family_sources, rows},
-    workflow::tests as fixture,
+    workflow::{PreparationSettings, tests as fixture},
 };
 use pse_backend_native::solve::{Backend, SolverSelection};
 use pse_kernels::{DerivativeOrder, ProviderSelectionRegularity};
@@ -64,7 +64,7 @@ async fn conform_source(source: &str) -> ModelingConformanceReport {
         .modeling_package(rows, fixture::physical())
         .await
         .unwrap();
-    conform_admitted(&runtime, &package, selected).await
+    conform_admitted(&runtime, &package, selected, &PreparationSettings::default()).await
 }
 
 async fn conform_reference(name: &str) -> ModelingConformanceReport {
@@ -79,12 +79,18 @@ async fn conform_reference(name: &str) -> ModelingConformanceReport {
         .find(|row| row.name == name)
         .unwrap()
         .declaration_id;
-    conform_admitted(&runtime, &package, selected).await
+    conform_admitted(&runtime, &package, selected, &PreparationSettings::default()).await
 }
 
 #[tokio::test]
 async fn nested_bt_result_observes_actual_liquid_two_phase_and_vapor_invocations() {
-    let (runtime, package, _spill, _) = pr_jacobian_tests::ordinary_delivery_package(false)
+    use pse_modeling::specialize::{
+        Value,
+        finite::{FamilyKey, MemberKey},
+    };
+    use pse_relations::{columnar::RelationRow, generated::runtime::provider_selections};
+
+    let (runtime, package, _spill, preparation) = pr_jacobian_tests::ordinary_delivery_package(false)
         .await
         .unwrap();
     let declarations = package
@@ -99,6 +105,11 @@ async fn nested_bt_result_observes_actual_liquid_two_phase_and_vapor_invocations
         .iter()
         .find(|row| row.name == "split" && row.parent_id == Some(ideal.declaration_id))
         .unwrap();
+    let components = [
+        "01a0e1461e93764398a669ea78d82d27", // benzene
+        "01a0e1461e93764398a669eb046f4eaf", // toluene
+    ]
+    .map(|id| DeclarationId::from_id(SemanticId::parse_hex(id).unwrap()));
     for (fixture, branch) in [
         ("nested_liquid", "liquid_only"),
         ("nested_two_phase", "two_phase"),
@@ -114,12 +125,34 @@ async fn nested_bt_result_observes_actual_liquid_two_phase_and_vapor_invocations
             .find(|row| row.name == branch && row.parent_id == Some(split.declaration_id))
             .unwrap()
             .declaration_id;
-        let report = conform_admitted(&runtime, &package, selected).await;
+        let report = conform_admitted(&runtime, &package, selected, &preparation).await;
         assert!(
             report.complete && report.passed(),
             "{fixture}: {:?}; {:?}", report.checks, report.failures
         );
         let result = &report.results[&selected];
+        let table = result.table("runtime.provider_selections").unwrap();
+        let rows = provider_selections::Row::rows(&table).unwrap();
+        assert_eq!(rows.len(), result.provider_selections().len(), "{fixture}");
+        for (ordinal, (row, visit)) in rows.iter().zip(result.provider_selections()).enumerate() {
+            let selection = visit.observation.selection();
+            assert_eq!(row.run_id, result.run_id);
+            assert_eq!(row.step, 0);
+            assert_eq!(row.ordinal, ordinal as i64);
+            assert_eq!(row.attempt_id, None);
+            assert_eq!(row.native_attempt, result.original_attempt as i64);
+            assert_eq!(row.instance_id.as_id(), visit.instance);
+            assert_eq!(row.source_id, visit.source);
+            assert_eq!(row.provider, visit.observation.provider().0);
+            assert_eq!(row.invocation, visit.observation.invocation());
+            assert_eq!(row.selector_id, selection.selector);
+            assert_eq!(row.regime_id, selection.regime);
+            assert_eq!(row.policy, selection.policy);
+            assert_eq!(row.product, selection.product);
+            assert_eq!(row.requested_order, 0);
+            assert_eq!(row.selection_order, 0);
+            assert_eq!(row.regularity, ProviderSelectionRegularity::Point);
+        }
         let compiled = result.prepared.model.model.compiled();
         let (selector, expected) = compiled
             .model
@@ -128,18 +161,86 @@ async fn nested_bt_result_observes_actual_liquid_two_phase_and_vapor_invocations
             .find_map(|(selector, selection)| {
                 selection.alternatives.iter()
                     .find(|alternative| alternative.declaration == authored_regime)
-                    .map(|alternative| (selector.as_id(), alternative.id))
+                    .map(|alternative| (*selector, alternative.id))
             })
             .unwrap();
         let mut visits = result
             .provider_selections()
             .iter()
-            .filter(|visit| visit.observation.selection().selector == selector)
+            .filter(|visit| visit.observation.selection().selector == selector.as_id())
             .peekable();
-        assert!(visits.peek().is_some(), "{fixture} original invocation absent");
+        let provider = visits
+            .peek()
+            .unwrap_or_else(|| panic!("{fixture} original invocation absent"))
+            .observation
+            .provider();
+        let registration = result
+            .prepared
+            .providers
+            .values()
+            .map(pse_kernels::Registration::spec)
+            .find(|spec| spec.key() == provider)
+            .unwrap();
+        let system = compiled
+            .admitted
+            .implicit_systems()
+            .find(|system| system.descriptor.spec().id == selector.as_id())
+            .unwrap();
+        let original = system.descriptor.spec();
+        assert_eq!(registration.inputs, original.inputs);
+        assert_eq!(registration.outputs, original.outputs);
+
+        let model = &compiled.model;
+        let outer = compiled
+            .numerical_annotations(pse_compiler::workspace::NumericalAnnotationMode::Steady)
+            .unwrap();
+        for alternative in &model.regimes[&selector].alternatives {
+            let residual = system.residuals.iter().find(|r| r.id == alternative.id).unwrap();
+            assert_eq!(residual.rows.len(), alternative.equations.len());
+            for row in &alternative.equations {
+                let outside = outer.target(row.id).unwrap();
+                let inside = residual.numerical_annotations.target(row.id).unwrap();
+                assert!(outside.nested);
+                assert_eq!(outside.declaration, row.lineage.declaration);
+                assert_eq!(inside.declaration, row.lineage.declaration);
+            }
+        }
+        let instance = model.instances[&selector].parent.unwrap();
+        let declaration = model.instances[&instance].members["z"];
+        let tuples = model
+            .finite_facts
+            .family(&FamilyKey {
+                instance,
+                declaration,
+                role: "binding.indices.domain".into(),
+                parents: Vec::new(),
+            })
+            .unwrap();
+        assert_eq!(tuples.len(), components.len());
+        for component in components {
+            let tuple = tuples
+                .iter()
+                .find(|tuple| {
+                    matches!(tuple.as_slice(), [Value::Entity { id, .. }] if *id == component)
+                })
+                .unwrap();
+            let member = model
+                .finite_facts
+                .require_member(&MemberKey {
+                    instance,
+                    declaration,
+                    tuple: tuple.clone(),
+                })
+                .unwrap();
+            assert_eq!(
+                registration.inputs.iter().filter(|port| port.id == member).count(),
+                1,
+            );
+        }
         for visit in visits {
             let observed = visit.observation.selection();
             assert_ne!(visit.source, SemanticId::NIL);
+            assert_eq!(visit.observation.provider(), provider);
             assert_eq!(observed.regime, expected, "{fixture}");
             assert_eq!(visit.observation.requested_order(), DerivativeOrder::Value);
             assert_eq!(observed.selection_order, DerivativeOrder::Value);
@@ -152,17 +253,16 @@ async fn conform_admitted(
     runtime: &Runtime,
     package: &ModelingPackage,
     selected: DeclarationId,
+    preparation: &PreparationSettings,
 ) -> ModelingConformanceReport {
     let services = runtime.execution_services();
     let mut solver = fixture::profile();
     solver.selection = SolverSelection::Explicit(Backend::Ipopt);
     let policy = ModelingConformancePolicy {
-        // Full flash applicability evidence exceeds the toy fixture's 1 MiB
-        // scratch ceiling. Use the existing production compiler defaults.
-        compiler: pse_compiler::workspace::Profile::default(),
+        compiler: preparation.compiler,
         solver,
         numerical: NumericalInputs::default(),
-        limits: Limits::default(),
+        limits: preparation.limits,
         derivatives: pse_backend_native::derivative_diagnostics::Policy {
             perturbation: 1e-6,
             relative_tolerance: 1e-4,

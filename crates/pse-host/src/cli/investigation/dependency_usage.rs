@@ -67,9 +67,9 @@ pub(super) fn inspect(args: Args, root: &Path, output: &OutputOptions) -> Result
             root,
             &environment,
             &record,
-            &semantic::Request::DependencyUsage {
+            &semantic::Request::DependencyUsage(semantic::DependencyUsageQuery {
                 package_ids: args.package_ids,
-            },
+            }),
         ))
         .and_then(semantic::Response::into_dependency_usage)
         .map_err(error)?;

@@ -2320,7 +2320,8 @@ pub(crate) fn commit_block(
     );
     Ok(())
 }
-fn block_candidate<'a>(
+/// Borrow the qualified original coordinates before admitting their commit.
+pub(in crate::math) fn block_candidate<'a>(
     b: &pse_structural::initialization::Block,
     report: Option<&'a SolveReport>,
     policy: &pse_model::numerics::NumericalPolicy,

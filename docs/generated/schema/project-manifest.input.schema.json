@@ -1421,6 +1421,14 @@
         "path": {
           "description": "path",
           "type": "string"
+        },
+        "schedule_start": {
+          "description": "schedule_start",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
         }
       },
       "required": [

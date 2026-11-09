@@ -420,6 +420,13 @@ const REQUIRED_LOCAL_ANALYSIS_FIT: [ScientificRelation; 18usize] = [
     },
     ScientificRelation {
         id: pse_ids::SemanticId::from_bytes([
+            155u8, 27u8, 50u8, 146u8, 98u8, 26u8, 237u8, 58u8, 132u8, 119u8, 166u8,
+            143u8, 230u8, 117u8, 38u8, 14u8,
+        ]),
+        name: "runtime.profile_points",
+    },
+    ScientificRelation {
+        id: pse_ids::SemanticId::from_bytes([
             155u8, 60u8, 188u8, 58u8, 97u8, 41u8, 23u8, 240u8, 160u8, 4u8, 209u8, 134u8,
             242u8, 49u8, 30u8, 55u8,
         ]),
@@ -445,13 +452,6 @@ const REQUIRED_LOCAL_ANALYSIS_FIT: [ScientificRelation; 18usize] = [
             30u8, 88u8, 98u8, 233u8,
         ]),
         name: "runtime.parameter_intervals",
-    },
-    ScientificRelation {
-        id: pse_ids::SemanticId::from_bytes([
-            176u8, 173u8, 76u8, 186u8, 66u8, 31u8, 245u8, 19u8, 17u8, 93u8, 127u8, 37u8,
-            166u8, 150u8, 164u8, 244u8,
-        ]),
-        name: "runtime.profile_points",
     },
     ScientificRelation {
         id: pse_ids::SemanticId::from_bytes([

@@ -132,7 +132,7 @@ enum ClosureAccess<'a> {
     Metadata(&'a pse_schema::Registry),
     Executable {
         runtime: &'a Runtime,
-        physical: PhysicalContext,
+        physical: &'a PhysicalContext,
         cancel: &'a crate::CancelSource,
     },
 }
@@ -232,7 +232,7 @@ impl Runtime {
         } else {
             ClosureAccess::Executable {
                 runtime: self,
-                physical: physical.ok_or_else(|| {
+                physical: physical.as_ref().ok_or_else(|| {
                     contract("executable closure requires admitted physical context")
                 })?,
                 cancel,
@@ -288,7 +288,7 @@ async fn resolve_project_closure(
             runtime
                 .project_boxed(runtime.project_open_selection(
                     &request.selection,
-                    physical.clone(),
+                    PhysicalContext::clone(physical),
                     cancel,
                 ))?
                 .await?,
@@ -627,7 +627,7 @@ async fn resolve_project_closure(
                     .project_boxed(runtime.physical_source(&study.definition.physical, cancel))?
                     .await?
             } else {
-                physical.clone()
+                PhysicalContext::clone(physical)
             };
             runtime
                 .project_boxed(runtime.modeling_revision(recorded, physical, BTreeMap::new()))?

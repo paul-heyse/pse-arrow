@@ -583,21 +583,26 @@ impl EngineeringService {
         self.study_status(key).await
     }
 
-    /// Open the existing bounded passive observer, preserving all original cursor checks.
+    /// Open the existing bounded observer when its capture admission is still open.
     /// # Errors
     /// A changed study selection, source context, cursor or native capture refusal propagates.
-    pub async fn observe_study(
+    pub(in crate::host_operations::engineering) async fn observe_study(
         &self,
         input: EngineeringObserveStudy,
-    ) -> Result<crate::workflow::StudyObserver, EngineeringServiceError> {
+        deadline: Option<std::time::Instant>,
+    ) -> Result<Option<crate::workflow::StudyObserver>, EngineeringServiceError> {
         input.validate_projection().map_err(owner)?;
         self.study_status(&input.original).await?;
         if input.request.study != input.original.study.to_string() {
             return Err(request("study observer selects another original study"));
         }
+        if deadline.is_some_and(|deadline| std::time::Instant::now() >= deadline) {
+            return Ok(None);
+        }
         self.runtime
             .observe_study(input.request, input.cursor)
             .await
+            .map(Some)
             .map_err(owner)
     }
 
@@ -605,28 +610,19 @@ impl EngineeringService {
     /// # Errors
     /// Original capture/history/continuity and the observer's own finite clock/resource failures
     /// remain distinct from scientific execution and never cancel the study.
-    pub async fn study_observation_page(
+    pub(in crate::host_operations::engineering) async fn study_observation_page(
         &self,
         observer: &mut crate::workflow::StudyObserver,
-        follow: bool,
-        cancel: &CancelSource,
     ) -> Result<
         EngineeringStudyOutput<crate::workflow::StudyObservationPage>,
         EngineeringServiceError,
     > {
-        cancel.checkpoint().map_err(owner)?;
         let encoding = self
             .shared
             .math()
             .reserve("engineering:study-observation-encoding", 4 * (4 << 20))
             .map_err(owner)?;
-        let value = if follow {
-            observer.follow(std::time::Duration::from_millis(100)).await
-        } else {
-            observer.poll().await
-        }
-        .map_err(owner)?;
-        cancel.checkpoint().map_err(owner)?;
+        let value = observer.poll().await.map_err(owner)?;
         let native = value.payload_owner();
         Ok(EngineeringStudyOutput {
             value,

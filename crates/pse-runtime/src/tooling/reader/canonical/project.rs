@@ -89,7 +89,7 @@ pub enum ProjectRead {
     /// Browse compact live study metadata under indexed native predicates.
     StudyWorkbench {
         /// Original predicates, row limit and issuer-bound continuation.
-        request: StudyWorkbenchRequest,
+        request: Box<StudyWorkbenchRequest>,
     },
     /// Browse or read exact canonical research metadata.
     ResearchRead {
@@ -199,7 +199,7 @@ async fn read(
         },
         ProjectRead::StudyWorkbench { request } => ProjectReadView::StudyWorkbench {
             page: store
-                .control_study_workbench_page(request)
+                .control_study_workbench_page(*request)
                 .await
                 .map_err(canonical)?,
         },

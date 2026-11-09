@@ -2516,11 +2516,10 @@ impl NativeFrom<
                 )
             }
             crate::reference_exchange::generated::pb::pse::reference::v1::__buffa::oneof::reference_degenerate_certificate::Kind::Unreported(
-                wire,
+                _,
             ) => {
                 let alternative_path = child_path(path, "Unreported");
                 let path = alternative_path.as_str();
-                let wire = *wire;
                 layout(
                     <pse_model::reference_exchange::ReferenceDegenerateCertificate as pse_contract::boundary_projection::ProjectionAlternative<
                         2,

@@ -3259,6 +3259,7 @@ async fn failed_blocks_release_construction_allowance_and_preserve_original_caus
     }
     drop(first);
     drop(cause);
+    service.shutdown_native_lanes().await.unwrap();
     drop(prepared);
     drop(original);
     drop(budget);

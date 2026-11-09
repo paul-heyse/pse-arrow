@@ -11,6 +11,8 @@ mod investigation;
 pub use investigation::*;
 mod layout;
 pub use layout::{LayoutAssociation, LayoutAssociationState, associate_layout};
+mod native_usage_contract;
+pub use native_usage_contract::dependency_usage_projection;
 mod protocol_facts;
 pub use facts::*;
 #[cfg(feature = "native-hir")]
@@ -36,42 +38,48 @@ pub use service::{
 };
 use std::path::PathBuf;
 
-/// Current prepared semantic helper/selector protocol; legacy selectors are administration-only.
-pub const SESSION_PROTOCOL_VERSION: u32 = 9;
+/// Current prepared semantic helper and selector protocol.
+pub const SESSION_PROTOCOL_VERSION: u32 = 10;
 
+pse_contract::projection_enum! {
 /// Explicit context owner; immutable native snapshots are not a second live LSP world.
 #[derive(
     Clone, Copy, Debug, Default, Eq, PartialEq, Serialize, Deserialize, JsonSchema, clap::ValueEnum,
 )]
 #[serde(rename_all = "snake_case")]
 pub enum Backend {
+    projection: { name: "NativeAnalysisBackend", rust_path: crate::semantic::Backend, version: 1, direction: pse_contract::BoundaryDirection::Both, reserved_tags: [], reserved_names: [] };
     /// The explicitly prepared reusable rust-analyzer LSP session.
     #[default]
-    Lsp,
+    Lsp => 1;
     /// An explicitly prepared immutable compatible-family HIR/IDE snapshot.
-    NativeSnapshot,
+    NativeSnapshot => 2;
+}
 }
 
+pse_contract::projection_struct! {
 /// Selected analysis context; LSP cannot choose an exact Cargo compiler-unit instance.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Configuration {
+    projection: { name: "NativeConfiguration", rust_path: crate::semantic::Configuration, version: 1, direction: pse_contract::BoundaryDirection::Both, reserved_tags: [], reserved_names: [] };
     /// Selected semantic context and provider authority.
     #[serde(default)]
-    pub backend: Backend,
+    pub backend: Backend => { tag: 1, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Canonical Cargo project root, independent of the owning checkout.
-    pub project: PathBuf,
+    pub project: PathBuf => { tag: 2, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Explicit feature names passed to the analyzer's Cargo model.
-    pub features: Vec<String>,
+    pub features: Vec<String> => { tag: 3, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Disable Cargo defaults in this analyzer model.
-    pub no_default_features: bool,
+    pub no_default_features: bool => { tag: 4, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Explicit compilation target, when selected.
-    pub target: Option<String>,
+    pub target: Option<String> => { tag: 5, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Explicitly admit native build-script and proc-macro preparation through correctness Cargo.
-    pub build_macros: bool,
+    pub build_macros: bool => { tag: 6, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Explicitly include native cfg(test) semantics; never compiler-unit equivalence.
     #[serde(default)]
-    pub test_context: bool,
+    pub test_context: bool => { tag: 7, direction: pse_contract::BoundaryDirection::Both, rules: [] };
+}
 }
 impl Configuration {
     /// Validate and canonicalize before preparation; reads do not prepare a session.
@@ -113,33 +121,44 @@ pub enum Request {
     /// One bounded relationship investigation in one original native snapshot.
     Graph(GraphQuery),
     /// Batch resolved workspace references to exact dependency packages.
-    DependencyUsage {
-        /// Exact source-qualified Cargo package identifiers.
-        package_ids: Vec<String>,
-    },
+    DependencyUsage(DependencyUsageQuery),
     /// Read selected package facts from the already loaded native Cargo/VFS world.
     PackageContext {
         /// Exact Cargo source-qualified package identity.
         package_id: String,
     },
 }
+pse_contract::projection_struct! {
+/// Exact source-qualified Cargo dependency packages in one batch census.
+#[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct DependencyUsageQuery {
+    projection: { name: "NativeDependencyUsageQuery", rust_path: crate::semantic::DependencyUsageQuery, version: 1, direction: pse_contract::BoundaryDirection::Both, reserved_tags: [], reserved_names: [] };
+    /// Exact source-qualified Cargo package identifiers.
+    pub package_ids: Vec<String> => { tag: 1, direction: pse_contract::BoundaryDirection::Both, rules: [pse_contract::boundary_projection::LocalRule::Length { min: 1, max: u32::MAX as u64 }] };
+}
+}
+
+pse_contract::projection_struct! {
 /// Actual library crate context captured from the same prepared native database.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
 pub struct NativeLibraryProfile {
+    projection: { name: "NativeLibraryProfile", rust_path: crate::semantic::NativeLibraryProfile, version: 1, direction: pse_contract::BoundaryDirection::Both, reserved_tags: [], reserved_names: [] };
     /// Original source-qualified Cargo package identifier.
-    pub package_id: String,
+    pub package_id: String => { tag: 1, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Original package manifest.
-    pub manifest: PathBuf,
+    pub manifest: PathBuf => { tag: 2, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Original package source root.
-    pub source_root: PathBuf,
+    pub source_root: PathBuf => { tag: 3, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Actual loaded library root.
-    pub library_root: PathBuf,
+    pub library_root: PathBuf => { tag: 4, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Effective feature atoms of this exact native crate.
-    pub features: std::collections::BTreeSet<String>,
+    pub features: std::collections::BTreeSet<String> => { tag: 5, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Actual loaded target, absent for unqualified host contexts.
-    pub target: Option<String>,
+    pub target: Option<String> => { tag: 6, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Actual library/proc-macro/test role.
-    pub role: String,
+    pub role: String => { tag: 7, direction: pse_contract::BoundaryDirection::Both, rules: [] };
+}
 }
 /// Actual library crate context captured from the same prepared native database.
 #[derive(
@@ -192,43 +211,49 @@ pub struct PackageContextAnswer {
     /// All actual matching library contexts; ambiguity is not collapsed.
     pub packages: Vec<NativePackageContext>,
 }
-/// A source-qualified observed reference; this is not evidence of runtime execution.
+pse_contract::projection_struct! {
+/// A source-qualified observed reference in the original native graph.
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct DependencyReference {
+    projection: { name: "NativeDependencyReference", rust_path: crate::semantic::DependencyReference, version: 1, direction: pse_contract::BoundaryDirection::Both, reserved_tags: [], reserved_names: [] };
     /// Original declaration location in the selected VFS world.
-    pub definition: NativeLocation,
+    pub definition: NativeLocation => { tag: 1, direction: pse_contract::BoundaryDirection::Both, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// All captured dependency profiles whose source root contains the declaration.
-    pub profiles: Vec<NativeLibraryProfile>,
+    pub profiles: Vec<NativeLibraryProfile> => { tag: 2, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Original written workspace occurrence.
-    pub occurrence: NativeLocation,
+    pub occurrence: NativeLocation => { tag: 3, direction: pse_contract::BoundaryDirection::Both, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Digest of the occurrence's original snapshot bytes.
-    pub source_sha256: String,
+    pub source_sha256: String => { tag: 4, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Upstream symbol category, retained for presentation only.
-    pub symbol_kind: String,
+    pub symbol_kind: String => { tag: 5, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Resolved declaration label, when available.
-    pub name: Option<String>,
+    pub name: Option<String> => { tag: 6, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Syntactic occurrence role, not an execution classification.
-    pub role: String,
+    pub role: String => { tag: 7, direction: pse_contract::BoundaryDirection::Both, rules: [] };
 }
+}
+pse_contract::projection_struct! {
 /// One batch census in one explicitly prepared immutable native world.
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct DependencyUsageAnswer {
+    projection: { name: "NativeDependencyUsageAnswer", rust_path: crate::semantic::DependencyUsageAnswer, version: 1, direction: pse_contract::BoundaryDirection::Both, reserved_tags: [], reserved_names: [] };
     /// Actual selected analysis context.
-    pub session: AnalysisContext,
+    pub session: AnalysisContext => { tag: 1, direction: pse_contract::BoundaryDirection::Both, rules: [pse_contract::boundary_projection::LocalRule::Required] };
     /// Immutable world generation.
-    pub generation: u64,
+    pub generation: u64 => { tag: 2, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Exact requested Cargo package IDs.
-    pub package_ids: Vec<String>,
+    pub package_ids: Vec<String> => { tag: 3, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Requested packages absent from the selected native graph, never zero-use verdicts.
-    pub unavailable_package_ids: Vec<String>,
+    pub unavailable_package_ids: Vec<String> => { tag: 8, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Resolved reference observations, excluding definition occurrences.
-    pub references: Vec<DependencyReference>,
+    pub references: Vec<DependencyReference> => { tag: 4, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Number of source files indexed by the upstream batch operation.
-    pub indexed_files: usize,
+    pub indexed_files: usize => { tag: 5, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Resolved symbols for which no original definition mapping was available.
-    pub unmapped_definitions: usize,
+    pub unmapped_definitions: usize => { tag: 6, direction: pse_contract::BoundaryDirection::Both, rules: [] };
     /// Explicit scope and interpretation limits.
-    pub limitations: Vec<String>,
+    pub limitations: Vec<String> => { tag: 7, direction: pse_contract::BoundaryDirection::Both, rules: [] };
+}
 }
 /// Policies directly supported by the selected native symbol index.
 #[derive(Clone, Copy, Debug, Default, Serialize, Deserialize, JsonSchema)]

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
-//! Authored wire contracts. Native context checks and CPU settlement retain their owners.
-/// Generated typed messages and direct reflection over the authored wire schema.
+//! Combined authored service and native source contracts. Native context and settlement retain their owners.
+/// Generated typed messages and direct reflection over the complete compiled wire schema.
 #[path = "generated/code-intelligence/mod.rs"]
 #[rustfmt::skip]
 #[allow(elided_lifetimes_in_paths, trivial_numeric_casts, missing_debug_implementations, missing_docs, clippy::upper_case_acronyms, reason = "Pinned protobuf generator public surface, authored wire enum spellings and generated accessor documentation")]
@@ -24,6 +24,21 @@ pub mod services {
 
 /// Complete source-aware descriptors; the embedded runtime pool is a derived projection.
 pub const DESCRIPTORS: &[u8] = include_bytes!("generated/code-intelligence/descriptor.bin");
+
+use pse_contract::boundary_projection::{AdapterError, AdapterFailure};
+use pse_contract_proto::support::*;
+#[path = "generated/code-intelligence/native-adapters.rs"]
+#[rustfmt::skip]
+mod native_adapters;
+pub(crate) use native_adapters::{
+    decode_native_dependency_usage_answer, decode_native_dependency_usage_query,
+    encode_native_dependency_usage_answer, encode_native_dependency_usage_query,
+};
+
+/// Source-owned interpretation and coverage of the native census file.
+#[path = "generated/code-intelligence/native-policy.rs"]
+#[rustfmt::skip]
+pub mod native_policy;
 
 mod local;
 pub use local::{DeclarationProjection, api_declaration, project_declaration, source_declaration};

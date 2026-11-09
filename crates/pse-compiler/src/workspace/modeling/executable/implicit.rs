@@ -158,7 +158,8 @@ pub struct ImplicitScale {
 #[derive(Clone, Debug, PartialEq)]
 struct ResidualProjection {
     id: SemanticId,
-    rows: Vec<SemanticId>,
+    /// Ordered output rows and their original declarations, including alternative rows.
+    rows: Vec<(SemanticId, DeclarationId)>,
     regions: Vec<SelectedRegion>,
     quantities: Vec<QuantityTypeId>,
     assessment: Option<AssessmentProjection>,
@@ -188,7 +189,7 @@ impl Projection {
     }
     pub(super) fn annotation_rows(
         &self,
-    ) -> impl Iterator<Item = (usize, SemanticId, QuantityTypeId, &SelectedRegion)> + '_ {
+    ) -> impl Iterator<Item = (usize, SemanticId, DeclarationId, QuantityTypeId, &SelectedRegion)> + '_ {
         self.residuals.iter().flat_map(|residual| {
             residual
                 .rows
@@ -196,14 +197,16 @@ impl Projection {
                 .zip(&residual.quantities)
                 .zip(&residual.regions)
                 .enumerate()
-                .map(|(position, ((id, quantity), region))| (position, *id, *quantity, region))
+                .map(|(position, (((id, declaration), quantity), region))| {
+                    (position, *id, *declaration, *quantity, region)
+                })
         })
     }
     pub(super) fn annotation_inventory(&self) -> impl Iterator<Item = SemanticId> + '_ {
         self.unknowns.iter().copied().chain(
             self.residuals
                 .iter()
-                .flat_map(|residual| residual.rows.iter().copied()),
+                .flat_map(|residual| residual.rows.iter().map(|(id, _)| *id)),
         )
     }
     pub(super) fn retained_bytes(&self) -> usize {
@@ -232,7 +235,7 @@ impl Projection {
                     .iter()
                     .map(|residual| {
                         size_of::<ResidualProjection>()
-                            + residual.rows.capacity() * size_of::<SemanticId>()
+                            + residual.rows.capacity() * size_of::<(SemanticId, DeclarationId)>()
                             + residual.quantities.capacity() * size_of::<QuantityTypeId>()
                             + residual
                                 .regions
@@ -1570,8 +1573,29 @@ pub(super) fn project(
                     "nested implicit block must be a nonempty square residual system".into(),
                 ));
             }
-            let indices=p.outputs.iter().enumerate().filter_map(|(index,output)|matches!(output,ModelingOutput::Equation {id,sense:EquationSense::Eq} if rows.contains(id)).then_some(index)).collect::<Vec<_>>();
-            if indices.len() != rows.len() {
+            let mut pending = rows.iter().copied().collect::<BTreeSet<_>>();
+            if pending.len() != rows.len() {
+                return Err(CompileError::Missing(
+                    "duplicate implicit residual row".into(),
+                ));
+            }
+            let mut indices = Vec::with_capacity(rows.len());
+            for (index, output) in p.outputs.iter().enumerate() {
+                if let ModelingOutput::Equation {
+                    id,
+                    sense: EquationSense::Eq,
+                } = output
+                    && rows.contains(id)
+                {
+                    if !pending.remove(id) {
+                        return Err(CompileError::Missing(
+                            "duplicate implicit residual output".into(),
+                        ));
+                    }
+                    indices.push(index);
+                }
+            }
+            if !pending.is_empty() {
                 return Err(CompileError::Missing(
                     "implicit block requires equality residuals".into(),
                 ));
@@ -1709,7 +1733,7 @@ pub(super) fn project(
                 id,
                 rows: indices
                     .iter()
-                    .map(|index| p.outputs[*index].row_id())
+                    .map(|index| (p.outputs[*index].row_id(), p.declarations[*index]))
                     .collect(),
                 regions: indices
                     .iter()
@@ -2345,12 +2369,6 @@ pub(super) fn admit(
         }
         calls.insert(spec.identity(), supplier.descriptor.clone());
     }
-    let row_declarations = p
-        .model
-        .equations
-        .iter()
-        .map(|row| (row.id, row.lineage.declaration))
-        .collect::<BTreeMap<_, _>>();
     for implicit in &p.implicit {
         checkpoint(db);
         if definitions.contains_key(&implicit.id) {
@@ -2474,11 +2492,9 @@ pub(super) fn admit(
                     selected: true,
                 });
             }
-            for (position, (id, quantity)) in r.rows.iter().zip(body.quantities()).enumerate() {
-                let declaration = row_declarations
-                    .get(id)
-                    .copied()
-                    .ok_or_else(|| CompileError::Missing("nested numerical row source".into()))?;
+            for (position, ((id, declaration), quantity)) in
+                r.rows.iter().zip(body.quantities()).enumerate()
+            {
                 let region = r
                     .regions
                     .get(position)
@@ -2487,7 +2503,7 @@ pub(super) fn admit(
                     id: *id,
                     kind: pse_model::generated::enums::NumericalTarget::Row,
                     role: NumericalTargetRole::NestedRow,
-                    declaration,
+                    declaration: *declaration,
                     quantity: *quantity,
                     unit: registry
                         .quantity_type(*quantity)
@@ -2512,7 +2528,7 @@ pub(super) fn admit(
             residuals.push(AdmittedResidual {
                 id: r.id,
                 body,
-                rows: r.rows.clone(),
+                rows: r.rows.iter().map(|(id, _)| *id).collect(),
                 assessment,
                 hints: if r.hints.is_empty() {
                     None

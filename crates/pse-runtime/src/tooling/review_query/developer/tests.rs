@@ -43,7 +43,7 @@ fn member_pending(
         vec![]
     };
     let report = ReportObservation {
-        version: 1,
+        version: 3,
         invocation: CliInvocationId::new(),
         action: Action::Test,
         outcome: Outcome::Incomplete,
@@ -52,7 +52,7 @@ fn member_pending(
         required_capture_complete: complete,
         failures,
         inventory_content: None,
-        evidence: None,
+        evidence: Some(vec![input_omission()]),
     };
     committed_member(root, report, settled, pending)
 }
@@ -113,6 +113,18 @@ fn request(members: Vec<Member>) -> Request {
     }
 }
 
+fn input_omission() -> EvidenceFile {
+    EvidenceFile {
+        root: EvidenceRoot::Invocation,
+        path: "workflow-input.json".into(),
+        role: EvidenceRole::Input,
+        group: None,
+        content: None,
+        omission: Some(EvidenceOmission::Unsettled),
+        failure: None,
+    }
+}
+
 #[tokio::test]
 async fn original_dependency_diagnostics_keep_nested_pointers_without_inventing_operation_failure() {
     let root = tempfile::tempdir().unwrap();
@@ -135,15 +147,7 @@ async fn original_dependency_diagnostics_keep_nested_pointers_without_inventing_
             failures: vec![],
             inventory_content: None,
             evidence: Some(vec![
-                EvidenceFile {
-                    root: EvidenceRoot::Invocation,
-                    path: "workflow-input.json".into(),
-                    role: EvidenceRole::Input,
-                    group: None,
-                    content: None,
-                    omission: Some(EvidenceOmission::Unsettled),
-                    failure: None,
-                },
+                input_omission(),
                 EvidenceFile {
                     root: EvidenceRoot::Workflow,
                     path: "explicit-original/compiler-context.json".into(),
@@ -185,47 +189,6 @@ async fn original_dependency_diagnostics_keep_nested_pointers_without_inventing_
         ordinary.references,
         [Reference { member: 0, pointer: Some("/evidence/1/failure/causes/0".into()) }]
     );
-}
-
-#[tokio::test]
-async fn empty_dependency_cause_account_remains_distinct_from_legacy_absence() {
-    let root = tempfile::tempdir().unwrap();
-    let legacy = member(root.path(), None, false, false, false);
-    let current = committed_member(
-        root.path(),
-        ReportObservation {
-            version: 3,
-            invocation: CliInvocationId::new(),
-            action: Action::Test,
-            outcome: Outcome::Incomplete,
-            inventory: None,
-            selected_tests: None,
-            required_capture_complete: false,
-            failures: vec![],
-            inventory_content: None,
-            evidence: Some(vec![EvidenceFile {
-                root: EvidenceRoot::Invocation,
-                path: "workflow-input.json".into(),
-                role: EvidenceRole::Input,
-                group: None,
-                content: None,
-                omission: Some(EvidenceOmission::Unsettled),
-                failure: None,
-            }]),
-        },
-        false,
-        None,
-    );
-    let analyzed = analyze(request(vec![legacy, current]), &CancellationToken::new())
-        .await
-        .unwrap();
-    let [legacy, current] = analyzed.document().patterns.as_slice() else {
-        panic!("known-empty and unavailable dependency coverage must remain separate")
-    };
-    assert_eq!(legacy.diagnostic_kind, None);
-    assert_eq!(legacy.references, [Reference { member: 0, pointer: None }]);
-    assert_eq!(current.diagnostic_kind.as_deref(), Some("evidence_causes_empty"));
-    assert_eq!(current.references, [Reference { member: 1, pointer: Some("/evidence".into()) }]);
 }
 
 const ORIGINAL_PENDING: &str = r#"[
@@ -645,7 +608,7 @@ async fn original_member_join_groups_causes_and_preserves_exact_counts_empty_and
         empty.references,
         [Reference {
             member: 2,
-            pointer: None
+            pointer: Some("/evidence".into())
         }]
     );
     assert_eq!(empty.invocations, 1);
@@ -795,7 +758,7 @@ fn explicit_fifo_refuses_without_waiting_for_a_peer_and_regular_symlinks_remain_
     .unwrap();
     owner.join().unwrap();
     drop(release);
-    assert_eq!(refused.unwrap(), true);
+    assert!(refused.unwrap());
     let regular = root.path().join("regular");
     std::fs::write(&regular, b"explicit selected regular bytes").unwrap();
     let link = root.path().join("explicit-link");

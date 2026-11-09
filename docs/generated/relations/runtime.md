@@ -3038,7 +3038,7 @@ Version: 1. Snapshot class: `derived`. Primary key: `coordinate_id`.
 
 Every pinned fit of a profile-likelihood chain (ADR-0118 item 8): one chain per free parameter and end, each point pinning the parameter on the fit prepared once and seeded from its chain's latest accepted point, which is recorded as its input.
 
-Version: 4. Snapshot class: `derived`. Primary key: `run_id, parameter_id, end, point`.
+Version: 5. Snapshot class: `derived`. Primary key: `run_id, parameter_id, end, point`.
 
 | Field path | Type | Nullable | Role | Reference | Quantity |
 |---|---|---|---|---|---|
@@ -3052,7 +3052,7 @@ Version: 4. Snapshot class: `derived`. Primary key: `run_id, parameter_id, end, 
 | `qualifiers` | `List` | false | `payload` | — | — |
 | `qualifiers.item` | `enum:CandidateQualifier` | false | `payload` | — | — |
 | `termination` | `enum:NativeTermination` | true | `payload` | — | — |
-| `callback_terminal_failure` | `Boolean` | true | `payload` | — | — |
+| `callback_terminal_failure` | `Boolean` | false | `payload` | — | — |
 | `failures` | `List` | false | `payload` | — | — |
 | `failures.item` | `Struct` | false | `payload` | — | — |
 | `failures.item.code` | `enum:DiagnosticCode` | false | `payload` | — | — |
@@ -3233,7 +3233,7 @@ Version: 4. Snapshot class: `derived`. Primary key: `run_id, parameter_id, end, 
 | `failures.item.causes.item.applicability.item.unknown_allowed` | `Boolean` | false | `payload` | — | — |
 | `failures.item.causes.item.applicability.item.extrapolation_allowed` | `Boolean` | false | `payload` | — | — |
 | `failures.item.causes.item.applicability.item.admitted` | `Boolean` | false | `payload` | — | — |
-| `original_assessment` | `Struct FitOriginalAssessmentObservation` | true | `payload` | — | — |
+| `original_assessment` | `Struct FitOriginalAssessmentObservation` | false | `payload` | — | — |
 | `original_assessment.complete` | `Boolean` | false | `payload` | — | — |
 | `original_assessment.experiments` | `List` | false | `payload` | — | — |
 | `original_assessment.experiments.item` | `Struct FitExperimentAssessmentObservation` | false | `payload` | — | — |
@@ -3657,6 +3657,31 @@ Version: 3. Snapshot class: `derived`. Primary key: `run_id, step`.
 | `output_units.item` | `semantic_id` | false | `payload` | — | — |
 | `values` | `List` | false | `payload` | — | — |
 | `values.item` | `Float64` | false | `payload` | — | — |
+
+## `provider_selections`
+
+Original checked provider invocations retained by case assessment. Rows preserve observed mathematical selection and the original attempt scope. They establish neither physical stability nor scientific use permission.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, ordinal`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `step` | `Int64` | false | `key` | — | — |
+| `ordinal` | `Int64` | false | `key` | — | — |
+| `attempt_id` | `semantic_id` | true | `payload` | — | — |
+| `native_attempt` | `Int64` | false | `payload` | — | — |
+| `instance_id` | `semantic_id` | false | `payload` | — | — |
+| `source_id` | `semantic_id` | false | `payload` | — | — |
+| `provider` | `content_hash` | false | `payload` | — | — |
+| `invocation` | `content_hash` | false | `payload` | — | — |
+| `selector_id` | `semantic_id` | false | `payload` | — | — |
+| `regime_id` | `semantic_id` | false | `payload` | — | — |
+| `policy` | `content_hash` | false | `payload` | — | — |
+| `product` | `content_hash` | false | `payload` | — | — |
+| `requested_order` | `Int64` | false | `payload` | — | — |
+| `selection_order` | `Int64` | false | `payload` | — | — |
+| `regularity` | `enum:ProviderSelectionRegularity` | false | `payload` | — | — |
 
 ## `reduced_hessians`
 

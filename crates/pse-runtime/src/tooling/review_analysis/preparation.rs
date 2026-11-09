@@ -469,6 +469,43 @@ pub(super) fn same_record(left: &CoherentRecord, right: &CoherentRecord) -> bool
         })
 }
 
+pub(super) fn selections(
+    set: &FrozenEvidenceSet,
+    request: &AnalysisRequest,
+    ids: &[OperationId],
+) -> Vec<AnalysisSelection> {
+    ids.iter()
+        .map(|id| {
+            let aligned = id.process_instance == request.operation.process_instance;
+            let snapshot = set.operation(*id);
+            let explicit = aligned.then_some(&request.window);
+            let interval = if snapshot.is_none() {
+                None
+            } else {
+                match explicit {
+                    Some(RecordedWindow::Interval { start, end }) => Some((*start, *end)),
+                    Some(RecordedWindow::EndingAt { at }) => Some((Duration::ZERO, *at)),
+                    _ => snapshot.map(|snapshot| (snapshot.interval_start, snapshot.interval_end)),
+                }
+            };
+            AnalysisSelection {
+                operation: *id,
+                process_clock: id.process_instance,
+                interval_start: interval.map(|interval| interval.0),
+                interval_end: interval.map(|interval| interval.1),
+                scope: if snapshot.is_none() {
+                    AnalysisSelectionScope::Unknown
+                } else if aligned {
+                    AnalysisSelectionScope::Direct
+                } else {
+                    AnalysisSelectionScope::Independent
+                },
+                aligned_to_request: aligned,
+            }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -512,40 +549,4 @@ mod tests {
             Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure)
         );
     }
-}
-pub(super) fn selections(
-    set: &FrozenEvidenceSet,
-    request: &AnalysisRequest,
-    ids: &[OperationId],
-) -> Vec<AnalysisSelection> {
-    ids.iter()
-        .map(|id| {
-            let aligned = id.process_instance == request.operation.process_instance;
-            let snapshot = set.operation(*id);
-            let explicit = aligned.then_some(&request.window);
-            let interval = if snapshot.is_none() {
-                None
-            } else {
-                match explicit {
-                    Some(RecordedWindow::Interval { start, end }) => Some((*start, *end)),
-                    Some(RecordedWindow::EndingAt { at }) => Some((Duration::ZERO, *at)),
-                    _ => snapshot.map(|snapshot| (snapshot.interval_start, snapshot.interval_end)),
-                }
-            };
-            AnalysisSelection {
-                operation: *id,
-                process_clock: id.process_instance,
-                interval_start: interval.map(|interval| interval.0),
-                interval_end: interval.map(|interval| interval.1),
-                scope: if snapshot.is_none() {
-                    AnalysisSelectionScope::Unknown
-                } else if aligned {
-                    AnalysisSelectionScope::Direct
-                } else {
-                    AnalysisSelectionScope::Independent
-                },
-                aligned_to_request: aligned,
-            }
-        })
-        .collect()
 }

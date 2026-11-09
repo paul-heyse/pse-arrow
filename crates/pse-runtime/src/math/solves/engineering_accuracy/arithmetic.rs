@@ -742,19 +742,15 @@ pub(crate) fn selected_point(
 ) -> Result<Option<ArithmeticUncertainty>, ProblemError> {
     // Selected-output capability discovery intentionally consumes availability only;
     // it has no GoalResult destination in which to retain an optional refusal.
-    Ok(
-        match enclose_point(PointEnclosure {
-            plan,
-            values,
-            point,
-            residual: outputs,
-            jacobian,
-            execution,
-            budget,
-            selected_values: true,
-        })? {
-            Ok(arithmetic) => Some(arithmetic),
-            Err(_) => None,
-        },
-    )
+    Ok(enclose_point(PointEnclosure {
+        plan,
+        values,
+        point,
+        residual: outputs,
+        jacobian,
+        execution,
+        budget,
+        selected_values: true,
+    })?
+    .ok())
 }

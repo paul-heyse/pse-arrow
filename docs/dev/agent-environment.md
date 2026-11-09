@@ -847,9 +847,11 @@ An authenticated borrowed enclosing owner can keep the probe protected until tha
 Semantic helpers use generated binary gRPC over HTTP/2 on their existing private Unix socket.
 Every initial connection and reconnect authenticates the kernel peer against the original
 managed invocation. The server derives client identity from Unix credentials. A reusable typed
-client shares that connection; it does not prepare another service. Selector version 4 identifies
-the current native fact semantics. Selectors 1–3 remain readable for original native administration, but queries
-refuse and require explicit stop/repreparation.
+client shares that connection. The current selector uses protocol 10 and its own filename under
+the checkout's shared preparation lock. Before changing protocol, settle the original analyzer
+with `pse code session stop` on its prepared generation. After a change, use `pse history
+--all-sessions` to find the exact original `code session prepare` invocation. Use `pse cancel ID`
+or `pse wait ID` to reconcile its native group and original result before preparing a replacement.
 
 Each admitted operation has a session-retained worker. Losing its handler, response stream or
 deadline requests cancellation while the worker retains the actual CPU task through settlement.

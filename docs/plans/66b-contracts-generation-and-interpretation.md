@@ -206,7 +206,10 @@ functional -- sh scripts/source-change-codegen reference-exchange` emitted the n
 degeneracy result from the passive model declarations with the predecessor
 runtime adapters still present. No product runtime was compiled for that stage.
 The runtime continues to own contextual reference admission and scientific
-receiving. Broader engineering inspection bootstrap remains open.
+receiving. The default runtime exercises the passive inspection producer. Its wire
+round-trip controls still select the engineering service feature because the generated
+messages and adapters belong to that world. Broader source-forward engineering inspection
+bootstrap remains open until that projection has an independent generation closure.
 [Reference generator](../../xtask/src/codegen/reference_exchange.rs)
 
 ### B02 — Make interpretation usable and refusal precise
@@ -335,5 +338,9 @@ The original-world, unknown/presence, native-authority and clean-room constraint
 Completion requires all finite selected callers moved, replaced mechanisms deleted, generated
 artifacts reproducible and the applicable L acceptance complete. Use the current declared
 crossing and refuse a superseded contract. Keep precise original source and presence checks
-for current records. The independent-host dependency-usage mapping still needs its combined
-Buf descriptor and native conversion owners.
+for current records. The independent host now combines Buf-authored files and the native
+dependency-usage projection in one complete descriptor. Buf resolves the graph-derived names
+during staging, then the generator substitutes the complete source-owned definitions before
+publication and validation. The shared context, location and library profile use the same
+generated adapters across their callers. The targeted generator ran successfully. Native
+receiving and the separate source-forward `ModelingInspection` closure remain open.

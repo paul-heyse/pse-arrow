@@ -23,9 +23,9 @@ pub use provider::{
     PreparedProviderRequest, ProviderBinding, ProviderBindings, ProviderBuffer, ProviderCompletion,
     ProviderDemand, ProviderExtents, ProviderLinearizationToken, ProviderOutput,
     ProviderRetirementFailure, ProviderRuntime, ProviderSelection, ProviderSelectionObservation,
-    ProviderSelectionRegularity,
 };
 pub use pse_model::generated::enums::ExternalDerivativeSource as DerivativeSource;
+pub use pse_model::generated::enums::ProviderSelectionRegularity;
 pub use shape::{ProviderShape, ProviderShapes};
 
 // Registration extents are shared by native admission and its boundary declaration.

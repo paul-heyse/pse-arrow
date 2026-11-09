@@ -9,9 +9,20 @@ use std::{path::Path, process::Command};
 /// Compile actual source schemas, preserving raw custom options and genuine source
 /// information. This helper has no native runtime or scientific Rust dependency.
 pub(super) fn imports(root: &Path) -> Result<FileDescriptorSet> {
+    // The authored host corpus now imports a source-owned native file. Select the same
+    // validation and well-known imports directly from its pinned Buf configuration.
+    let staging = tempfile::tempdir()?;
+    let host = root.join("crates/pse-host/proto");
+    for file in ["buf.yaml", "buf.lock"] {
+        std::fs::copy(host.join(file), staging.path().join(file))?;
+    }
+    std::fs::write(
+        staging.path().join("imports.proto"),
+        "syntax = \"proto3\";\npackage pse.contract.bootstrap;\nimport \"buf/validate/validate.proto\";\nimport \"google/protobuf/empty.proto\";\nmessage Imports { google.protobuf.Empty empty = 1 [(buf.validate.field).required = true]; }\n",
+    )?;
     let output = Command::new("buf")
         .args(["build", "--as-file-descriptor-set", "-o", "-"])
-        .current_dir(root.join("crates/pse-host/proto"))
+        .current_dir(staging.path())
         .output()?;
     if !output.status.success() {
         bail!(
@@ -20,11 +31,12 @@ pub(super) fn imports(root: &Path) -> Result<FileDescriptorSet> {
         );
     }
     let mut set = FileDescriptorSet::decode_from_slice(&output.stdout)?;
-    set.file.retain(|file| {
-        file.name
-            .as_deref()
-            .is_some_and(|name| !name.starts_with("pse/"))
-    });
+    set.file.retain(|file| file.name.as_deref() != Some("imports.proto"));
+    append_native_options(root, &mut set)?;
+    Ok(set)
+}
+
+pub(super) fn append_native_options(root: &Path, set: &mut FileDescriptorSet) -> Result<()> {
     for source in ["crates/pse-contract/proto", "crates/pse-schema/proto"] {
         let output = Command::new("buf")
             .args(["build", source, "--as-file-descriptor-set", "-o", "-"])
@@ -46,5 +58,5 @@ pub(super) fn imports(root: &Path) -> Result<FileDescriptorSet> {
             }
         }
     }
-    Ok(set)
+    Ok(())
 }

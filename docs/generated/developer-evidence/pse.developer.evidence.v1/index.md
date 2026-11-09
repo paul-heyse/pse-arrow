@@ -625,13 +625,13 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 ## `WorkflowReportObservation`
 
-Rust owner: `pse_host::test_workflow::execute::report::ReportObservation`. Source: `crates/pse-host/src/test_workflow/execute/report.rs`. Interpretation version: 2. Direction: `Output`.
+Rust owner: `pse_host::test_workflow::execute::report::ReportObservation`. Source: `crates/pse-host/src/test_workflow/execute/report.rs`. Interpretation version: 3. Direction: `Output`.
 
 Reserved numbers: `[]`. Reserved names: `[]`.
 
 | Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
 | --- | --- | --- | --- | --- | --- |
-| `version` | 1 | `Scalar(U32)` | `Output` | `[UnsignedRange { min: 1, max: 3 }]` | `{}` |
+| `version` | 1 | `Scalar(U32)` | `Output` | `[UnsignedRange { min: 3, max: 3 }]` | `{}` |
 | `invocation` | 2 | `Named("CliInvocationId")` | `Output` | `[]` | `{}` |
 | `action` | 3 | `Named("WorkflowAction")` | `Output` | `[]` | `{}` |
 | `outcome` | 4 | `Named("WorkflowOutcome")` | `Output` | `[]` | `{}` |
@@ -640,7 +640,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `required_capture_complete` | 7 | `Scalar(Bool)` | `Output` | `[]` | `{}` |
 | `failures` | 8 | `Repeated(Named("ErrorRecord"))` | `Output` | `[]` | `{}` |
 | `inventory_content` | 9 | `Optional(Named("ContentIdentity"))` | `Output` | `[]` | `{}` |
-| `evidence` | 10 | `Optional(Repeated(Named("WorkflowEvidenceFile")))` | `Output` | `[]` | `{}` |
+| `evidence` | 10 | `Optional(Repeated(Named("WorkflowEvidenceFile")))` | `Output` | `[Required]` | `{}` |
 
 ## `WorkflowReportReference`
 

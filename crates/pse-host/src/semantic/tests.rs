@@ -1745,7 +1745,7 @@ async fn socket_peer_cannot_supply_its_own_pid_or_receive_input_without_original
         let refused = Client::connect(&root, &environment, &old).await;
         assert!(
             matches!(refused,Err(Error::Unavailable(message)) if message.contains("incompatible protocol")),
-            "old worlds retain administration only"
+            "the current client refuses a different helper protocol"
         );
     }
     let refused = client(&root, &environment, &record, &Request::Status {}).await;

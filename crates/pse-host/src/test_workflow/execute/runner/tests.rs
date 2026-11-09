@@ -59,7 +59,7 @@ fn shell(group: usize, root: &Path, script: &str, args: &[&Path]) -> GroupComman
         cwd: root.into(),
         environment: std::env::vars_os().collect(),
         group,
-        runtime_inputs: crate::discovery::RuntimeInputObservation::NotCapturedByDiscovery,
+        runtime_inputs: discovery::RuntimeInputObservation::NotCapturedByDiscovery,
     }
 }
 fn observer() -> GroupObserver {
@@ -302,8 +302,7 @@ fn exact_fixture_refusal_records_complete_pending_account_before_helpers() {
         crate::fixtures::InputState::OwnerAdmissionRequired { .. }
     ));
     assert_eq!(report.failures.len(), 1);
-    let WorkflowError::Fixture(crate::fixtures::FixtureError::Inputs(failures)) = &report.causes[0]
-    else {
+    let WorkflowError::Fixture(FixtureError::Inputs(failures)) = &report.causes[0] else {
         panic!("typed original failures missing");
     };
     assert_eq!(failures.len(), 3);
@@ -339,10 +338,10 @@ fn failed_discovery_attempt_preserves_source_phases_without_inventory_or_rerun_g
             io_unresolved: false,
         }),
     };
-    let error = crate::discovery::DiscoveryError::Attempt {
+    let error = discovery::DiscoveryError::Attempt {
         evidence: root.path().join("inventory"),
         phases: vec![phase],
-        error: Box::new(crate::discovery::DiscoveryError::Command {
+        error: Box::new(discovery::DiscoveryError::Command {
             stage: "build",
             exit: 17,
             evidence: root.path().join("inventory/group-2"),
@@ -366,7 +365,7 @@ fn failed_discovery_attempt_preserves_source_phases_without_inventory_or_rerun_g
     assert!(report.inventory_content.is_none());
     assert!(report.selected_tests.is_none());
     assert_eq!(report.causes.len(), 1);
-    let WorkflowError::Discovery(crate::discovery::DiscoveryError::Attempt { phases, .. }) =
+    let WorkflowError::Discovery(discovery::DiscoveryError::Attempt { phases, .. }) =
         &report.causes[0]
     else {
         panic!("original native cause")
@@ -674,7 +673,7 @@ async fn actual_workflow_runs_only_the_original_selected_pure_test() {
     assert_eq!(report.selected_tests, Some(1));
     assert!(report.required_capture_complete);
     assert_eq!(report.observations.len(), 1);
-    let inventory: crate::discovery::Inventory =
+    let inventory: discovery::Inventory =
         serde_json::from_slice(&fs::read(destination.join("inventory/inventory.json")).unwrap())
             .unwrap();
     assert!(inventory.selection.filters().ignore_default_filter);
@@ -750,7 +749,7 @@ async fn actual_workflow_runs_only_the_original_selected_pure_test() {
 
 /// Challenge current rerun eligibility using the actual native build/list population.
 /// These altered observations are never written over the committed original inventory.
-fn verify_current_rerun_context(original: &crate::discovery::Inventory, scratch: &Path) {
+fn verify_current_rerun_context(original: &discovery::Inventory, scratch: &Path) {
     let identity = original.selected_tests().pop().unwrap();
     let selected = original.test(&identity).unwrap();
     let root = original.selection.groups()[identity.group]
@@ -774,7 +773,7 @@ fn verify_current_rerun_context(original: &crate::discovery::Inventory, scratch:
         test_name: identity.test_name.clone(),
     };
     let fresh = || {
-        let mut current: crate::discovery::Inventory =
+        let mut current: discovery::Inventory =
             serde_json::from_slice(&serde_json::to_vec(original).unwrap()).unwrap();
         current.selection = current.selection.source(
             selection::SourceBasis::RerunFailed {
@@ -882,7 +881,7 @@ async fn actual_package_workflow_reconciles_selected_tests_beside_an_ignored_onl
         observation.summary.setup(),
         crate::extraction::NextestSetup::SucceededByRunner
     );
-    let inventory: crate::discovery::Inventory =
+    let inventory: discovery::Inventory =
         serde_json::from_slice(&fs::read(destination.join("inventory/inventory.json")).unwrap())
             .unwrap();
     assert!(
@@ -1069,7 +1068,7 @@ pub fn documented() {}
         witness.clone().into_os_string(),
     );
     let cargo = |arguments: &[&str]| {
-        std::process::Command::new(root.join("target/host-tools/current/cargo-pse-correctness"))
+        Command::new(root.join("target/host-tools/current/cargo-pse-correctness"))
             .current_dir(&root)
             .env_clear()
             .envs(&environment)

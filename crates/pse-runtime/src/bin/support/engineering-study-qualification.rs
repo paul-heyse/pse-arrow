@@ -6,7 +6,7 @@ use futures_util::FutureExt as _;
 pub(super) use pse_host::study_qualification::Args;
 use pse_host::{
     discovery::{BuildCapture, Executable},
-    envelope::{CliInvocationId, Completeness, Settlement, SubjectState},
+    envelope::{CliInvocationId, Completeness, Settlement},
     invocation::InvocationStore,
     managed::result::ManagedSummary,
     paths::CheckoutState,
@@ -30,8 +30,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-const FEATURES: &str = "engineering-service,native-service,product-operators,solver-kinsol";
-const ROUTE_FEATURES: &str = "engineering-service,native-service,product-operators,solver-kinsol,solver-ipopt,solver-diffsol";
+// Every phase exercises the same prepared solver-enabled product. The phase
+// filter selects client behavior without requesting a second Cargo feature graph.
+const FEATURES: &str = "engineering-service,native-service,product-operators,solver-diffsol,solver-ipopt,solver-kinsol";
 
 #[derive(Debug)]
 pub(super) struct Failure {
@@ -96,6 +97,16 @@ impl std::fmt::Display for NativeCancelFailure {
 }
 impl std::error::Error for NativeCancelFailure {}
 
+fn has_control_failure(
+    observation: &pse_host::envelope::Envelope<serde_json::Value>,
+) -> Result<bool, Error> {
+    // The native control owner projects the original diagnostics into the response.
+    // Additional diagnostics belong to the control operation itself.
+    Ok(!observation.failures.is_empty()
+        && observation.payload.pointer("/result/failures")
+            != Some(&serde_json::to_value(&observation.failures)?))
+}
+
 fn cancelled_original(
     id: &CliInvocationId,
     status: std::process::ExitStatus,
@@ -107,7 +118,8 @@ fn cancelled_original(
         || observation.exit_code() != 0
         || observation.settlement != Settlement::Complete
         || observation.observation.completeness != Completeness::Complete
-        || !observation.failures.is_empty()
+        || !observation.observation.limitations.is_empty()
+        || has_control_failure(&observation)?
     {
         return Err(Box::new(NativeCancelFailure {
             invocation: id.clone(),
@@ -124,7 +136,8 @@ fn settled_original(
     original: &pse_host::envelope::Envelope<ManagedSummary>,
 ) -> Result<(), Error> {
     let mut refusals = Vec::new();
-    if observed.payload.get("original_invocation") != Some(&serde_json::to_value(id)?)
+    if observed.command != "wait"
+        || observed.payload.get("original_invocation") != Some(&serde_json::to_value(id)?)
         || original.invocation_id != *id
     {
         refusals.push("original invocation identity does not match".into());
@@ -135,26 +148,22 @@ fn settled_original(
     if observed.observation.completeness != Completeness::Complete {
         refusals.push("current native observation is incomplete".into());
     }
+    refusals.extend(observed.observation.limitations.iter().cloned());
     if original.observation.completeness != Completeness::Complete {
         refusals.push("original native observation is incomplete".into());
     }
-    match original.payload.child_exit {
-        None => refusals.push("original child exit was not observed".into()),
-        Some(exit) if exit != 0 && original.subject_state != SubjectState::Cancelled => {
-            refusals.push(format!("original action failed with child exit {exit}"));
-        }
-        Some(_) => {}
+    if original.payload.child_exit.is_none() {
+        refusals.push("original child exit was not observed".into());
     }
-    if !refusals.is_empty() || !observed.failures.is_empty() {
+    if !refusals.is_empty() || has_control_failure(observed)? {
         return Err(Box::new(NativeWaitFailure {
             invocation: id.clone(),
             refusals,
             failures: observed.failures.clone(),
         }));
     }
-    // A typed cancelled original may have a nonzero child exit. Only this current
-    // native wait establishes drain; the original report/outcome is never rewritten.
-    // A successful phase still requires its original TestsSucceeded workflow report.
+    // Only the current native wait establishes drain. Phase acceptance separately
+    // requires the original TestsSucceeded workflow report and complete evidence.
     Ok(())
 }
 
@@ -164,14 +173,20 @@ enum Phase {
     Recover,
     Complete,
     Routes,
+    EndpointIdentity,
+    EditRunReconnect,
 }
 impl Phase {
+    const FOLLOW_UP: [Self; 3] = [Self::Routes, Self::EndpointIdentity, Self::EditRunReconnect];
+
     fn name(self) -> &'static str {
         match self {
             Self::Submit => "submit",
             Self::Recover => "recover",
             Self::Complete => "complete",
             Self::Routes => "routes",
+            Self::EndpointIdentity => "endpoint-identity",
+            Self::EditRunReconnect => "edit-run-reconnect",
         }
     }
     fn test_name(self) -> &'static str {
@@ -182,16 +197,16 @@ impl Phase {
             Self::Routes => {
                 "routes::prepared_engineering_study_client_simulation_fit_and_horizon_keep_original_physics"
             }
-        }
-    }
-    fn features(self) -> &'static str {
-        match self {
-            Self::Submit | Self::Recover | Self::Complete => FEATURES,
-            Self::Routes => ROUTE_FEATURES,
+            Self::EndpointIdentity => {
+                "prepared_engineering_connector_refuses_stale_and_replaced_original_payloads"
+            }
+            Self::EditRunReconnect => {
+                "prepared_engineering_client_preserves_original_edit_run_and_reconnect"
+            }
         }
     }
     fn worker_started(self) -> bool {
-        matches!(self, Self::Complete | Self::Routes)
+        !matches!(self, Self::Submit | Self::Recover)
     }
 }
 
@@ -291,8 +306,11 @@ async fn sequence(driver: &mut impl Driver, stop: &CancelSource) -> Result<(), E
     driver.gate().await?;
     checkpoint(stop)?;
     driver.phase(Phase::Complete).await?;
-    checkpoint(stop)?;
-    driver.phase(Phase::Routes).await
+    for phase in Phase::FOLLOW_UP {
+        checkpoint(stop)?;
+        driver.phase(phase).await?;
+    }
+    Ok(())
 }
 async fn execute(driver: &mut impl Driver, stop: &CancelSource) -> Result<(), Error> {
     let action = AssertUnwindSafe(sequence(driver, stop))
@@ -574,7 +592,7 @@ impl Native {
         timeout: Duration,
     ) -> Result<(), Error> {
         let seconds = timeout.as_secs().saturating_add(1).to_string();
-        let (_, observed) = self
+        let (status, observed) = self
             .cli(
                 vec![
                     "wait".into(),
@@ -590,6 +608,12 @@ impl Native {
             .await?;
         let observed: pse_host::envelope::Envelope<serde_json::Value> =
             serde_json::from_value(observed)?;
+        if status.code() != Some(observed.exit_code()) {
+            return Err(format!(
+                "native wait for {id} exited {status}; its envelope reports exit {}",
+                observed.exit_code()
+            ).into());
+        }
         let original = self
             .store
             .result::<serde::de::IgnoredAny, ManagedSummary>(id)?
@@ -610,7 +634,7 @@ impl Driver for Native {
         let lifetime = self
             .args
             .phase_ms
-            .checked_mul(4)
+            .checked_mul(3 + Phase::FOLLOW_UP.len() as u64)
             .and_then(|n| n.checked_add(self.args.startup_ms.checked_mul(4)?))
             .and_then(|n| n.checked_add(self.args.shutdown_ms.checked_mul(3)?))
             .ok_or("keeper lifetime overflow")?;
@@ -756,7 +780,7 @@ impl Driver for Native {
                 "--session",
                 &session,
                 "--features",
-                phase.features(),
+                FEATURES,
                 "-E",
                 &filter,
                 "--profile",
@@ -794,6 +818,7 @@ impl Driver for Native {
         let id = self.identify(index)?;
         self.wait_original(&id, Duration::from_millis(self.args.phase_ms))
             .await?;
+        self.managed[index].settled = true;
         let original = self
             .store
             .result::<serde::de::IgnoredAny, ManagedSummary>(&id)?
@@ -806,7 +831,10 @@ impl Driver for Native {
         if workflow.terminal.outcome != Outcome::TestsSucceeded
             || !workflow.terminal.required_capture_complete
         {
-            return Err("phase did not complete its original native test population".into());
+            return Err(format!(
+                "Study phase {} invocation {id} reported {:?} with required capture complete={}",
+                phase.name(), workflow.terminal.outcome, workflow.terminal.required_capture_complete
+            ).into());
         }
         let page = pse_host::test_inventory::read(
             &self.store,
@@ -851,9 +879,8 @@ impl Driver for Native {
         {
             return Err("phase lacks the complete single original selected-test inventory".into());
         }
-        self.managed[index].settled = true;
         self.unchanged_keeper(phase.worker_started())?;
-        if phase == Phase::Routes {
+        if phase == Phase::EditRunReconnect {
             self.completed = true;
         }
         Ok(())
@@ -1270,6 +1297,8 @@ mod tests {
                 "gate",
                 "complete",
                 "routes",
+                "endpoint-identity",
+                "edit-run-reconnect",
                 "retire",
                 "finish"
             ]
@@ -1543,6 +1572,23 @@ mod tests {
         assert_eq!(driver.dispositions, [FixtureDisposition::Preserve]);
     }
     #[tokio::test]
+    async fn failed_independent_client_keeps_original_keeper_for_recovery() {
+        let mut driver = Probe {
+            fail: Some("edit-run-reconnect"),
+            ..Default::default()
+        };
+        let stop = driver.stop.clone();
+        let error = execute(&mut driver, &stop).await.unwrap_err();
+        assert!(driver.calls.windows(3).any(|calls| calls == [
+            "routes",
+            "endpoint-identity",
+            "edit-run-reconnect"
+        ]));
+        assert!(driver.calls.ends_with(&["retire".into(), "finish".into()]));
+        assert!(error.to_string().contains("original edit-run-reconnect failure"));
+        assert_eq!(driver.dispositions, [FixtureDisposition::Preserve]);
+    }
+    #[tokio::test]
     async fn interruption_settles_both_owners_before_repropagating_cancellation() {
         let mut driver = Probe {
             stop_at: Some("submit"),
@@ -1690,7 +1736,7 @@ mod tests {
     }
     #[test]
     fn interrupted_historical_outcome_needs_current_drain_and_preserves_native_failures() {
-        use pse_host::envelope::{CommandOutcome, Envelope, ErrorRecord, RedactionPolicy};
+        use pse_host::envelope::{CommandOutcome, Envelope, ErrorRecord, RedactionPolicy, SubjectState};
         let id = CliInvocationId::new();
         let mut original = Envelope::response(
             "run",
@@ -1743,6 +1789,10 @@ mod tests {
             );
         }
         observed.observation.completeness = Completeness::Complete;
+        observed.observation.limitations.push("workflow image release is unresolved".into());
+        let error = settled_original(&id, &observed, &original).unwrap_err();
+        assert!(error.to_string().contains("workflow image release is unresolved"));
+        observed.observation.limitations.clear();
         original.observation.completeness = Completeness::Partial;
         assert!(settled_original(&id, &observed, &original).is_err());
         original.observation.completeness = Completeness::Complete;
@@ -1755,16 +1805,22 @@ mod tests {
         );
         original.payload.child_exit = Some(137);
         original.outcome = CommandOutcome::Failure;
-        for subject in [SubjectState::Failed, SubjectState::NotApplicable] {
-            original.subject_state = subject;
-            let error = settled_original(&id, &observed, &original).unwrap_err();
-            assert!(
-                error
-                    .to_string()
-                    .contains("original action failed with child exit 137")
-            );
-            assert!(!error.to_string().contains("drain is incomplete"));
-        }
+        original.subject_state = SubjectState::Failed;
+        original.failures.push(ErrorRecord::from_typed(
+            &pse_host::HostError::Ownership("original test failed".into()),
+            &RedactionPolicy::from_environment(),
+        ));
+        observed.outcome = CommandOutcome::Failure;
+        observed.failures.clone_from(&original.failures);
+        observed.payload["result"] = serde_json::to_value(&original).unwrap();
+        assert!(settled_original(&id, &observed, &original).is_ok());
+        let mut cancel = Envelope::response("cancel", "proved original drain", observed.payload.clone());
+        cancel.settlement = Settlement::Complete;
+        cancel.failures.clone_from(&original.failures);
+        let exit = std::process::Command::new("true").status().unwrap();
+        assert!(cancelled_original(&id, exit, cancel).is_ok());
+        observed.failures.clear();
+        original.failures.clear();
         original.outcome = CommandOutcome::Interrupted;
         original.subject_state = SubjectState::Cancelled;
         observed.payload = serde_json::json!({"original_invocation":CliInvocationId::new()});

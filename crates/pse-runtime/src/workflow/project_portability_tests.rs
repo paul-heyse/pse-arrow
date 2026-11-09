@@ -128,7 +128,7 @@ async fn project_portability_result_ipc_reuses_original_lineage_and_finalization
     let (root, mut manifest) = bundle().await;
     fn ipc(metadata: std::collections::HashMap<String, String>) -> Vec<u8> {
         let schema = Schema::new_with_metadata(Vec::<Field>::new(), metadata);
-        let mut writer = StreamWriter::try_new(Vec::new(), &schema).unwrap();
+        let writer = StreamWriter::try_new(Vec::new(), &schema).unwrap();
         writer.into_inner().unwrap()
     }
     let result = workflow::PackResultSelection {

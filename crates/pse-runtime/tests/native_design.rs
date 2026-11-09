@@ -156,7 +156,7 @@ async fn public_native_designs_preserve_physical_geometry_and_outlive_producers(
             context.runtime.canonical_store().is_err(),
             "store-free construction"
         );
-        let package = context.package(SOURCE).await?;
+        let (package, _) = context.package(SOURCE).await?;
         let mut request = request(&context, &package).await?;
         let producer = context.runtime.clone();
         let services = producer.preparation_services();
@@ -245,7 +245,7 @@ async fn public_native_designs_preserve_physical_geometry_and_outlive_producers(
 async fn public_native_designs_refuse_invalid_physics_shapes_work_and_cancellation() -> Result<()> {
     let context = NativeContext::new()?;
     let outcome = AssertUnwindSafe(async {
-        let package = context.package(SOURCE).await?;
+        let (package, _) = context.package(SOURCE).await?;
         let request = request(&context, &package).await?;
         let services = context.runtime.preparation_services();
         let valid = Box::pin(package.generate_design(

@@ -8,10 +8,10 @@
     "crates/pse-host/tests/fixtures/plan61/buf.yaml": "647235719a93a58593b90d87641e03656ddcae35971f822322dc0e30eac528e0",
     "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
     "scripts/protobuf-associations.rs": "9612092ad4a1424d391ad3843e1aa74f1d2257b2370f975422f8498fbc7c9a35",
-    "xtask/Cargo.toml": "a102c616724f30c87d74ad310ea7a84cdb89f1fd10b29f649de4d7d0b6c7d783",
-    "xtask/src/codegen/code_intelligence.rs": "8aa2f221baaeae8297b9b2512e18a0e6686d6aec0c00574b8dc376932bc25d25",
-    "xtask/src/codegen/code_intelligence/associations.rs": "211bad898e26c9f6cade1d2a2e24e93b3a3aaf5df1c712736fce4cd41e3e8bad",
-    "xtask/src/codegen/proto_projection.rs": "d372796c77fac9cc0d249f04fdbf6ea2b31fa92c00d01ff6370f78da7ed62492",
+    "xtask/Cargo.toml": "de256b68157a60bc6bb26365549c5a4396682363e98dca75d4f3f9aa1b3209ff",
+    "xtask/src/codegen/code_intelligence.rs": "dfc954a7e71b1fd6af37312c4679705fe10188be8ddd6a015bf071586cdfe182",
+    "xtask/src/codegen/code_intelligence/associations.rs": "f693bd1f50108d5c8fcf08826f8bf2a46b859da50b4d695e483d3a85cf24e4c2",
+    "xtask/src/codegen/proto_projection.rs": "e84c9b67c85d0036a8ae8a2520ac2563074d8765fd033ba6aefc0d1a1a26bcbc",
     "xtask/src/codegen/proto_projection/composition.rs": "c483be2b2c6994a62dc7f085cb55dafb28da8262dbc2ef0f54a1398c19bb3148"
   },
   "associations": [

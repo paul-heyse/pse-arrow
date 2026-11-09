@@ -178,7 +178,7 @@ Native build width, incremental compilation and compiler caches remain in force.
 
 ## Verification, current outcome and cleanup handoff
 
-### 66a–e checkpoint — November 8
+### 66a–f checkpoint — November 8
 
 The maintainer directed the series to deliver current formats and retire superseded
 readers, adapters and their tests. Keep Arrow where the current design uses it for
@@ -188,13 +188,58 @@ still require exact original source, permission and settlement evidence.
 The owning [66a](66a-scientific-operations-and-product-semantics.md),
 [66b](66b-contracts-generation-and-interpretation.md),
 [66c](66c-preparation-execution-and-service-lifecycles.md),
-[66d](66d-mathematical-representation-and-numerical-execution.md) and
-[66e](66e-protected-data-and-result-delivery.md) checkpoints distinguish verified
-slices from working-tree changes. Implementation is paused at the documentation
-checkpoint. The aggregate generator was interrupted and the combined native run
-was cancelled before compilation. Resume with current-only pack and evidence
-cleanup, coherent generation and the pending targeted receiving controls. The
-canonical binary recipe remains gated on bounded reconstruction.
+[66d](66d-mathematical-representation-and-numerical-execution.md),
+[66e](66e-protected-data-and-result-delivery.md) and
+[66f](66f-developer-operations-clients-and-evidence.md) checkpoints distinguish implementation
+from receiving evidence. The combined work has resumed from `757ce921c`. Current catalog
+admission replaces predecessor migrations. Pack and developer evidence readers require current
+commitments, and the shared native dependency-usage mappings are generated from source. The
+selected science and client routes still require receiving evidence. Canonical binary recipe
+admission remains gated on bounded symbolic reconstruction.
+
+The aggregate `just codegen` passed all 15 schema targets. The current catalog run passed 23
+controls with complete settlement. The native runtime, coordinator and independent reference run
+`01a1bd97-fbbf-74ba-8f07-4fbfdd513645` passed 86 of 90 selected controls with complete settlement.
+The three independent scientific references and all 16 coordinator controls passed. The four
+runtime failures identified mixed-fit replay allowance, BT authored row attribution, a
+placeholder protected-result receipt and aqueous source staging. Their original identities
+were selected by the focused rerun `01a1bdb0-902d-7233-93a1-c91baddc430e`. Fit replay and
+protected-result export passed. The next original two-test rerun
+`01a1bdc9-bbee-73be-852b-e6f50a0fd70b` reached native BT setup and aqueous source activation.
+BT exposed unscoped engineering scales and a masked original child failure. Aqueous exhausted
+the original publication clock before its first immutable source receipt, project fork or solve.
+
+The first live Study qualification passed Submit, Recover and Complete. Independent `grpcurl`
+discovery returned the same current descriptor from the original and replacement frontend.
+After the authored-state repair, the same three phases passed again and Routes reached the
+physical-binding refusal check. Native wait confirmed complete drain for the failed test and both
+frontends. The [66f checkpoint](66f-developer-operations-clients-and-evidence.md#f05--deliver-complete-independent-clients)
+records the outstanding live phases. The generated native dependency-usage contract received an
+actual three-reference Buffa query and complete original session drain.
+
+**Tested, selected.** Workspace `clippy-default` and `clippy-no-default` ran through
+`scripts/pse run-all`, using all targets, locked resolution and `-D warnings`. Both finished
+with zero warnings or errors and complete settlement (`01a1be2a-7b2b-7292-bee1-83c5f539d33d`,
+`01a1be2a-3e0a-72cb-8259-016e62cfe26c`). The lint repairs retain original fixture inputs,
+typed failure outcomes, and project reader and publication contracts. The focused native
+allocation control and all six guarded source-publication controls also passed with zero
+failures and complete settlement in their respective owners.
+
+At the maintainer's request, execution stopped during the combined default-profile,
+force-validated BT and protected aqueous runtime rerun (`01a1be2a-e2d0-7560-a530-d03c45edf7bc`).
+`pse cancel` followed by `pse wait` verified that the original service was gone. The interrupted
+workflow lacked its terminal frame, so original workflow settlement and the test outcomes remain
+unknown. The latest BT and aqueous changes require a fresh exact receiving run. The consolidated
+Study test feature selection and isolated Horizon refusal also await live receiving.
+
+The next work depends on the engineering inspection [generation closure](66b-contracts-generation-and-interpretation.md#b01--deliver-useful-generation-closures-and-reproducible-bootstrap),
+the bounded [canonical recipe gate](66d-mathematical-representation-and-numerical-execution.md#canonical-reconstruction-activation),
+the protected aqueous source activation and the BT derivative discrepancy. The owning package
+tables carry the remaining consumer migrations and qualification obligations.
+
+Closeout found a single registered checkout, `main`. The earlier science, result, observer,
+fitting and developer evidence contributions are already in its history. The current execution
+agents shared this checkout and their integrated changes are covered by this checkpoint.
 
 The November 7 [storage cleanup decision](67-storage-lifecycle-and-build-reuse.md#decisions-and-boundaries)
 releases historical incident test and diagnostic results, including results cited in this series.

@@ -65,8 +65,6 @@ mod scalar;
 mod selection;
 #[path = "implicit_transfer.rs"]
 pub mod transfer;
-#[cfg(test)]
-use crate::guarded::CompiledBody;
 use crate::{
     MathError, SourceBody,
     execution::{ExecutionAttribution, NumericFrame, SourceWorker},

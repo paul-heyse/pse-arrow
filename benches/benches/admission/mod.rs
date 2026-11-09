@@ -51,7 +51,14 @@ pub(crate) fn preparation_inputs(workload: &Value) -> Inputs {
 }
 
 pub(crate) fn process_inputs(workload: &Value) -> Inputs {
-    let operation = workload["operation"].as_str().unwrap();
+    let Some(operation) = workload["operation"].as_str() else {
+        return Inputs {
+            canonical: true,
+            solver_feature: Some("native-process"),
+            authored: None,
+            unavailable: Some("registered process workload requires a string operation"),
+        };
+    };
     let authored = match operation {
         "source-edit-copy"
         | "result_analysis"

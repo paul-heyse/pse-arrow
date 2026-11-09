@@ -118,18 +118,6 @@ ownership = "target-owned"
 inputs = ["server", "study-module"]
 
 [[package.metadata.pse.test-fixtures]]
-id = "native-service-predecessor"
-target = "native_service"
-kind = "test"
-ownership = "preparation-only"
-inputs = ["predecessor-module-state"]
-scope.tests = [
-  "native_service_original_v2_target_and_old_module_resume_after_restart",
-  "native_service_retained_v2_old_module_upgrades_to_explicit_prepared_target",
-  "native_service_retained_v3_old_module_upgrades_to_explicit_prepared_target",
-]
-
-[[package.metadata.pse.test-fixtures]]
 id = "canonical-borrowed"
 target = "pse_operations"
 kind = "lib"

@@ -64,17 +64,18 @@ pub use pse_model::generated::r#enums::{
     Preconditioner, PreparationEligibility, PreparationProductKind, PresolvePass,
     PresolvePolicyKind, ProductUseScope, ProjectChangeImpact, ProjectMergeChoice,
     ProjectMergeConflictKind, ProjectMergeMode, ProjectMetadataKind,
-    QuantityAdditionKind, QuantityKindCategory, QuantityPreconditionKind,
-    QuantityScaleRule, QuantityShapeRule, RateBasis, ReductionKind, ReferenceRule,
-    ReferenceStateKind, Relationship, ReusePolicy, RowActivity, ScaleKind,
-    ScientificArtifactFamily, ScientificArtifactKind, SensitivityCorrector, Severity,
-    ShootingMethod, SnapshotClass, SpralOrdering, SpralPivot, SpralScaling, Stability,
-    StateSign, StatementKind, StructuralScopeKind, StudyAvailability,
-    StudyContinuationPermission, StudyEffectState, StudyLegacyKind, StudyLifecycle,
-    StudyPointState, StudyResultRole, StudyRetryFailure, StudySeedNeed, StudySeedRole,
-    StudySeedUnavailable, StudyStartKind, StudyState, StudyUnavailableSeedPolicy,
-    SubjectRule, TaskMetricsScope, TearMethod, TearPolicy, TimeCoordinateKind,
-    TrajectoryTermination, TrialPolicy, TruthValue, WeightNormalization, WithheldReason,
+    ProviderSelectionRegularity, QuantityAdditionKind, QuantityKindCategory,
+    QuantityPreconditionKind, QuantityScaleRule, QuantityShapeRule, RateBasis,
+    ReductionKind, ReferenceRule, ReferenceStateKind, Relationship, ReusePolicy,
+    RowActivity, ScaleKind, ScientificArtifactFamily, ScientificArtifactKind,
+    SensitivityCorrector, Severity, ShootingMethod, SnapshotClass, SpralOrdering,
+    SpralPivot, SpralScaling, Stability, StateSign, StatementKind, StructuralScopeKind,
+    StudyAvailability, StudyContinuationPermission, StudyEffectState, StudyLegacyKind,
+    StudyLifecycle, StudyPointState, StudyResultRole, StudyRetryFailure, StudySeedNeed,
+    StudySeedRole, StudySeedUnavailable, StudyStartKind, StudyState,
+    StudyUnavailableSeedPolicy, SubjectRule, TaskMetricsScope, TearMethod, TearPolicy,
+    TimeCoordinateKind, TrajectoryTermination, TrialPolicy, TruthValue,
+    WeightNormalization, WithheldReason,
 };
 impl crate::columnar::ArrowValue for AccuracyCriterionStatus {
     fn append(
@@ -6261,6 +6262,35 @@ impl crate::columnar::ArrowValue for ProjectMetadataKind {
             .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
                 field: stringify!(ProjectMetadataKind).to_owned(),
                 enumeration: stringify!(ProjectMetadataKind).to_owned(),
+                value: match error {
+                    pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
+                        value
+                    }
+                },
+            })
+    }
+}
+impl crate::columnar::ArrowValue for ProviderSelectionRegularity {
+    fn append(
+        &self,
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, Some(self.as_str()))
+    }
+    fn append_null(
+        output: &mut dyn arrow_array::builder::ArrayBuilder,
+    ) -> Result<(), crate::RelationError> {
+        crate::columnar::append_string(output, None)
+    }
+    fn read(
+        input: &dyn arrow_array::Array,
+        index: usize,
+    ) -> Result<Self, crate::RelationError> {
+        crate::columnar::read_string(input, index)?
+            .parse()
+            .map_err(|error: pse_diagnostics::VocabularyError| crate::RelationError::EnumMember {
+                field: stringify!(ProviderSelectionRegularity).to_owned(),
+                enumeration: stringify!(ProviderSelectionRegularity).to_owned(),
                 value: match error {
                     pse_diagnostics::VocabularyError::UnknownMember { value, .. } => {
                         value

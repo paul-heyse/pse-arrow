@@ -108,17 +108,6 @@ impl ProviderLinearizationToken {
     }
 }
 
-/// Scientific regularity established by the current mathematical selection.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ProviderSelectionRegularity {
-    /// The selection established a winner at the current point.
-    Point,
-    /// The selection established local derivative eligibility.
-    Local,
-    /// An admitted verifier supplied a local root chart.
-    CertifiedChart,
-}
-
 /// The selected provider's current mathematical fact. No variant claims physical stability.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ProviderSelection {

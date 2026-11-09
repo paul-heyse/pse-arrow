@@ -747,12 +747,12 @@ pub fn generate_with_dependencies(
             })?;
         if imported.package.as_deref() == Some(package) {
             for owner in &imported.message_type {
-                if let Some(name) = &owner.name {
-                    if graph.definitions().contains_key(name) {
-                        return Err(error(format!(
-                            "imported owner {package}.{name} also lowered locally"
-                        )));
-                    }
+                if let Some(name) = &owner.name
+                    && graph.definitions().contains_key(name)
+                {
+                    return Err(error(format!(
+                        "imported owner {package}.{name} also lowered locally"
+                    )));
                 }
             }
         }

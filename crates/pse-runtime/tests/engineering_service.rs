@@ -205,17 +205,22 @@ async fn edit(
 #[tokio::test(flavor = "multi_thread")]
 async fn prepared_engineering_connector_refuses_stale_and_replaced_original_payloads() {
     let selected = endpoint();
+    EngineeringClient::connect(selected.clone()).await.unwrap();
     let mut wrong = selected.clone();
     wrong.invocation = pse_host::envelope::CliInvocationId::new();
     assert!(EngineeringClient::connect(wrong).await.is_err());
+    let mut wrong_build = selected.clone();
+    wrong_build.build = pse_ids::ContentHash::NIL;
+    assert!(EngineeringClient::connect(wrong_build).await.is_err());
     let directory = tempfile::tempdir().unwrap();
     let socket = directory.path().join("replacement.sock");
     let _replacement = tokio::net::UnixListener::bind(&socket).unwrap();
-    let mut replaced = selected;
+    let mut replaced = selected.clone();
     replaced.socket = socket;
     // This is a real kernel peer from another executable/invocation, even though
     // it has the same UID. Authentication must refuse before HTTP/2 negotiation.
     assert!(EngineeringClient::connect(replaced).await.is_err());
+    EngineeringClient::connect(selected).await.unwrap();
 }
 
 #[cfg(feature = "solver-kinsol")]

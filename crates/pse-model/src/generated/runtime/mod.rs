@@ -279,6 +279,8 @@ pub mod r#profile_points;
 ///Generated relation contract.
 pub mod r#propagated_covariances;
 ///Generated relation contract.
+pub mod r#provider_selections;
+///Generated relation contract.
 pub mod r#reduced_hessians;
 ///Generated relation contract.
 pub mod r#resolved_numerics;

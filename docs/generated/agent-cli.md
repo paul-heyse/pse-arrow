@@ -8223,6 +8223,8 @@ Options:
           Possible values:
           - core:               Understand core metadata only; native source coverage remains unavailable
           - developer-evidence: Current independent-host developer evidence source policy and generated coverage
+          - recorded-result:    Original recorded-result observation metadata for the explicitly selected result file
+          - native-usage:       Source-owned dependency usage and its shared native context declarations
 
   -h, --help
           Print help (see a summary with '-h')

@@ -248,6 +248,7 @@
 | `runtime.primal_values` | `unique:pk` | `SELECT s."coordinate_id" FROM "runtime"."primal_values" s GROUP BY s."coordinate_id" HAVING COUNT(*) > 1` |
 | `runtime.profile_points` | `unique:pk` | `SELECT s."run_id", s."parameter_id", s."end", s."point" FROM "runtime"."profile_points" s GROUP BY s."run_id", s."parameter_id", s."end", s."point" HAVING COUNT(*) > 1` |
 | `runtime.propagated_covariances` | `unique:pk` | `SELECT s."run_id", s."step" FROM "runtime"."propagated_covariances" s GROUP BY s."run_id", s."step" HAVING COUNT(*) > 1` |
+| `runtime.provider_selections` | `unique:pk` | `SELECT s."run_id", s."step", s."ordinal" FROM "runtime"."provider_selections" s GROUP BY s."run_id", s."step", s."ordinal" HAVING COUNT(*) > 1` |
 | `runtime.reduced_hessians` | `unique:pk` | `SELECT s."run_id", s."step" FROM "runtime"."reduced_hessians" s GROUP BY s."run_id", s."step" HAVING COUNT(*) > 1` |
 | `runtime.resolved_numerics` | `unique:pk` | `SELECT s."run_id", s."step", s."target_kind", s."target_id" FROM "runtime"."resolved_numerics" s GROUP BY s."run_id", s."step", s."target_kind", s."target_id" HAVING COUNT(*) > 1` |
 | `runtime.response_directions` | `unique:pk` | `SELECT s."run_id", s."direction", s."parameter_id" FROM "runtime"."response_directions" s GROUP BY s."run_id", s."direction", s."parameter_id" HAVING COUNT(*) > 1` |

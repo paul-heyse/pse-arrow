@@ -339,12 +339,12 @@ impl Fixture {
         fixture
     }
     fn jacobian(&self) -> SparseColMat<usize, f64> {
-        let dense = [[1., 0., 0.], [-1., 1., 0.], [1., 0., 2. * self.point[2]]];
+        let columns = [[1., -1., 1.], [0., 1., 0.], [0., 0., 2. * self.point[2]]];
         let pattern = self.plan.jacobian_pattern();
         let mut values = Vec::new();
-        for c in 0..3 {
+        for (c, column) in columns.iter().enumerate() {
             for r in pattern.row_idx_of_col(c) {
-                values.push(dense[r][c]);
+                values.push(column[r]);
             }
         }
         SparseColMat::new(pattern.to_owned().unwrap(), values)

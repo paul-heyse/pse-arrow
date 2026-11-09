@@ -239,16 +239,10 @@ impl QualifiedProducer {
         {
             return Ok(None);
         }
-        // Receipt validation retains historical extension captures. This generic
-        // decoder does not select a current process-local composition root.
-        if matches!(
-            (
-                expected_target.package,
-                expected_target.target,
-                expected_target.kind
-            ),
-            ("pse-runtime", "pse-worker", "bin") | ("pse-py", "_native", "cdylib")
-        ) && (root.profile.get("name").and_then(serde_json::Value::as_str) != Some("producer")
+        let worker = ExpectedProducerTarget::WORKER;
+        if (expected_target.package, expected_target.target, expected_target.kind)
+            == (worker.package, worker.target, worker.kind)
+            && (root.profile.get("name").and_then(serde_json::Value::as_str) != Some("producer")
             || !root
                 .features
                 .iter()
@@ -1664,8 +1658,9 @@ pub(crate) async fn reuse_body_current(
             )
         }
         .map_err(|e| PortableError::Qualification(e.to_string()))?;
-        // Only immutable owned mathematical values leave this bounded loader scope.
-        // Provider workers/evaluators remain downstream fresh execution state.
+        // The loader admits the payload and record scratch. The existing JSON v3
+        // reconstruction still uses ordinary symbolic construction. Only immutable
+        // mathematical values leave; provider workers/evaluators remain downstream.
         let current = namespace.clone();
         let quantities = context.quantities.clone();
         let product_owner = service.clone();

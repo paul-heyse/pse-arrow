@@ -2386,17 +2386,19 @@ DEFINE FUNCTION fn::pse_schema_v1::close($expiry:int,$expected:object,$operation
     fn::pse_execution_v1::deadline($expiry);
     LET $marker=SELECT * FROM ONLY canonical_interpretations:current FOR UPDATE;
     LET $old=SELECT * FROM ONLY canonical_maintenance_operations:current FOR UPDATE;
-    IF $old!=NONE AND $old.kind='schema' AND $old.operation=$operation AND $old.generation=$generation AND $old.after=$request AND $old.target=$target AND !$old.complete { RETURN $old; };
-    IF $marker=NONE OR !$marker.admission_open OR $marker.schema_epoch!=$expected.schema_epoch OR $marker.schema_version!=$expected.schema_version OR $marker.schema_digest!=$expected.schema_digest OR $marker.issuing_store!=$expected.issuing_store OR ($old!=NONE AND !$old.complete) { THROW 'PSE_REFUSAL:schema_migration_original_differs'; };
+    IF $marker=NONE OR $marker.interpretation!=$expected.interpretation OR $marker.schema_epoch!=$expected.schema_epoch OR $marker.schema_version!=$expected.schema_version OR $marker.schema_digest!=$expected.schema_digest OR $marker.issuing_store!=$expected.issuing_store OR $marker.study_module_sha256!=$expected.study_module_sha256 OR $marker.payload_incarnation!=$expected.payload_incarnation { THROW 'PSE_REFUSAL:schema_migration_original_differs'; };
+    IF $old!=NONE AND $old.kind='schema' AND $old.operation=$operation AND $old.generation=$generation AND $old.after=$request AND $old.target=$target AND !$old.complete AND $marker.admission_open=false { RETURN $old; };
+    IF $marker.admission_open!=true OR ($old!=NONE AND !$old.complete) { THROW 'PSE_REFUSAL:schema_migration_original_differs'; };
     UPDATE ONLY canonical_interpretations:current SET admission_open=false RETURN NONE;
     LET $saved=UPSERT ONLY canonical_maintenance_operations:current SET key='current',operation=$operation,generation=$generation,phase='schema-draining',source=$expected.schema_digest,target=$target,kind='schema',after=$request,next=$expected.schema_epoch,count=0dec,complete=false;
     RETURN $saved;
 } PERMISSIONS NONE;
-DEFINE FUNCTION fn::pse_schema_v1::quiescent($expiry:int,$operation:string,$generation:string,$request:string) -> bool {
+DEFINE FUNCTION fn::pse_schema_v1::quiescent($expiry:int,$expected:object,$operation:string,$generation:string,$request:string) -> bool {
     fn::pse_execution_v1::deadline($expiry);
     LET $owner=SELECT * FROM ONLY canonical_maintenance_operations:current FOR UPDATE;
     LET $marker=SELECT * FROM ONLY canonical_interpretations:current FOR UPDATE;
-    IF $owner=NONE OR $owner.kind!='schema' OR $owner.operation!=$operation OR $owner.generation!=$generation OR $owner.after!=$request OR $owner.complete OR $marker=NONE OR ($marker.admission_open ?? false) { THROW 'PSE_REFUSAL:schema_migration_original_differs'; };
+    IF $owner=NONE OR $owner.kind!='schema' OR $owner.operation!=$operation OR $owner.generation!=$generation OR $owner.after!=$request OR $owner.complete OR $owner.phase NOT IN ['schema-draining','schema-applying'] { THROW 'PSE_REFUSAL:schema_migration_original_differs'; };
+    IF $marker=NONE OR $marker.interpretation!=$expected.interpretation OR $marker.schema_epoch!=$expected.schema_epoch OR $marker.schema_version!=$expected.schema_version OR $marker.schema_digest!=$expected.schema_digest OR $marker.issuing_store!=$expected.issuing_store OR $marker.study_module_sha256!=$expected.study_module_sha256 OR $marker.payload_incarnation!=$expected.payload_incarnation OR $marker.admission_open!=false { THROW 'PSE_REFUSAL:schema_migration_original_differs'; };
     LET $writers=SELECT key FROM canonical_attempts WHERE phase NOT IN ['terminal','terminal_compacted'] LIMIT 1;
     LET $owners=SELECT key FROM canonical_file_owners WHERE !drained LIMIT 1;
     LET $pins=SELECT key FROM canonical_protections WHERE !released AND expires_at>time::micros() LIMIT 1;
@@ -2493,11 +2495,6 @@ DEFINE FUNCTION fn::pse_maintenance_v1::validation_reads($expiry:int,$operation:
     fn::pse_execution_v1::deadline($expiry); RETURN true;
 };
 DEFINE FUNCTION fn::pse_maintenance_v1::activate($expiry:int,$predecessor:option<object>,$interpretation:string,$schema_digest:string,$study_module_sha256:string,$issuing:string,$payload_incarnation:string,$nonce:string,$input_sha256:string,$predecessor_bytes:bytes) -> bool {
-    // Old pending ownership must settle under the original schema and actual
-    // owner before a new capture binding can admit publication.
-    LET $legacy=SELECT * FROM ONLY type::record('canonical_study_capture_gate','current') FOR UPDATE;
-    LET $pending=SELECT key FROM canonical_study_captures WHERE state='pending' LIMIT 1;
-    IF $legacy.capture!=NONE OR array::len($pending)!=0 { THROW 'PSE_REFUSAL:study_capture_legacy_pending_not_drained'; };
     LET $witness=SELECT * FROM ONLY type::record('canonical_guards','study-publication') FOR UPDATE;
     IF $witness=NONE { CREATE ONLY type::record('canonical_guards','study-publication') SET key='study-publication',generation=0dec,incarnation=<string>rand::uuid::v4(); };
     fn::pse_execution_v1::deadline($expiry); LET $old=SELECT * FROM ONLY canonical_interpretations:current FOR UPDATE; LET $receipt=SELECT * FROM ONLY type::record('canonical_maintenance_activations',$nonce) FOR UPDATE; IF $receipt!=NONE { THROW 'PSE_REFUSAL:activation_operation_already_exists_settle_exact_receipt'; }; IF ($predecessor=NONE AND $old!=NONE) OR ($predecessor!=NONE AND ($old.interpretation!=$predecessor.interpretation OR $old.schema_digest!=$predecessor.schema_digest OR $old.study_module_sha256!=$predecessor.study_module_sha256 OR $old.issuing_store!=$predecessor.issuing_store)) { THROW 'PSE_REFUSAL:activation_predecessor_changed'; }; IF $old!=NONE AND $old.study_module_sha256!=$study_module_sha256 {THROW 'PSE_REFUSAL:activation_predecessor_changed';}; IF $old!=NONE AND $old.payload_incarnation!=$payload_incarnation { THROW 'PSE_REFUSAL:activation_payload_incarnation_differs'; }; LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE; IF $gate!=NONE AND $gate.storage_incarnation!=$payload_incarnation { THROW 'PSE_REFUSAL:activation_file_placement_differs'; }; IF $gate=NONE { CREATE canonical_file_admission:current SET key='current',storage_incarnation=$payload_incarnation,frozen=false,gc_frozen=false; }; UPSERT canonical_interpretations:current SET key='current', interpretation=$interpretation, schema_digest=$schema_digest,study_module_sha256=$study_module_sha256, issuing_store=$issuing,payload_incarnation=$payload_incarnation; CREATE ONLY type::record('canonical_maintenance_activations',$nonce) SET key=$nonce,input_sha256=$input_sha256,predecessor=$predecessor_bytes,interpretation=$interpretation,schema_digest=$schema_digest,study_module_sha256=$study_module_sha256,issuing_store=$issuing; fn::pse_execution_v1::deadline($expiry);

@@ -166,7 +166,10 @@ fn absent_optional_edge_keeps_conservative_reach_and_the_integration_helper() {
         Some(&metadata),
     )
     .unwrap();
-    assert_eq!(preview.changed_packages, [consumer_id.clone()]);
+    assert_eq!(
+        preview.changed_packages.as_slice(),
+        std::slice::from_ref(&consumer_id)
+    );
     assert_eq!(
         preview.selected_packages.len(),
         metadata.workspace_members.len()

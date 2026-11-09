@@ -1127,6 +1127,54 @@ async fn fit_binds_exact_authored_schedule_intervals_across_original_experiments
     assert_eq!(early.parameters().unwrap(), candidate);
     assert_eq!(late.parameters().unwrap(), [candidate[0], 7.]);
 
+    {
+        use crate::workflow::replay::{ReplayConstructor, ReplayFitConstructor, ReplaySourceDocument};
+
+        let document = result.replay().document_with_limit(128 << 20).unwrap();
+        let ReplayConstructor::Fit { fit: constructor } = &document.constructor else {
+            panic!("current fit constructor required");
+        };
+        let source: ReplaySourceDocument = serde_json::from_slice(
+            &serde_json::to_vec(&document.sources[constructor.source]).unwrap(),
+        )
+        .unwrap();
+        let restored_constructor: ReplayFitConstructor =
+            serde_json::from_slice(&serde_json::to_vec(constructor).unwrap()).unwrap();
+        drop(document);
+        let restored_source = source
+            .reconstruct(
+                &runtime.source_services(),
+                crate::workflow::tests::physical(),
+                BTreeMap::new(),
+                &cancel,
+            )
+            .unwrap();
+        let restored = restored_constructor
+            .reconstruct(services.preparation(), &restored_source, &cancel)
+            .await
+            .unwrap();
+        let declarations = &restored.problem.declaration.experiments;
+        assert_eq!(
+            declarations[1].bindings[1].schedule_start.map(f64::to_bits),
+            Some(160.25_f64.to_bits()),
+        );
+        assert_eq!(declarations[2].bindings[0].schedule_start, None);
+        for (ordinal, axes) in [(1, &[0, 1][..]), (2, &[0][..])] {
+            let Experiment::Transient(original) = &problem.experiments[ordinal] else {
+                panic!("original transient experiment required");
+            };
+            let Experiment::Transient(restored) = &restored.problem.experiments[ordinal] else {
+                panic!("reconstructed transient experiment required");
+            };
+            assert_eq!(restored.profile.forward_axes.as_deref(), Some(axes));
+            assert_eq!(restored.parameters, original.parameters);
+            assert_eq!(restored.bindings.len(), original.bindings.len());
+            for (restored, original) in restored.bindings.iter().zip(&original.bindings) {
+                assert_eq!((restored.local, restored.parameter), (original.local, original.parameter));
+            }
+        }
+    }
+
     let mut caller_profile = package
         .declared_simulation(services.preparation(), bare, compiler_profile(), None, Default::default(), &cancel)
         .await

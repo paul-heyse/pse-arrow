@@ -2,6 +2,7 @@
 
 include!("pse.code_intelligence.v1.compiler_facts.rs");
 include!("pse.code_intelligence.v1.contracts.rs");
+include!("pse.code_intelligence.v1.native_usage.rs");
 #[allow(
     non_camel_case_types,
     dead_code,
@@ -21,16 +22,19 @@ pub mod __buffa {
         use super::*;
         include!("pse.code_intelligence.v1.compiler_facts.__view.rs");
         include!("pse.code_intelligence.v1.contracts.__view.rs");
+        include!("pse.code_intelligence.v1.native_usage.__view.rs");
         pub mod oneof {
             #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
             use super::*;
             include!("pse.code_intelligence.v1.contracts.__view_oneof.rs");
+            include!("pse.code_intelligence.v1.native_usage.__view_oneof.rs");
         }
     }
     pub mod oneof {
         #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
         use super::*;
         include!("pse.code_intelligence.v1.contracts.__oneof.rs");
+        include!("pse.code_intelligence.v1.native_usage.__oneof.rs");
     }
     /// Register this package's `Any` type entries and extension entries.
     pub fn register_types(reg: &mut ::buffa::type_registry::TypeRegistry) {
@@ -82,14 +86,8 @@ pub mod __buffa {
         reg.register_json_any(super::__NATIVE_OCCURRENCE_FILE_JSON_ANY);
         reg.register_json_any(super::__NATIVE_WORKSPACE_QUERY_JSON_ANY);
         reg.register_json_any(super::__NATIVE_GRAPH_QUERY_JSON_ANY);
-        reg.register_json_any(super::__NATIVE_DEPENDENCY_USAGE_QUERY_JSON_ANY);
-        reg.register_json_any(super::__NATIVE_DEPENDENCY_REFERENCE_JSON_ANY);
-        reg.register_json_any(super::__NATIVE_DEPENDENCY_USAGE_ANSWER_JSON_ANY);
         reg.register_json_any(super::__NATIVE_REQUEST_JSON_ANY);
-        reg.register_json_any(super::__NATIVE_CONFIGURATION_JSON_ANY);
-        reg.register_json_any(super::__NATIVE_ANALYSIS_CONTEXT_JSON_ANY);
         reg.register_json_any(super::__NATIVE_SESSION_STATUS_JSON_ANY);
-        reg.register_json_any(super::__NATIVE_LIBRARY_PROFILE_JSON_ANY);
         reg.register_json_any(super::__NATIVE_SOURCE_HASH_JSON_ANY);
         reg.register_json_any(super::__NATIVE_PACKAGE_CONTEXT_JSON_ANY);
         reg.register_json_any(super::__NATIVE_PACKAGE_REQUEST_JSON_ANY);
@@ -97,7 +95,6 @@ pub mod __buffa {
         reg.register_json_any(super::__NATIVE_PACKAGE_REPLY_JSON_ANY);
         reg.register_json_any(super::__NATIVE_POSITION_JSON_ANY);
         reg.register_json_any(super::__NATIVE_RANGE_JSON_ANY);
-        reg.register_json_any(super::__NATIVE_BYTE_LOCATION_JSON_ANY);
         reg.register_json_any(super::__NATIVE_PROTOCOL_LOCATION_JSON_ANY);
         reg.register_json_any(super::__NATIVE_LOCATION_JSON_ANY);
         reg.register_json_any(super::__NATIVE_SYMBOL_FACT_JSON_ANY);
@@ -156,6 +153,20 @@ pub mod __buffa {
         reg.register_json_any(super::__NATIVE_INVESTIGATION_FACTS_JSON_ANY);
         reg.register_json_any(super::__NATIVE_DOCUMENTATION_LINK_OBSERVATION_JSON_ANY);
         reg.register_json_any(super::__NATIVE_VISIBILITY_QUERY_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_ANALYSIS_BACKEND_JSON_ANY);
+        reg.register_json_any(super::native_analysis_backend::__ALTERNATIVE1_JSON_ANY);
+        reg.register_json_any(super::native_analysis_backend::__ALTERNATIVE2_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_ANALYSIS_CONTEXT_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_BYTE_LOCATION_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_CONFIGURATION_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_DEPENDENCY_REFERENCE_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_DEPENDENCY_USAGE_ANSWER_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_DEPENDENCY_USAGE_QUERY_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_LIBRARY_PROFILE_JSON_ANY);
+        reg.register_json_any(super::__NATIVE_PATH_BUF_JSON_ANY);
+        reg.register_json_any(super::__PLATFORM_PATH_BYTES_JSON_ANY);
+        reg.register_json_any(super::platform_path_bytes::__ALTERNATIVE1_JSON_ANY);
+        reg.register_json_any(super::platform_path_bytes::__ALTERNATIVE2_JSON_ANY);
         reg.register_text_any(super::__COMPILER_FACTS_TEXT_ANY);
         reg.register_text_any(super::__COMPILER_SOURCE_FILE_TEXT_ANY);
         reg.register_text_any(super::__COMPILER_BODY_FACT_TEXT_ANY);
@@ -204,14 +215,8 @@ pub mod __buffa {
         reg.register_text_any(super::__NATIVE_OCCURRENCE_FILE_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_WORKSPACE_QUERY_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_GRAPH_QUERY_TEXT_ANY);
-        reg.register_text_any(super::__NATIVE_DEPENDENCY_USAGE_QUERY_TEXT_ANY);
-        reg.register_text_any(super::__NATIVE_DEPENDENCY_REFERENCE_TEXT_ANY);
-        reg.register_text_any(super::__NATIVE_DEPENDENCY_USAGE_ANSWER_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_REQUEST_TEXT_ANY);
-        reg.register_text_any(super::__NATIVE_CONFIGURATION_TEXT_ANY);
-        reg.register_text_any(super::__NATIVE_ANALYSIS_CONTEXT_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_SESSION_STATUS_TEXT_ANY);
-        reg.register_text_any(super::__NATIVE_LIBRARY_PROFILE_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_SOURCE_HASH_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_PACKAGE_CONTEXT_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_PACKAGE_REQUEST_TEXT_ANY);
@@ -219,7 +224,6 @@ pub mod __buffa {
         reg.register_text_any(super::__NATIVE_PACKAGE_REPLY_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_POSITION_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_RANGE_TEXT_ANY);
-        reg.register_text_any(super::__NATIVE_BYTE_LOCATION_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_PROTOCOL_LOCATION_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_LOCATION_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_SYMBOL_FACT_TEXT_ANY);
@@ -278,6 +282,20 @@ pub mod __buffa {
         reg.register_text_any(super::__NATIVE_INVESTIGATION_FACTS_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_DOCUMENTATION_LINK_OBSERVATION_TEXT_ANY);
         reg.register_text_any(super::__NATIVE_VISIBILITY_QUERY_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_ANALYSIS_BACKEND_TEXT_ANY);
+        reg.register_text_any(super::native_analysis_backend::__ALTERNATIVE1_TEXT_ANY);
+        reg.register_text_any(super::native_analysis_backend::__ALTERNATIVE2_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_ANALYSIS_CONTEXT_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_BYTE_LOCATION_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_CONFIGURATION_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_DEPENDENCY_REFERENCE_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_DEPENDENCY_USAGE_ANSWER_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_DEPENDENCY_USAGE_QUERY_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_LIBRARY_PROFILE_TEXT_ANY);
+        reg.register_text_any(super::__NATIVE_PATH_BUF_TEXT_ANY);
+        reg.register_text_any(super::__PLATFORM_PATH_BYTES_TEXT_ANY);
+        reg.register_text_any(super::platform_path_bytes::__ALTERNATIVE1_TEXT_ANY);
+        reg.register_text_any(super::platform_path_bytes::__ALTERNATIVE2_TEXT_ANY);
     }
     /// Reflection support: this package's view onto the crate-wide
     /// descriptor pool. In shared-pool mode the bytes and pool live once
@@ -504,37 +522,13 @@ pub use self::__buffa::view::NativeGraphQueryView;
 #[doc(inline)]
 pub use self::__buffa::view::NativeGraphQueryOwnedView;
 #[doc(inline)]
-pub use self::__buffa::view::NativeDependencyUsageQueryView;
-#[doc(inline)]
-pub use self::__buffa::view::NativeDependencyUsageQueryOwnedView;
-#[doc(inline)]
-pub use self::__buffa::view::NativeDependencyReferenceView;
-#[doc(inline)]
-pub use self::__buffa::view::NativeDependencyReferenceOwnedView;
-#[doc(inline)]
-pub use self::__buffa::view::NativeDependencyUsageAnswerView;
-#[doc(inline)]
-pub use self::__buffa::view::NativeDependencyUsageAnswerOwnedView;
-#[doc(inline)]
 pub use self::__buffa::view::NativeRequestView;
 #[doc(inline)]
 pub use self::__buffa::view::NativeRequestOwnedView;
 #[doc(inline)]
-pub use self::__buffa::view::NativeConfigurationView;
-#[doc(inline)]
-pub use self::__buffa::view::NativeConfigurationOwnedView;
-#[doc(inline)]
-pub use self::__buffa::view::NativeAnalysisContextView;
-#[doc(inline)]
-pub use self::__buffa::view::NativeAnalysisContextOwnedView;
-#[doc(inline)]
 pub use self::__buffa::view::NativeSessionStatusView;
 #[doc(inline)]
 pub use self::__buffa::view::NativeSessionStatusOwnedView;
-#[doc(inline)]
-pub use self::__buffa::view::NativeLibraryProfileView;
-#[doc(inline)]
-pub use self::__buffa::view::NativeLibraryProfileOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::NativeSourceHashView;
 #[doc(inline)]
@@ -563,10 +557,6 @@ pub use self::__buffa::view::NativePositionOwnedView;
 pub use self::__buffa::view::NativeRangeView;
 #[doc(inline)]
 pub use self::__buffa::view::NativeRangeOwnedView;
-#[doc(inline)]
-pub use self::__buffa::view::NativeByteLocationView;
-#[doc(inline)]
-pub use self::__buffa::view::NativeByteLocationOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::NativeProtocolLocationView;
 #[doc(inline)]
@@ -799,5 +789,45 @@ pub use self::__buffa::view::NativeDocumentationLinkObservationOwnedView;
 pub use self::__buffa::view::NativeVisibilityQueryView;
 #[doc(inline)]
 pub use self::__buffa::view::NativeVisibilityQueryOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeAnalysisBackendView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeAnalysisBackendOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeAnalysisContextView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeAnalysisContextOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeByteLocationView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeByteLocationOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeConfigurationView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeConfigurationOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeDependencyReferenceView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeDependencyReferenceOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeDependencyUsageAnswerView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeDependencyUsageAnswerOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeDependencyUsageQueryView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeDependencyUsageQueryOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeLibraryProfileView;
+#[doc(inline)]
+pub use self::__buffa::view::NativeLibraryProfileOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::NativePathBufView;
+#[doc(inline)]
+pub use self::__buffa::view::NativePathBufOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::PlatformPathBytesView;
+#[doc(inline)]
+pub use self::__buffa::view::PlatformPathBytesOwnedView;
 #[doc(inline)]
 pub use self::__buffa::register_types;

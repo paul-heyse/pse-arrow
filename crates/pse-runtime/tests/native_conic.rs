@@ -25,7 +25,7 @@ use support::{NativeContext, Result};
 async fn public_cone_preserves_original_objective_and_refuses_invalid_geometry() -> Result<()> {
     let context = NativeContext::new()?;
     let body = AssertUnwindSafe(async {
-        let package = context
+        let (package, _) = context
             .package("package cone { def Root { param p:Scalar=1; } }")
             .await?;
         let physical = package.physical_context();

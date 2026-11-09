@@ -163,8 +163,7 @@ macro_rules! methods {
             let request = request.to_owned_message();
             let input = crate::engineering_projection::decode_engineering_observe_study(request)
                 .map_err(study::projection_error)?;
-            let stream =
-                study::observations(self.engine.clone(), input, context.deadline()).await?;
+            let stream = study::observations(self.engine.clone(), input, context.deadline());
             Ok(connectrpc::Response::new(stream))
         }
 
@@ -243,47 +242,83 @@ pub(super) fn projection_error(
     response
 }
 
-pub(super) async fn observations(
+pub(super) fn observations(
     engine: Arc<EngineeringService>,
     input: EngineeringObserveStudy,
     deadline: Option<std::time::Instant>,
-) -> Result<ServiceStream<AccountedResponse<pb::StudyObservationPage>>, ConnectError> {
-    let observer = engine.observe_study(input).await.map_err(transport)?;
-    let cancel = CancelSource::new().with_deadline(deadline);
-    let stream = futures_util::stream::unfold(
-        (engine, observer, cancel, false, false),
-        |(engine, mut observer, cancel, follow, done)| async move {
-            if done {
-                observer.close();
-                return None;
-            }
-            match engine
-                .study_observation_page(&mut observer, follow, &cancel)
-                .await
-            {
-                Ok(output) => {
-                    let done = observation_complete(
-                        output.value.status.header.terminal,
-                        &output.value.sources,
-                    );
-                    let page = accounted(
-                        output,
-                        crate::engineering_projection::encode_study_observation_page,
-                    );
-                    let done = done || page.is_err();
-                    Some((page, (engine, observer, cancel, true, done)))
-                }
-                Err(error) => {
-                    observer.close();
-                    Some((
-                        Err(transport(error)),
-                        (engine, observer, cancel, true, true),
-                    ))
-                }
-            }
-        },
-    );
-    Ok(Box::pin(stream))
+) -> ServiceStream<AccountedResponse<pb::StudyObservationPage>> {
+    use futures_util::{TryStreamExt as _, stream};
+
+    // ConnectRPC races handler setup against the request deadline by dropping
+    // its future. Admit the first native capture only in the response stream.
+    let open = stream::once(async move {
+        let observer = settle_study_observation(deadline, engine.observe_study(input, deadline))
+            .await?
+            .ok_or_else(study_observation_deadline_error)?;
+        Ok::<_, ConnectError>(stream::unfold(
+            Some((engine, observer, false)),
+            move |state| async move {
+                let (engine, mut observer, follow) = state?;
+                let next = async {
+                    if follow {
+                        wait_for_study_observation(deadline).await?;
+                    }
+                    settle_study_observation(deadline, engine.study_observation_page(&mut observer))
+                        .await
+                };
+                let output = match next.await {
+                    Ok(output) => output,
+                    Err(error) => return Some((Err(error), None)),
+                };
+                let done = observation_complete(
+                    output.value.status.header.terminal,
+                    &output.value.sources,
+                );
+                let page = accounted(
+                    output,
+                    crate::engineering_projection::encode_study_observation_page,
+                );
+                let done = done || page.is_err();
+                Some((page, (!done).then_some((engine, observer, true))))
+            },
+        ))
+    });
+    Box::pin(open.try_flatten())
+}
+
+async fn settle_study_observation<T>(
+    deadline: Option<std::time::Instant>,
+    work: impl Future<Output = Result<T, EngineeringServiceError>>,
+) -> Result<T, ConnectError> {
+    check_study_observation_deadline(deadline)?;
+    // An admitted poll can issue a capture. Let it settle under its original
+    // clock. A discarded success drops through its normal custody release.
+    let value = work.await.map_err(transport)?;
+    check_study_observation_deadline(deadline)?;
+    Ok(value)
+}
+
+async fn wait_for_study_observation(deadline: Option<std::time::Instant>) -> Result<(), ConnectError> {
+    let wait = tokio::time::sleep(std::time::Duration::from_millis(100));
+    match deadline {
+        Some(deadline) => tokio::time::timeout_at(deadline.into(), wait)
+            .await
+            .map_err(|_| study_observation_deadline_error()),
+        None => Ok(wait.await),
+    }
+}
+
+fn check_study_observation_deadline(deadline: Option<std::time::Instant>) -> Result<(), ConnectError> {
+    if deadline.is_some_and(|deadline| std::time::Instant::now() >= deadline) {
+        return Err(study_observation_deadline_error());
+    }
+    Ok(())
+}
+
+fn study_observation_deadline_error() -> ConnectError {
+    ConnectError::deadline_exceeded(
+        "study observation allowance elapsed; the original study remains under its retained owner",
+    )
 }
 
 fn observation_complete(terminal: bool, sources: &[crate::workflow::StudyObservedSource]) -> bool {
@@ -298,6 +333,41 @@ fn observation_complete(terminal: bool, sources: &[crate::workflow::StudyObserve
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[tokio::test]
+    async fn engineering_study_observation_expiry_preserves_admitted_native_outcomes() {
+        use connectrpc::ErrorCode;
+        use std::time::{Duration, Instant};
+
+        let polled = std::cell::Cell::new(false);
+        let refused = settle_study_observation(Some(Instant::now()), async {
+            polled.set(true);
+            Ok(())
+        })
+        .await;
+        assert!(matches!(refused, Err(error) if error.code == ErrorCode::DeadlineExceeded));
+        assert!(!polled.get());
+
+        let deadline = Instant::now() + Duration::from_secs(1);
+        let after_deadline = (deadline + Duration::from_millis(25)).into();
+        let settled = std::cell::Cell::new(false);
+        let (completed, failed) = tokio::join!(
+            settle_study_observation(Some(deadline), async {
+                tokio::time::sleep_until(after_deadline).await;
+                settled.set(true);
+                Ok(())
+            }),
+            settle_study_observation(Some(deadline), async {
+                tokio::time::sleep_until(after_deadline).await;
+                Err::<(), _>(EngineeringServiceError::Request("original capture refused".into()))
+            }),
+        );
+        assert!(settled.get());
+        assert!(matches!(completed, Err(error) if error.code == ErrorCode::DeadlineExceeded));
+        assert!(matches!(failed, Err(error) if error.code == ErrorCode::InvalidArgument
+            && error.message.as_deref().is_some_and(|message| message.contains("original capture refused"))
+            && error.source_arc().is_some()));
+    }
 
     #[test]
     fn engineering_study_stream_preserves_terminal_history_across_bounded_pages() {

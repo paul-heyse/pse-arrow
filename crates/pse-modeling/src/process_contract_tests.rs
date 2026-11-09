@@ -971,7 +971,7 @@ fn selected_original_closures_preserve_order_and_unknown_preflight() {
         .unwrap_err();
     assert!(matches!(
         error,
-        crate::ModelingError::Contract {
+        ModelingError::Contract {
             reason: crate::ModelingContractReason::UnknownSelectedClosure,
             declaration: pse_ids::SemanticId::NIL,
             ..

@@ -58,12 +58,20 @@ impl ServiceEngine {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SessionRecord {
-    /// Prepared helper/selector protocol; older selectors retain administration only.
+    /// Prepared helper and selector protocol.
     pub version: u32,
     /// Original managed service invocation, never an arbitrary PID/unit name.
     pub invocation: CliInvocationId,
     /// Exact selected analyzer model.
     pub configuration: Configuration,
+}
+impl SessionRecord {
+    pub(super) fn require_current(&self) -> Result<()> {
+        if self.version != super::SESSION_PROTOCOL_VERSION {
+            return Err(Error::Unavailable("semantic selector uses an incompatible protocol".into()));
+        }
+        Ok(())
+    }
 }
 /// Actual initialization and selected context, separate from any successful source query.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -116,6 +124,9 @@ fn state(root: &Path, environment: &Environment) -> Result<PathBuf> {
         .root
         .join("semantic"))
 }
+fn selector(directory: &Path) -> PathBuf {
+    directory.join(format!("current-v{}.json", super::SESSION_PROTOCOL_VERSION))
+}
 fn private(path: &Path, create: bool) -> Result<()> {
     if create {
         std::fs::DirBuilder::new()
@@ -156,18 +167,14 @@ pub fn load(root: &Path, environment: &Environment) -> Result<Option<SessionReco
         return Ok(None);
     }
     private(&directory, false)?;
-    let path = directory.join("current.json");
+    let path = selector(&directory);
     let bytes = match std::fs::read(path) {
         Ok(bytes) => bytes,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
         Err(error) => return Err(error.into()),
     };
     let record: SessionRecord = serde_json::from_slice(&bytes)?;
-    if !(1..=super::SESSION_PROTOCOL_VERSION).contains(&record.version) {
-        return Err(Error::Unavailable(
-            "unsupported semantic selector version".into(),
-        ));
-    }
+    record.require_current()?;
     Ok(Some(record))
 }
 /// Atomically publish only the actual original managed invocation; caller holds preparation lock.
@@ -176,13 +183,14 @@ pub fn prepare_record(
     environment: &Environment,
     record: &SessionRecord,
 ) -> Result<()> {
+    record.require_current()?;
     let directory = state(root, environment)?;
     private(&directory, true)?;
     let mut temporary = tempfile::NamedTempFile::new_in(&directory)?;
     temporary.write_all(&serde_json::to_vec(record)?)?;
     temporary.as_file().sync_all()?;
     temporary
-        .persist(directory.join("current.json"))
+        .persist(selector(&directory))
         .map_err(|error| error.error)?;
     Ok(())
 }
@@ -328,16 +336,7 @@ pub async fn stop(
     environment: &Environment,
     record: &SessionRecord,
 ) -> Result<crate::managed::supervisor::RecordedObservation> {
-    if record.version != super::SESSION_PROTOCOL_VERSION {
-        let mut original = host(
-            crate::managed::supervisor::recorded(root, &record.invocation, environment).await,
-        )?;
-        return host(
-            original
-                .cancel(Instant::now() + Duration::from_secs(30))
-                .await,
-        );
-    }
+    record.require_current()?;
     let _graceful = tokio::time::timeout(
         Duration::from_secs(5),
         client(root, environment, record, &Request::Stop {}),
@@ -357,4 +356,43 @@ pub async fn stop(
             .cancel(Instant::now() + Duration::from_secs(30))
             .await,
     )
+}
+
+#[cfg(test)]
+mod selector_tests {
+    use super::*;
+
+    #[test]
+    fn semantic_selector_uses_the_current_namespace_under_the_original_preparation_lock() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let scratch = tempfile::tempdir().unwrap();
+        let environment = Environment::from([(
+            "XDG_STATE_HOME".into(), scratch.path().as_os_str().to_owned(),
+        )]);
+        let _lock = preparation_lock(&root, &environment).unwrap();
+        let directory = state(&root, &environment).unwrap();
+        let other = directory.join("current.json");
+        std::fs::write(&other, b"outside current selector namespace").unwrap();
+        assert!(load(&root, &environment).unwrap().is_none());
+        let mut record = SessionRecord {
+            version: super::super::SESSION_PROTOCOL_VERSION - 1,
+            invocation: CliInvocationId::new(),
+            configuration: Configuration {
+                backend: Backend::NativeSnapshot,
+                project: root.clone(), features: vec![], no_default_features: false,
+                target: None, build_macros: false, test_context: false,
+            },
+        };
+        assert!(prepare_record(&root, &environment, &record).is_err());
+        assert!(!selector(&directory).exists());
+        std::fs::write(selector(&directory), serde_json::to_vec(&record).unwrap()).unwrap();
+        assert!(load(&root, &environment).is_err());
+        record.version = super::super::SESSION_PROTOCOL_VERSION;
+        prepare_record(&root, &environment, &record).unwrap();
+        let selected = load(&root, &environment).unwrap().unwrap();
+        assert_eq!(selected.version, record.version);
+        assert_eq!(selected.invocation, record.invocation);
+        assert_eq!(selected.configuration, record.configuration);
+        assert_eq!(std::fs::read(other).unwrap(), b"outside current selector namespace");
+    }
 }

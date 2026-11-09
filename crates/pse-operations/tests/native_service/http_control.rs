@@ -96,7 +96,7 @@ async fn disable_control_actor(
 
 #[tokio::test]
 async fn native_control_http_actor_grants_original_receipts_and_raw_envelopes() {
-    let mut service = fixture_with_schema(false).unwrap();
+    let mut service = current_fixture().unwrap();
     service.run(Instant::now()+Duration::from_secs(240), |service| Box::pin(async move {
         service.launch(Instant::now()+Duration::from_secs(90)).await?;
         let store = service.ready()?.store();

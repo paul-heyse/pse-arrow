@@ -64,12 +64,8 @@ impl ProjectionObservationRecord for DirectoryManifest {
 impl ValidateProjection for DirectoryManifest {
     fn validate_at(&self, path: &str) -> Result<(), ValidationError> {
         self.report.validate_at(path)?;
-        if !original_profile(
-            self.report.scope,
-            self.report.files.is_empty(),
-            &self.report.observation,
-        ) {
-            return Err(ValidationError::Rule { path: path.into(), rule: "directory.original_profile", reason: "directory metadata requires truthful Report scope and original interpretation-three commitments".into() });
+        if !original_profile(self.report.scope, self.report.files.is_empty()) {
+            return Err(ValidationError::Rule { path: path.into(), rule: "directory.original_profile", reason: "directory metadata requires Report scope and no inline files".into() });
         }
         Ok(())
     }
@@ -205,48 +201,24 @@ fn invalid(message: impl Into<String>) -> HostError {
     EvidenceError::Invalid(message.into()).into()
 }
 
-fn original_profile(
-    scope: EvidenceScope,
-    inline_empty: bool,
-    report: &crate::test_workflow::execute::ReportObservation,
-) -> bool {
-    scope == EvidenceScope::Report
-        && inline_empty
-        && report.version == 3
-        && report.evidence.is_some()
+fn original_profile(scope: EvidenceScope, inline_empty: bool) -> bool {
+    scope == EvidenceScope::Report && inline_empty
 }
 
 fn require_profile(verified: &VerifiedReport) -> Result<(), HostError> {
-    if !original_profile(
-        verified.readback.scope,
-        verified.files.is_empty(),
-        &verified.observation,
-    ) {
-        return Err(invalid(
-            "directory metadata requires Report scope, no inline files and original interpretation-three commitments",
-        ));
+    if !original_profile(verified.readback.scope, verified.files.is_empty()) {
+        return Err(invalid("directory metadata requires Report scope and no inline files"));
     }
     Ok(())
 }
 
 pub(crate) fn acquire_original(original: &CapturedReport) -> Result<Vec<OpenedFile>, HostError> {
-    if !original_profile(
-        original.scope,
-        original.files.is_empty(),
-        &original.observation,
-    ) {
-        return Err(invalid(
-            "opened acquisition requires original interpretation-three Report scope",
-        ));
+    if !original_profile(original.scope, original.files.is_empty()) {
+        return Err(invalid("opened acquisition requires Report scope and no inline files"));
     }
-    let commitments = original
-        .observation
-        .evidence
-        .as_deref()
-        .ok_or_else(|| invalid("missing original commitments"))?;
     crate::test_workflow::execute::evidence::acquire(
         &original.parent,
-        commitments,
+        original.observation.evidence().map_err(EvidenceError::from)?,
         |member, commitment| {
             let (meaning, identity) =
                 member.with_reader(|input| read_member_meaning(commitment.role, input))?;
@@ -300,12 +272,7 @@ pub fn export_directory(
         let mut total = 0u64;
         for member in &mut files {
             let ordinal = member.dependency();
-            let role = verified
-                .observation
-                .evidence
-                .as_ref()
-                .ok_or_else(|| invalid("missing original commitments"))?[ordinal]
-                .role;
+            let role = verified.observation.evidence().map_err(EvidenceError::from)?[ordinal].role;
             let mut adopted = None;
             crate::invocation::publish_file(&members.join(ordinal.to_string()), 0o400, |output| {
                 adopted =
@@ -587,11 +554,7 @@ pub fn open_directory(
         adopt_report(required(wire.report.into_option(), "report").map_err(EvidenceError::from)?)?;
     require_profile(&verified)?;
     let members = open_at(&root, MEMBERS, true)?;
-    let commitments = verified
-        .observation
-        .evidence
-        .as_ref()
-        .ok_or_else(|| invalid("missing original commitments"))?;
+    let commitments = verified.observation.evidence().map_err(EvidenceError::from)?;
     exact_names(
         &members,
         commitments

@@ -302,12 +302,7 @@ fn unlisted_builds(
     if original.observation.outcome != Outcome::Failed {
         return Ok(Vec::new());
     }
-    let files = original.observation.evidence.as_deref().ok_or_else(|| {
-        host(invalid(
-            "failed discovery lacks an original compiler capture account",
-        ))
-    })?;
-    let builds: Vec<_> = files
+    let builds: Vec<_> = original.observation.evidence().map_err(host)?
         .iter()
         .filter(|file| file.role == EvidenceRole::CompilerContext)
         .cloned()
@@ -372,12 +367,7 @@ fn require_fixture_settlement(original: &CapturedReport) -> Result<(), HostError
     if original.observation.action != Action::Test {
         return Ok(());
     }
-    let files = original.observation.evidence.as_deref().ok_or_else(|| {
-        host(invalid(
-            "original test has no fixture settlement evidence account",
-        ))
-    })?;
-    let fixtures: Vec<_> = files
+    let fixtures: Vec<_> = original.observation.evidence().map_err(host)?
         .iter()
         .filter(|file| file.role == EvidenceRole::FixtureOutcome)
         .cloned()
@@ -1055,7 +1045,6 @@ pub(crate) async fn validate_report(
             .validate_content(input.bytes, &sha)
             .map_err(host)?;
         facts.validate_against(&terminal).map_err(host)?;
-        facts.require_current().map_err(host)?;
         if facts.inventory.is_some() {
             let bytes = crate::test_inventory::read_original_inventory(&parent)?;
             facts.validate_inventory(&bytes).map_err(host)?;
@@ -1252,14 +1241,6 @@ mod tests {
         directory
             .publish_evidence(InvocationEvidence::WorkflowInput, &encoded)
             .unwrap();
-        let report: ReportObservation = serde_json::from_value(serde_json::json!({"version":2,"invocation":id,"action":"test","outcome":"failed","required_capture_complete":false,"failures":[]})).unwrap();
-        assert_eq!(
-            retained_input(&store, &id, Action::Test, &report)
-                .unwrap()
-                .profile,
-            "alpha"
-        );
-        assert!(retained_input(&store, &id, Action::Check, &report).is_err());
         let path = directory.path().join("workflow-input.json");
         let before = fs::read_to_string(&path).unwrap();
         let (_, accepted_bytes) = bound_input(&directory, &binding, &id, "test").unwrap();
@@ -1270,18 +1251,13 @@ mod tests {
             "native publication includes its original newline"
         );
         let accepted_content = crate::test_workflow::execute::ContentIdentity::of(&accepted_bytes);
-        let mut current = report.clone();
-        current.version = 3;
-        current.evidence = Some(vec![crate::test_workflow::execute::EvidenceFile {
-            root: crate::test_workflow::execute::EvidenceRoot::Invocation,
-            path: "workflow-input.json".into(),
-            role: crate::test_workflow::execute::EvidenceRole::Input,
-            group: None,
-            content: Some(accepted_content.clone()),
-            omission: None,
-            failure: None,
-        }]);
-        assert!(retained_input(&store, &id, Action::Test, &current).is_ok());
+        let report: ReportObservation = serde_json::from_value(serde_json::json!({
+            "version": 3, "invocation": id, "action": "test", "outcome": "failed",
+            "required_capture_complete": false, "failures": [],
+            "evidence": [{"root": "invocation", "path": "workflow-input.json", "role": "input", "content": accepted_content}]
+        })).unwrap();
+        assert_eq!(retained_input(&store, &id, Action::Test, &report).unwrap().profile, "alpha");
+        assert!(retained_input(&store, &id, Action::Check, &report).is_err());
         let whitespace_replacement = format!("{before} \n\t");
         fs::write(&path, &whitespace_replacement).unwrap();
         let (_, rebound_bytes) = bound_input(&directory, &binding, &id, "test").unwrap();
@@ -1291,11 +1267,11 @@ mod tests {
             "metadata authenticates JSON value bytes, so it cannot redefine the accepted full-file identity"
         );
         assert!(
-            retained_input(&store, &id, Action::Test, &current).is_err(),
+            retained_input(&store, &id, Action::Test, &report).is_err(),
             "appended whitespace must refuse against the original full-file commitment"
         );
         fs::write(&path, &before).unwrap();
-        assert!(retained_input(&store, &id, Action::Test, &current).is_ok());
+        assert!(retained_input(&store, &id, Action::Test, &report).is_ok());
         assert_eq!(before.matches("alpha").count(), 1);
         let after = before.replace("alpha", "omega");
         assert_eq!(before.len(), after.len());
@@ -1586,23 +1562,6 @@ mod tests {
             validate_report(directory.clone(), observed(&id, &record), Some(1))
                 .await
                 .is_err()
-        );
-        let mut legacy: serde_json::Value = serde_json::from_slice(&original).unwrap();
-        legacy["version"] = 2.into();
-        legacy.as_object_mut().unwrap().remove("evidence");
-        let legacy = serde_json::to_vec(&legacy).unwrap();
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
-        fs::write(&path, &legacy).unwrap();
-        fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
-        assert!(
-            validate_report(
-                directory.clone(),
-                observed(&id, &terminal(&id, &legacy)),
-                Some(0)
-            )
-            .await
-            .is_err(),
-            "retained interpretation two cannot be newly published by a current helper"
         );
         let failure = crate::envelope::ErrorRecord::from_typed(
             &HostError::Ownership("original fixture prerequisite unavailable".into()),
