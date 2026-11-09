@@ -679,6 +679,11 @@ comparison. Unsupported actions refuse; no serialized token grants local lineari
 Cancellation retains owned process/native custody until settlement. This is an optional
 execution placement with working delivery planned, not current capability or remote solving.
 
+Plan66's private worker cutover derives the request, demand, derivative order and passive
+session reference from native owners. The selected service v2 and Prepare revision 3 replace
+both managed images together. A checked preparation request travels to binding, where the
+actual provider generation, capability and attempt still govern invocation.
+
 > Decision: [ADR-0242](../../adr/0242-scientific-worker-handle-and-shutdown-scope.md) and
 > [ADR-0243](../../adr/0243-coherent-native-provider-batch-evaluation.md) (proposed; authorized Plan65 target).
 

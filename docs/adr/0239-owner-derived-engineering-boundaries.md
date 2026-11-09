@@ -59,3 +59,15 @@ The [review](../plan_improvement_reviews/plan64-proto-integration-and-extensibil
 [64i](../plans/64i-engineering-contracts-and-validation.md) and
 [64j](../plans/64j-engineering-services-and-clients.md) retain concrete library contracts,
 alternatives, migration scope and closure evidence.
+
+## Plan 66 decision refinement
+
+On 2026-11-08 the maintainer selected separate versioned explicit-point and source-expansion
+Study preparation, read and restore surfaces. Both use the same native Study owner.
+The explicit closure excludes inline edits, including through its portable definition.
+Compose shared control operations and discovery on the same authenticated endpoint. Replace
+the combined wire routes and their callers together, preserving the original native definition
+identity and current restore admission. Publish complete approved descriptors independently
+of the Rust modules a reader compiles. See the
+[shared-contract review](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#rc01)
+and [Plan 66](../plans/66-integrated-simulation-target.md#confirmed-shared-contract-decisions).

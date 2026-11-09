@@ -1808,3 +1808,9 @@ not prove cancellation or physical settlement. Completion owns scientific permis
 the canonical owner retains atomic capture/readback. Optional foreign clients do not create
 a required Python product or qualify remote deployment. Existing native operations are the
 implemented baseline; this target is not yet delivered.
+
+Plan66 separates explicit-point and source-expansion preparation, read and restore in
+versioned RPC surfaces. Both use the same native Study operation, exact original definition
+and authenticated endpoint. Common control operations retain the original attempt and product
+permissions. The explicit client closure excludes inline authoring, while independent
+discovery retains the complete approved descriptor world.

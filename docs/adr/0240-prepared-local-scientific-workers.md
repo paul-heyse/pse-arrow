@@ -60,3 +60,12 @@ by this proposed record; actual binding implementation follows the decision/revi
 [64k](../plans/64k-prepared-scientific-workers.md), the
 [review I04](../plan_improvement_reviews/plan64-proto-integration-and-extensibility-2026-11-03.md#I04)
 and [ADR-0238](0238-native-water-property-provider.md) retain the consumed contracts and limits.
+
+## Plan 66 decision refinement
+
+On 2026-11-08 the maintainer selected the native projection of provider request, demand,
+derivative order and passive session identity for the private worker crossing. Worker service
+v2 with Prepare revision 3 uses the native derivative-order tags 1, 2 and 3. Replace both
+managed images together and refuse incompatible revisions. Carry the request admitted before
+factory creation into binding while checking the actual fresh provider and attempt. See the
+[shared-contract review](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#rc03).

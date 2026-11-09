@@ -345,6 +345,11 @@ selected physical context or readiness. Scientific hashes do not derive from des
 Plan64i owns generation/migration; existing semantic owners and current boundary
 interpretations remain in force until their explicit cutover.
 
+Plan66's selected cut generates shared types at one owner from the source declarations.
+The complete published descriptor artifact, exact runtime reflection pools, selected
+compiled Rust and registered procedures have separate consumers. Early source generation
+can publish changed declarations before compiling the receiving adapters.
+
 > Decision: [ADR-0241](../../adr/0241-pure-owner-derived-contract-foundation.md) (proposed; operator-authorized Plan65 implementation).
 
 The shared structural declaration/adoption vocabulary now belongs to pure `pse-contract`,
