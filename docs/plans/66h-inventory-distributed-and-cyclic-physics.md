@@ -108,6 +108,13 @@ native lifetime. Exact maintained source links and limits are in
 | H05 | planned | Changed H02–H04 route and demanded 66a/66d product contract | Selected trajectory/response/error/regularity products are independently checked and scoped; unsupported derivative or hybrid claims remain withheld |
 | H06 | planned | Selected physical producers plus 66b/66e/66f receiving paths | Original fixture/program, native execution, retained/read/exported trajectories and family consumers migrate coherently; matching old adapters/fixtures are deleted and 66l acceptance is supplied |
 
+The wall-stock receiving controls execute the original equilibrium and perturbed models, then
+reopen protected checks and typed reports after the producer is dropped and independently
+interpret the portable IPC. The two authored physical times are distinguished from numerical
+Step0. The original fluid-side enthalpy flows establish the wall flux and capacity balance;
+passive check rows and usable report rows retain distinct permission. Prescribed two-phase
+protected receiving and physical stage transfer remain separate obligations.
+
 H01 is case-local readiness, not an all-family gate. A narrow H03 first increment is
 constant-density aqueous component transport with explicit cell volumes, flow/boundary
 composition and isothermal energy treatment. Compare its analytic Erlang response as

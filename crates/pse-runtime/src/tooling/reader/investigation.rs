@@ -35,6 +35,11 @@ pub enum Request {
         /// Existing host-verified passive facts; scientific supplied membership stays separate.
         request: review_query::developer::Request,
     },
+    /// Associate captures to original scientific invocations in one supplied immutable image.
+    ScientificCaptureAnalyze {
+        /// Exact evidence image and observer allocation; no native or scientific actions.
+        request: review_query::scientific_capture::Request,
+    },
     /// Return maintained SQL and declared columns without executing any external tool.
     QuerySpecification {
         /// Original maintained query selection and finite allowances.
@@ -73,6 +78,12 @@ fn serialize_developer_analysis<S: serde::Serializer>(
 ) -> Result<S::Ok, S::Error> {
     analysis.document().serialize(serializer)
 }
+fn serialize_scientific_capture_analysis<S: serde::Serializer>(
+    analysis: &review_query::scientific_capture::Analysis,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    analysis.document().serialize(serializer)
+}
 /// Existing typed owner results. Analysis retains its admitted allocation through encoding.
 #[derive(Debug, Serialize, JsonSchema)]
 #[serde(tag = "action", rename_all = "snake_case")]
@@ -100,6 +111,13 @@ pub enum ResultView {
         #[serde(serialize_with = "serialize_developer_analysis")]
         #[schemars(with = "review_query::developer::Document")]
         analysis: review_query::developer::Analysis,
+    },
+    /// Maintained exact operation association with capture and invocation facts kept separate.
+    ScientificCaptureAnalyze {
+        /// Typed ephemeral answer retains its observer allocation through response encoding.
+        #[serde(serialize_with = "serialize_scientific_capture_analysis")]
+        #[schemars(with = "review_query::scientific_capture::Document")]
+        analysis: review_query::scientific_capture::Analysis,
     },
     /// Specification only; callers cannot infer external-query execution.
     QuerySpecification {
@@ -134,6 +152,9 @@ pub(super) fn validate(request: &Request) -> Result<(), ReaderError> {
             review_query::specification(request).map_err(ReaderError::Identity)?;
         }
         Request::DeveloperAnalyze { request } => review_query::developer::validate(request)?,
+        Request::ScientificCaptureAnalyze { request } => {
+            review_query::scientific_capture::validate(request)?
+        }
         Request::Export {
             evidence,
             destination,
@@ -233,6 +254,15 @@ pub(super) fn handle(
                 .build()?;
             ResultView::DeveloperAnalyze {
                 analysis: executor.block_on(review_query::developer::analyze(request, cancel))?,
+            }
+        }
+        Request::ScientificCaptureAnalyze { request } => {
+            let executor = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()?;
+            ResultView::ScientificCaptureAnalyze {
+                analysis: executor
+                    .block_on(review_query::scientific_capture::analyze(request, cancel))?,
             }
         }
         Request::QuerySpecification { request } => ResultView::QuerySpecification {

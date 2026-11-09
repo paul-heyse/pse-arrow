@@ -420,6 +420,12 @@ owns full product/science assembled acceptance; F supplies actual journeys and p
 
 ## Verification, decisions and completion
 
+The passive investigation reader now accepts `scientific_capture_analyze` over one explicitly
+selected frozen evidence image. It exposes [66e's original capture association](66e-protected-data-and-result-delivery.md#diagnostic-meaning-and-selected-evidence-delivery--dre02dre05)
+without mixing scientific and developer invocation identities or granting native actions.
+The reader controls exercise known, missing and ambiguous associations, exact source attribution,
+and allocation refusal. Wider independent client and diagnostic delivery remains open.
+
 Report observation, inventory and compact and directory evidence
 admit the current report interpretation and its original dependency account, with explicit
 omissions. Compiler investigation checks the original whole-stream commitment before selecting a

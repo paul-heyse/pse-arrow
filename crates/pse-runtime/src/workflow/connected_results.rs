@@ -2459,7 +2459,7 @@ pub(super) struct OriginalRowSelection<'a> {
     pub native: Option<&'a super::result_snapshot::NativeResultSelection>,
 }
 
-enum OriginalRowBatch<'a> {
+pub(super) enum OriginalRowBatch<'a> {
     Native(&'a pse_relations::columnar::FieldCheckedBatch),
     Projected {
         batch: &'a super::result_snapshot::InspectionBatch,
@@ -2467,7 +2467,8 @@ enum OriginalRowBatch<'a> {
     },
 }
 
-pub(super) fn select_original_rows(
+#[cfg(test)]
+fn select_original_rows(
     services: &RetainedDataServices,
     selection: OriginalRowSelection<'_>,
     metadata: &BlockMetadata,
@@ -2498,7 +2499,7 @@ pub(super) fn select_original_rows(
     Ok(Some((selected, rows)))
 }
 
-fn select_original_row_offsets(
+pub(super) fn select_original_row_offsets(
     services: &RetainedDataServices,
     selection: OriginalRowSelection<'_>,
     metadata: &BlockMetadata,

@@ -210,6 +210,12 @@ The later [combined runtime selection](66-integrated-simulation-target.md#66ah-r
 passed the exact authored-interval and original durable fitting member permission controls.
 The test checked the actual attempt and the passive facts separately from permission.
 
+Declared initialization now retains the admitted policy, including the authored effort
+when no override is supplied. A same-kind payload substitution refuses. Fresh replay rebuilds
+the exact admitted path demand against the original source and checks the resulting request
+identity; it does not overwrite the re-admitted procedure. This slice does not close the
+remaining original product, membership or operating-program population.
+
 Packages consume narrow working prerequisites rather than entire companions. In particular,
 ordinary steady analysis does not wait for distributed or specialized physics.
 
@@ -223,8 +229,8 @@ A05 checks that this authority survives the migrated consumers; A01's two Study 
 
 ## Verification and outcome
 
-The working tree also checks the admitted route and procedure kind before preparation.
-Run the relabeling and same-kind initialization controls with A04. Arrow remains active
+The admitted route, procedure kind and initialization policy are checked before preparation.
+The relabeling and same-kind initialization controls belong to A04. Arrow remains active
 in the authored fit relation, registry, canonical admission and replay. Current-only
 acceptance uses the generated fit relation and original native inputs.
 

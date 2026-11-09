@@ -1,6 +1,28 @@
-# surrealdb
+# SurrealDB ecosystem
+
+The [v4 discovery briefing](briefing.md) and [coverage account](coverage.md), inspected
+2026-11-09, route twelve thematic briefs across existing product and developer functionality.
+They reconsider both v4 additions and earlier capabilities. Breaking changes are eligible;
+the proposed directions do not establish applicability, adoption or implementation scope.
+
+The production baseline is the v4 source-built server/persistent MX and bounded native
+protocol client, plus separately prepared Surrealism and SurrealKit. See the briefing for
+current interpretation and the native owners for live selection and acceptance.
+
+Selected reusable contract notes from this discovery:
+
+- [V4 runtime contracts](v4-runtime-contracts.md): value-codec fidelity, extension
+  invocation, API authority and observation/replay distinctions.
+- [SurrealKit rc.1 contracts](v4-tooling-contracts.md): compilation, semantic
+  documents, emitters, migration coordination, tests and bounded progress.
+
+## Historical applicability and types
 
 Library family account from the first applicability assessment (2026-10-27). Each page keeps its reusable types separate from its current applicability; this index routes to them.
+
+The entries below retain that assessment's source/version conditions. In particular, v3
+SDK, protocol, parser, telemetry and module conclusions are not refreshed v4 conclusions.
+Use the new thematic briefs for changed premises and current research questions.
 
 | Page | Types | Current applicability |
 | --- | --- | --- |

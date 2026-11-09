@@ -17,10 +17,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
 };
-use symbolica::{
-    atom::{Atom, AtomCore, AtomView, Indeterminate, Symbol},
-    id::Replacement,
-};
+use symbolica::atom::{Atom, AtomCore, AtomView, Indeterminate, Symbol};
 
 /// The algebraic evidence needed to consider coefficient backends.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -718,40 +715,73 @@ fn observe(name: &str, count: usize) {
     }
 }
 
-/// One library traversal over the original tree. Symbolica 3.0.1 replace_no_norm returns
-/// immediately after a match and only descends into original children; inserted RHS atoms
-/// are not revisited. Normalization runs once after the traversal (id.rs).
+/// Admit exact variable bindings with a read-only Symbolica visit before mapping.
+/// The top-down map stops at a replacement and normalizes once; inserted
+/// symbols cannot be mistaken for original inputs (including alias permutations).
 fn substitute(
     expression: &Atom,
-    replacements: &[(Atom, Atom)],
+    mut replacements: Vec<(Symbol, Atom)>,
     allowance: &mut Allowance,
     cancel: &Arc<AtomicBool>,
 ) -> Result<Atom, MathError> {
     checkpoint(cancel)?;
+    allowance.charge(expression.as_view().get_byte_size())?;
     if replacements.is_empty() {
-        allowance.charge(expression.as_view().get_byte_size())?;
         return Ok(expression.clone());
     }
-    let extent = replacements
-        .iter()
-        .try_fold(1usize, |bytes, (_, replacement)| {
-            bytes
-                .checked_add(replacement.as_view().get_byte_size())
-                .ok_or(MathError::Limit("class symbolic substitution"))
-        })?;
+    let lookup_work = replacements.len().ilog2() as usize + 2;
     allowance.charge(
-        expression
-            .as_view()
-            .get_byte_size()
-            .checked_mul(extent)
-            .ok_or(MathError::Limit("class symbolic substitution"))?,
-    )?;
-    observe("substitution_calls", 1);
-    let result = expression.replace_multiple(
         replacements
-            .iter()
-            .map(|(formal, replacement)| Replacement::new(formal.clone(), replacement.clone())),
-    );
+            .len()
+            .checked_mul(lookup_work)
+            .ok_or(MathError::Limit("class symbolic substitution index"))?,
+    )?;
+    replacements.sort_unstable_by_key(|(symbol, _)| *symbol);
+    if replacements.windows(2).any(|pair| pair[0].0 == pair[1].0) {
+        return Err(MathError::Contract("duplicate class substitution symbol".into()));
+    }
+    let replacement = |symbol| {
+        replacements
+            .binary_search_by_key(&symbol, |(symbol, _)| *symbol)
+            .ok()
+            .map(|index| replacements[index].1.as_view())
+    };
+    // Both library traversals inspect the same original variable leaves.
+    // Admit their work and each actual insertion before the infallible map can
+    // copy or normalize anything. An unmatched replacement costs only its
+    // index entry and the lookups that searched that index.
+    allowance.charge(expression.as_view().get_byte_size())?;
+    let mut refused = None;
+    expression.visitor(&mut |node| {
+        if refused.is_some() {
+            return false;
+        }
+        refused = (|| -> Result<(), MathError> {
+            checkpoint(cancel)?;
+            let AtomView::Var(variable) = node else {
+                return Ok(());
+            };
+            allowance.charge(lookup_work * 2)?;
+            if let Some(replacement) = replacement(variable.get_symbol()) {
+                allowance.charge(replacement.get_byte_size())?;
+            }
+            Ok(())
+        })()
+        .err();
+        refused.is_none()
+    });
+    if let Some(error) = refused {
+        return Err(error);
+    }
+    checkpoint(cancel)?;
+    observe("substitution_calls", 1);
+    let result = expression.replace_map(|node, _, out| {
+        if let AtomView::Var(variable) = node
+            && let Some(replacement) = replacement(variable.get_symbol())
+        {
+            out.set_from_view(&replacement);
+        }
+    });
     checkpoint(cancel)?;
     allowance.charge(result.as_view().get_byte_size())?;
     Ok(result)
@@ -836,10 +866,10 @@ fn aggregate_expressions(
                 allowance.charge(replacement.as_view().get_byte_size())?;
                 let formal = Atom::var(symbol);
                 if formal != replacement {
-                    substitutions.push((formal, replacement));
+                    substitutions.push((symbol, replacement));
                 }
             }
-            let expression = substitute(original, &substitutions, allowance, cancel)?;
+            let expression = substitute(original, substitutions, allowance, cancel)?;
             allowance.charge(expression.as_view().get_byte_size().saturating_add(1))?;
             bound.insert(key, expression.clone());
             expression
@@ -900,17 +930,16 @@ fn prove_affine(
     checkpoint(cancel)?;
     allowance.charge(symbols.len())?;
     let mut candidates = symbols
-        .iter()
-        .filter_map(|symbol| formals.symbols.get(symbol))
-        .map(|(column, formal)| (*column, formal.clone()))
+        .into_iter()
+        .filter_map(|symbol| formals.symbols.get(&symbol).map(|(column, formal)| (symbol, *column, formal)))
         .collect::<Vec<_>>();
-    candidates.sort_by_key(|(column, _)| *column);
+    candidates.sort_by_key(|(_, column, _)| *column);
     observe("candidate_coordinates", candidates.len());
     let mut affine = AffineRow {
         entries: BTreeMap::new(),
         constant: 0.0,
     };
-    for (column, formal) in &candidates {
+    for (_, column, formal) in &candidates {
         observe("derivative_attempts", 1);
         let derivative = allowance.derivative(expression, formal, cancel)?;
         if !derivative.is_constant() {
@@ -925,9 +954,9 @@ fn prove_affine(
     }
     let zeros = candidates
         .into_iter()
-        .map(|(_, formal)| (formal, Atom::num(0)))
+        .map(|(symbol, _, _)| (symbol, Atom::num(0)))
         .collect::<Vec<_>>();
-    let zero = substitute(expression, &zeros, allowance, cancel)?;
+    let zero = substitute(expression, zeros, allowance, cancel)?;
     if !zero.is_constant() {
         return Err(MathError::Contract(
             "unmapped class coordinate or residual symbol".into(),
@@ -1010,7 +1039,11 @@ mod affine_controls {
                 replacements.into_iter().rev().collect(),
             ] {
                 let mut allowance = Allowance { remaining: 100_000 };
-                let bound = substitute(&original, &replacements, &mut allowance, &cancel).unwrap();
+                let replacements = replacements
+                    .into_iter()
+                    .map(|(formal, value)| (formal.get_symbol().unwrap(), value))
+                    .collect();
+                let bound = substitute(&original, replacements, &mut allowance, &cancel).unwrap();
                 let formals = coordinates(&[0, 1, 2], &mut allowance);
                 let affine = prove_affine(&bound, &formals, &mut allowance, &cancel)
                     .unwrap()
@@ -1019,6 +1052,38 @@ mod affine_controls {
                 assert_eq!(affine.constant, constant);
             }
         }
+    }
+
+    #[test]
+    fn affine_bulk_binding_spends_only_encountered_replacement_work() {
+        crate::initialize().unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let a = library::formal(0).unwrap();
+        let b = library::formal(1).unwrap();
+        let original = a.sin() + a.cos() + b.exp();
+        let av = &b + Atom::num(2);
+        let bv = &a * Atom::num(3);
+        let unused = library::formal(2).unwrap();
+        let replacements = vec![
+            (a.get_symbol().unwrap(), av.clone()),
+            (b.get_symbol().unwrap(), bv.clone()),
+            (unused.get_symbol().unwrap(), original.clone()),
+        ];
+        let former_charge = original.as_view().get_byte_size()
+            * (1 + replacements
+                .iter()
+                .map(|(_, atom)| atom.as_view().get_byte_size())
+                .sum::<usize>());
+        let limit = former_charge / 2;
+        let mut allowance = Allowance { remaining: limit };
+        let bound = substitute(&original, replacements.clone(), &mut allowance, &cancel).unwrap();
+        assert_eq!(bound, av.sin() + av.cos() + bv.exp());
+        let spent = limit - allowance.remaining;
+        let mut insufficient = Allowance { remaining: spent - 1 };
+        assert!(matches!(
+            substitute(&original, replacements, &mut insufficient, &cancel),
+            Err(MathError::WorkLimit { .. })
+        ));
     }
 
     #[test]

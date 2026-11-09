@@ -41,7 +41,7 @@ impl PreparedInitializationOperation {
                 source.physical.identity(),
                 constructor,
                 policy,
-                &execution.requested_start,
+                &execution.analysis.solver.controls.start,
                 providers,
             ),
         )
@@ -686,9 +686,8 @@ mod initialization_tests {
                     panic!("declared initialization policy required");
                 };
                 policy.maximum_attempts += 1;
-                let changed =
-                    PreparedInitializationOperation::new(package.clone(), changed).unwrap();
-                assert_ne!(changed.identity(), original.identity());
+                assert!(changed.initialization(Default::default()).is_err());
+                assert!(PreparedInitializationOperation::new(package.clone(), changed).is_err());
                 let facts = super::super::replay::initialization_request_facts(
                     original,
                     pse_operations::mint_id(),
@@ -756,6 +755,21 @@ mod initialization_tests {
             );
             assert_eq!(report.attempts[1].accepted(), completed);
             assert_eq!(run.usable(), completed);
+            if !recorded && completed {
+                let PreparedOperation::Initialization(request) = &operation else {
+                    panic!("prepared initialization operation required");
+                };
+                assert!(!request.execution.analysis.case.values.is_empty());
+                assert!(request.execution.analysis.bindings.demand.is_empty());
+                let fresh = run.replay().rerun_with_cancel(&cancel).await.unwrap();
+                let fresh = fresh.wait().await.unwrap();
+                assert_ne!(fresh.run_id, run.run_id);
+                let super::super::RunRequest::Initialization(restored) = fresh.request() else {
+                    panic!("original initialization replay request required");
+                };
+                assert_eq!(restored.identity(), request.identity());
+                assert!(fresh.usable());
+            }
             let contexts = run.table("runtime.scientific_contexts").unwrap();
             let contexts =
                 pse_relations::generated::runtime::scientific_contexts::Row::rows(&contexts)

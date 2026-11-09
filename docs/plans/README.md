@@ -14,8 +14,10 @@ own the remaining implementation and acceptance packages; follow the coordinator
 map and narrow prerequisite order. Implemented foundations are dependencies, not new work.
 Unperformed acceptance is distinguished from missing implementation.
 
-The [November 9 receiving and physics follow-up](66-integrated-simulation-target.md#66ah-receiving-and-physics-follow-up--november-9)
-tracks the latest 66a–h delivery and remaining evidence. The
+The [November 9 execution and full-case qualification](66-integrated-simulation-target.md#66ah-execution-and-full-case-qualification--november-9)
+tracks the latest 66a–h delivery and remaining evidence. The prior
+[receiving and physics follow-up](66-integrated-simulation-target.md#66ah-receiving-and-physics-follow-up--november-9)
+records the selected Study, source and protected readback. The
 [shared-contract cutover](66-integrated-simulation-target.md#shared-contract-cutover--november-8)
 tracks the subsequent engineering and solver contract changes. The preceding
 [November 8 checkpoint](66-integrated-simulation-target.md#66af-checkpoint--november-8)

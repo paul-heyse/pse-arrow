@@ -120,6 +120,7 @@ fn scientific_recipe_native_projection_keeps_current_json_and_qualified_restorat
 mod proof_reconstruction_tests {
     use super::*;
     use pse_contract::boundary_projection::ProjectionRecord;
+    use pse_ids::scientific_replay::QualifiedScientificRecipe;
     use pse_kernels::DerivativeOrder;
 
     #[test]
@@ -136,56 +137,70 @@ mod proof_reconstruction_tests {
         let cancel = Arc::new(AtomicBool::new(false));
         let original = owner.admit(&cancel).unwrap();
         let payload = original.portable_payload().unwrap();
-        let recipe = Recipe::decode(&payload).unwrap();
+        let original_digest = portable_payload_hash(&payload);
         let registry = &owner.context.quantities;
-        let verify =
-            |recipe: Recipe| {
-                let payload = recipe.encode().unwrap();
-                let digest = portable_payload_hash(&payload);
-                // SAFETY: the fixture owns the immutable record population and the
-                // actual producer; mutated receipts deliberately test correspondence
-                // beyond simple membership in the containing payload.
-                let permit = unsafe {
-                pse_ids::scientific_replay::QualifiedScientificRecipe::from_admitted_record_fixture(
-                    payload.to_vec(), digest, ContentHash::from_bytes([1; 32]),
+        let qualify = |bytes: &[u8], digest| {
+            // SAFETY: the fixture owns the immutable record population from
+            // the actual producer, including its deliberate corrupt controls.
+            unsafe {
+                QualifiedScientificRecipe::from_admitted_record_fixture(
+                    bytes.to_vec(),
+                    digest,
+                    ContentHash::from_bytes([1; 32]),
                     ContentHash::from_bytes([2; 32]),
                 )
-            }.unwrap();
-                let limits = BodyLimits {
-                    slots: recipe.slots,
-                    occurrences: recipe.occurrences,
-                };
-                pse_quantity::resolved::receipts::replay(recipe.receipts, permit.records(), || {
-                    let syntax = recipe
-                        .syntax
-                        .restore(limits.occurrences)
-                        .map_err(reconstruction_model_error)?;
-                    let support = recipe
-                        .support
-                        .restore(&syntax)
-                        .map_err(reconstruction_model_error)?;
-                    let providers = recipe.providers.restore(&syntax, &support)?;
-                    let request = Request {
-                        definition: SemanticId::NIL,
-                        syntax: &syntax,
-                        inputs: &recipe.inputs,
-                        support: &support,
-                        providers: &providers,
-                        physical: recipe.physical,
-                        structure: recipe.structure,
-                        limits,
-                    };
-                    pse_math::typed::receipts::replay(recipe.proofs, permit.records(), || {
-                        request.verify_construction_plan(
-                            registry,
-                            &pse_quantity::infer::NoInvariantFacts,
-                            &cancel,
-                            &original,
-                        )
-                    })
-                })
+            }
+        };
+        let verify = |permit: &QualifiedScientificRecipe| {
+            let recipe = Recipe::decode(permit.payload())?;
+            let limits = BodyLimits {
+                slots: recipe.slots,
+                occurrences: recipe.occurrences,
             };
-        verify(recipe.clone()).unwrap();
+            pse_quantity::resolved::receipts::replay(recipe.receipts, permit.records(), || {
+                let syntax = recipe
+                    .syntax
+                    .restore(limits.occurrences)
+                    .map_err(reconstruction_model_error)?;
+                let support = recipe
+                    .support
+                    .restore(&syntax)
+                    .map_err(reconstruction_model_error)?;
+                let providers = recipe.providers.restore(&syntax, &support)?;
+                let request = Request {
+                    definition: SemanticId::NIL,
+                    syntax: &syntax,
+                    inputs: &recipe.inputs,
+                    support: &support,
+                    providers: &providers,
+                    physical: recipe.physical,
+                    structure: recipe.structure,
+                    limits,
+                };
+                pse_math::typed::receipts::replay(recipe.proofs, permit.records(), || {
+                    request.verify_construction_plan(
+                        registry,
+                        &pse_quantity::infer::NoInvariantFacts,
+                        &cancel,
+                        &original,
+                    )
+                })
+            })
+        };
+        let permit = qualify(&payload, original_digest).unwrap();
+        verify(&permit).unwrap();
+        let recipe = Recipe::decode(permit.payload()).unwrap();
+        let verify_corrupt_fixture = |changed: &Recipe| {
+            let changed = changed.encode().unwrap();
+            assert!(matches!(
+                qualify(&changed, original_digest),
+                Err(pse_ids::IdError::ScientificRecipeDigest)
+            ));
+            // Deliberately requalify these test bytes to exercise correspondence
+            // beyond simple membership in the containing payload.
+            let fixture = qualify(&changed, portable_payload_hash(&changed)).unwrap();
+            verify(&fixture)
+        };
 
         let (version, entries) = recipe.proofs.clone().into_projection_fields();
         assert_eq!(entries.len(), 2);
@@ -214,7 +229,7 @@ mod proof_reconstruction_tests {
             mutated.proofs =
                 pse_math::typed::receipts::ProofStream::from_projection_fields((version, changed))
                     .unwrap();
-            let error = verify(mutated).unwrap_err();
+            let error = verify_corrupt_fixture(&mutated).unwrap_err();
             assert!(error.to_string().contains(expected), "{error:?}");
         }
 
@@ -250,11 +265,11 @@ mod proof_reconstruction_tests {
                     boundaries.clone(),
                 ))
                 .unwrap();
-            let error = verify(mutated).unwrap_err();
+            let error = verify_corrupt_fixture(&mutated).unwrap_err();
             assert!(error.to_string().contains(expected), "{error:?}");
         }
         cancel.store(true, Ordering::Relaxed);
-        assert!(matches!(verify(recipe), Err(MathError::Cancelled)));
+        assert!(matches!(verify(&permit), Err(MathError::Cancelled)));
     }
 
     #[test]

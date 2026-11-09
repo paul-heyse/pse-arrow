@@ -1248,3 +1248,806 @@ The architectural opportunity is to express numerical computation through these 
 The main qualifications are equally important: mathematical assumptions remain decisive, low-level APIs require careful resource and initialization discipline, and the identified correctness reports warrant attention for affected 0.24.4 execution paths.
 
 In scope and depth, faer is best understood not merely as a Rust matrix library, but as a substantial numerical linear algebra foundation whose abstractions span data representation, computational algorithms, and execution mechanics.
+
+# faer — Advanced Capabilities Addendum
+
+Rust | Target version: 0.24.4 | Research date: November 9, 2026
+
+This addendum extends the existing faer — Comprehensive Rust Linear Algebra Library Overview, addressing functionality that was omitted or insufficiently developed. It focuses on advanced numerical mechanisms, their public APIs, architectural implications, and operational limitations without repeating the original reference.
+
+All capabilities discussed are available in the published faer 0.24.4 API unless explicitly qualified. Version 0.24.4, released June 24, 2026, remains the latest stable release at the research date.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs
+
+
+
+## 1. Incremental maintenance of dense matrix factorizations
+
+One of faer's more consequential low-level capabilities is the ability to modify an existing numerical factorization when the underlying matrix changes in certain structured ways.
+
+This is fundamentally different from retaining a decomposition to solve multiple right-hand sides. Rather than treating every change to the matrix as requiring a fresh factorization, supported update algorithms operate directly on the stored factors.
+
+### 1.1 Rank-\\(r\\) Cholesky and LDLᴴ updates
+
+Suppose a Hermitian matrix \\(A\\) has already been factorized and receives an update of the form
+
+\\[ A\_{\mathrm{new}}=A+W\operatorname{diag}(\alpha)W^H, \\]
+
+where \\(W\in\mathbb{C}^{n\times r}\\), and \\(\alpha\\) contains the real weights associated with the \\(r\\) update vectors.
+
+When \\(r\\) is small compared with \\(n\\), explicitly updating the factorization can avoid much of the work of performing a new dense decomposition.
+
+Faer exposes two principal implementations:
+
+| API                                                     | Factor representation | Behavior                                                             |
+| ------------------------------------------------------- | --------------------- | -------------------------------------------------------------------- |
+| `linalg::cholesky::llt::update::rank_r_update_clobber`  | \\(A=LL^H\\)          | Updates the Cholesky factor in place; returns `Result<(), LltError>` |
+| `linalg::cholesky::ldlt::update::rank_r_update_clobber` | \\(A=LDL^H\\)         | Updates the LDL factor in place; returns `()`                        |
+
+Both functions accept mutable views of the existing factorization, \\(W\\), and the diagonal update weights. Their implementations mutate the update operands as part of the calculation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+2
+
+
+
+The distinction between positive and negative update weights is significant.
+
+For positive-semidefinite additions, an initially positive-definite matrix remains positive definite. Negative-weight contributions are downdates and can destroy positive definiteness.
+
+The LLᴴ implementation checks the resulting pivots and can return `LltError::NonPositivePivot`. It does not promise transactional rollback: earlier portions of the factorization and update inputs may already have been modified when the error occurs.
+
+The LDLᴴ update routine has different failure semantics. Its lack of a `Result` does not establish numerical robustness for arbitrary indefinite or singular updates. In particular, the absence of a pivoting mechanism comparable to dense LBLᴴ should not be interpreted as a guarantee of stable symmetric-indefinite factorization.
+
+The principal applicability conditions are:
+
+- The change must be expressible as the supported low-rank Hermitian update.
+- The existing factors must correspond to the expected numerical representation.
+- Array dimensions and the diagonal update representation must be compatible.
+- For LLᴴ, positive definiteness must remain satisfied.
+- The caller must account for in-place modification and the possibility of numerical deterioration after repeated updates.
+
+These mechanisms can be valuable in sequential least-squares computation, covariance estimation, active-set optimization, incremental inference, and other calculations involving structured matrix changes.
+
+Their advantage depends on the update rank and frequency. A sequence of many updates can accumulate floating-point error; periodic reconstruction or direct refactorization may be warranted when numerical reliability is important.
+
+Sources:
+
+`https://docs.rs/faer/0.24.4/faer/linalg/cholesky/llt/update/fn.rank_r_update_clobber.html`
+
+`https://docs.rs/faer/0.24.4/faer/linalg/cholesky/ldlt/update/fn.rank_r_update_clobber.html`
+
+### 1.2 Deletion of rows and columns from LDLᴴ factors
+
+Faer also supports removing selected rows and columns from an existing dense LDLᴴ factorization.
+
+The relevant functions are:
+
+- `linalg::cholesky::ldlt::update::delete_rows_and_cols_clobber`
+- `linalg::cholesky::ldlt::update::delete_rows_and_cols_clobber_scratch`
+
+The deletion algorithm maintains the factorization of the principal submatrix obtained by removing the selected row and column indices, instead of requiring the caller to reconstruct that submatrix and factorize it from scratch.
+
+At the API level, the operation accepts mutable factor storage, a mutable slice of deletion indices, parallelism configuration, and scratch storage. The implementation sorts the supplied indices in place and asserts that the resulting indices are unique and within bounds.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source
+
+
+
+The numerical mechanism includes compaction of the stored triangular factor and a low-rank update to account for the elimination of deleted variables.
+
+This distinction matters because deleting a variable from an existing factorization is not equivalent to deleting the corresponding entries from the factor itself. The remaining factors must still represent the correct principal submatrix.
+
+The associated scratch function makes it possible to calculate and provide temporary memory explicitly, consistent with faer's broader workspace-management approach.
+
+Potential applications include changing active sets, sliding-window matrix estimation, and models that repeatedly remove variables from a fixed-size numerical state.
+
+API boundary: Version 0.24.4 exposes `insert_rows_and_cols_clobber_scratch`, but the reviewed public API does not expose a corresponding complete `insert_rows_and_cols_clobber` operation. The presence of a workspace-sizing function should not be interpreted as released support for arbitrary factor insertion.
+
+These dense operations also do not establish support for incremental sparse-factor updates. Sparse structural changes can affect elimination trees, permutations, and fill patterns in ways not addressed by the dense update APIs.
+
+Sources:
+
+`https://docs.rs/faer/0.24.4/faer/linalg/cholesky/ldlt/update/`
+
+`https://docs.rs/faer/0.24.4/faer/linalg/cholesky/ldlt/update/fn.delete_rows_and_cols_clobber.html`
+
+## 2. Numerical regularization and configurable pivot selection
+
+Faer's lower-level factorization interfaces expose numerical policy controls that go beyond selecting an algorithm such as Cholesky or LU.
+
+These controls are important because numerical factorization is not simply a matter of whether a matrix has the right mathematical structure. Small pivots, expected inertia, and ill-conditioning can affect whether a decomposition is numerically useful.
+
+### 2.1 Dynamic regularization of Cholesky-family factors
+
+The dense LDLᴴ implementation exposes `LdltRegularization`, with the fields:
+
+| Field                            | Function                                                      |
+| -------------------------------- | ------------------------------------------------------------- |
+| `dynamic_regularization_epsilon` | Threshold used to identify excessively small diagonal pivots  |
+| `dynamic_regularization_delta`   | Magnitude used when regularizing a pivot                      |
+| `dynamic_regularization_signs`   | Optional expected pivot signs at successive elimination steps |
+
+The documented behavior is to replace pivots whose absolute values fall below the specified threshold, or whose signs violate the expected sign constraints, with appropriately signed regularized values.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+This is particularly relevant for factorizations arising from constrained optimization, where the signs of diagonal pivots can carry mathematical meaning.
+
+For example, an indefinite system associated with a constrained quadratic optimization problem may have an expected positive/negative inertia structure. A numerical algorithm can sometimes use this structural expectation to regularize unsuitable pivots.
+
+Faer exposes an analogous `LltRegularization` type for LLᴴ, although positive-definite Cholesky and indefinite LDLᴴ do not have identical pivot requirements.
+
+The factorization interfaces also expose information objects such as `LltInfo` and `LdltInfo`, including counts of dynamically regularized pivots. The sparse Cholesky implementation propagates these regularization counts through its numerical factorization routines.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source
+
+
+
+The central numerical distinction is that regularization modifies the factorization being computed.
+
+A resulting factorization may more closely represent a perturbed matrix
+
+\\[ A+\Delta A \\]
+
+than the original \\(A\\).
+
+The perturbation may improve numerical behavior while changing the solution of the original system. Therefore, regularization is not equivalent to proving that an indefinite or singular matrix was successfully factorized without modification.
+
+It is especially important to distinguish a controlled perturbation from numerical error caused by floating-point arithmetic.
+
+Sources:
+
+`https://docs.rs/faer/0.24.4/faer/linalg/cholesky/ldlt/factor/struct.LdltRegularization.html`
+
+`https://docs.rs/faer/0.24.4/faer/linalg/cholesky/llt/factor/struct.LltRegularization.html`
+
+### 2.2 Pivoting strategies for dense indefinite factorization
+
+The dense LBLᴴ implementation provides a configurable `PivotingStrategy` enum.
+
+Its public variants are:
+
+| Strategy      | Pivot-search behavior                                       |
+| ------------- | ----------------------------------------------------------- |
+| `Partial`     | Searches the current pivot column                           |
+| `PartialDiag` | Also examines the remaining diagonal                        |
+| `Rook`        | Searches for locally optimal pivots                         |
+| `RookDiag`    | Extends rook pivot search to include the remaining diagonal |
+| `Full`        | Searches globally for pivots                                |
+| `Diagonal`    | Deprecated alias corresponding to partial pivoting          |
+
+The enum is marked `#[non_exhaustive]`, allowing additional variants to be introduced without changing the type's compatibility contract.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+These strategies expose a tradeoff between the cost of searching for pivots and the numerical properties of the resulting factorization.
+
+Partial pivoting generally requires less pivot-search work. More extensive pivot searches may improve the robustness of difficult indefinite factorizations but can increase computation and data movement.
+
+`LbltParams` provides additional control over factorization behavior, including block-size and parallel-execution parameters.
+
+These choices are particularly consequential for matrices that are symmetric or Hermitian but not positive definite. They also distinguish faer's indefinite decomposition implementation from an unpivoted LDLᴴ factorization, which does not provide equivalent stability properties for arbitrary indefinite matrices.
+
+It should not be assumed that full pivoting is always preferable. Its additional work may offer little advantage for well-behaved systems, while a less expensive strategy can be adequate.
+
+Source:
+
+`https://docs.rs/faer/0.24.4/faer/linalg/cholesky/lblt/factor/enum.PivotingStrategy.html`
+
+## 3. Sparse intranodal symmetric-indefinite factorization
+
+The original guide describes sparse LLᴴ, LDLᴴ, LU, and QR, but faer also exposes a specialized sparse intranodal LBLᵀ factorization within its low-level Cholesky infrastructure.
+
+This capability is notable because positive-definite sparse Cholesky and general sparse symmetric-indefinite factorization have different numerical requirements. An indefinite matrix can require 2×2 pivot blocks and permutations to avoid unsuitable scalar pivots.
+
+### 3.1 `IntranodeLbltRef` and numerical factorization
+
+The relevant public interfaces are:
+
+| API                                                          | Responsibility                                                                               |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `SymbolicCholesky::factorize_numeric_intranode_lblt`         | Compute a sparse intranodal LBLᵀ factorization using existing symbolic analysis              |
+| `SymbolicCholesky::factorize_numeric_intranode_lblt_scratch` | Determine numerical factorization workspace                                                  |
+| `IntranodeLbltRef`                                           | Borrowed representation of the resulting numerical factors and associated symbolic structure |
+| `IntranodeLbltRef::solve_in_place_with_conj`                 | Solve using the intranodal factors, with optional conjugation                                |
+
+The factorization function accepts existing symbolic Cholesky analysis, the sparse numerical input, preallocated factor-value storage, subdiagonal storage, forward and inverse pivot permutations, parallelism configuration, workspace, and `LbltParams`. It returns an `IntranodeLbltRef`.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+This makes the functionality substantially more explicit than the ordinary high-level sparse solver interfaces. The caller is responsible for arranging storage and maintaining the lifetime relationship between symbolic analysis, numerical factor buffers, and the borrowed factorization object.
+
+The `subdiag` storage and pivot permutations are particularly important. They permit a factorization representation more general than a triangular factor combined with a purely diagonal matrix.
+
+### 3.2 Intranodal versus unrestricted pivoting
+
+The essential qualification is intranodal.
+
+Sparse supernodal factorization organizes related columns into blocks in order to exploit dense operations within those blocks. Restricting numerical pivoting to those local structures can help preserve the elimination organization established during symbolic analysis.
+
+However, restricting pivot selection can also constrain the algorithm's ability to find numerically suitable pivots.
+
+Consequently, this implementation should not be equated with an unrestricted sparse Bunch–Kaufman factorization or a general-purpose robust sparse symmetric-indefinite solver that can pivot freely throughout the matrix.
+
+Its use is conditional on the matrix's numerical properties and the effectiveness of the available pivoting.
+
+The API also differs from the high-level sparse factorization constructors in error semantics: `factorize_numeric_intranode_lblt` returns a factorization reference directly rather than a `Result`. That signature should not be interpreted as proof that every indefinite input is numerically admissible or that singularity and instability are automatically diagnosed.
+
+Numerical validation may need to include residual calculations, finite-value checks, and examination of the behavior of solved systems.
+
+### 3.3 Architectural significance
+
+The intranodal LBLᵀ path allows existing sparse symbolic-analysis infrastructure to be used with a more general numerical factor representation.
+
+This offers an additional native option for symmetric-indefinite sparse systems without necessarily discarding sparsity structure or resorting immediately to general nonsymmetric LU.
+
+It also exposes a distinct tradeoff: preserving a planned sparse elimination structure can reduce structural work and facilitate blocked computation, but may impose limitations on pivoting flexibility and numerical robustness.
+
+Sources:
+
+`https://docs.rs/faer/latest/faer/sparse/linalg/cholesky/struct.IntranodeLbltRef.html`
+
+`https://docs.rs/faer/latest/faer/sparse/linalg/cholesky/`
+
+## 4. Advanced sparse symbolic-analysis and ordering controls
+
+Faer's sparse symbolic APIs are not limited to automatically choosing an elimination ordering and constructing a factorization plan. They also expose controls that allow the surrounding numerical system to influence ordering, algorithm selection, and structural analysis.
+
+### 4.1 Custom and identity orderings
+
+For sparse Cholesky, `SymmetricOrdering` exposes three alternatives:
+
+| Variant                  | Behavior                                         |
+| ------------------------ | ------------------------------------------------ |
+| `Amd`                    | Approximate minimum degree ordering; the default |
+| `Identity`               | No reordering                                    |
+| `Custom(PermRef<'_, I>)` | Use a caller-supplied permutation                |
+
+This permits structural information obtained outside faer to influence the factorization.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+An externally calculated permutation can be useful when a matrix has a known elimination structure, when ordering decisions must be shared across multiple algorithms, or when reproducibility of structural choices matters.
+
+`Identity` is particularly relevant when the matrix is already supplied in a favorable order. It avoids the ordering computation but can produce substantially more fill-in for other patterns.
+
+The fact that faer accepts a custom ordering does not imply that it optimizes or validates that ordering for numerical efficiency. The supplied permutation's structural consequences remain the caller's responsibility.
+
+### 4.2 Tuning symbolic Cholesky and LU
+
+Faer's symbolic factorization parameter types expose the mechanisms underlying its automatic choices.
+
+`CholeskySymbolicParams` contains:
+
+- `amd_params`: parameters for the fill-reducing ordering calculation.
+- `supernodal_flop_ratio_threshold`: threshold used to select a supernodal approach.
+- `supernodal_params`: additional supernodal symbolic-analysis parameters.
+
+`LuSymbolicParams` exposes analogous controls using `colamd_params` for its column-oriented fill-reducing ordering.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+These controls are consequential because sparsity alone does not determine whether simplicial or supernodal factorization is preferable.
+
+A matrix with many nonzeros may nevertheless have an elimination structure that offers little opportunity for efficient blocked computation. Conversely, a relatively sparse matrix may contain useful dense substructures within its factors.
+
+The expected benefits of supernodal processing depend on the amount of arithmetic that can be performed through dense kernels, the memory required for the factor structure, and the cost of organizing that structure.
+
+The exposed thresholds provide a way to influence that tradeoff, rather than requiring applications to accept an entirely opaque algorithm-selection policy.
+
+### 4.3 Elimination trees, column counts, and QR structural analysis
+
+Faer's sparse QR module exposes several of the intermediate algorithms used to build a symbolic factorization:
+
+| API family                         | Function                                                               |
+| ---------------------------------- | ---------------------------------------------------------------------- |
+| `col_etree`                        | Construct a column elimination tree                                    |
+| `column_counts_ata`                | Compute structural column-count information associated with \\(A^HA\\) |
+| `postorder`                        | Obtain a postordering of the elimination tree                          |
+| `factorize_symbolic_qr`            | Construct the reusable symbolic QR representation                      |
+| Corresponding `_scratch` functions | Calculate temporary storage requirements                               |
+
+The column elimination tree of \\(A\\) corresponds to the elimination tree associated with the structure of \\(A^HA\\). This relationship is useful in sparse QR because it connects the column-intersection graph to the anticipated factorization structure.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+This is symbolic analysis, not necessarily numerical formation of the normal equations. An algorithm may analyze the structure of \\(A^HA\\) while avoiding explicit computation of its coefficients and the attendant numerical conditioning disadvantages.
+
+Exposing these intermediate primitives is useful for numerical infrastructure that needs to inspect or control elimination structures independently of complete factorization execution.
+
+Source:
+
+`https://docs.rs/faer/latest/faer/sparse/linalg/qr/`
+
+### 4.4 Symbolic analysis as an independently controlled computational stage
+
+These APIs support three distinct modes of use:
+
+1. Let faer's high-level sparse factorization choose its ordering and symbolic strategy.
+2. Use the lower-level symbolic interfaces with application-selected tuning parameters.
+3. Supply compatible external structural information, such as an ordering permutation, and allow faer to carry out the remaining numerical factorization.
+
+The latter approaches can reduce duplicate structural analysis or allow consistent ordering choices across an application's numerical operations.
+
+They also increase responsibility for maintaining compatible permutations, dimensions, and factorization assumptions. A custom ordering is not a substitute for numerical pivoting, and a symbolic factorization cannot guarantee that the numerical matrix will have an acceptable rank or condition number.
+
+Sources:
+
+`https://docs.rs/faer/latest/faer/sparse/linalg/cholesky/enum.SymmetricOrdering.html`
+
+`https://docs.rs/faer/latest/faer/sparse/linalg/cholesky/struct.CholeskySymbolicParams.html`
+
+`https://docs.rs/faer/latest/faer/sparse/linalg/lu/struct.LuSymbolicParams.html`
+
+## 5. Reusable sparse assembly mappings with `Argsort`
+
+The original overview distinguishes symbolic sparse matrices from their numerical values. A more specialized feature is faer's ability to preserve the mapping between an original collection of coordinate entries and the resulting compressed sparse representation.
+
+### 5.1 Separating coordinate processing from coefficient assembly
+
+A typical sparse assembly process receives entries in coordinate form:
+
+\\[ (i_k,j_k,v_k),\qquad k=1,\ldots,m. \\]
+
+The input may be unsorted, and several entries may contribute to the same matrix coordinate.
+
+Building a compressed sparse matrix requires determining a canonical storage organization, sorting coordinates as necessary, and reconciling duplicates.
+
+Faer exposes this structural preparation through:
+
+`SymbolicSparseColMat::try_new_from_indices`
+
+The constructor returns:
+
+```
+Result<(SymbolicSparseColMat<I, Rows, Cols>, Argsort<I>), CreationError>
+```
+
+The resulting `Argsort<I>` records the ordering relationship needed to place numerical values into the symbolic representation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+The corresponding numerical constructor is:
+
+`SparseColMat::new_from_argsort`
+
+It accepts the symbolic structure, the previously calculated `Argsort`, and a slice of numerical coefficients.
+
+An analogous constructor is available for the CSR representation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+### 5.2 Why this is more than symbolic-factorization reuse
+
+Consider a numerical calculation repeatedly producing new coefficients at the same input coordinates.
+
+There are at least three potentially expensive preparation stages:
+
+| Stage                      | Reusable artifact                       | Work avoided                                                                    |
+| -------------------------- | --------------------------------------- | ------------------------------------------------------------------------------- |
+| Coordinate organization    | `Argsort` and symbolic sparse structure | Repeated sorting and mapping from input contributions to compressed storage     |
+| Solver structural analysis | Symbolic Cholesky, LU, or QR            | Repeated ordering and elimination-structure analysis                            |
+| Numerical decomposition    | Existing factorization                  | Repeated factorization when the matrix coefficients themselves remain unchanged |
+
+The first stage occurs before the factorization machinery. Reusing symbolic solver analysis does not automatically eliminate the cost of rebuilding the input sparse matrix from triplets.
+
+`Argsort` addresses this earlier assembly cost.
+
+For calculations that repeatedly regenerate coefficients at fixed source coordinates, the assembly mapping can be retained independently of solver symbolic analysis.
+
+This can make the entire coefficient-update sequence more efficient, not merely the factorization step.
+
+### 5.3 Duplicate coordinates and correspondence invariants
+
+The important restriction is that the numerical values passed to `new_from_argsort` must correspond to the same original index sequence from which the `Argsort` was produced.
+
+This requirement is stricter than matching matrix dimensions, or even supplying an equivalent set of nonzero coordinates in a different order.
+
+If the source contributions are reordered, the stored mapping may no longer associate each coefficient with the intended matrix position.
+
+Duplicate input coordinates introduce another important consideration: several source coefficients may need to be combined into one stored matrix entry.
+
+The preparation mapping must preserve the relationship between those original contributions and the compressed storage.
+
+This means the relevant invariant is the source-coordinate arrangement and its mapping to canonical matrix entries—not merely the final number of nonzeros.
+
+Sources:
+
+`https://docs.rs/faer/latest/faer/sparse/struct.Argsort.html`
+
+`https://docs.rs/faer/latest/faer/sparse/type.SymbolicSparseColMat.html`
+
+`https://docs.rs/faer/latest/faer/sparse/type.SparseColMat.html`
+
+## 6. Sparse pattern algebra and structural transformations
+
+Faer's sparse arithmetic infrastructure also provides capabilities for manipulating the structure of matrices separately from their numerical coefficients.
+
+This is particularly important for operations where the output sparsity pattern can be established before the actual values are known.
+
+### 6.1 Symbolic union of sparse patterns
+
+The function `sparse::ops::union_symbolic` computes the union of two input sparsity patterns.
+
+For patterns \\(S_A\\) and \\(S_B\\), the output pattern is:
+
+\\[ S_C=S_A\cup S_B. \\]
+
+The union contains positions that are structurally present in either input.
+
+This operation can be useful when constructing the destination structure for a sequence of sparse elementwise operations. The result can accommodate contributions from both source patterns without initially requiring their numerical values.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+It is important not to confuse a structurally present entry with a numerically nonzero entry. An output position may remain allocated even if the contributions cancel exactly.
+
+### 6.2 Custom binary and ternary sparse operations
+
+The `sparse::ops` module includes:
+
+| Function                    | Behavior                                                                       |
+| --------------------------- | ------------------------------------------------------------------------------ |
+| `binary_op`                 | Apply a caller-supplied operation to entries from two sparse matrices          |
+| `binary_op_assign_into`     | Apply a binary operation while preserving the destination's symbolic structure |
+| `ternary_op_assign_into`    | Apply a three-input operation into an existing destination structure           |
+| `add_into` / `sub_into`     | Store arithmetic results in an existing destination                            |
+| `add_assign` / `sub_assign` | Update the destination without changing its pattern                            |
+
+These functions allow sparse coefficient transformations to be expressed without repeatedly converting matrices to dense storage or building generic coordinate-based arithmetic machinery.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+The structural semantics are essential.
+
+For `binary_op`, positions absent from both inputs are skipped. Consequently, an operation that would map two implicit zeros to a nonzero value cannot generally be represented as a sparse result without additional handling.
+
+For destination-oriented operations, the destination's symbolic structure is preserved.
+
+This can avoid structural allocation and maintain compatibility with downstream algorithms expecting a fixed pattern. It also means that the destination pattern must be suitable for the intended output; the operation does not automatically expand it to represent arbitrary newly created entries.
+
+Combining `union_symbolic` with destination-oriented coefficient operations provides a useful pattern: establish a sufficiently inclusive structure once, then update numerical coefficients without continually reallocating that structure.
+
+### 6.3 Sparse permutations, sorting, and deduplication
+
+The `sparse::utils` module exposes additional structural algorithms, including:
+
+- `permute_self_adjoint`
+- `permute_self_adjoint_to_unsorted`
+- `permute_dedup_self_adjoint`
+- `transpose` and `transpose_dedup`
+- `sort_indices` and `sort_dedup_indices`
+
+Several of these have companion scratch-requirement functions.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+The self-adjoint permutation operations are especially relevant to factorization preparation:
+
+\\[ A\_{\mathrm{new}}=PAP^T. \\]
+
+For complex Hermitian matrices, the numerical meaning of a corresponding permutation is \\(PAP^H\\); because \\(P\\) is a real permutation matrix, the transpose and conjugate transpose coincide.
+
+The deduplicating variants can help when structural transformations produce repeated coordinates that must be consolidated.
+
+The unsorted variants are useful when an intermediate algorithm can tolerate unsorted indices and the sorting cost can be deferred or avoided.
+
+The distinction between a simple transpose view and an explicitly computed, sorted or deduplicated sparse transformation is important. They do not necessarily have the same allocation, ownership, or structural invariants.
+
+This functionality provides building blocks for numerical systems that need to maintain sparse structural consistency without repeatedly implementing coordinate sorting, deduplication, and permutation logic.
+
+Sources:
+
+`https://docs.rs/faer/latest/faer/sparse/ops/`
+
+`https://docs.rs/faer/latest/faer/sparse/utils/`
+
+## 7. Specialized self-adjoint pseudoinverse and tridiagonal spectral algorithms
+
+The general SVD and EVD functionality is already covered in the main guide. Two lower-level spectral capabilities deserve separate treatment because they permit reuse of mathematical structure that is not explicit in the higher-level interfaces.
+
+### 7.1 Pseudoinverse from a self-adjoint eigendecomposition
+
+Faer exposes:
+
+- `linalg::evd::pseudoinverse_from_self_adjoint_evd`
+- `linalg::evd::pseudoinverse_from_self_adjoint_evd_with_tolerance`
+- `linalg::evd::pseudoinverse_from_self_adjoint_evd_scratch`
+
+These functions construct a pseudoinverse from previously computed self-adjoint eigenvalue and eigenvector factors.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+For a Hermitian matrix
+
+\\[ A=U\Lambda U^H, \\]
+
+the Moore–Penrose pseudoinverse can be expressed as
+
+\\[ A^+=U\Lambda^+U^H, \\]
+
+where
+
+\\[ \lambda_i^+= \begin{cases} 1/\lambda_i,&\lambda_i\text{ is retained},\\\ 0,&\lambda_i\text{ is treated as numerically zero}. \end{cases} \\]
+
+The tolerance-controlled implementation is important because small nonzero eigenvalues can produce very large reciprocals.
+
+When the eigendecomposition is already available, the dedicated pseudoinverse function provides a native way to reuse its factors rather than computing an additional general SVD.
+
+This is not automatically preferable to SVD for every rank-deficient problem. Its applicability depends on self-adjoint structure, the accuracy of the eigenvalues and eigenvectors, and the tolerance used to determine effective rank.
+
+The distinction is particularly valuable for singular symmetric or Hermitian systems in which the eigendecomposition has already been calculated for other purposes.
+
+Source:
+
+`https://docs.rs/faer/latest/faer/linalg/evd/`
+
+### 7.2 Self-adjoint tridiagonalization
+
+Faer exposes `linalg::evd::tridiag::tridiag_in_place`, together with `tridiag_in_place_scratch`.
+
+The operation reduces a self-adjoint matrix to tridiagonal form:
+
+\\[ A=QTQ^H, \\]
+
+where \\(T\\) is self-adjoint and tridiagonal, and \\(Q\\) is represented through Householder transformations.
+
+The implementation stores the tridiagonal coefficients within the matrix and retains Householder information needed to represent the transformation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+This provides access to a meaningful intermediate stage of self-adjoint eigendecomposition.
+
+Algorithms that already operate on tridiagonal matrices need not first reconstruct and process an arbitrary dense matrix.
+
+Faer additionally exposes `tridiagonal_self_adjoint_evd`, which computes the eigendecomposition of a matrix already in the appropriate tridiagonal form.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+These primitives can be useful when constructing custom spectral procedures, applying transformations to additional data, or integrating faer with numerical methods that naturally produce tridiagonal representations.
+
+They should not be confused with matrix-free Krylov–Schur methods: the tridiagonal routines are low-level numerical building blocks, not a general interface for arbitrary implicit operators.
+
+Sources:
+
+`https://docs.rs/faer/latest/faer/linalg/evd/tridiag/`
+
+`https://docs.rs/faer/latest/faer/linalg/evd/`
+
+## 8. NumPy `.npy` interoperability: borrowing versus copying
+
+The main overview identifies NumPy file-format interoperability, but the distinction between interpreting an existing buffer and creating an owned matrix deserves greater precision.
+
+Faer's `io::npy` functionality exposes the types `Npy`, `NpyDType`, and `FromNpy` under the `npy` feature.
+
+The module is documented as file-format deserialization, rather than as a general NumPy serialization framework.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+### 8.1 Memory-buffer interpretation
+
+`Npy` represents a parsed `.npy` memory buffer.
+
+Its API includes operations for inspecting the stored dtype, determining whether a compatible borrowed view can be created, and materializing the data into an owned faer matrix.
+
+The important distinction is:
+
+| Operation             | Storage behavior                                                                                           |
+| --------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `Npy::as_aligned_ref` | Borrow matrix data directly from the parsed buffer when its alignment and dtype requirements are satisfied |
+| `Npy::to_mat`         | Construct an owned `Mat<T>` from the encoded matrix data                                                   |
+
+The borrowed-view operation can eliminate a data copy when the memory representation is compatible.
+
+However, it does not transfer ownership. The matrix view remains dependent on the underlying memory buffer, which must remain valid for the duration of the borrow.
+
+The owned conversion has different resource characteristics because it materializes a separate matrix.
+
+The source implementation also distinguishes NumPy's C-order and Fortran-order storage conventions. These correspond to different stride interpretations rather than different mathematical matrices.
+
+In particular, a compatible row-major buffer can be read through an appropriate view without implying that the underlying data has been rearranged into faer's preferred owned column-major layout.
+
+### 8.2 Type and format boundaries
+
+The `FromNpy` abstraction associates supported Rust scalar types with NumPy dtype identifiers.
+
+The supported native numeric families include `f32`, `f64`, `c32`, and `c64`; an unsupported dtype is not automatically converted into an arbitrary faer scalar type.
+
+A `.npy` array also does not imply support for the full range of NumPy metadata or arbitrary-dimensional array semantics.
+
+The library's matrix representation is fundamentally two-dimensional, and the `.npy` functionality should be treated as a particular interchange path rather than as a replacement for `ndarray`, Python's NumPy implementation, or a general tensor-format system.
+
+Performance qualification: The ability to borrow a matrix without copying it does not guarantee that all subsequent numerical algorithms will execute most efficiently on that layout. A later factorization may still benefit from or require conversion to a more suitable representation.
+
+Sources:
+
+`https://docs.rs/faer/latest/faer/io/`
+
+`https://docs.rs/faer/latest/faer/io/npy/`
+
+## 9. Native numerical comparison utilities and extended-precision representation
+
+### 9.1 Approximate comparisons for numerical testing
+
+Faer includes a numerical comparison utility module, `utils::approx`, with the types:
+
+| Type                                              | Role                                                                    |
+| ------------------------------------------------- | ----------------------------------------------------------------------- |
+| `ApproxEq<T>`                                     | Scalar approximate-comparison configuration                             |
+| `CwiseMat<Cmp>`                                   | Componentwise matrix comparison adapter                                 |
+| `ApproxEqError`                                   | Scalar comparison error representation                                  |
+| `CwiseMatError`, `CwiseColError`, `CwiseRowError` | Shape-sensitive error representations for matrix and vector comparisons |
+
+`ApproxEq` exposes both absolute and relative tolerances. Its implementation uses the absolute difference between two values and compares that difference against the configured thresholds, including a relative threshold scaled by the larger operand magnitude.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs
+
+
+
+Conceptually, a comparison is accepted when the values satisfy an absolute or relative error criterion:
+
+\\[ |a-b|\leq\varepsilon\_{\mathrm{abs}} \quad\text{or}\quad |a-b|\leq\varepsilon\_{\mathrm{rel}}\max(|a|,|b|). \\]
+
+The corresponding matrix adapter applies the configured scalar comparator componentwise, with explicit handling of dimension mismatches.
+
+These mechanisms can reduce the amount of custom numerical comparison code needed for regression tests, decomposition checks, and validation of numerical transformations.
+
+However, entrywise approximate equality is not equivalent to a rigorous numerical correctness assessment.
+
+A componentwise comparison does not directly measure the backward error of a factorization, the residual of an eigenpair, or the conditioning of a linear system.
+
+For example, validating a solution to \\(Ax=b\\) may require evaluating a normwise residual relative to the magnitudes of \\(A\\), \\(x\\), and \\(b\\), rather than testing whether individual coefficients are close to an expected result.
+
+The native comparison utilities are therefore useful test primitives, not substitutes for mathematically appropriate numerical diagnostics.
+
+Source:
+
+`https://docs.rs/crate/faer/latest/source/src/utils/approx.rs`
+
+### 9.2 `fx128` and `cx128` are composite scalar representations
+
+The original overview identifies the extended-precision scalar types but does not describe how they are represented.
+
+In faer 0.24.4, `fx128` is represented by a structure containing two `f64` components:
+
+```
+#[repr(C)]
+pub struct fx128(pub f64, pub f64);
+```
+
+The complex extended-precision type `cx128` contains real and imaginary `Quad` components.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+These representations should not be confused with a native IEEE binary128 floating-point value simply because their type names contain `128`.
+
+A composite representation using two `f64` values has different arithmetic, normalization, interoperability, and performance characteristics from a processor-native or compiler-supported binary128 type.
+
+In particular, the storage width alone does not establish the number of effective significand bits or the exponent range of the arithmetic.
+
+The practical consequences are:
+
+- Extended precision is a property of the scalar arithmetic implementation, not merely the number of bytes stored.
+- SIMD acceleration and optimized matrix kernels may have different performance characteristics for composite scalars.
+- Binary serialization and foreign-function interfaces must respect the actual component representation.
+- Numerical tolerances should reflect the scalar type's effective arithmetic properties rather than assume IEEE binary128 behavior.
+
+These distinctions become particularly important when numerical applications mix standard floating-point types with extended-precision intermediates or attempt to interchange scalar data with external numerical libraries.
+
+Sources:
+
+`https://docs.rs/faer/latest/faer/type.fx128.html`
+
+`https://docs.rs/faer/latest/faer/type.cx128.html`
+
+## 10. Additional architectural implications
+
+The capabilities documented here reveal several further ways that faer can serve as a numerical infrastructure library, beyond providing high-performance implementations of individual linear algebra algorithms.
+
+### 10.1 Reuse can occur at multiple independent layers
+
+For a sequence of related numerical problems, reusable work may exist at several distinct levels:
+
+| Reuse level               | Native mechanism                                      | Condition for reuse                                      |
+| ------------------------- | ----------------------------------------------------- | -------------------------------------------------------- |
+| Input assembly            | `Argsort`, symbolic sparse storage                    | Same source-coordinate arrangement                       |
+| Matrix algebra            | Precomputed sparse output structure, `union_symbolic` | Compatible operand and output patterns                   |
+| Symbolic factorization    | `SymbolicCholesky`, symbolic LU/QR                    | Compatible factorization structure                       |
+| Numerical factorization   | Retained factor object                                | Same numerical matrix                                    |
+| Incremental factorization | Dense Cholesky/LDL update or deletion routines        | Change fits the supported factor-maintenance operation   |
+| Execution workspace       | Scratch requirements and reusable buffers             | Compatible dimensions, parameters, and workspace demands |
+
+These layers are neither interchangeable nor automatically managed by one common cache.
+
+For example, new coefficients at unchanged source coordinates may permit both assembly-mapping reuse and symbolic-factorization reuse. They generally do not permit reuse of the old numerical factors without additional computation.
+
+A low-rank change to a dense positive-definite matrix may instead permit direct numerical-factor modification, bypassing a complete refactorization.
+
+The appropriate strategy depends on which properties of the problem remain invariant.
+
+### 10.2 Greater control also increases numerical responsibility
+
+Several of faer's advanced mechanisms exchange automatic behavior for explicit control.
+
+Custom sparse permutations expose ordering decisions. Intranodal indefinite factorization preserves a constrained sparse elimination structure. Dynamic regularization alters numerical pivots. In-place factorization updates modify existing state rather than creating an entirely new decomposition.
+
+These mechanisms can reduce computational overhead or expand the range of supported numerical formulations.
+
+They also introduce responsibilities for maintaining structural invariants, interpreting perturbations, validating numerical outputs, and distinguishing mathematical failure from implementation or resource failure.
+
+The important architectural opportunity is therefore not simply to expose more tuning parameters. It is to use faer's native structural and numerical mechanisms where the mathematical assumptions and invariants of the computation can be established and preserved.
+
+Together, these additions show that faer's lower-level capabilities extend substantially beyond ordinary dense and sparse factorization: they provide native mechanisms for factor maintenance, constrained indefinite solving, structural preparation, symbolic control, sparse pattern algebra, and specialized numerical validation.

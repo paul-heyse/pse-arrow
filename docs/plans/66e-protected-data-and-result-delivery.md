@@ -134,6 +134,12 @@ trajectory permission needs every sample root, so it retains the full typed samp
 unfiltered task covariance still needs only the closed row population and original task fact.
 Finalized IPC and full relation consumers independently admit all emitted fields.
 
+Scalar cohort queries use the same protected root planning and original row-offset selection.
+The projected read carries native owner and partition dependencies plus validation keys and
+row-check roots. DataFusion retains residual query columns until its filter, then applies the
+requested projection and limit. This leaves the capture population's classification based on
+its frozen native predicate. Dense trajectories still use the full typed reader.
+
 ### Original interpretation and coherent derived mappings — DRE03
 
 Acquire the current record's original family-specific descriptor world, interpretation,
@@ -221,6 +227,13 @@ meaning, exact `u64`, clocks, producer generations, omission/coverage and origin
 Release views with acquired evidence; add no persistent analytical/verdict database. An expected
 refusal may be a passing test; recorded cleanup is not current control, and no query grants
 preparation, rerun or scientific permission. 66f remains the sole owner of those operations.
+
+The scientific capture question uses the explicit frozen-set v3 reader and a finite in-memory
+DataFusion join on the complete original diagnostic operation identity. It attributes each
+capture to one supplied invocation or reports the operation, match or uniqueness as unavailable.
+Source pointers and exact supplied-byte checksum remain observations. Capture loss and its
+clock stay separate from the invocation's outcome, attempt and clock; there is no verdict or
+result permission. The distinct native developer-report query remains scoped to its own facts.
 
 ### Capture and optional expansion decisions — DRE04/DRE06
 

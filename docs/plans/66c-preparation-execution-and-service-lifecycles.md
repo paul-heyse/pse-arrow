@@ -500,6 +500,12 @@ coverage gap instead. No task-library substitution is a package-completion requi
 
 ## Verification and decision limits
 
+Staged modeling and initialization now share the RunSupervisor launch admission used by
+ordinary native operations. The common boundary rejects cancellation or an elapsed parent
+deadline before dispatch. The claimed path retains independent abandonment and release;
+explicitly issued runs still revalidate the request before returning an original retained run.
+This change does not activate the C04 binary reader or close the remaining client population.
+
 **Tested, selected.** The default-profile `scripts/pse test pse-runtime --lib` selection
 with `property-coolprop,solver-ipopt,solver-diffsol,solver-kinsol,engineering-service,native-service,product-reader,product-operators`
 and force validation passed the eight selected service/worker controls and both fitting controls.

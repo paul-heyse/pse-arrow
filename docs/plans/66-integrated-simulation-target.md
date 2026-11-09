@@ -258,6 +258,26 @@ assembled proof-path evidence.
 
 ## Verification, current outcome and cleanup handoff
 
+### 66a–h execution and full-case qualification — November 9
+
+This wave preserves authored initialization policy and exact replay demand (A04), shares
+staged launch admission (C03), narrows protected scalar cohort decoding (E03), and adds a
+passive scientific capture-to-invocation question through the investigation reader (E07/F06).
+It replaces the linear-only forward Water valve constructor with one rated valve and three
+authored opening curves (G04), and extends the two original wall-stock cases through protected
+report/check readback and portable delivery (H02).
+
+The exchanger proof change removes unnecessary substitution work under the unchanged
+ordinary budget. The typed service's usable result, four output assessments, original reconnect
+and distinct costing permissions remain its gate. The bounded fixed-shape cold Symbolica
+control and compiler exact-byte receipt control advance D02; JSON v3 remains the sole production
+reader until a cold canonical symbolic consumer qualifies under original custody and admission.
+
+The execution denominator remains [66l L01/L02](66l-required-population-and-assembled-acceptance.md#packages).
+Full runs are distinct from source-only readback and independent reference unit tests. The
+remaining authored-data holds, including enzyme, iron-bed and TSA inputs, stay with G/H and
+their family prerequisites. Complete A–K assembled qualification remains L03.
+
 ### 66a–h receiving and physics follow-up — November 9
 
 The bounded compiler schedule matches one guarded producer's exact typed stages and ordered

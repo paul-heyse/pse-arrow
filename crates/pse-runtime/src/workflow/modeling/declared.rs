@@ -155,8 +155,6 @@ pub struct DeclaredExecution {
     pub analysis: ModelingAnalysis,
     /// Original specialized model retained by nonexecuting inspection.
     pub model: ModelingPreparation,
-    /// Requested start choice; applied choices are native StartReceipt/StartSource facts.
-    pub requested_start: pse_backend_native::solve::StartPolicy,
     prepared: Arc<pse_columnar::Leased<DeclaredPreparation>>,
 }
 /// The immutable owners and complete structural request of this declared product.
@@ -167,6 +165,7 @@ struct DeclaredPreparation {
     instance: InstanceId,
     route: Route,
     procedure: Procedure,
+    initialization: Option<ModelingInitialization>,
     bindings: Bindings,
     limits: Limits,
     model: ModelingPreparation,
@@ -249,6 +248,8 @@ impl DeclaredExecution {
             || !Arc::ptr_eq(&source.accelerators, &package.accelerators)
             || self.route != original.route
             || self.procedure.kind() != original.procedure
+            || matches!(&self.procedure, DeclaredProcedure::Initialize(policy)
+                if original.initialization.as_ref() != Some(policy))
             || self.analysis.root != original.root
             || self.analysis.instance != original.instance
             || self.analysis.bindings != original.bindings
@@ -277,18 +278,22 @@ impl DeclaredExecution {
         &self,
         overrides: InitializationOverrides,
     ) -> Result<ModelingInitialization, WorkflowError> {
-        let DeclaredProcedure::Initialize(authored) = &self.procedure else {
+        let Some(authored) = self.prepared.initialization.as_ref() else {
             return Err(contract(
                 "initialization requires the authored initialization procedure",
             ));
         };
+        if !matches!(&self.procedure, DeclaredProcedure::Initialize(policy) if policy == authored) {
+            return Err(contract("initialization policy differs from authored admission"));
+        }
         let mut plan = authored.clone();
         let fixture = self
+            .prepared
             .model
             .compiled()
             .model
             .fixtures
-            .get(&self.analysis.instance);
+            .get(&self.prepared.instance);
         let declared = fixture.and_then(|f| f.initialization.as_ref());
         macro_rules! field {
             ($name:ident) => {
@@ -315,7 +320,9 @@ impl DeclaredExecution {
         field!(initial_step);
         field!(minimum_step);
         field!(growth);
-        plan.effort = overrides.effort;
+        if let Some(effort) = overrides.effort {
+            plan.effort = Some(effort);
+        }
         field!(maximum_attempts);
         field!(time_limit);
         if let Some(discrete) = overrides.discrete {
@@ -400,7 +407,6 @@ impl ModelingPackage {
                     .map_err(modeling_error)?;
                 let limits = declared_limits(&row, limits)?;
                 let solver = declared_solver(&row, &solver)?;
-                let requested_start = solver.controls.start;
                 let mut bindings = Bindings::default().with_analysis(choice.route);
                 bindings.demand = demand;
                 bindings.demand.sort();
@@ -442,6 +448,10 @@ impl ModelingPackage {
                     solver,
                     numerical,
                 };
+                let initialization = match &procedure {
+                    DeclaredProcedure::Initialize(policy) => Some(policy),
+                    _ => None,
+                };
                 let bindings_bytes = analysis
                     .bindings
                     .arguments
@@ -471,6 +481,9 @@ impl ModelingPackage {
                         .sum::<usize>();
                 let bytes = size_of::<DeclaredPreparation>()
                     + bindings_bytes
+                    + initialization.map_or(0, |policy| {
+                        policy.stages.iter().map(|stage| size_of::<String>() + stage.len()).sum()
+                    })
                     + self.revision.revision_id().len()
                     + self.physical.sources.len() * 256
                     + 512;
@@ -484,6 +497,7 @@ impl ModelingPackage {
                         instance,
                         route: choice.route,
                         procedure: choice.procedure,
+                        initialization: initialization.cloned(),
                         bindings: analysis.bindings.clone(),
                         limits,
                         model: model.clone(),
@@ -495,7 +509,6 @@ impl ModelingPackage {
                     procedure,
                     analysis,
                     model,
-                    requested_start,
                     prepared,
                 })
             })

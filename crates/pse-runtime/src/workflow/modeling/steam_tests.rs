@@ -625,6 +625,18 @@ async fn authored_linear_water_valve_changes_pressure_off_design() -> Result<(),
 }
 
 #[tokio::test]
+async fn authored_quick_water_valve_preserves_off_design_pressure_and_enthalpy()
+-> Result<(), WorkflowError> {
+    conform("quick_water_valve_off_design", None).await
+}
+
+#[tokio::test]
+async fn authored_equal_percentage_water_valve_preserves_off_design_pressure_and_enthalpy()
+-> Result<(), WorkflowError> {
+    conform("equal_percentage_water_valve_off_design", None).await
+}
+
+#[tokio::test]
 async fn authored_linear_water_valve_refuses_zero_and_reverse_flow() -> Result<(), WorkflowError> {
     conform("linear_water_valve_zero_refuses", None).await?;
     conform("linear_water_valve_reverse_refuses", None).await
@@ -654,6 +666,116 @@ async fn authored_hot_steam_turbine_through_prepared_scientific_worker_keeps_ori
     conform("hot_vapor_turbine", Some(&scientific_worker_executable()?)).await
 }
 
+fn assert_wall_stock_trajectory(result: &ModelingResult, perturbed: bool) {
+    use pse_model::generated::enums::ModelingCheckKind;
+    use pse_modeling::{
+        resolved::{Node, Reference},
+        specialize::Value,
+    };
+
+    let source = |id| DeclarationId::from_id(SemanticId::parse_hex(id).unwrap());
+    let model = &result.prepared.model.model.compiled().model;
+    let quantity = |name| {
+        match result.prepared.source.physical_context().quantities().physical_name(name) {
+            Some(pse_quantity::PhysicalName::QuantityType(id)) => id,
+            _ => panic!("original physical quantity {name} absent"),
+        }
+    };
+    assert_eq!(model.meshes.len(), 1);
+    let mesh = model.meshes.values().next().unwrap();
+    let [Value::Coordinate { id: start, bits: first, quantity: start_type }, Value::Coordinate { id: end, bits: last, quantity: end_type }] = mesh.points.as_slice() else {
+        panic!("the original single backward step must have both time coordinates");
+    };
+    assert_ne!(start, end);
+    assert_eq!((*first, *last), (0_f64.to_bits(), 1_f64.to_bits()));
+    assert_eq!((*start_type, *end_type), (quantity("Time"), quantity("Time")));
+
+    // The original initial condition and inventory equation distinguish the two
+    // instants. Step 0 identifies their shared numerical attempt, not physical time.
+    let initial = if perturbed {
+        source("66e0200000000000000000000000006c")
+    } else {
+        source("66e0200000000000000000000000006a")
+    };
+    let mut equations = model.equations.iter().filter(|row| row.lineage.declaration == initial);
+    let initial = equations.next().expect("original wall initial equation");
+    assert!(equations.next().is_none());
+    let instance_of = |root| {
+        let Some(Node::Reference(Reference::Symbol(slot))) = model.resolved.nodes.get(root) else {
+            panic!("original wall scalar reference absent");
+        };
+        model.symbols.at(*slot).unwrap().lineage.instance
+    };
+    assert_eq!(model.inventory_balances.len(), 1, "wall-only stock");
+    let balance = model.inventory_balances.values().next().unwrap();
+    assert_eq!(balance.lineage.declaration, source("66e02000000000000000000000000068"));
+    let initial_cell = instance_of(model.equation_roots[&initial.id].lhs);
+    let terminal_cell = instance_of(balance.inventory_root);
+    assert_ne!(initial_cell, terminal_cell);
+    assert_eq!(instance_of(balance.flux_root), terminal_cell);
+
+    let near = |what: &str, actual: f64, expected: f64, tolerance: f64| {
+        assert!((actual - expected).abs() <= tolerance, "{what}: {actual} vs {expected}");
+    };
+    let reported = |source_id, path: &str, quantity_name| {
+        let mut matches = result.reports.iter().filter(|row| row.source_id == source_id && row.path == path);
+        let row = matches.next().unwrap_or_else(|| panic!("original wall report {path} absent"));
+        assert!(matches.next().is_none(), "duplicate wall report {path}");
+        let symbol = model.symbols.get(&row.target_id).unwrap();
+        assert_eq!(symbol.lineage.path, row.path);
+        let quantities = result.prepared.source.physical_context().quantities();
+        let quantity = quantity(quantity_name);
+        assert_eq!(row.quantity_id, quantity.as_id());
+        assert_eq!(row.unit_id, quantities.quantity_type(quantity).unwrap().canonical_unit.as_id());
+        row.value
+    };
+    let endpoints = [initial_cell, terminal_cell].map(|cell| {
+        let path = &model.instances[&cell].path;
+        let read = |id, member: &str, quantity_name| reported(source(id), &format!("{path}.{member}"), quantity_name);
+        let wall_temperature = read("66e0200000000000000000000000004c", "wall_temperature", "Temperature");
+        let wall_energy = read("66e0200000000000000000000000004d", "wall_energy", "Energy");
+        let wall_rate = read("66e0200000000000000000000000004e", "wall_rate", "Power");
+        // Reconstruct the sign and amount of each side's duty from its two
+        // original transported enthalpy-flow observations, not wall_rate.
+        let fluid = ["hot", "cold"].map(|side| {
+            let inlet = read("088d49042f4f4554a83507dfa54bbf74", &format!("{side}.inlet.energy_flow"), "Power");
+            let outlet = read("8714c530434c4ce1a9606eafc36b0e7c", &format!("{side}.outlet.energy_flow"), "Power");
+            outlet - inlet
+        });
+        assert!(fluid[0] < 0. && fluid[1] > 0., "hot fluid supplies the wall and cold fluid receives heat");
+        near("wall boundary power", wall_rate, -fluid[0] - fluid[1], 0.001);
+        (wall_temperature, wall_energy, wall_rate, fluid)
+    });
+    let [initial, terminal] = endpoints;
+    let dt = f64::from_bits(*last) - f64::from_bits(*first);
+    let stock_change = terminal.1 - initial.1;
+    // Published wall capacity is 1 J/K; a change avoids reusing the wall's
+    // chosen zero and catches a capacity substitution on the perturbation.
+    near("1 J/K wall capacity", stock_change, terminal.0 - initial.0, 0.001);
+    near("backward-step stock from both fluids", stock_change, -dt * (terminal.3[0] + terminal.3[1]), 0.001);
+    if perturbed {
+        near("prescribed initial wall", initial.0, 321.5, 1e-6);
+        assert!((319.53..320.).contains(&terminal.0));
+        assert!((-3. ..-1.).contains(&terminal.2));
+        assert!(stock_change < -1., "the perturbed wall must actually discharge");
+    } else {
+        for endpoint in endpoints {
+            near("released wall temperature", endpoint.0, 319.5278809679338, 0.01);
+            near("released hot duty", endpoint.3[0], -659.509563725274, 0.1);
+            near("released cold duty", endpoint.3[1], 659.509563725274, 0.1);
+        }
+        near("released zero-rate initial condition", initial.2, 0., 0.001);
+        near("released steady wall stock", stock_change, 0., 0.001);
+    }
+    for declaration in [balance.lineage.declaration, source("66e0200000000000000000000000006f")] {
+        let mut closure = result.checks.iter().filter(|check| check.source_id == declaration && check.kind == ModelingCheckKind::Closure);
+        let check = closure.next().expect("original authored energy closure");
+        assert!(closure.next().is_none());
+        assert_eq!(check.tolerance, Some(0.001));
+        near("original authored energy closure", check.value, 0., 0.001);
+    }
+}
+
 async fn protected_steam_case(name: &str) -> Result<(), WorkflowError> {
     use base64::Engine as _;
     use buffa_descriptor::{DescriptorPool, DynamicMessage, Value as WireValue};
@@ -663,7 +785,7 @@ async fn protected_steam_case(name: &str) -> Result<(), WorkflowError> {
     };
     use futures_util::FutureExt as _;
     use pse_backend_native::solve::Backend;
-    use pse_relations::{columnar::RelationRow as _, generated::runtime::modeling_reports};
+    use pse_relations::{columnar::RelationRow as _, generated::runtime::{modeling_checks, modeling_reports}};
 
     let runtime =
         super::super::durable_tests::durable_runtime_on(fixture::runtime_with_workspace(128 << 20));
@@ -681,6 +803,7 @@ async fn protected_steam_case(name: &str) -> Result<(), WorkflowError> {
             })
             .collect::<BTreeMap<_, _>>();
         let wet = name == "wet_water_turbine";
+        let wall = name.starts_with("released_wall_stock_");
         if wet {
             providers.insert(
                 coolprop::WATER_SATURATION_IMPLEMENTATION.to_owned(),
@@ -860,6 +983,10 @@ async fn protected_steam_case(name: &str) -> Result<(), WorkflowError> {
                     ("root.unit.outlet.quality", 0.9886, 0.0001),
                 ]
             }
+            "released_wall_stock_equilibrium" | "released_wall_stock_perturbation" => {
+                assert_wall_stock_trajectory(result, name == "released_wall_stock_perturbation");
+                Vec::new()
+            }
             _ => panic!("unadmitted Water consumer case"),
         };
         for (path, expected, tolerance) in checks {
@@ -927,10 +1054,12 @@ async fn protected_steam_case(name: &str) -> Result<(), WorkflowError> {
             .iter()
             .map(|row| row.source_id)
             .collect::<BTreeSet<_>>();
-        assert!(
-            expected_sources.is_subset(&sources),
-            "both existing original work reports are required"
-        );
+        if !wall {
+            assert!(
+                expected_sources.is_subset(&sources),
+                "both existing original work reports are required"
+            );
+        }
         for row in &expected {
             let annotations = model
                 .annotations
@@ -956,10 +1085,37 @@ async fn protected_steam_case(name: &str) -> Result<(), WorkflowError> {
                 );
             }
         }
+        let expected_checks = wall.then(|| result.checks.clone());
         drop((run, handle, operation, original, package));
         runtime.clear_program_cache();
 
         let token = pse_columnar::CancellationToken::new();
+        if let Some(expected_checks) = expected_checks {
+            let mut reader = runtime.results(
+                &run_key,
+                &attempt_key,
+                "runtime.modeling_checks",
+                0,
+                expected_checks.len() as u64,
+                token.clone(),
+            ).await.unwrap();
+            let selection = reader.pack_selection().await.unwrap();
+            // These are retained acceptance observations, not a second point product.
+            assert_eq!(selection.usability, crate::workflow::PackScientificState::Unknown);
+            assert_eq!(selection.context.as_ref().unwrap().revision, revision);
+            let mut checks = Vec::new();
+            while let Some(batch) = reader.next_relation_batch().await.unwrap() {
+                checks.extend(modeling_checks::Row::rows(&batch).unwrap());
+            }
+            assert_eq!(checks.len(), expected_checks.len());
+            for expected in &expected_checks {
+                assert_eq!(
+                    checks.iter().filter(|row| *row == expected).count(),
+                    1,
+                    "each original check must survive protected readback exactly once: {expected:?}"
+                );
+            }
+        }
         let mut reader = runtime
             .results(
                 &run_key,
@@ -984,10 +1140,14 @@ async fn protected_steam_case(name: &str) -> Result<(), WorkflowError> {
         while let Some(batch) = reader.next_relation_batch().await.unwrap() {
             typed.extend(modeling_reports::Row::rows(&batch).unwrap());
         }
-        assert_eq!(
-            typed, expected,
-            "typed protected read retains complete original reports"
-        );
+        assert_eq!(typed.len(), expected.len());
+        for expected in &expected {
+            assert_eq!(
+                typed.iter().filter(|row| *row == expected).count(),
+                1,
+                "each original report must survive protected readback exactly once: {expected:?}"
+            );
+        }
         drop(reader);
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("original-water.arrow");
@@ -1173,6 +1333,18 @@ async fn authored_hot_vapor_turbine_original_native_outcome_survives_protected_e
 async fn authored_wet_water_turbine_original_native_outcome_survives_protected_export()
 -> Result<(), WorkflowError> {
     protected_steam_case("wet_water_turbine").await
+}
+
+#[tokio::test]
+async fn authored_wall_stock_original_equilibrium_survives_protected_export()
+-> Result<(), WorkflowError> {
+    protected_steam_case("released_wall_stock_equilibrium").await
+}
+
+#[tokio::test]
+async fn authored_wall_stock_original_perturbation_survives_protected_export()
+-> Result<(), WorkflowError> {
+    protected_steam_case("released_wall_stock_perturbation").await
 }
 
 #[tokio::test]

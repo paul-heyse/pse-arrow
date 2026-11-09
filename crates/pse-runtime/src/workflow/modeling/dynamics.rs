@@ -2020,19 +2020,19 @@ impl ModelingPackage {
                         "integration projection requires an admitted integrated procedure",
                     ));
                 }
+                let model = execution.prepared_model(self)?;
                 let analysis = &execution.analysis;
                 let (profile, provisional_quadratures) = if let Some(profile) = profile {
                     (profile, BTreeSet::new())
                 } else {
-                    let fixture = execution
-                        .model
+                    let fixture = model
                         .compiled()
                         .model
                         .fixtures
                         .get(&analysis.instance)
                         .ok_or_else(|| contract("authored integration controls absent"))?;
                     let controls = self.integration_profile(
-                        &execution.model,
+                        &model,
                         fixture,
                         &analysis.solver.numerics,
                     )?;
@@ -2051,7 +2051,7 @@ impl ModelingPackage {
                     &BTreeSet::new(),
                     None,
                     &provisional_quadratures,
-                    Some(execution.prepared_model(self)?),
+                    Some(model),
                     binding,
                     pending,
                     cancel,

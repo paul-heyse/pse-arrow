@@ -55,16 +55,23 @@
 @id("eedda9e62b454d24b03ac01afb0f19c4") preset Turbine=PressureChanger(compressor=false,assumption=IsentropicAssumption);
 
 @id("66e04000000000000000000000000001") fn forward_valve_flow(flow:Flow)->Flow valid(flow>0{mol/s})=flow;
+@id("66e04000000000000000000000000030") enum ValveCurve {
+@id("66e04000000000000000000000000031") Linear,
+@id("66e04000000000000000000000000032") QuickOpening,
+@id("66e04000000000000000000000000033") EqualPercentage
+}
 // The selected forward rating is a flow at unit opening and a declared pressure
 // drop. Its ratio form preserves the original squared-flow law without requiring
 // a square-root evaluation during pressure trials.
-@id("66e04000000000000000000000000002") def LinearRatedValve(inlet_pkg:equilibrium.ThermoPackage,outlet_pkg:equilibrium.ThermoPackage,rated_flow:Flow,rated_drop:DeltaPressure,opening:Scalar):control_volumes.ControlVolume0D {
+@id("66e04000000000000000000000000002") def RatedValve(inlet_pkg:equilibrium.ThermoPackage,outlet_pkg:equilibrium.ThermoPackage,rated_flow:Flow,rated_drop:DeltaPressure,opening:Scalar,curve:ValveCurve,rangeability:Scalar=100):control_volumes.ControlVolume0D {
 @id("66e04000000000000000000000000003") override param inlet_package:equilibrium.ThermoPackage=inlet_pkg;
 @id("66e04000000000000000000000000004") override param outlet_package:equilibrium.ThermoPackage=outlet_pkg;
-@id("66e04000000000000000000000000005") require not analysis.dynamic and rated_flow>0{mol/s} and rated_drop>0{Pa} and opening>0 and opening<=1 : "linear forward valve requires a steady, positive pressure-drop rating and nonzero opening at most one";
+@id("66e04000000000000000000000000005") require not analysis.dynamic and rated_flow>0{mol/s} and rated_drop>0{Pa} and opening>0 and opening<=1 : "forward valve requires a steady, positive pressure-drop rating and nonzero opening at most one";
+@id("66e04000000000000000000000000034") require curve!=ValveCurve.EqualPercentage or rangeability>1 : "equal-percentage valve requires rangeability greater than one";
+@id("66e04000000000000000000000000035") let squared_opening_factor:Scalar=if curve==ValveCurve.Linear then opening^2 else if curve==ValveCurve.QuickOpening then opening else exp(2*(opening-1)*log(rangeability));
 @id("66e04000000000000000000000000006") eq no_heat:heat==0{W};
 @id("66e04000000000000000000000000007") eq no_work:work==0{W};
-@id("66e04000000000000000000000000008") eq pressure_flow:(forward_valve_flow(inlet.flow)/rated_flow)^2==opening^2*((inlet.pressure-outlet.pressure)/rated_drop);
+@id("66e04000000000000000000000000008") eq pressure_flow:(forward_valve_flow(inlet.flow)/rated_flow)^2==squared_opening_factor*((inlet.pressure-outlet.pressure)/rated_drop);
 @id("66e04000000000000000000000000009") annotation check inlet.flow(inlet.flow>0{mol/s});
 @id("66e0400000000000000000000000000a") annotation check outlet.pressure(outlet.pressure<inlet.pressure);
 @id("66e0400000000000000000000000000b") annotation report inlet.pressure("valve inlet pressure");

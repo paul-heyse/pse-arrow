@@ -574,6 +574,9 @@ pub enum ReaderError {
     /// Original supplied developer evidence, native projection or analytical query refusal.
     #[error(transparent)]
     Developer(#[from] super::review_query::developer::Error),
+    /// Original supplied scientific evidence or analytical query refusal.
+    #[error(transparent)]
+    ScientificCaptureQuery(#[from] super::review_query::scientific_capture::Error),
     /// Original caller-owned observation cancellation or allocation failure.
     #[error(transparent)]
     Columnar(#[from] pse_columnar::CanonError),
@@ -606,8 +609,8 @@ pub enum ReaderError {
 }
 pse_diagnostics::impl_diagnostic! {
     ReaderError,
-    code(this) { match this { Self::Identity(_) | Self::Canonical(_) | Self::Workflow(_) | Self::Capture(_) | Self::Developer(_) | Self::Columnar(_) | Self::Pack(_) => None, _ => Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) } },
-    forward(this) { match this { Self::Identity(error) => Some(error),Self::Canonical(error)=>Some(error.as_ref()),Self::Workflow(error)=>Some(error.as_ref()),Self::Capture(error)=>Some(error),Self::Developer(error)=>Some(error),Self::Columnar(error)=>Some(error),Self::Pack(error)=>Some(error), _ => None } },
+    code(this) { match this { Self::Identity(_) | Self::Canonical(_) | Self::Workflow(_) | Self::Capture(_) | Self::Developer(_) | Self::ScientificCaptureQuery(_) | Self::Columnar(_) | Self::Pack(_) => None, _ => Some(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure) } },
+    forward(this) { match this { Self::Identity(error) => Some(error),Self::Canonical(error)=>Some(error.as_ref()),Self::Workflow(error)=>Some(error.as_ref()),Self::Capture(error)=>Some(error),Self::Developer(error)=>Some(error),Self::ScientificCaptureQuery(error)=>Some(error),Self::Columnar(error)=>Some(error),Self::Pack(error)=>Some(error), _ => None } },
     help(_this) { None }, related(this) { match this {Self::Settlement{operation,cleanup} | Self::Delivery {response:operation,transport:cleanup} =>{let errors:[&dyn pse_diagnostics::TypedDiagnostic;2]=[operation.as_ref(),cleanup.as_ref()];Some(Box::new(errors.into_iter()))},_=>None} }, source(_this) { None }
 }
 fn hash(bytes: &[u8]) -> String {

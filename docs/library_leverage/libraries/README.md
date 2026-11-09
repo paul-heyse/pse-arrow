@@ -15,6 +15,12 @@ applicability assessments below. A shortlist does not establish fit or authorize
 The [pilot evidence account](../pilot-evidence.md) records the generated reference/API scope,
 retention and limits separately from those research judgments.
 
+The [SurrealDB ecosystem discovery](surrealdb/briefing.md), inspected 2026-11-09, maps
+twelve themes across current canonical storage, graph/query operations, transport,
+extensions, SurrealKit and developer workflows. It includes useful pre-v4 capabilities
+alongside v4 changes, with breaking redesigns eligible. Its [coverage](surrealdb/coverage.md)
+and proposed research directions are separate from the historical applicability account.
+
 The [Proto ecosystem briefing](proto/briefing.md) routes codebase-wide discovery across
 generation, representation, SurrealDB storage, runtime, mathematics/solvers, diagnostics/results
 and independent tooling. It includes newly supplied reference additions and focused

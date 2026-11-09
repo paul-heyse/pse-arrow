@@ -164,6 +164,13 @@ and partial growth, and any pool expansion. This is a design alternative, not a 
 fallback. If neither route qualifies, keep binary activation closed and JSON v3 current.
 If one qualifies, C04 owns a single cutover and B03 owns any changed projection; no dual reader.
 
+The fixed-shape cold fixture now tests the producer's exact byte commitment separately from
+packing layout: same-size dependency and coefficient substitutions can pass layout and still
+refuse under original custody before restoration. The original body feeds a symbolic support
+consumer before evaluator compilation. The compiler control also decodes from the qualified
+original payload before testing receipt correspondence. These controls do not supply the
+runtime's canonical packed adoption, allocation admission or cold receiving gate.
+
 The bounded-copy experiment uses the existing supplier packing inspection and raw copy
 operations on the exact fixed stages of one producer-qualified body. Its fresh receiver checks
 already registered formal identities and the requested packed backing before copying. This is
@@ -221,6 +228,15 @@ or C04's canonical reconstruction gate. No opaque fallback or worker increase wa
 Sources: [compiler class/affine owners](../../crates/pse-compiler/src/workspace.rs),
 [current rebind bound](../../crates/pse-math/src/factorable.rs), and
 [selected-row Symbolica proof](../../crates/pse-math/src/class_evidence.rs).
+
+Class proof binding now uses maintained Symbolica 3.0.1's read-only
+[`AtomCore::visitor`](../../vendor/symbolica/src/atom/core.rs) to
+admit the source traversals, exact symbol lookups and encountered replacement bytes before
+rewriting. [`AtomCore::replace_map`](../../vendor/symbolica/src/id.rs) replaces exact variables in one top-down map and normalizes
+once; it does not visit inserted expressions. This removes the all-replacements-times-source
+charge and the general pattern matcher without changing which original rows are proved. The
+one-million-unit ordinary service budget and original accuracy-use requirements are unchanged.
+The full Root/Ipopt client remains the acceptance gate for ordinary service fit.
 H independently assesses the physical temporal layout and the retained compiler frontier;
 its simultaneous refinement cases remain required even if the separate integrated route passes.
 

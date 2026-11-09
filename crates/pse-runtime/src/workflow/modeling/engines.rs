@@ -40,7 +40,7 @@ pub struct ModelingAnalysis {
     pub numerical: NumericalInputs,
 }
 /// Stage names and optional declared homotopy, with finite work and recovery controls.
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ModelingInitialization {
     /// Declared stages, attempted in order before homotopy.

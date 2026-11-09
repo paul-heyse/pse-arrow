@@ -658,7 +658,7 @@ impl super::DeclaredExecution {
             execution: InspectionExecution {
                 route: self.route,
                 procedure: self.procedure.kind(),
-                requested_start: self.requested_start,
+                requested_start: self.analysis.solver.controls.start,
             },
             instances: source
                 .instances

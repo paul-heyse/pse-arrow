@@ -894,20 +894,12 @@ impl ScientificReplay {
                         analysis.solver.clone(),
                         analysis.numerical.clone(),
                         analysis.limits,
-                        analysis
-                            .case
-                            .values
-                            .keys()
-                            .chain(analysis.case.variables.keys())
-                            .cloned()
-                            .collect(),
+                        analysis.bindings.demand.clone(),
                         cancel,
                     )
                     .await?;
-                execution.analysis = analysis.clone();
-                execution.procedure =
-                    super::DeclaredProcedure::Initialize(original.policy()?.clone());
-                execution.requested_start = original.execution.requested_start;
+                execution.analysis.case = analysis.case.clone();
+                execution.analysis.order = analysis.order;
                 let operation = super::PreparedInitializationOperation::new(source, execution)?;
                 if operation.identity() != original.identity() {
                     return Err(contract(

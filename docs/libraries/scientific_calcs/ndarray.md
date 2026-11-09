@@ -906,3 +906,1146 @@ Primary release evidence: `https://github.com/rust-ndarray/ndarray/blob/master/R
 [image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
 
 GitHub
+
+# ndarray (Rust) — Capability Reference Addendum
+
+Target version: `ndarray` 0.17.2\
+Research date: November 9, 2026\
+Scope: Additional native functionality, advanced API semantics, representation and interoperability guarantees, and relevant companion libraries not fully covered in the original reference.
+
+This addendum supplements the existing `ndarray` capability reference without repeating its treatment of ownership models, ordinary slicing, multidimensional producers, numerical reductions, parallel traversal, or core linear algebra.
+
+`ndarray` 0.17.2, released January 10, 2026, remains the latest published stable version at the research date. Unless explicitly identified as companion functionality, the mechanisms below belong to the released `ndarray` 0.17.2 API.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs
+
+
+
+## 1. Additional structural transformations and layout mechanisms
+
+### 1.1 Dynamic-rank dimension elimination with `squeeze()`
+
+`ArrayBase<_, IxDyn>` provides `squeeze(self) -> Self`, which removes singleton axes while preserving the represented elements and their multidimensional indexing semantics.
+
+Unlike `into_dimensionality()`, which changes the dimensionality type after validating an expected rank, `squeeze()` derives the output rank from the runtime shape.
+
+```
+use ndarray::Array3;
+
+let a = Array3::<f64>::zeros((4, 1, 8)).into_dyn();
+
+let b = a.squeeze();
+
+assert_eq!(b.shape(), &[4, 8]);
+```
+
+The operation is a structural transformation: it removes axes from the shape and corresponding strides, without requiring elementwise materialization.
+
+A significant distinction from NumPy is that `squeeze()` does not necessarily produce a scalar array when all dimensions are singleton. In the documented behavior, an input with more than one dimension retains at least one dimension. Consequently, shape `[1, 1]` becomes `[1]` rather than `[]`.
+
+This is relevant to runtime-rank numerical interfaces, batched computations, and tensor transformations where singleton dimensions are introduced for broadcasting and subsequently need to be removed.
+
+It also means that `squeeze()` is not an exact substitute for an operation requiring all singleton axes to collapse to rank zero.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+`https://docs.rs/ndarray/0.17.2/ndarray/struct.ArrayBase.html`
+
+### 1.2 Axis coalescing with `merge_axes()`
+
+`merge_axes(take, into) -> bool` provides a specialized alternative to general reshaping.
+
+It merges two axes when their existing strides permit their traversal to be represented by one axis, without changing the sequence of accessible elements.
+
+The defining condition is that movement along the original axes, with `into` varying fastest, must be equivalent to movement along the resulting merged axis.
+
+On successful merging:
+
+- The `into` axis acquires the product of the original axis lengths.
+- The `take` axis becomes length one, or length zero when the product is zero.
+- The operation retains the total dimensionality, rather than deleting the merged-away axis.
+- The original data allocation is not reorganized.
+
+```
+use ndarray::{Array3, Axis};
+
+let mut a = Array3::<f64>::zeros((2, 3, 4));
+
+assert!(a.merge_axes(Axis(1), Axis(2)));
+assert_eq!(a.shape(), &[2, 1, 12]);
+```
+
+If merging is impossible, the method returns `false` and preserves the original dimensions and strides. Reversing the order of `take` and `into` can change whether merging succeeds.
+
+This differs from `to_shape()`, which can allocate when necessary, and `into_shape_with_order()`, which validates whether a requested reinterpretation is supported.
+
+`merge_axes()` therefore provides a directly inspectable stride-compatibility operation rather than a general-purpose reshape policy.
+
+It can be useful for reducing the number of logically independent traversal axes, constructing flattened views of compatible regions, or simplifying higher-dimensional iteration.
+
+A related method, `max_stride_axis()`, returns the axis with the largest absolute stride, preferring axes with length greater than one. It supplies layout information useful when constructing custom traversal or axis-coalescing algorithms. Selecting a maximum-stride axis is not, by itself, a universal optimization: optimal traversal also depends on which axes should vary in the inner loop and on the layouts of other operands.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+`https://docs.rs/ndarray/0.17.2/ndarray/struct.LayoutRef.html`
+
+### 1.3 In-place geometry manipulation without rank changes
+
+Several layout-oriented methods support changes that can be expressed through shape, stride, and pointer metadata rather than copying array elements.
+
+Their effects differ in ways that matter for rank-polymorphic algorithms.
+
+| Method                             | Structural effect                                                               |
+| ---------------------------------- | ------------------------------------------------------------------------------- |
+| `collapse_axis(axis, index)`       | Selects one position and changes the axis length to one, preserving rank        |
+| `slice_collapse(...)`              | Applies slicing in place, collapsing indexed axes instead of removing them      |
+| `slice_axis_inplace(axis, slice)`  | Modifies the represented region along one existing axis                         |
+| `slice_each_axis_inplace(closure)` | Determines a slice for each axis programmatically                               |
+| `insert_axis_inplace(axis)`        | Inserts a singleton axis into a dynamically ranked representation               |
+| `index_axis_inplace(axis, index)`  | Selects an index and removes that axis from a dynamically ranked representation |
+
+The distinction between collapsing and removing an axis is particularly important.
+
+For example, selecting one row of a matrix can produce either a rank-one vector or a rank-two representation with one row. Both may expose the same elements, but their broadcasting behavior and suitability as inputs to rank-constrained algorithms differ.
+
+`slice_collapse()` has narrower shape semantics than general slicing. In particular, it cannot handle `NewAxis` components, since inserting an axis would violate its contract of preserving the number of dimensions.
+
+These operations make it possible to implement generic shape-transformation logic without repeatedly allocating arrays or converting all inputs into explicitly owned dynamic-rank storage.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+`https://docs.rs/ndarray/0.17.2/ndarray/struct.LayoutRef.html`
+
+### 1.4 Structural index removal and element ownership
+
+`remove_index(axis, index)` removes an indexed position along an axis, shifts subsequent positions down, and decreases that axis's length by one.
+
+Its most consequential characteristic is its treatment of the elements that disappear from the logical array.
+
+The removed elements are not immediately destroyed or deinitialized. The implementation moves them outside the array's currently represented region, where they remain associated with the underlying storage.
+
+This is materially different from a `Vec::remove()` operation.
+
+For arrays of primitive numeric values, the distinction may have little observable consequence. For arrays containing owned strings, heap-allocated objects, reference-counted resources, or other values with nontrivial destruction behavior, it affects resource lifetime.
+
+It follows that `remove_index()` should not be interpreted as guaranteeing immediate release of the removed elements' resources.
+
+The operation also does not make multidimensional arrays into efficient general-purpose insertion/deletion sequences: moving elements and maintaining compatible geometry can remain costly.
+
+Version 0.17 extended `remove_index()` to views in addition to owned arrays. That makes the method particularly relevant for generic algorithms operating on array-reference interfaces, but it also means that the logical mutation can be local to the view rather than redefining the shape of an independently held parent array.
+
+The important ownership distinction is between removing elements from the visible indexed region and ending their storage lifetime. The method performs the former without guaranteeing the latter.
+
+Sources:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+`https://docs.rs/ndarray/0.17.2/ndarray/struct.ArrayRef.html`
+
+`https://github.com/rust-ndarray/ndarray/blob/master/RELEASES.md`
+
+## 2. Broadcasting, slicing, and indexing semantics
+
+### 2.1 Binary arithmetic does not provide NumPy-style co-broadcasting
+
+A significant difference between `ndarray` and NumPy concerns how the output shape of an elementwise binary operation is determined.
+
+NumPy commonly determines a mutually broadcastable result shape from both operands. `ndarray`'s ordinary binary operators instead support broadcasting the right-hand operand to the left-hand operand's shape.
+
+This is an asymmetric contract.
+
+Consider arrays with shapes:
+
+- `a`: `[1, 3]`
+- `b`: `[2, 1]`
+
+NumPy can co-broadcast these arrays to `[2, 3]`. In `ndarray`, a direct expression using `&a + &b` does not independently derive that common output shape. The right-hand operand cannot be broadcast to the left-hand operand's `[1, 3]` shape.
+
+The desired result can instead be expressed through explicit views:
+
+```
+use ndarray::Array2;
+
+let a = Array2::<f64>::ones((1, 3));
+let b = Array2::<f64>::ones((2, 1));
+
+let av = a.broadcast((2, 3)).unwrap();
+let bv = b.broadcast((2, 3)).unwrap();
+
+let result = &av + &bv;
+
+assert_eq!(result.dim(), (2, 3));
+```
+
+`Zip::and_broadcast()` follows a related principle. The initial producer determines the traversal shape; an additional producer may be broadcast to that shape, but `Zip` does not automatically enlarge its existing traversal dimensions to accommodate a new operand.
+
+This distinction affects the implementation of generalized elementwise kernels, tensor-algebra expressions, and APIs receiving operands with heterogeneous shapes.
+
+A useful architectural approach is to separate broadcast-shape resolution from broadcasted execution. Once a common target geometry has been established and validated, explicit views and `Zip` can execute the operation without materializing repeated input elements.
+
+Sources:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+`https://docs.rs/ndarray/0.17.2/ndarray/doc/ndarray_for_numpy_users/`
+
+`https://docs.rs/ndarray/0.17.2/ndarray/struct.Zip.html`
+
+### 2.2 Negative-step slicing selects a range before reversing it
+
+Negative-step slicing in `ndarray` is not identical to Python or NumPy slice notation.
+
+Its semantics can be understood as two operations:
+
+1. Select the specified half-open range using the ordinary range boundaries.
+2. Traverse the selected region from the back when the step is negative.
+
+For example:
+
+```
+use ndarray::{array, s};
+
+let a = array![0, 1, 2, 3];
+
+assert_eq!(
+    a.slice(s![1..3;-1]),
+    array![2, 1]
+);
+
+assert_eq!(
+    a.slice(s![1..;-2]),
+    array![3, 1]
+);
+```
+
+The first slice selects positions 1 and 2, then reverses them. The second selects positions 1 through 3 and walks backward in steps of two.
+
+This differs from NumPy's interpretation of `start:stop:negative_step`, where the starting coordinate itself participates in the reverse traversal.
+
+The distinction matters when translating Python indexing expressions, constructing stencils, or implementing coordinate transformations that depend on exact endpoint behavior.
+
+Negative indexing and negative stepping are separate mechanisms: a negative range bound denotes an offset from the end of an axis, while a negative step determines traversal direction within the selected range.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+`https://docs.rs/ndarray/0.17.2/ndarray/macro.s.html`
+
+### 2.3 General advanced indexing and boolean-mask selection
+
+`ndarray` supports several indexing models, but they do not amount to the full advanced-indexing system offered by NumPy.
+
+Ordinary slicing produces views of regularly describable regions. `select(Axis, indices)` gathers arbitrary positions along one chosen axis and constructs a new array.
+
+The latter is useful for reordered rows, sampled columns, or repeated index selections, but it is not a universal coordinate-gather operator.
+
+In particular, the native NumPy-compatibility documentation identifies index-array indexing and boolean-mask indexing as unsupported capabilities.
+
+For coordinate-dependent work, the available alternatives include indexed iteration, coordinate producers, elementwise predicates, and custom gathering or scattering logic.
+
+A related semantic difference concerns comparison operators.
+
+An expression such as `a == b` compares arrays for equality; it does not construct an array of elementwise comparison results in the same manner as NumPy.
+
+For an elementwise mask, `mapv()` or `Zip::map_collect()` can be used:
+
+```
+use ndarray::{array, Zip};
+
+let a = array![1, 2, 3];
+let b = array![1, 4, 3];
+
+let mask = Zip::from(&a)
+    .and(&b)
+    .map_collect(|x, y| x == y);
+
+assert_eq!(mask, array![true, false, true]);
+```
+
+This produces a Boolean array with the same traversal shape as its input producers.
+
+It does not, by itself, provide NumPy-style `a[mask]` selection. Converting predicate results into a compact selection requires an additional gathering or filtering operation.
+
+An important performance distinction follows: a Boolean mask can be an appropriate persistent representation when subsequent operations reuse it, whereas a fused predicate inside `Zip` can avoid allocating a mask when the only goal is to accumulate, transform, or conditionally update values.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+`https://docs.rs/ndarray/0.17.2/ndarray/doc/ndarray_for_numpy_users/`
+
+## 3. Additional generic interfaces, lifetimes, and array access
+
+### 3.1 `AsArray`: generic conversion into borrowed array views
+
+`AsArray<'a, A, D>` provides a conversion-oriented interface for functions that accept arguments capable of becoming `ArrayView<'a, A, D>`.
+
+Its definition is:
+
+```
+pub trait AsArray<'a, A: 'a, D = Ix1>:
+    Into<ArrayView<'a, A, D>>
+where
+    D: Dimension,
+{}
+```
+
+The trait is implemented for compatible types that support conversion into the corresponding array view.
+
+For example:
+
+```
+use ndarray::AsArray;
+
+fn sum<'a, V: AsArray<'a, f64>>(data: V) -> f64 {
+    let view = data.into();
+    view.sum()
+}
+
+assert_eq!(sum(&[1., 2., 3.]), 6.);
+```
+
+This is distinct from the `ArrayRef` mechanism discussed in the original guide.
+
+`&ArrayRef<A, D>` supplies a storage-independent interface to an existing array representation. `AsArray` instead defines an argument-conversion boundary, allowing ordinary Rust containers or other compatible inputs to be normalized into a borrowed array view.
+
+The distinction affects API design:
+
+| Interface                | Principal abstraction                                                |
+| ------------------------ | -------------------------------------------------------------------- |
+| `&ArrayRef<A, D>`        | Reference to an existing multidimensional array                      |
+| `AsArray<'a, A, D>`      | Input convertible into a borrowed array view                         |
+| `AsRef<LayoutRef<A, D>>` | Access to multidimensional geometry without requiring element access |
+| `IntoNdProducer`         | Input convertible into a multidimensional work producer              |
+
+`AsArray` is valuable when APIs should accept existing slices and array views without allocating temporary arrays. It is not a replacement for `ArrayRef` in every generic numerical algorithm: it specifically requires a compatible conversion into `ArrayView` and does not itself express mutable element access.
+
+The trait is not object-safe, so its intended use is through generic bounds rather than as a dynamically dispatched trait object.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+`https://docs.rs/ndarray/0.17.2/ndarray/trait.AsArray.html`
+
+### 3.2 `IndexLonger`: element references that outlive temporary view descriptors
+
+`IndexLonger<I>` exposes three methods:
+
+- `index(self, index)` for reference-returning indexed access.
+- `get(self, index)` for optional reference-returning access.
+- Unsafe `uget(self, index)` for unchecked access.
+
+These resemble ordinary array indexing, but they make a different lifetime guarantee.
+
+When indexing through an ordinary borrowed view, Rust generally ties the returned element reference to the borrow used for the indexing expression.
+
+`IndexLonger` instead permits a returned reference to retain the lifetime associated with the view's underlying data.
+
+```
+use ndarray::{ArrayView, IndexLonger};
+
+let data = [0.0; 256];
+
+let element = {
+    let view = ArrayView::from(&data[..])
+        .into_shape_with_order((16, 16))
+        .unwrap();
+
+    IndexLonger::index(&view, [0, 1])
+};
+
+// The view descriptor no longer exists.
+assert_eq!(element, &0.0);
+```
+
+This is useful for algorithms that construct temporary multidimensional views but need to return references into a longer-lived backing allocation.
+
+The distinction is especially relevant to generic indexing utilities and borrowed data structures.
+
+#### Mutable-view semantics
+
+`ArrayViewMut` implements the trait differently from immutable `ArrayView`.
+
+Obtaining a longer-lived mutable element reference consumes the mutable view. This is necessary to preserve exclusive borrowing and prevent continued access through a view that has effectively transferred its mutable reference.
+
+The operation therefore does not weaken Rust's aliasing guarantees; it exposes a lifetime relationship that the ordinary indexing interface cannot express.
+
+`IndexLonger` is also distinct from `CowArray`: it neither creates ownership nor provides copy-on-write behavior.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+`https://docs.rs/ndarray/0.17.2/ndarray/trait.IndexLonger.html`
+
+### 3.3 Unsafe indexing has additional ownership and build-mode constraints
+
+The original reference describes `uget()` and `uget_mut()` as unsafe unchecked indexing methods. Two details deserve further qualification.
+
+First, the official documentation notes that these methods are unchecked only in non-debug builds of `ndarray`. They should not be assumed to eliminate every bounds check in all build configurations.
+
+Second, the unsafe contract for mutable access is stricter than index validity alone.
+
+For `uget_mut()`, the caller must ensure that the data is uniquely held by the array. This condition is naturally satisfied by appropriate `Array` and `ArrayViewMut` representations, but is not automatically guaranteed for `ArcArray` or `CowArray`.
+
+These constraints also apply to related unsafe mutation methods such as `uswap()`.
+
+This matters because unsafe access bypasses protections that would otherwise enforce unique mutation or prepare shared storage for copy-on-write access.
+
+The existence of an `unsafe` mutable element method is therefore not evidence that calling it on a shared representation is valid merely because the indices are in range.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+`https://docs.rs/ndarray/0.17.2/ndarray/struct.ArrayBase.html`
+
+## 4. Additional multidimensional traversal and mapping capabilities
+
+### 4.1 Virtual coordinate producers: `indices()` and `indices_of()`
+
+`ndarray` includes coordinate-generating producers that expose multidimensional index positions without constructing an array containing those coordinates.
+
+`indices(shape)` constructs an index producer for a specified shape. `indices_of(array)` provides the coordinates of an existing array.
+
+Both use the `Indices<D>` producer infrastructure.
+
+These can be useful when computing values from their position rather than exclusively from input elements.
+
+For example, coordinate-dependent kernels may need to evaluate a function of row, column, or higher-dimensional indices, or combine positions with values through a `Zip`.
+
+The distinction from a coordinate array created by `meshgrid()` is that an index producer represents a traversal over coordinates, not a set of materialized coordinate-valued arrays.
+
+In many cases, `Zip::indexed()` provides the more direct interface because it incorporates coordinate production into the traversal itself.
+
+The upstream documentation recommends preferring higher-order operations and ordinary elementwise traversal over indexed algorithms where possible. Generating and processing index tuples introduces work that may be unnecessary for computations driven solely by element values.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+`https://docs.rs/ndarray/0.17.2/ndarray/fn.indices_of.html`
+
+`https://docs.rs/ndarray/0.17.2/ndarray/iter/struct.Indices.html`
+
+### 4.2 Producer dimensionality is not necessarily item dimensionality
+
+A significant feature of `NdProducer` is that its dimensionality describes the geometry of produced items.
+
+Those items are not required to be individual scalars.
+
+For example, a producer iterating over rows of a matrix has a one-dimensional traversal geometry, even though each produced item is itself a one-dimensional array view.
+
+This makes the following computation possible:
+
+```
+use ndarray::{array, Array1, Zip};
+
+let matrix = array![
+    [1, 2, 3],
+    [4, 5, 6]
+];
+
+let row_sums: Array1<i32> =
+    Zip::from(matrix.rows())
+        .map_collect(|row| row.sum());
+
+assert_eq!(row_sums, array![6, 15]);
+```
+
+The output has one element per produced row, not one element per scalar in the original matrix.
+
+This distinction generalizes to chunk producers, axis iterators, and window producers.
+
+It explains why producers yielding multidimensional views can be composed with producers yielding scalar references, provided their producer traversal shapes agree.
+
+Such composition can replace manually coordinated outer loops over blocks or subarrays.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+`https://docs.rs/ndarray/0.17.2/ndarray/struct.Zip.html`
+
+### 4.3 `Zip` producer arity and output-layout behavior
+
+The published `Zip` implementations support tuples containing up to six producers.
+
+A `Zip::indexed()` traversal consumes one of those producer positions for the coordinate producer.
+
+Consequently, operations requiring more than six independent producer inputs cannot be represented by indefinitely chaining `.and()`.
+
+This is an interface constraint rather than a general computational limitation. Larger computations can instead be decomposed into multiple traversals, encapsulated within custom producers, or expressed using higher-level operations.
+
+A separate, easily overlooked characteristic concerns `Zip::map_collect()`.
+
+The documentation states that when all inputs have the same C-order or F-order layout, the corresponding order is preserved in the output.
+
+Thus, creating a result through `Zip` is not necessarily equivalent to allocating a standard-row-major array and filling it in logical order.
+
+This behavior can preserve layout compatibility and improve locality when producer layouts agree, but it should not be mistaken for a guarantee that every mixed-layout operation produces a particular storage order.
+
+`Zip::indexed()` also carries documented overhead relative to non-indexed traversal.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+`https://docs.rs/ndarray/0.17.2/ndarray/struct.Zip.html`
+
+### 4.4 `map_mut()`: simultaneous source mutation and result construction
+
+`map_mut()` occupies a distinct position among the mapping operations.
+
+Its signature is conceptually:
+
+```
+pub fn map_mut<'a, B, F>(
+    &'a mut self,
+    f: F,
+) -> Array<B, D>
+where
+    F: FnMut(&'a mut A) -> B,
+    A: 'a;
+```
+
+Unlike `map()`, the closure receives mutable references to source elements.
+
+Unlike `map_inplace()`, it constructs a separate output array.
+
+This allows an operation to update its input while simultaneously producing a derived output.
+
+Potential uses include updating per-element state while collecting diagnostics, performing stateful transformations that retain the mutated input, or deriving a new representation from mutable records without a second traversal.
+
+The original and derived values remain distinct representations, and the result allocation still exists.
+
+The documented visitation order is arbitrary. Algorithms using `map_mut()` should therefore avoid depending on a particular sequence of side effects across elements.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+`https://docs.rs/ndarray/0.17.2/ndarray/struct.ArrayRef.html`
+
+### 4.5 Integer, Boolean, and bitwise element operations
+
+The numerical discussion in the original reference primarily emphasizes floating-point and conventional arithmetic.
+
+`ndarray` also provides elementwise operator implementations covering remainder, bitwise operations, shifts, and corresponding assignment variants.
+
+These include `%`, `&`, `|`, `^`, `<<`, and `>>`, subject to the element type's trait implementations and the supported array-operand combinations.
+
+This is useful for:
+
+- Integer grids and discrete numerical algorithms.
+- Bitfield transformations and packed flags.
+- Boolean predicate combinations.
+- Elementwise index and mask calculations.
+
+The usual array broadcasting and allocation considerations continue to apply. Bitwise array operators do not introduce a separate bit-packed tensor representation; a Boolean `Array` remains an array of Boolean elements.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+2
+
+
+
+`https://docs.rs/ndarray/0.17.2/ndarray/struct.ArrayBase.html`
+
+### 4.6 Approximate equality through the `approx` feature
+
+The optional `approx` feature integrates `ndarray` arrays with the approximate-equality traits from the `approx` crate.
+
+Relevant comparison models include:
+
+| Comparison   | Numerical interpretation                                                           |
+| ------------ | ---------------------------------------------------------------------------------- |
+| `AbsDiffEq`  | Absolute difference within an epsilon tolerance                                    |
+| `RelativeEq` | Relative-error comparison with an absolute-tolerance component                     |
+| `UlpsEq`     | Comparison based on representable floating-point separation, with epsilon handling |
+
+These address different numerical error models and should not be treated as equivalent.
+
+Approximate equality is especially useful for testing algorithms whose results are affected by floating-point rounding, summation order, or alternative numerical backends.
+
+Unlike elementwise predicate generation, array approximate-equality operations answer whether the compared arrays satisfy the specified tolerance relation.
+
+The feature integrates trait implementations; it does not automatically choose domain-appropriate tolerances for a numerical computation.
+
+The supported bounds and behavior also depend on the element type's `approx` implementations.
+
+Source:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust
+
+
+
+`https://docs.rs/ndarray/0.17.2/ndarray/struct.ArrayRef.html`
+
+`https://docs.rs/approx/0.5.1/approx/`
+
+## 5. Serde serialization: logical contents versus physical representation
+
+The original guide identifies the `serde` feature but does not describe the serialization contract.
+
+This distinction matters because `ndarray` arrays have both a logical multidimensional representation and an underlying physical layout.
+
+### 5.1 Serialized structure
+
+The published 0.17.2 implementation serializes an array into a versioned structure containing three fields:
+
+| Field  | Meaning                                               |
+| ------ | ----------------------------------------------------- |
+| `v`    | Array serialization format version                    |
+| `dim`  | Dimensional shape                                     |
+| `data` | Sequence of array elements in logical iteration order |
+
+The serializer obtains the elements through `self.iter()`.
+
+It does not serialize the original stride vector, base-pointer offset, memory-allocation identity, or ownership-sharing relationships.
+
+Consequently, two arrays with the same logical shape and elements but different physical layouts have equivalent array-level serialized contents.
+
+The exact byte representation also depends on the chosen Serde serializer; the field structure does not imply that every serialization format produces identical bytes.
+
+### 5.2 Deserialization and reconstruction
+
+The deserializer validates the serialized format version and reconstructs an owned array using the dimensions and element sequence, including a size-consistency check.
+
+It does not reconstruct the original physical layout.
+
+For example, serializing a transposed view and subsequently deserializing it can recover the transposed logical values while producing an array with standard contiguous storage rather than the original transposed stride geometry.
+
+Similarly, serializing a reference-counted array records its contents, not the original shared-allocation relationship.
+
+This yields a useful distinction between three types of persistence:
+
+| Requirement                                                 | Relevant mechanism                                                           |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Preserve shape and logical element values                   | Serde                                                                        |
+| Preserve NumPy-compatible array contents and dtype metadata | `.npy` / `.npz` through `ndarray-npy`                                        |
+| Preserve or share compatible existing physical buffers      | Explicit raw-buffer, mapped-memory, or specialized interoperation mechanisms |
+
+Serde is appropriate for logical data persistence and structured exchange. It is not a promise of zero-copy reconstruction or restoration of original physical layouts.
+
+These conclusions are derived directly from the 0.17.2 serialization implementation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+source
+
+
+
+Source:
+
+`https://docs.rs/ndarray/0.17.2/src/ndarray/array_serde.rs.html`
+
+## 6. Additional companion libraries and architectural integration boundaries
+
+The following packages extend the computations and representations available around `ndarray`.
+
+They are independent crates with their own versioning, features, dependency constraints, and runtime behavior.
+
+### 6.1 General tensor contractions: `einsum-ndarray`
+
+Verified release: 0.1.1
+
+The `einsum-ndarray` crate provides Einstein-summation operations on dynamically shaped `ndarray` arrays.
+
+Einstein notation expresses combinations of axis permutation, elementwise multiplication, reduction, diagonal extraction, and tensor contraction through labeled dimensions.
+
+For example:
+
+```
+ij,jk->ik
+```
+
+represents a matrix product.
+
+More general expressions can describe operations over higher-rank tensors without requiring the caller to manually implement every combination of reshaping, axis permutation, and pairwise reduction.
+
+The crate supports explicit and implicit outputs, repeated-index diagonals, ellipsis-based broadcasting, scalar operands, and zero-length axes.
+
+This extends the native `dot()` capability, which does not provide general higher-rank tensor contraction.
+
+#### Planning and reuse
+
+The interface distinguishes immediate evaluation from preparing reusable contractions.
+
+`einsum()` parses, plans, and evaluates an expression.
+
+`einsum_path()` computes a contraction path from operand shapes.
+
+`EinsumPlan` binds a parsed contraction to fixed operand shapes, permitting its execution to be reused without repeatedly interpreting the original expression.
+
+Its planning structures include `ContractionPath`, `ContractionStep`, and a selectable `Strategy`.
+
+This matters for repeated tensor operations with invariant shapes, where the preparation stage can be separated from numerical execution.
+
+#### Arithmetic and numerical semantics
+
+The documented implementation uses wrapping arithmetic for integer addition and multiplication in all build profiles. Other supported element types use their `ndarray` arithmetic behavior.
+
+This is a consequential difference from assuming all contraction operations inherit the usual debug-build integer-overflow behavior of arbitrary Rust arithmetic.
+
+Furthermore, a reusable plan binds operand shapes. Passing incompatible runtime shapes is an error, not an automatic plan adaptation.
+
+Because the package is in its early `0.1.x` series, its API stability and contraction-strategy behavior should be treated separately from the maturity of core `ndarray`.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+Source:
+
+`https://docs.rs/einsum-ndarray/0.1.1/einsum_ndarray/`
+
+### 6.2 Sparse matrix representations and operations: `sprs`
+
+Verified release: 0.11.6
+
+`ndarray`'s native representation is dense and strided. `sprs` supplies complementary sparse matrix data structures and algorithms.
+
+Its principal representations are compressed sparse row (CSR), compressed sparse column (CSC), coordinate/triplet matrices, and sparse vectors.
+
+These representations store nonzero elements and associated indexing structures rather than representing every logical matrix element as an ordinary dense array entry.
+
+The library provides sparse matrix/vector and matrix/matrix products, sparse addition and subtraction, sparse/dense operations, and iteration over nonzero structures.
+
+It also includes selected numerical algorithms, such as sparse triangular solves with dense right-hand sides and a simple sparse Cholesky implementation.
+
+The latter requires an explicit LGPL-related licensing opt-in.
+
+#### Interoperability boundary
+
+The important architectural distinction is that sparse matrix multiplication is not generally equivalent to applying a dense `ndarray` kernel to a specially strided view.
+
+Sparse storage changes the data structure and computational complexity.
+
+Consequently, `sprs` supplies a separate sparse model rather than merely adding a sparse option to `ArrayBase`.
+
+The declared dependency range in `sprs` 0.11.6 accepts `ndarray >=0.15.0, <0.18`, which includes the target `ndarray` 0.17.2.
+
+This compatibility matters because older releases of sparse-array companions have historically depended on earlier semver-incompatible `ndarray` versions.
+
+The availability of sparse/dense operations makes `sprs` relevant for algorithms containing both sparse system operators and dense vectors or intermediate arrays. However, data exchange still requires matching dimensions, scalar types, and the relevant operation implementations.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs
+
+
+
+Source:
+
+`https://docs.rs/sprs/0.11.6/sprs/`
+
+### 6.3 Spectral computation: `ndrustfft`
+
+Verified release: 0.6.2
+
+`ndrustfft` provides multidimensional-array interfaces to the separate RustFFT, RealFFT, and RustDCT computational engines.
+
+Its functional coverage includes:
+
+| Transform family            | Principal operations                                   |
+| --------------------------- | ------------------------------------------------------ |
+| Complex FFT                 | `ndfft`, `ndifft`                                      |
+| In-place complex FFT        | `ndfft_inplace`, `ndifft_inplace`                      |
+| Real-to-complex FFT         | `ndfft_r2c`                                            |
+| Complex-to-real inverse FFT | `ndifft_r2c`                                           |
+| Discrete cosine transforms  | DCT types I–IV                                         |
+| Parallel execution          | Corresponding `_par` variants for supported transforms |
+
+A key mechanism is the use of reusable transform handlers such as `FftHandler`, `R2cFftHandler`, and `DctHandler`.
+
+These encapsulate transform preparation and can support repeated transformations without rebuilding the underlying planning state for every array.
+
+#### Layout and copying
+
+Although input arrays use `ndarray` representations, the underlying transform engines impose their own access and layout requirements.
+
+The `ndrustfft` documentation explicitly notes that some axis choices require temporary copies.
+
+This means that a perfectly valid strided `ndarray` view may still incur materialization during a specialized FFT operation.
+
+It is therefore important to distinguish the following:
+
+- A transformation expressed as an `ndarray` view can be zero-copy.
+- An FFT consuming that view may have additional layout requirements.
+- The complete operation is zero-copy only when both representations and algorithms permit it.
+
+#### Normalization conventions
+
+`ndrustfft` also introduces its own normalization behavior.
+
+The underlying RustFFT/RealFFT/RustDCT engines do not uniformly normalize their transforms. `ndrustfft` applies SciPy-like normalization conventions by default and provides configurable normalization behavior.
+
+Numerical results can therefore differ by scale from a direct call to an underlying transform engine or another numerical library using a different convention.
+
+The `parallel` feature uses `ndarray`/Rayon parallelism and is enabled by default. The package also exposes architecture-related features forwarded to the underlying FFT implementation.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+Source:
+
+`https://docs.rs/ndrustfft/0.6.2/ndrustfft/`
+
+### 6.4 Apache Arrow interoperation: `ndarrow`
+
+Verified release: 0.0.4
+
+`ndarrow` provides an explicit bridge between the Apache Arrow memory model and `ndarray`.
+
+Its primary capabilities are:
+
+Arrow to ndarray: Borrow compatible Arrow buffers as `ndarray` views without copying element data.
+
+ndarray to Arrow: Transfer compatible owned `ndarray` buffers into Arrow arrays through ownership movement.
+
+The distinction is between borrowing Arrow-owned memory and transferring ownership of an `ndarray` allocation.
+
+For simple compatible primitive arrays, both can avoid allocating and copying a second element buffer.
+
+#### Conversion interfaces
+
+The central public traits include `AsNdarray` and `IntoArrow`.
+
+```
+use arrow_array::Float64Array;
+use ndarrow::{AsNdarray, IntoArrow};
+use ndarray::Array1;
+
+let arrow = Float64Array::from(
+    vec![1.0, 2.0, 3.0]
+);
+
+let view = arrow.as_ndarray().unwrap();
+
+assert_eq!(view[1], 2.0);
+
+let owned = Array1::from_vec(
+    vec![4.0, 5.0, 6.0]
+);
+
+let arrow_owned: Float64Array =
+    owned.into_arrow().unwrap();
+```
+
+The first operation borrows Arrow storage. The second transfers a compatible owned buffer.
+
+Both differ from serializing array contents to an intermediate format.
+
+#### Null semantics
+
+Apache Arrow arrays can contain a separate validity bitmap. Ordinary `ndarray` arrays do not inherently have such a bitmap.
+
+`ndarrow` therefore exposes explicit choices:
+
+| Conversion path          | Null behavior                                                                       |
+| ------------------------ | ----------------------------------------------------------------------------------- |
+| `as_ndarray()`           | Validates the absence of nulls and returns an error when invalid values are present |
+| `as_ndarray_unchecked()` | Unsafe path where the caller guarantees that null-handling preconditions hold       |
+| `as_ndarray_masked()`    | Returns the values view alongside validity information                              |
+
+This enables nullable columnar data to participate in numerical computations without necessarily replacing nulls with sentinel values or allocating a second numeric array.
+
+The masked result does not make ordinary `ndarray` arithmetic automatically null-aware. The validity information must still be incorporated into the algorithm.
+
+For nested representations, validity can be more complicated. In particular, a fixed-size-list conversion may preserve outer-row validity while rejecting unsupported nulls within individual list elements.
+
+Thus, Arrow null handling remains an explicit integration contract rather than a native `ndarray` feature.
+
+#### Tensor and complex representations
+
+The package goes beyond primitive one-dimensional arrays.
+
+Its documented capabilities include fixed-size-list-to-matrix views, fixed-shape tensor representations, variable-shape tensor batches, complex-valued extension representations, and CSR sparse-array exchange facilities.
+
+These provide representation-level interfaces for multidimensional numerical data within Arrow-based systems.
+
+For example, an Arrow fixed-shape tensor representation can communicate tensor geometry while exposing compatible values through `ArrayViewD`.
+
+Variable-shaped tensor batches require different treatment because each row can carry different tensor dimensions.
+
+#### Copying boundaries
+
+The crate separates zero-copy conversion mechanisms from explicit helpers that may allocate.
+
+These include numerical type casts, null filling, non-null compaction, CSR densification, and layout normalization.
+
+For multidimensional owned arrays, zero-copy outbound conversion depends on compatible physical layout; nonstandard layouts may require reordering.
+
+This prevents a common misunderstanding: zero-copy interoperability does not imply that every preparation, conversion, or downstream numerical operation is zero-copy.
+
+`ndarrow` is an early `0.0.x` project. Its own documentation warns that its API remains under active development and should be version-pinned where a stable interface contract is important.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+2
+
+
+
+Sources:
+
+`https://docs.rs/ndarrow/0.0.4/ndarrow/`
+
+`https://docs.rs/ndarrow/0.0.4/ndarrow/inbound/index.html`
+
+`https://docs.rs/ndarrow/0.0.4/ndarrow/helpers/index.html`
+
+### 6.5 Native-Rust linear algebra interoperation: `faer` and `faer-ext`
+
+Verified packages: `faer` 0.24.4; `faer-ext` 0.8.0
+
+`faer` provides a substantial native-Rust numerical linear algebra system, with dense and sparse matrix representations and decomposition algorithms.
+
+It is a distinct numerical library rather than an additional backend automatically selected by `ndarray`.
+
+The companion `faer-ext` supplies interoperability with several external matrix representations.
+
+Its published conversion traits include:
+
+| Trait          | Role                                                                  |
+| -------------- | --------------------------------------------------------------------- |
+| `IntoFaer`     | Convert compatible external matrix views to `faer` representations    |
+| `IntoNdarray`  | Convert compatible external matrix views to `ndarray` representations |
+| `IntoNalgebra` | Convert compatible views to `nalgebra` representations                |
+
+These interfaces make it possible to separate array-oriented data transformations from numerical routines that operate through another library's preferred matrix abstractions.
+
+The main architectural benefit is that a system need not necessarily standardize all matrix operations on one owned representation merely to access a particular numerical algorithm.
+
+However, view conversion and owned-data conversion are different operations. Representation compatibility depends on element types, dimensions, strides, ownership, and the enabled integration features.
+
+The availability of a view conversion trait does not establish that every possible owned matrix can be transferred without copying.
+
+`faer` also has independent parallel-execution configuration, so its threading behavior should not be conflated with `ndarray`'s Rayon traversal.
+
+Sources:&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Rust+1
+
+
+
+`https://docs.rs/faer-ext/0.8.0/faer_ext/`
+
+`https://docs.rs/faer/0.24.4/faer/`
+
+### 6.6 Extended ndarray-native numerical methods: `nabled`
+
+Verified release: 0.0.11
+
+`nabled` is an independently developed numerical library organized around `ndarray` representations.
+
+It provides a wider algorithmic surface than the basic native numerical operations in core `ndarray`.
+
+Its documented functional families include:
+
+| Family                       | Examples                                                                      |
+| ---------------------------- | ----------------------------------------------------------------------------- |
+| Matrix decompositions        | SVD, QR, LU, Cholesky, eigen, Schur, polar                                    |
+| Matrix functions             | Exponential, logarithm, powers, matrix sign                                   |
+| Linear systems               | Triangular solves, Sylvester and Lyapunov equations                           |
+| Iterative methods            | Krylov-style solvers, preconditioning, sparse numerical workflows             |
+| Statistical computation      | Covariance, correlation, PCA, regression                                      |
+| Numerical differentiation    | Jacobian, gradient, and Hessian-related methods                               |
+| Vector and tensor operations | Norms, similarities, pairwise and batched computations                        |
+| Embedding computation        | Exact search, ranking, normalization, quantization, and evaluation primitives |
+
+The 0.0.11 release uses a modular architecture in which the facade crate defaults principally to the linear algebra domain. Other capabilities require enabling the relevant feature or using specific component crates.
+
+#### Backend selection
+
+`nabled` documents optional support for BLAS/LAPACK providers, selected Rayon-accelerated kernels, WGPU execution, and MAGMA-backed operations.
+
+These are not universal acceleration mechanisms.
+
+Their availability is dependent on the selected feature configuration, supported element type, target architecture, and operation family.
+
+For example, its documented WGPU pathways include native `f32` execution, while native `f64` execution depends on shader capabilities and can fall back to CPU execution.
+
+This is an important boundary: `nabled` can extend or accelerate computations involving `ndarray` data, but does not change core `ndarray` into a general GPU tensor library.
+
+#### Arrow integration
+
+An optional `arrow` feature integrates with `ndarrow`, allowing Arrow-facing inputs to reach selected numerical workflows while preserving the separation between the columnar representation and the ndarray-based execution layer.
+
+This illustrates a compositional architecture:
+
+Arrow memory representation → compatible `ndarray` view → numerical algorithm → compatible output conversion.
+
+The numerical execution layer need not implement its own Arrow parser or buffer ownership model.
+
+However, the overall workflow remains subject to the same compatibility and materialization constraints discussed for `ndarrow`.
+
+`nabled` explicitly identifies itself as under active development and warns that its pre-1.0 APIs may change. Its extensive documented capability surface should therefore not be confused with a guarantee of mature, stable behavior across all algorithm families or backends.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://docs.rs\&sz=32)
+
+Docs.rs
+
+
+
+Source:
+
+`https://docs.rs/nabled/0.0.11/nabled/`
+
+## 7. Cross-cutting implications of the additional capabilities
+
+The mechanisms in this addendum reveal several further architectural distinctions that complement the original reference.
+
+### 7.1 Shape transformation and physical execution are separate concerns
+
+`merge_axes()`, `squeeze()`, `collapse_axis()`, and the various view-oriented slicing operations allow array geometry to change without necessarily moving elements.
+
+This can eliminate custom reshaping loops and redundant array allocations.
+
+However, a subsequent computation might impose stricter requirements.
+
+A BLAS routine, FFT implementation, Arrow conversion, or other specialized numerical kernel may require contiguous or otherwise compatible buffers.
+
+Therefore, a useful evaluation of an array transformation considers not only its immediate allocation cost, but also the resulting layout and the requirements of subsequent consumers.
+
+A metadata-only transformation is advantageous when its resulting layout is accepted by the rest of the computation.
+
+### 7.2 Logical multidimensional equivalence is not storage equivalence
+
+Two arrays can have identical shapes and element values while differing in strides, allocation ownership, and physical memory order.
+
+This distinction appears in several newly covered features:
+
+| Mechanism                      | Preserved semantics                                 | What is not necessarily preserved           |
+| ------------------------------ | --------------------------------------------------- | ------------------------------------------- |
+| `squeeze()`                    | Represented elements                                | Original rank                               |
+| `merge_axes()`                 | Element traversal along merged axes                 | Original axis extents                       |
+| Serde                          | Logical shape and values                            | Original strides and storage ownership      |
+| Arrow conversion               | Compatible element values and agreed representation | Arbitrary nonstandard layout                |
+| Numerical companion algorithms | Mathematical result under documented semantics      | Input layout, temporary-allocation behavior |
+
+This is why representation-preserving transformations and format conversions should not be treated interchangeably.
+
+### 7.3 Mutable array geometry does not imply element destruction
+
+`remove_index()` demonstrates that removing a value from an array's logical indexing space can differ from removing its ownership from the backing allocation.
+
+This distinction is most important for arrays with nontrivial element types.
+
+Generic array algorithms should therefore separate assumptions about shape changes from assumptions about element lifetime, especially when using owned arrays, mutable views, or shared representations.
+
+### 7.4 Specialized engines complement, rather than replace, multidimensional traversal
+
+The additional ecosystem packages cover capability families deliberately outside the primary `ndarray` abstraction.
+
+`einsum-ndarray` addresses general tensor contractions. `sprs` supplies sparse representations and sparse numerical kernels. `ndrustfft` handles spectral computation. `faer` and `nabled` provide larger numerical algorithm families. `ndarrow` supplies columnar-memory interoperability.
+
+Their value is not solely additional mathematical functionality.
+
+They can also eliminate separate implementations of contraction planning, sparse indexing, transform preparation, buffer interoperability, and specialized numerical execution.
+
+At the same time, every integration introduces its own contracts concerning layout, supported types, allocation behavior, numerical semantics, threading, and dependency versions.
+
+The strongest general architectural opportunity is to preserve `ndarray` as a flexible multidimensional representation and traversal layer while using specialized packages for computations or representations whose requirements extend beyond that layer.
+
+This combination can retain the benefits of native views, generic array references, and fused traversal without requiring every advanced numerical operation to be implemented through bespoke `ndarray` loops.
+
+## 8. Version and compatibility considerations
+
+The following versions were verified during this research.
+
+| Package          | Verified version | Relationship to ndarray 0.17.2                                |
+| ---------------- | ---------------- | ------------------------------------------------------------- |
+| `ndarray`        | 0.17.2           | Target core library                                           |
+| `einsum-ndarray` | 0.1.1            | Built for the 0.17-era API; early-stage contraction interface |
+| `sprs`           | 0.11.6           | Declared `ndarray` dependency range includes 0.17.2           |
+| `ndrustfft`      | 0.6.2            | Declares `ndarray` 0.17 compatibility                         |
+| `ndarrow`        | 0.0.4            | Built around `ndarray` 0.17 and Apache Arrow representations  |
+| `faer`           | 0.24.4           | Separate numerical representation and execution library       |
+| `faer-ext`       | 0.8.0            | Supplies feature-dependent matrix-view interoperability       |
+| `nabled`         | 0.0.11           | Declares `ndarray` 0.17 compatibility; evolving modular API   |
+
+Compatibility should be distinguished from the ability of every package to accept every array type or layout. Cargo dependency compatibility permits compatible versions to participate in the same build, but individual numerical and conversion interfaces retain their own type and representation requirements.
+
+Some companions also introduce native backend dependencies or compiler requirements exceeding the minimum Rust version of core `ndarray`.
+
+For early-stage companions in particular, published capabilities should be evaluated against the exact release rather than assuming a stable long-term API contract.
+
+Taken together, these additions complete several meaningful areas left implicit by the original reference: exact NumPy-compatibility boundaries, more advanced metadata-only transformations, array-view conversion and lifetime interfaces, subtle execution constraints, persistence semantics, and the specialized numerical and data-interoperability ecosystem around `ndarray` 0.17.2.

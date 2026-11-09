@@ -1048,34 +1048,30 @@ impl RunSupervisor {
         joined_abandon_error(&operation, &record).unwrap_or(WorkflowError::Shared(operation))
     }
 
-    fn launch_profiled<T>(
+    fn launch_unclaimed<T, Admitted>(
         services: &ExecutionServices,
-        time_limit: std::time::Duration,
+        time_limit: Option<std::time::Duration>,
+        history: usize,
         parent: Option<&crate::CancelSource>,
-        preflight: impl FnOnce() -> Result<(), WorkflowError>,
-        start: impl FnOnce(Self) -> Result<T, WorkflowError>,
+        preflight: impl FnOnce() -> Result<Admitted, WorkflowError>,
+        start: impl FnOnce(Self, Admitted) -> Result<T, WorkflowError>,
     ) -> Result<T, WorkflowError> {
         let deadline = Self::launch_deadline(time_limit, parent)?;
-        preflight()?;
+        let admitted = preflight()?;
         let activity = services.preparation().admit_activity()?;
         activity.sync_scope(crate::invocation::start_scope(|| {
-            start(Self::new(
-                services.clone(),
-                None,
-                parent,
-                Some(deadline),
-                256,
-            )?)
+            start(Self::new(services.clone(), None, parent, deadline, history)?, admitted)
         }))
     }
 
-    async fn launch_claimed<T>(
+    async fn launch_claimed<T, Admitted>(
         services: &ExecutionServices,
-        time_limit: std::time::Duration,
+        time_limit: Option<std::time::Duration>,
+        history: usize,
         parent: &crate::CancelSource,
         attempt: DurableAttempt,
-        preflight: impl FnOnce() -> Result<(), WorkflowError>,
-        start: impl FnOnce(Self) -> Result<T, WorkflowError>,
+        preflight: impl FnOnce() -> Result<Admitted, WorkflowError>,
+        start: impl FnOnce(Self, Admitted) -> Result<T, WorkflowError>,
     ) -> Result<T, WorkflowError> {
         let activity = match services.preparation().admit_activity() {
             Ok(activity) => activity,
@@ -1083,14 +1079,13 @@ impl RunSupervisor {
         };
         activity
             .scope(async {
-                let deadline =
+                let admission =
                     Self::launch_deadline(time_limit, Some(parent)).and_then(|deadline| {
                         Self::check_claim(services, parent)?;
-                        preflight()?;
-                        Ok(deadline)
+                        Ok((deadline, preflight()?))
                     });
-                let deadline = match deadline {
-                    Ok(deadline) => deadline,
+                let (deadline, admitted) = match admission {
+                    Ok(admission) => admission,
                     Err(error) => return Err(Self::abandon_claim(attempt, error).await),
                 };
                 crate::invocation::start_scope(|| {
@@ -1098,9 +1093,9 @@ impl RunSupervisor {
                         services.clone(),
                         Some(attempt),
                         Some(parent),
-                        Some(deadline),
-                        256,
-                    )?)
+                        deadline,
+                        history,
+                    )?, admitted)
                 })()
             })
             .await
@@ -1127,13 +1122,18 @@ impl RunSupervisor {
     }
 
     fn launch_deadline(
-        time_limit: std::time::Duration,
+        time_limit: Option<std::time::Duration>,
         parent: Option<&crate::CancelSource>,
-    ) -> Result<std::time::Instant, WorkflowError> {
+    ) -> Result<Option<std::time::Instant>, WorkflowError> {
         Self::check_launch_cancel(parent)?;
-        std::time::Instant::now()
-            .checked_add(time_limit)
-            .ok_or_else(|| deadline_limit("submitted task deadline extent"))
+        let now = std::time::Instant::now();
+        if parent.and_then(crate::CancelSource::deadline).is_some_and(|deadline| deadline <= now) {
+            return Err(deadline_limit("submitted task deadline elapsed before launch"));
+        }
+        time_limit.map(|limit| {
+            now.checked_add(limit)
+                .ok_or_else(|| deadline_limit("submitted task deadline extent"))
+        }).transpose()
     }
 
     pub(in crate::workflow) fn new(
@@ -1407,7 +1407,8 @@ impl super::ModelingSimulation {
     ) -> Result<RunHandle, WorkflowError> {
         RunSupervisor::launch_claimed(
             services,
-            self.profile().time_limit,
+            Some(self.profile().time_limit),
+            256,
             cancel,
             attempt,
             || {
@@ -1415,7 +1416,7 @@ impl super::ModelingSimulation {
                     .check_service_bindings(services.preparation())
                     .map_err(WorkflowError::from)
             },
-            |supervisor| self.start_owned(supervisor, None).map(|(handle, _)| handle),
+            |supervisor, ()| self.start_owned(supervisor, None).map(|(handle, _)| handle),
         )
         .await
     }
@@ -1425,18 +1426,19 @@ impl super::ModelingSimulation {
         parent: Option<&crate::CancelSource>,
         live: Option<super::LiveSimulationOptions>,
     ) -> Result<(RunHandle, Option<super::LiveSimulationCursor>), WorkflowError> {
-        RunSupervisor::launch_profiled(
+        RunSupervisor::launch_unclaimed(
             services,
-            self.profile().time_limit,
+            Some(self.profile().time_limit),
+            256,
             parent,
             || {
                 self.source.check_service_bindings(services.preparation())?;
                 if let Some(options) = live.as_ref() {
                     options.admit(self.profile())?;
                 }
-                Ok(())
+                Ok(live)
             },
-            |supervisor| self.start_owned(supervisor, live),
+            |supervisor, live| self.start_owned(supervisor, live),
         )
     }
     fn start_owned(
@@ -1614,9 +1616,10 @@ impl super::ShootingProblem {
         initial: Option<Vec<f64>>,
         parent: Option<&crate::CancelSource>,
     ) -> Result<RunHandle, WorkflowError> {
-        RunSupervisor::launch_profiled(
+        RunSupervisor::launch_unclaimed(
             services,
-            self.solver.controls.time_limit,
+            Some(self.solver.controls.time_limit),
+            256,
             parent,
             || {
                 self.simulation
@@ -1624,7 +1627,7 @@ impl super::ShootingProblem {
                     .check_service_bindings(services.preparation())
                     .map_err(WorkflowError::from)
             },
-            |supervisor| {
+            |supervisor, ()| {
                 let run_id = supervisor.run_id;
                 let deadline = supervisor
                     .checks
@@ -1699,7 +1702,8 @@ impl super::PreparedFit {
     ) -> Result<RunHandle, WorkflowError> {
         RunSupervisor::launch_claimed(
             services,
-            self.problem.profile.solver.controls.time_limit,
+            Some(self.problem.profile.solver.controls.time_limit),
+            256,
             cancel,
             attempt,
             || {
@@ -1707,7 +1711,7 @@ impl super::PreparedFit {
                     .check_service_bindings(services.preparation())
                     .map_err(WorkflowError::from)
             },
-            |supervisor| self.start_owned(supervisor),
+            |supervisor, ()| self.start_owned(supervisor),
         )
         .await
     }
@@ -1716,16 +1720,17 @@ impl super::PreparedFit {
         services: &ExecutionServices,
         parent: Option<&crate::CancelSource>,
     ) -> Result<RunHandle, WorkflowError> {
-        RunSupervisor::launch_profiled(
+        RunSupervisor::launch_unclaimed(
             services,
-            self.problem.profile.solver.controls.time_limit,
+            Some(self.problem.profile.solver.controls.time_limit),
+            256,
             parent,
             || {
                 self.source
                     .check_service_bindings(services.preparation())
                     .map_err(WorkflowError::from)
             },
-            |supervisor| self.start_owned(supervisor),
+            |supervisor, ()| self.start_owned(supervisor),
         )
     }
     fn start_owned(&self, supervisor: RunSupervisor) -> Result<RunHandle, WorkflowError> {
@@ -1878,9 +1883,7 @@ impl super::ModelingSolvePreparation {
     }
     /// Start one authored algebraic run: a one-step authored sequence.
     pub fn start(&self, services: &ExecutionServices) -> Result<RunHandle, WorkflowError> {
-        services.check_sequence(std::slice::from_ref(self))?;
-        let activity = services.preparation().admit_activity()?;
-        activity.sync_scope(|| services.launch(vec![self.clone()], false, None, None, None))
+        services.launch_modeling(vec![self.clone()], false, None)
     }
 }
 
@@ -1906,20 +1909,25 @@ impl ExecutionServices {
         continue_independent: bool,
         cancel: &crate::CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = self.preparation().admit_activity()?;
-        activity
-            .scope(async {
+        self.launch_modeling(steps, continue_independent, Some(cancel))
+    }
+    fn launch_modeling(
+        &self,
+        steps: Vec<super::ModelingSolvePreparation>,
+        continue_independent: bool,
+        parent: Option<&crate::CancelSource>,
+    ) -> Result<RunHandle, WorkflowError> {
+        RunSupervisor::launch_unclaimed(
+            self,
+            None,
+            modeling_history(&steps),
+            parent,
+            || {
                 self.check_sequence(&steps)?;
-                RunSupervisor::check_launch_cancel(Some(cancel))?;
-                self.launch(
-                    steps,
-                    continue_independent,
-                    None,
-                    Some(cancel.clone()),
-                    None,
-                )
-            })
-            .await
+                Ok(steps)
+            },
+            |supervisor, steps| self.start_sequence(supervisor, steps, continue_independent),
+        )
     }
     /// Start one caller-issued original sequence, or observe its existing canonical registration.
     /// Repetition revalidates the actual full native request and source/context before returning
@@ -1944,7 +1952,7 @@ impl ExecutionServices {
         activity
             .scope(async {
                 self.check_sequence(&steps)?;
-                RunSupervisor::check_launch_cancel(Some(cancel))?;
+                RunSupervisor::launch_deadline(None, Some(cancel))?;
                 let attempt = match self.durability() {
                     Durability::Ephemeral => None,
                     Durability::Durable(operations) => {
@@ -1987,14 +1995,17 @@ impl ExecutionServices {
                         Some(attempt)
                     }
                 };
-                self.launch(
-                    steps,
-                    false,
-                    attempt,
-                    Some(cancel.clone()),
-                    Some(identity.run),
-                )
-                .map(IssuedRunStart::Started)
+                crate::invocation::start_scope(|| {
+                    let mut supervisor = RunSupervisor::new(
+                        self.clone(),
+                        attempt,
+                        Some(cancel),
+                        None,
+                        modeling_history(&steps),
+                    )?;
+                    supervisor.run_id = identity.run;
+                    self.start_sequence(supervisor, steps, false).map(IssuedRunStart::Started)
+                })()
             })
             .await
     }
@@ -2006,20 +2017,19 @@ impl ExecutionServices {
         attempt: DurableAttempt,
         cancel: &crate::CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
-        let activity = match self.preparation().admit_activity() {
-            Ok(activity) => activity,
-            Err(error) => return Err(RunSupervisor::abandon_claim(attempt, error).await),
-        };
-        activity
-            .scope(async {
-                let admission = RunSupervisor::check_claim(self, cancel)
-                    .and_then(|()| self.check_sequence(&steps));
-                if let Err(error) = admission {
-                    return Err(RunSupervisor::abandon_claim(attempt, error).await);
-                }
-                self.launch(steps, false, Some(attempt), Some(cancel.clone()), None)
-            })
-            .await
+        RunSupervisor::launch_claimed(
+            self,
+            None,
+            modeling_history(&steps),
+            cancel,
+            attempt,
+            || {
+                self.check_sequence(&steps)?;
+                Ok(steps)
+            },
+            |supervisor, steps| self.start_sequence(supervisor, steps, false),
+        )
+        .await
     }
     /// Start the original authored initialization through the common joined run owner.
     pub(in crate::workflow) fn start_initialization(
@@ -2027,18 +2037,18 @@ impl ExecutionServices {
         operation: super::PreparedInitializationOperation,
         parent: &crate::CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
-        operation
-            .source
-            .check_service_bindings(self.preparation())?;
-        operation.execution.prepared_model(&operation.source)?;
-        let deadline = std::time::Instant::now()
-            .checked_add(operation.policy()?.time_limit)
-            .ok_or_else(|| deadline_limit("initialization operation deadline overflow"))?;
-        let history = operation.execution.analysis.solver.controls.history;
-        let activity = self.preparation().admit_activity()?;
-        activity.sync_scope(crate::invocation::start_scope(|| {
-            let supervisor =
-                RunSupervisor::new(self.clone(), None, Some(parent), Some(deadline), history)?;
+        RunSupervisor::launch_unclaimed(
+            self,
+            Some(operation.policy()?.time_limit),
+            operation.execution.analysis.solver.controls.history,
+            Some(parent),
+            || {
+                operation.source.check_service_bindings(self.preparation())?;
+                operation.execution.prepared_model(&operation.source)?;
+                Ok(operation)
+            },
+            |supervisor, operation| {
+            let request = Box::new(operation);
             Ok(supervisor.spawn(move |supervisor| async move {
                 let RunSupervisor {
                     services,
@@ -2047,7 +2057,6 @@ impl ExecutionServices {
                     checks: cancel,
                     ..
                 } = supervisor;
-                let request = Box::new(operation);
                 let stop = cancel.clone();
                 let admission = admit(
                     &services.source_services(),
@@ -2100,7 +2109,7 @@ impl ExecutionServices {
                 .finished(durable, cancelled)
                 .await
             }))
-        }))
+        })
     }
     fn check_sequence(
         &self,
@@ -2136,25 +2145,12 @@ impl ExecutionServices {
     ///
     /// Both routes require a bounded population ticket. A durable run registers its
     /// attempt, waits for CPU/memory under its original clock, and runs under its lease.
-    fn launch(
+    fn start_sequence(
         &self,
+        supervisor: RunSupervisor,
         steps: Vec<super::ModelingSolvePreparation>,
         continue_independent: bool,
-        attempt: Option<DurableAttempt>,
-        parent: Option<crate::CancelSource>,
-        issued_run: Option<RunId>,
     ) -> Result<RunHandle, WorkflowError> {
-        crate::invocation::start_scope(|| {
-            let history = steps
-                .iter()
-                .map(|s| s.profile.controls.history)
-                .max()
-                .unwrap_or(0);
-            let mut supervisor =
-                RunSupervisor::new(self.clone(), attempt, parent.as_ref(), None, history)?;
-            if let Some(run) = issued_run {
-                supervisor.run_id = run;
-            }
             let opened = match supervisor.durable {
                 None => Some(super::staged::Staged::open(
                     self,
@@ -2263,8 +2259,11 @@ impl ExecutionServices {
             result.modeling_failure = modeling_failure;
             result.finished(durable, cancelled).await
         }))
-        })()
     }
+}
+
+fn modeling_history(steps: &[super::ModelingSolvePreparation]) -> usize {
+    steps.iter().map(|step| step.profile.controls.history).max().unwrap_or(0)
 }
 
 #[cfg(all(test, feature = "solver-kinsol", feature = "solver-root-isolation"))]
@@ -2470,6 +2469,50 @@ mod modeling_failure_tests {
 
 #[cfg(test)]
 mod cancellation_tests {
+    #[tokio::test]
+    async fn initialization_launch_refuses_cancelled_and_expired_parents_before_dispatch() {
+        use super::{MathRuntimeError, WorkflowError};
+        use crate::workflow::{OperationSource, PreparationSettings, RuntimeOperationRequest, tests};
+
+        let runtime = tests::runtime();
+        let rows = pse_authoring::language::parse(
+            "package p {def D {var x:Scalar; eq e:x==2;} test selected fixture {dof -1; route simultaneous; procedure initialize; fix root.x=2;} {child root:D=D();}}",
+            pse_ids::SemanticId::NIL,
+            pse_authoring::language::IdentityPolicy::Named,
+            Default::default(),
+        ).unwrap();
+        let case = rows.iter().find(|row| row.name == "selected").unwrap().declaration_id;
+        let source = runtime.modeling_package(rows, tests::physical()).await.unwrap();
+        let services = runtime.execution_services();
+        let current = crate::CancelSource::new();
+        let operation = source.prepare_operation(
+            services.preparation(),
+            &OperationSource::of(&source),
+            &PreparationSettings { compiler: tests::compiler_profile(), limits: Default::default() },
+            RuntimeOperationRequest::DeclaredCase {
+                case,
+                settings: Box::new(crate::math::settings::SolveSettings {
+                    intent: pse_backend_native::solve::SolveIntent::Root,
+                    presolve: pse_backend_native::presolve::PolicyKind::Off,
+                    ..Default::default()
+                }),
+            },
+            None,
+            &current,
+        ).await.unwrap();
+        let cancelled = crate::CancelSource::new();
+        cancelled.cancel();
+        assert!(matches!(operation.start(&services, &cancelled).await,
+            Err(WorkflowError::Math(MathRuntimeError::Cancelled))));
+        let expired = current.with_deadline(Some(std::time::Instant::now()));
+        assert!(matches!(operation.start(&services, &expired).await,
+            Err(WorkflowError::Math(MathRuntimeError::Solve(pse_backend_native::ProblemError::Limit {
+                kind: pse_backend_native::LimitKind::Time, ..
+            })))));
+        let run = operation.start(&services, &current).await.unwrap().wait().await.unwrap();
+        assert!(run.usable());
+    }
+
     #[tokio::test]
     async fn refused_native_launch_retains_finish_error_after_drain() {
         use super::{MathRuntimeError, WorkflowError};

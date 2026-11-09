@@ -793,17 +793,16 @@ impl ModelingPackage {
         let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let activity = services.admit_activity()?;
-        activity
-            .scope(async {
-                let resolution = self
-                    .resolve_case(
-                        services, root, instance, bindings, limits, case, order, compiler, solver,
-                        numerical, overrides, false, cancel,
-                    )
-                    .await?;
-                self.finish_case(services, resolution, cancel).await
-            })
-            .await
+        let work = std::pin::pin!(async {
+            let resolution = self
+                .resolve_case(
+                    services, root, instance, bindings, limits, case, order, compiler, solver,
+                    numerical, overrides, false, cancel,
+                )
+                .await?;
+            self.finish_case(services, resolution, cancel).await
+        });
+        activity.scope(work).await
     }
     pub(in crate::workflow) async fn finish_case(
         &self,
@@ -1007,8 +1006,9 @@ impl ModelingPackage {
         let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
         let activity = services.admit_activity()?;
-        activity
-            .scope(async {
+        // The fixture future already owns this state. Scope a pinned borrow so
+        // generic diagnostic wrappers do not move that large state on the native stack.
+        let work = std::pin::pin!(async {
                 let original = engagement::OriginalPreparationInputs::capture(
                     services, root, instance, &bindings, limits,
                 )?;
@@ -1034,8 +1034,8 @@ impl ModelingPackage {
                     cancel,
                 )
                 .await
-            })
-            .await
+        });
+        activity.scope(work).await
     }
     /// Bind fresh numerical inputs to an already admitted parent specialization.
     #[expect(

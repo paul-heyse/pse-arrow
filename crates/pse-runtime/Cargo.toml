@@ -386,6 +386,8 @@ scope.tests = [
   "workflow::modeling::steam_tests::authored_wet_water_turbine_original_native_outcome_survives_protected_export",
   "workflow::modeling::steam_tests::authored_vapor_turbine_original_native_outcome_survives_protected_export",
   "workflow::modeling::steam_tests::authored_hot_vapor_turbine_original_native_outcome_survives_protected_export",
+  "workflow::modeling::steam_tests::authored_wall_stock_original_equilibrium_survives_protected_export",
+  "workflow::modeling::steam_tests::authored_wall_stock_original_perturbation_survives_protected_export",
 ]
 
 [[package.metadata.pse.test-fixtures]]

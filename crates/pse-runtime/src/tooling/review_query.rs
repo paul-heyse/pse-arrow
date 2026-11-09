@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Context of a declared optional query. No tool is installed or run by decoding it.
 pub mod developer;
+pub mod scientific_capture;
 use pse_model::document::Version;
 use serde::{Deserialize, Serialize};
 

@@ -3,9 +3,12 @@
 //! One lazy relation scan over exact captured original manifests, with bounded pages.
 use super::{
     RetainedDataServices, WorkflowError,
-    connected_results::{self, OutputFilter, OutputRows},
+    connected_results::{self, OriginalRowBatch, OutputFilter, OutputRows},
     contract,
-    result_snapshot::{NativeResultSelection, ResultBlockDecode, ResultPayloadAuthority},
+    result_snapshot::{
+        DecodedResultBatch, NativeResultSelection, ProjectedResultPredicate, ResultBlockDecode,
+        ResultPayloadAuthority,
+    },
     study_workbench::*,
 };
 use datafusion::{
@@ -30,6 +33,7 @@ use pse_operations::{
     canonical::MetadataResponse,
     canonical_capture_results::{CaptureResultCursor, CaptureResultLocators, CaptureResultRequest},
 };
+use pse_relations::validate::PreparedInspectionProjection;
 use std::{
     collections::{BTreeMap, VecDeque},
     sync::{Arc, Mutex},
@@ -334,6 +338,7 @@ struct Pending {
 #[derive(Debug)]
 struct Scan {
     state: Arc<CohortAnalysisState>,
+    projection: Option<Arc<CohortProjection>>,
     _guard: ScanGuard,
     members: Option<StudyCohortMemberPage>,
     member_cursor: Option<StudyCohortCursor>,
@@ -347,7 +352,10 @@ struct Scan {
     _owner: MemoryReservation,
 }
 impl Scan {
-    fn new(state: Arc<CohortAnalysisState>) -> Result<Self, WorkflowError> {
+    fn new(
+        state: Arc<CohortAnalysisState>,
+        projection: Option<Arc<CohortProjection>>,
+    ) -> Result<Self, WorkflowError> {
         let owner = MemoryConsumer::new("study-cohort:scan-state").register(&state.services.pool());
         owner
             .try_grow(
@@ -360,6 +368,7 @@ impl Scan {
         Ok(Self {
             _guard: ScanGuard::new(state.clone()),
             state,
+            projection,
             members: None,
             member_cursor: None,
             members_finished: false,
@@ -549,14 +558,26 @@ impl Scan {
                 let checked = self
                     .state
                     .decode
-                    .read_block(
+                    .read_observed_block(
                         ResultPayloadAuthority::Capture { read: item.read },
                         &item.block,
                         &item.batch,
+                        self.projection.as_ref().map(|projection| &projection.roots),
                         &self.state.cancel,
                     )
                     .await?;
-                let Some((selected, _rows)) = connected_results::select_original_rows(
+                let row_batch = match &checked {
+                    DecodedResultBatch::Full(batch) => OriginalRowBatch::Native(batch),
+                    DecodedResultBatch::Inspection(batch) => OriginalRowBatch::Projected {
+                        batch,
+                        predicate: &self
+                            .projection
+                            .as_ref()
+                            .ok_or_else(|| contract("cohort inspection predicate absent"))?
+                            .predicate,
+                    },
+                };
+                let Some(rows) = connected_results::select_original_row_offsets(
                     &self.state.services,
                     connected_results::OriginalRowSelection {
                         relation: self.state.relation,
@@ -565,23 +586,25 @@ impl Scan {
                     },
                     &item.block,
                     item.output,
-                    checked,
+                    row_batch,
                     self.state.request.start..self.state.request.end,
                     &self.state.cancel,
                 )?
                 else {
                     continue;
                 };
+                let selected = rows.apply_observation(
+                    &checked,
+                    &self.state.services.pool(),
+                    &self.state.cancel,
+                )?;
                 if selected.batch().num_rows() == 0 {
                     continue;
                 }
                 self.state
                     .knowledge()
                     .mark(item.position, StudyCohortAvailability::Included)?;
-                return selected
-                    .checked_export(&self.state.cancel)
-                    .map(Some)
-                    .map_err(super::relation);
+                return selected.query_batch(&self.state.cancel).map(Some);
             }
             self.finish_sources()?;
             self.page_owner = None;
@@ -611,6 +634,13 @@ impl Scan {
 
 #[derive(Debug)]
 struct CohortProvider(Arc<CohortAnalysisState>);
+
+#[derive(Debug)]
+struct CohortProjection {
+    roots: Arc<PreparedInspectionProjection>,
+    predicate: ProjectedResultPredicate,
+}
+
 #[async_trait::async_trait]
 impl TableProvider for CohortProvider {
     fn schema(&self) -> SchemaRef {
@@ -646,13 +676,29 @@ impl TableProvider for CohortProvider {
                 "cohort query uses another deployment pool".into(),
             ));
         }
-        StreamingTable::try_new(
-            self.schema(),
-            vec![Arc::new(CohortPartition(self.0.clone()))],
-        )?
+        let mut schema = self.schema();
+        let mut physical = None;
+        let mut relative = None;
+        // Dense trajectories need the full checked sample view. For scalars,
+        // DataFusion retains residual filter columns in its scan projection;
+        // add the native selection dependencies and original validation keys.
+        if let Some(native) = &self.0.native
+            && let Some(plan) = self.0.decode.query_projection(projection, native.required_roots())?
+        {
+            let roots = plan.roots;
+            let predicate = native.project(&self.0.services, &roots)?;
+            schema = roots.schema().clone();
+            relative = Some(plan.output);
+            physical = Some(Arc::new(CohortProjection { roots, predicate }));
+        }
+        StreamingTable::try_new(schema.clone(), vec![Arc::new(CohortPartition {
+            state: self.0.clone(),
+            schema,
+            projection: physical,
+        })])?
         .scan(
             state,
-            projection,
+            relative.as_ref().or(projection),
             &[],
             if filters.is_empty() { limit } else { None },
         )
@@ -660,17 +706,21 @@ impl TableProvider for CohortProvider {
     }
 }
 #[derive(Debug)]
-struct CohortPartition(Arc<CohortAnalysisState>);
+struct CohortPartition {
+    state: Arc<CohortAnalysisState>,
+    schema: SchemaRef,
+    projection: Option<Arc<CohortProjection>>,
+}
 impl PartitionStream for CohortPartition {
     fn schema(&self) -> &SchemaRef {
-        &self.0.schema
+        &self.schema
     }
     fn execute(&self, context: Arc<TaskContext>) -> SendableRecordBatchStream {
-        let state = self.0.clone();
+        let state = self.state.clone();
         let matches = Arc::ptr_eq(&context.runtime_env().memory_pool, &state.services.pool());
         let stream = futures_util::stream::try_unfold(
-            (state, None::<Scan>, matches),
-            |(state, scan, matches)| async move {
+            (state, self.projection.clone(), None::<Scan>, matches),
+            |(state, projection, scan, matches)| async move {
                 if !matches {
                     return Err(DataFusionError::Execution(
                         "cohort execution uses another deployment pool".into(),
@@ -678,7 +728,7 @@ impl PartitionStream for CohortPartition {
                 }
                 let mut scan = match scan {
                     Some(scan) => scan,
-                    None => Scan::new(state.clone()).map_err(pse_columnar::external)?,
+                    None => Scan::new(state.clone(), projection.clone()).map_err(pse_columnar::external)?,
                 };
                 let Some(batch) = scan
                     .next()
@@ -688,10 +738,10 @@ impl PartitionStream for CohortPartition {
                 else {
                     return Ok(None);
                 };
-                Ok(Some((batch, (state, Some(scan), matches))))
+                Ok(Some((batch, (state, projection, Some(scan), matches))))
             },
         );
-        Box::pin(RecordBatchStreamAdapter::new(self.0.schema.clone(), stream))
+        Box::pin(RecordBatchStreamAdapter::new(self.schema.clone(), stream))
     }
 }
 

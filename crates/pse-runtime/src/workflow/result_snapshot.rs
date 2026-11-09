@@ -162,16 +162,8 @@ impl ProtectedResultDecode {
         cancel: &CancellationToken,
     ) -> Result<DecodedResultBatch, WorkflowError> {
         self.decode
-            .access_block(
-                self.authority(),
-                block,
-                descriptor,
-                cancel,
-                true,
-                projection,
-            )
-            .await?
-            .ok_or_else(|| contract("protected observed batch decode absent"))
+            .read_observed_block(self.authority(), block, descriptor, projection, cancel)
+            .await
     }
     pub(super) async fn validate_pruned_block(
         &self,
@@ -201,6 +193,30 @@ impl ResultBlockDecode {
             .map_err(pse_engine::EngineError::from)
             .map_err(Into::into)
     }
+
+    /// Keep the original validation roots in the physical read and return the
+    /// caller's column order relative to that read. A full read needs no remap.
+    pub(super) fn query_projection(
+        &self,
+        requested: Option<&Vec<usize>>,
+        dependencies: impl IntoIterator<Item = usize>,
+    ) -> NativeResult<Option<QueryResultProjection>> {
+        let Some(requested) = requested.filter(|roots| roots.len() < self.schema.fields().len()) else {
+            return Ok(None);
+        };
+        let mut required = requested.clone();
+        required.extend(dependencies);
+        let roots = self.inspection_projection(&required).map_err(pse_columnar::external)?;
+        if roots.roots().len() == self.schema.fields().len() {
+            return Ok(None);
+        }
+        let output = requested.iter().map(|root| {
+            roots.roots().binary_search(root).map_err(|_| {
+                DataFusionError::Plan("query root outside protected projection".into())
+            })
+        }).collect::<NativeResult<_>>()?;
+        Ok(Some(QueryResultProjection { roots, output }))
+    }
     pub(super) fn new(
         services: &RetainedDataServices,
         relation: pse_ids::SemanticId,
@@ -220,6 +236,11 @@ impl ResultBlockDecode {
             _owner: owner,
         }))
     }
+}
+
+pub(super) struct QueryResultProjection {
+    pub(super) roots: Arc<pse_relations::validate::PreparedInspectionProjection>,
+    pub(super) output: Vec<usize>,
 }
 
 #[derive(Debug)]
@@ -333,7 +354,7 @@ impl DecodedResultBatch {
         }
     }
 
-    fn query_batch(
+    pub(super) fn query_batch(
         self,
         cancel: &CancellationToken,
     ) -> Result<datafusion::arrow::record_batch::RecordBatch, WorkflowError> {
@@ -567,7 +588,7 @@ impl ResultSnapshot {
 }
 
 impl ResultBlockDecode {
-    pub(super) async fn read_block(
+    async fn read_block(
         &self,
         authority: ResultPayloadAuthority,
         block: &Block,
@@ -581,6 +602,19 @@ impl ResultBlockDecode {
             Some(DecodedResultBatch::Full(batch)) => Ok(batch),
             _ => Err(contract("protected native batch decode absent")),
         }
+    }
+
+    pub(super) async fn read_observed_block(
+        &self,
+        authority: ResultPayloadAuthority,
+        block: &Block,
+        descriptor: &FileBatch,
+        projection: Option<&Arc<pse_relations::validate::PreparedInspectionProjection>>,
+        cancel: &CancellationToken,
+    ) -> Result<DecodedResultBatch, WorkflowError> {
+        self.access_block(authority, block, descriptor, cancel, true, projection)
+            .await?
+            .ok_or_else(|| contract("protected observed batch decode absent"))
     }
     async fn access_block(
         &self,
@@ -1226,6 +1260,7 @@ pub(super) struct NativeResultSelection {
     _owner: MemoryReservation,
 }
 
+#[derive(Debug)]
 pub(super) struct ProjectedResultPredicate {
     physical: Arc<dyn datafusion::physical_expr::PhysicalExpr>,
     _owner: MemoryReservation,
@@ -1482,38 +1517,19 @@ impl TableProvider for SnapshotProvider {
         }
         let pruning = prepare_pruning(&self.0, state, filters)?;
         let schema = self.schema();
-        let mut scan_projection = None;
-        let mut roots = None;
-        if let Some(requested) =
-            projection.filter(|requested| requested.len() < schema.fields().len())
-        {
+        let mut dependencies = Vec::new();
+        if projection.is_some_and(|roots| roots.len() < schema.fields().len()) {
             // Inexact pushdown consults the filter on the original schema. Keep
             // any predicate-only columns in the physical read, then return the
             // exact projection requested by DataFusion for residual evaluation.
-            let mut dependencies = requested.clone();
             for filter in filters {
                 for column in filter.column_refs() {
                     dependencies.push(schema.index_of(&column.name)?);
                 }
             }
-            let prepared = self
-                .0
-                .decode()
-                .inspection_projection(&dependencies)
-                .map_err(pse_columnar::external)?;
-            if prepared.roots().len() < schema.fields().len() {
-                let relative = requested
-                    .iter()
-                    .map(|root| {
-                        prepared.roots().binary_search(root).map_err(|_| {
-                            DataFusionError::Plan("query root outside protected projection".into())
-                        })
-                    })
-                    .collect::<NativeResult<Vec<_>>>()?;
-                scan_projection = Some(relative);
-                roots = Some(prepared);
-            }
         }
+        let physical = self.0.decode().query_projection(projection, dependencies)?;
+        let roots = physical.as_ref().map(|projection| projection.roots.clone());
         let schema = roots
             .as_ref()
             .map_or(schema, |roots| roots.schema().clone());
@@ -1523,7 +1539,7 @@ impl TableProvider for SnapshotProvider {
         )?
         // Inexact filters remain native residuals above this provider. An early
         // limit could count false positives before the residual rejects them.
-        .scan(state, scan_projection.as_ref().or(projection), &[], if filters.is_empty() { limit } else { None })
+        .scan(state, physical.as_ref().map(|plan| &plan.output).or(projection), &[], if filters.is_empty() { limit } else { None })
         .await
     }
 }

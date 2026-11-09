@@ -114,7 +114,7 @@ area=wall_area,hot_film=wall_hot_film,cold_film=wall_cold_film,capacity=wall_cap
 // pressure. Fix those same physical coordinates, so no datum magnitude moves
 // between the reference implementation and this model.
 @id("66e0400000000000000000000000001b") test linear_water_valve_rated oracle released_linear_water_valve fixture {dof 0;route steady;procedure solve;fix root.inlet.T=valve_feed_temperature;fix root.inlet.pressure=valve_feed_pressure;fix root.inlet.flow=valve_feed_flow;fix root.inlet.z[chem.water]=1{1};} {
-@id("66e0400000000000000000000000001c") child root:pressure_change.LinearRatedValve=pressure_change.LinearRatedValve(inlet_pkg=steam.Liquid(water_component=chem.water),outlet_pkg=steam.Liquid(water_component=chem.water,defined_state=false),rated_flow=valve_rated_flow,rated_drop=valve_rated_drop,opening=valve_rating_opening);
+@id("66e0400000000000000000000000001c") child root:pressure_change.RatedValve=pressure_change.RatedValve(inlet_pkg=steam.Liquid(water_component=chem.water),outlet_pkg=steam.Liquid(water_component=chem.water,defined_state=false),rated_flow=valve_rated_flow,rated_drop=valve_rated_drop,opening=valve_rating_opening,curve=pressure_change.ValveCurve.Linear);
 @id("66e0400000000000000000000000001d") expect root.outlet.pressure==valve_rating_outlet tolerance 1{Pa};
 @id("66e0400000000000000000000000001e") expect root.outlet.flow==valve_feed_flow tolerance 1e-5{mol/s};
 @id("66e0400000000000000000000000001f") expect root.outlet.component_flow[chem.water]==root.inlet.component_flow[chem.water] tolerance 1e-5{mol/s};
@@ -123,7 +123,7 @@ area=wall_area,hot_film=wall_hot_film,cold_film=wall_cold_film,capacity=wall_cap
 @id("66e04000000000000000000000000022") expect root.work==0{W} tolerance 1e-6{W};
 }
 @id("66e04000000000000000000000000023") test linear_water_valve_off_design oracle valve_off_design fixture {dof 0;route steady;procedure solve;fix root.inlet.T=valve_feed_temperature;fix root.inlet.pressure=valve_feed_pressure;fix root.inlet.flow=valve_feed_flow;fix root.inlet.z[chem.water]=1{1};} {
-@id("66e04000000000000000000000000024") child root:pressure_change.LinearRatedValve=pressure_change.LinearRatedValve(inlet_pkg=steam.Liquid(water_component=chem.water),outlet_pkg=steam.Liquid(water_component=chem.water,defined_state=false),rated_flow=valve_rated_flow,rated_drop=valve_rated_drop,opening=0.8);
+@id("66e04000000000000000000000000024") child root:pressure_change.RatedValve=pressure_change.RatedValve(inlet_pkg=steam.Liquid(water_component=chem.water),outlet_pkg=steam.Liquid(water_component=chem.water,defined_state=false),rated_flow=valve_rated_flow,rated_drop=valve_rated_drop,opening=0.8,curve=pressure_change.ValveCurve.Linear);
 @id("66e04000000000000000000000000025") expect root.outlet.pressure==160937.5{Pa} tolerance 1{Pa};
 @id("66e04000000000000000000000000026") expect root.outlet.flow==valve_feed_flow tolerance 1e-5{mol/s};
 @id("66e04000000000000000000000000027") expect root.outlet.component_flow[chem.water]==root.inlet.component_flow[chem.water] tolerance 1e-5{mol/s};
@@ -136,6 +136,22 @@ area=wall_area,hot_film=wall_hot_film,cold_film=wall_cold_film,capacity=wall_cap
 }
 @id("66e0400000000000000000000000002d") test linear_water_valve_reverse_refuses oracle released_linear_water_valve fixture {dof 0;route steady;procedure check;failure trial_rejected validity(form) form(pressure_change.forward_valve_flow) variable(flow);} {
 @id("66e0400000000000000000000000002e") expect pressure_change.forward_valve_flow(-1000{mol/s})==-1000{mol/s} tolerance 0{mol/s};
+}
+@id("66e04000000000000000000000000036") entity provenance.oracle_test released_quick_water_valve {title="Quick-opening Water valve rating at 1000 mol/s, 100 kPa drop, and half opening",release=references.idaes_2_13,locator="idaes/models/unit_models/tests/test_valve.py::TestQuickValveScalerObject"}
+@id("66e04000000000000000000000000037") entity provenance.oracle_test released_equal_percentage_water_valve {title="Equal-percentage Water valve rating with rangeability 100, 1000 mol/s, 100 kPa drop, and half opening",release=references.idaes_2_13,locator="idaes/models/unit_models/tests/test_valve.py::TestEPValveScalerObject"}
+// Convert each half-opening rating to unit opening, then change opening to 0.8.
+// The independent pressure drops are 100 kPa × 0.5 / 0.8 and 100 kPa × 100^(-0.6).
+@id("66e04000000000000000000000000038") test quick_water_valve_off_design oracle released_quick_water_valve fixture {dof 0;route steady;procedure solve;fix root.inlet.T=valve_feed_temperature;fix root.inlet.pressure=valve_feed_pressure;fix root.inlet.flow=valve_feed_flow;fix root.inlet.z[chem.water]=1{1};} {
+@id("66e04000000000000000000000000039") child root:pressure_change.RatedValve=pressure_change.RatedValve(inlet_pkg=steam.Liquid(water_component=chem.water),outlet_pkg=steam.Liquid(water_component=chem.water,defined_state=false),rated_flow=1414.2135623730951{mol/s},rated_drop=valve_rated_drop,opening=0.8,curve=pressure_change.ValveCurve.QuickOpening);
+@id("66e0400000000000000000000000003a") expect root.outlet.pressure==137500{Pa} tolerance 1{Pa};
+@id("66e0400000000000000000000000003b") expect root.outlet.component_flow[chem.water]==root.inlet.component_flow[chem.water] tolerance 1e-5{mol/s};
+@id("66e0400000000000000000000000003c") expect root.outlet.h==root.inlet.h tolerance 0.001{J/mol};
+}
+@id("66e0400000000000000000000000003d") test equal_percentage_water_valve_off_design oracle released_equal_percentage_water_valve fixture {dof 0;route steady;procedure solve;fix root.inlet.T=valve_feed_temperature;fix root.inlet.pressure=valve_feed_pressure;fix root.inlet.flow=valve_feed_flow;fix root.inlet.z[chem.water]=1{1};} {
+@id("66e0400000000000000000000000003e") child root:pressure_change.RatedValve=pressure_change.RatedValve(inlet_pkg=steam.Liquid(water_component=chem.water),outlet_pkg=steam.Liquid(water_component=chem.water,defined_state=false),rated_flow=10000{mol/s},rated_drop=valve_rated_drop,opening=0.8,curve=pressure_change.ValveCurve.EqualPercentage,rangeability=100);
+@id("66e0400000000000000000000000003f") expect root.outlet.pressure==193690.42655519806{Pa} tolerance 1{Pa};
+@id("66e04000000000000000000000000040") expect root.outlet.component_flow[chem.water]==root.inlet.component_flow[chem.water] tolerance 1e-5{mol/s};
+@id("66e04000000000000000000000000041") expect root.outlet.h==root.inlet.h tolerance 0.001{J/mol};
 }
 // The inlet molar density is the published 996.556 kg/m3 divided by the
 // IAPWS Water model's 0.018015268 kg/mol. Set F=0.001*rho mol/s, hence the

@@ -105,6 +105,13 @@ physical identity. Specific mechanisms and limits are in
 | G06 | planned | Changed producers and 66b/66e/66f receiving consumers | Selected declarations, native clients, diagnostics, retained/exported readers and source/reference mappings migrate together; replaced adapters and fixtures are deleted |
 | G07 | planned | Selected G02–G06 deliveries and 66l independent expectations | Configuration-specific missing acceptance is complete, required failures remain attributable, scope claims reconcile with 66l and enduring contracts are published |
 
+The forward rated Water valve now selects linear, quick-opening or equal-percentage response
+in one authored pressure-drop and energy-balance model. The linear-only constructor has been
+removed and its callers use the selected curve. The new off-design cases use the independently
+derived expectations from the pinned IDAES 2.13 ratings, including distinct pressure drops at
+the same opening and unchanged component flow and enthalpy. Qualification is case-specific;
+these forward steady cases do not supply transient or closed-valve behavior.
+
 ### Selected pure ethane transport
 
 The first G03 transport producer adds the nominal dynamic-viscosity quantity and
