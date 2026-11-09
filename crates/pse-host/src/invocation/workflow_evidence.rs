@@ -16,6 +16,7 @@ use crate::{
     },
 };
 use rustix::fs::{AtFlags, FlockOperation, Mode, OFlags, flock, openat, unlinkat};
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -399,6 +400,62 @@ pub(super) fn pending_extent(
     Ok((bytes, Some(digest)))
 }
 
+/// Actual extents of the original members still available to an explicit reader.
+#[derive(Debug, Default, Serialize, JsonSchema)]
+pub(super) struct ObservedExtent {
+    apparent_bytes: u64,
+    allocated_bytes: u64,
+    observed_members: usize,
+    unavailable_members: usize,
+}
+
+impl ObservedExtent {
+    fn add(&mut self, opened: Result<File, HostError>, expected: &DescriptorIdentity) {
+        let allocated = opened.and_then(|file| {
+            let metadata = file.metadata()?;
+            if descriptor_identity(&file)? != *expected {
+                return Err(invalid("workflow member no longer has its enrolled identity"));
+            }
+            Ok(metadata.blocks().saturating_mul(512))
+        });
+        match allocated {
+            Ok(bytes) => {
+                self.apparent_bytes = self.apparent_bytes.saturating_add(expected.bytes);
+                self.allocated_bytes = self.allocated_bytes.saturating_add(bytes);
+                self.observed_members += 1;
+            }
+            Err(_) => self.unavailable_members += 1,
+        }
+    }
+}
+
+/// Observe the enrolled file set without sweeping unrelated paths or refreshing expiry.
+pub(super) fn observe_extent(
+    store: &InvocationStore,
+    original: &InvocationDirectory,
+    report: &ReportReference,
+) -> Result<Option<ObservedExtent>, HostError> {
+    let Some(record) = read_enrollment(store, original, report)? else {
+        return Ok(None);
+    };
+    let _fence = workflow_lock(original, FlockOperation::LockShared)?;
+    let workflow = original.path().join("workflow");
+    let mut extent = ObservedExtent::default();
+    for member in &record.members {
+        extent.add(
+            open_member(&workflow, &member.path).map(|(_, _, file)| file),
+            &member.identity,
+        );
+    }
+    if let Some(raw) = streams(original)? {
+        let parent = private_root(original.path())?;
+        for (name, expected) in raw.members() {
+            extent.add(open_child(&parent, Path::new(name)), expected);
+        }
+    }
+    Ok(Some(extent))
+}
+
 fn save_release_intent(
     original: &InvocationDirectory, enrollment: &Enrollment,
 ) -> Result<(), HostError> {
@@ -712,6 +769,10 @@ mod tests {
         let replacement = member.with_extension("replacement");
         write_member(&replacement, b"the original");
         fs::rename(replacement, &member).unwrap();
+        let observed = observe_extent(&store, &original, &report).unwrap().unwrap();
+        assert_eq!(observed.apparent_bytes, report.byte_length);
+        assert_eq!(observed.observed_members, 1);
+        assert_eq!(observed.unavailable_members, 1);
         assert!(release(&store, &original, &report).is_err());
         assert_eq!(fs::read(member).unwrap(), b"the original");
         assert!(original.path().join("workflow/report.json").exists());

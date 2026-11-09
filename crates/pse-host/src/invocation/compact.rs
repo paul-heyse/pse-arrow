@@ -117,6 +117,9 @@ pub struct CompactRetirement {
     pub workflow_bytes: u64,
     /// Apparent bytes actually unlinked by this release.
     pub released_workflow_bytes: u64,
+    /// Actual extent observed on an explicit preview; missing and changed members are excluded.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    observed_workflow_extent: Option<workflow_evidence::ObservedExtent>,
 }
 
 /// Result of one bounded checkout-local automatic release pass.
@@ -617,6 +620,7 @@ impl InvocationStore {
             release: None,
             workflow_bytes: 0,
             released_workflow_bytes: 0,
+            observed_workflow_extent: None,
         };
         if let RecordState::Active {
             settled_unix_ms,
@@ -686,6 +690,13 @@ impl InvocationStore {
             .ok_or_else(|| invalid("compact result is unavailable"))?;
         let now = unix_millis(SystemTime::now())?;
         let mut preview = self.preview_record(&record, now)?;
+        if release.is_none()
+            && let RecordState::Active { original_report, .. } = &record.state
+        {
+            let original = self.require_compact_class(id)?;
+            preview.observed_workflow_extent =
+                workflow_evidence::observe_extent(self, &original, original_report)?;
+        }
         if let Some(token) = release {
             if preview.disposition == "retired" {
                 return Ok(preview);
