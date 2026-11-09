@@ -20,6 +20,47 @@
   "conversion_rules": [],
   "quantity_kinds": [
     {
+      "quantity_kind_id": "64d03100000000000000000000000001",
+      "name": "dynamic_viscosity",
+      "dimension": [
+        {
+          "num": -1,
+          "den": 1
+        },
+        {
+          "num": 1,
+          "den": 1
+        },
+        {
+          "num": -1,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        },
+        {
+          "num": 0,
+          "den": 1
+        }
+      ],
+      "extensive": false,
+      "addition_kind": "additive",
+      "doc": "Dynamic shear viscosity; natural zero, independent of a material basis or caloric datum."
+    },
+    {
       "quantity_kind_id": "05408163cb6c117e9a1bc4a2cfe35cd2",
       "name": "energy_flow",
       "dimension": [
@@ -6247,6 +6288,19 @@
   ],
   "quantity_types": [
     {
+      "quantity_type_id": "64d03100000000000000000000000002",
+      "name": "DynamicViscosity",
+      "quantity_kind_id": "64d03100000000000000000000000001",
+      "basis_id": null,
+      "reference_state_id": null,
+      "scale_kind": "point",
+      "shape": [],
+      "subject_kind": null,
+      "canonical_unit_id": "f76e30020c523ccd912388f63f44758e",
+      "nominal_magnitude": null,
+      "doc": "Scalar dynamic viscosity in Pa s."
+    },
+    {
       "quantity_type_id": "444b0e3a605868226f322ae3a06f450e",
       "name": "ActivationEnergy",
       "quantity_kind_id": "f0b65828f7769f742347b939ab579f07",
@@ -8198,6 +8252,26 @@
     }
   ],
   "units": [
+    {
+      "unit_id": "f76e30020c523ccd912388f63f44758e",
+      "symbol": "Pa*s",
+      "name": "pascal second",
+      "reference_state_id": null,
+      "definition": [
+        {
+          "unit_id": "5ef27d6bf2d172cc23a1f4da3a7ffa3b",
+          "num": 1,
+          "den": 1
+        },
+        {
+          "unit_id": "8603b85ce543b8a618530ae4e9153091",
+          "num": 1,
+          "den": 1
+        }
+      ],
+      "system": "SI",
+      "doc": "Defined unit: its dimension and scale follow from the canonical Pa and s factors (ADR-0124)."
+    },
     {
       "unit_id": "b73f6834274def3690812937802e17da",
       "symbol": "J/mol",

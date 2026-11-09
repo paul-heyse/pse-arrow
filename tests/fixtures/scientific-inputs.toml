@@ -425,3 +425,22 @@ documents = [
   "packages/reference/seed-data/models/exchanger-inference.pse",
 ]
 consumers = ["pse-runtime"]
+
+[[families]]
+name = "pure-transport"
+roots = ["packages/reference/seed-data"]
+documents = [
+  "packages/reference/physical/models/chemistry.pse",
+  "packages/reference/physical/models/compatibility.pse",
+  "packages/reference/physical/models/kinds.pse",
+  "packages/reference/data/ciaaw/models/catalogue.pse",
+  "packages/reference/data/species/models/catalogue.pse",
+  "packages/reference/domain/models/constants.pse",
+  "packages/reference/domain/models/properties.pse",
+  "packages/reference/domain/models/provenance.pse",
+  "packages/reference/data/references/models/references.pse",
+  "packages/reference/methods/models/chapman-enskog.pse",
+  "packages/reference/seed-data/models/transport-fixtures.pse",
+]
+consumers = ["pse-compiler"]
+projection = "declarations"

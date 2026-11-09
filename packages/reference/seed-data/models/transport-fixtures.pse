@@ -1,0 +1,39 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
+@id("64d03100000000000000000000000040") package transport_fixtures {
+@id("64d03100000000000000000000000041") use chapman_enskog @"1.0.0";
+@id("64d03100000000000000000000000042") use chem @"1.0.0";
+@id("64d03100000000000000000000000043") use chemistry @"1.0.0";
+@id("64d03100000000000000000000000044") use compatibility @"1.0.0";
+@id("64d03100000000000000000000000045") use properties @"1.0.0";
+@id("64d03100000000000000000000000046") use provenance @"1.0.0";
+@id("64d03100000000000000000000000047") use references @"1.0.0";
+@id("64d03100000000000000000000000048") entity provenance.oracle_test released_ethane_viscosity {title="Ethane vapor viscosity, fifth-edition handbook Table 9.2 values selected by the pinned test; the executable converts to micropoise",release=references.idaes_2_13,locator="idaes/models/properties/modular_properties/pure/tests/test_ChapmanEnskog.py::test_visc_vap_comp_ethane"}
+@id("64d03100000000000000000000000049") entity properties.parameterization ethane_appendix_b {title="Ethane Lennard–Jones data from fifth-edition handbook Appendix B, as used by the pinned Chapman–Enskog test",source=references.poling2000}
+@id("64d0310000000000000000000000004a") dataset ethane_lennard_jones:chapman_enskog.neufeld bind(property=properties.dynamic_viscosity,parameterization=ethane_appendix_b,source=references.poling2000,dependencies={},conventions={chapman_enskog.formulation}) provenance(references.poling2000,provenance.Role.published) {
+[chem.ethane,compatibility.PhaseType.vaporPhase]=[4.443e-10{m},215.7{K}];
+}
+@id("64d0310000000000000000000000005a") set species:Set<chemistry.species>={chem.ethane};
+@id("64d0310000000000000000000000005b") set models:Set<properties.property>={properties.dynamic_viscosity};
+@id("64d0310000000000000000000000004b") entity properties.selection_context admitted {roots={chapman_enskog.neufeld[chem.ethane,properties.dynamic_viscosity,compatibility.PhaseType.vaporPhase,ethane_appendix_b]},subjects=species,models=models,rules={}}
+@id("64d0310000000000000000000000004c") entity properties.property_package ethane_vapor {admitted=admitted}
+@id("64d03100000000000000000000000059") set packages:Set<properties.property_package>={ethane_vapor};
+@id("64d0310000000000000000000000004d") dataset ethane_binding:properties.selection complete_over(k in packages,j in species,p in models,t in properties.vapor_types) provenance(references.poling2000,provenance.Role.derived,lineage(dataset ethane_lennard_jones)) {
+[ethane_vapor,chem.ethane,properties.dynamic_viscosity,compatibility.PhaseType.vaporPhase]=[chapman_enskog.neufeld[chem.ethane,properties.dynamic_viscosity,compatibility.PhaseType.vaporPhase,ethane_appendix_b]];
+}
+@id("64d0310000000000000000000000004e") fn ethane_viscosity(T:Temperature)->DynamicViscosity=properties.component_viscosity(ethane_vapor,chemistry.vapor,chem.ethane,T);
+@id("64d0310000000000000000000000004f") fn reduced_ethane_viscosity(T:Temperature)->Scalar=ethane_viscosity(T)/chapman_enskog.viscosity_scale;
+@id("64d03100000000000000000000000050") constant derivative_step:DeltaTemperature=1{K} provenance(released_ethane_viscosity,provenance.Role.synthetic);
+@id("64d03100000000000000000000000051") test ethane_vapor_viscosity oracle released_ethane_viscosity fixture {dof 0;route steady;procedure check;} {
+@id("64d03100000000000000000000000052") permission selected_dilute_fit records(chapman_enskog.neufeld[chem.ethane,properties.dynamic_viscosity,compatibility.PhaseType.vaporPhase,ethane_appendix_b]) allow_unknown true allow_extrapolation false;
+// The species catalogue derives 30.070 g/mol from its existing elemental composition.
+@id("64d03100000000000000000000000053") expect (if present(chem.ethane.molar_mass) then chem.ethane.molar_mass else 0{kg/mol})==0.030070{kg/mol} tolerance 1e-12{kg/mol};
+// The measured comparisons are separate from the selected ordinary model input data.
+@id("64d03100000000000000000000000054") expect ethane_viscosity(320.15{K})==1.00e-5{Pa*s} tolerance 0{Pa*s} relative 0.03;
+@id("64d03100000000000000000000000055") expect ethane_viscosity(390.15{K})==1.20e-5{Pa*s} tolerance 0{Pa*s} relative 0.03;
+@id("64d03100000000000000000000000056") expect ethane_viscosity(520.15{K})==1.56e-5{Pa*s} tolerance 0{Pa*s} relative 0.03;
+// Numerical differences are independent checks of the executable symbolic jets only.
+@id("64d03100000000000000000000000057") expect partial(reduced_ethane_viscosity,T)(390.15{K})*derivative_step==(reduced_ethane_viscosity(390.15{K}+derivative_step)-reduced_ethane_viscosity(390.15{K}-derivative_step))/2 tolerance 1e-7;
+@id("64d03100000000000000000000000058") expect partial(reduced_ethane_viscosity,T,T)(390.15{K})*derivative_step^2==reduced_ethane_viscosity(390.15{K}+derivative_step)-2*reduced_ethane_viscosity(390.15{K})+reduced_ethane_viscosity(390.15{K}-derivative_step) tolerance 1e-7;
+}
+}

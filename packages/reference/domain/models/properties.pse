@@ -20,6 +20,7 @@
 @id("01a0f00c1fbb76f19ac7c81198741731") entity property heat_capacity { quantity = MolarCp, shape = IndexShape.pure, applies = {liquidPhase, vaporPhase, solidPhase} }
 @id("01a0f00c1fbb76f19ac7c81214d2507e") entity property vapor_pressure { quantity = Pressure, shape = IndexShape.pure, applies = {liquidPhase} }
 @id("01a0f00c1fbb76f19ac7c8130b8eb83a") entity property liquid_molar_density { quantity = MolarDensity, shape = IndexShape.pure, applies = {liquidPhase} }
+@id("64d03100000000000000000000000003") entity property dynamic_viscosity { quantity = DynamicViscosity, shape = IndexShape.pure, applies = {vaporPhase} }
 // Fit identity, evidence and scientific contract are distinct. A carrier has no keys.
 @id("3e9f5b03c4744218a9fa997894f9dbf5") entity kind parameterization {
 @id("e21769dc7ad34f1c8919208357621813") attribute title:Text;
@@ -102,6 +103,12 @@
 @id("01a0f00c1fbb76f19ac7c829c1b4f5e5") attribute density: Fn(T: Temperature, s: liquid_density_set) -> MolarDensity;
 @id("01a0f00c1fbb76f19ac7c82a55d5bffe") require property == liquid_molar_density : "a liquid density set parameterizes liquid molar density";
 }
+// A transport method may distinguish a mathematical domain from empirical applicability.
+@id("64d03100000000000000000000000004") entity kind viscosity_set extends phased_parameter abstract {
+@id("64d03100000000000000000000000005") attribute viscosity:Fn(T:Temperature,s:viscosity_set)->DynamicViscosity;
+@id("64d03100000000000000000000000006") attribute applicability:Fn(T:Temperature,s:viscosity_set)->Applicability;
+@id("64d03100000000000000000000000007") require property==dynamic_viscosity : "a viscosity set parameterizes dynamic viscosity";
+}
 @id("96f3cbd18cf748bb938eae5c703125e0") entity kind selection_context {
 @id("6391fbfc34544652b14d6dd911f3f266") attribute roots:Set<parameter_set>;
 @id("1549774ad5d2456d8c25336a390d3811") attribute subjects:Set<chemistry.species>;
@@ -140,6 +147,8 @@
 @id("01a0f00c1fbb76f19ac7c83033f168c8") fn caloric_ds(s: caloric_set, T0: Temperature, T: Temperature) -> DeltaS applicability(applicability_interval(s.applicability(T0,s),s.applicability(T,s))) = s.ds(T0, T, s);
 @id("01a0f00c1fbb76f19ac7c8314bc6071f") fn saturation_pressure(s: vapor_pressure_set, T: Temperature) -> Pressure applicability(s.applicability(T,s)) = s.psat(T, s);
 @id("01a0f00c1fbb76f19ac7c83283cc61bf") fn saturated_density(s: liquid_density_set, T: Temperature) -> MolarDensity applicability(s.applicability(T,s)) = s.density(T, s);
+@id("64d03100000000000000000000000008") fn selected_viscosity(s:viscosity_set,T:Temperature)->DynamicViscosity applicability(s.applicability(T,s))=s.viscosity(T,s);
+@id("64d03100000000000000000000000009") fn component_viscosity(k:property_package,p:chemistry.phase,j:chemistry.species,T:Temperature)->DynamicViscosity=selected_viscosity(v,T) where s=selection[k,j,dynamic_viscosity,p.type],v=viscosity_set[s.subject,s.property,s.phase_type,s.parameterization,s.variant];
 @id("01a0f00c1fbb76f19ac7c833a24040ff") fn cp(k: property_package, p: chemistry.phase, j: chemistry.species, T: Temperature) -> MolarCp = caloric_cp(c, T) where s = selection[k, j, heat_capacity, p.type], c = caloric_set[s.subject, s.property, s.phase_type, s.parameterization, s.variant];
 @id("01a0f00c1fbb76f19ac7c834fad7a814") fn enthalpy_increment(k: property_package, p: chemistry.phase, j: chemistry.species, T0: Temperature, T: Temperature) -> DeltaH = caloric_dh(c, T0, T) where s = selection[k, j, heat_capacity, p.type], c = caloric_set[s.subject, s.property, s.phase_type, s.parameterization, s.variant];
 @id("01a0f00c1fbb76f19ac7c835016ba69f") fn entropy_increment(k: property_package, p: chemistry.phase, j: chemistry.species, T0: Temperature, T: Temperature) -> DeltaS = caloric_ds(c, T0, T) where s = selection[k, j, heat_capacity, p.type], c = caloric_set[s.subject, s.property, s.phase_type, s.parameterization, s.variant];
