@@ -460,7 +460,7 @@ pub(super) fn listed(intent: Intent) -> Listed {
         },
         nextest: executable.clone(),
         correctness: executable.clone(),
-        nextest_version: "cargo-nextest 0.9.146 (fixture)".into(),
+        nextest_version: "cargo-nextest 0.9.151 (fixture)".into(),
         nextest_configuration: configuration,
         runner_profile: "selected-profile".into(),
         groups: vec![discovery::ListedGroup {

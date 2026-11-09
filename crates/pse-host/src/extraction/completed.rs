@@ -17,6 +17,12 @@ use std::{
     path::PathBuf,
 };
 
+/// Qualified Nextest writer for interpreting an original native report.
+pub(crate) fn qualified_writer(version: &str) -> bool {
+    let mut words = version.split_whitespace();
+    words.next() == Some("cargo-nextest") && words.next() == Some("0.9.151")
+}
+
 /// Native retry facts, retaining exact selected identity.
 #[derive(Clone, Debug, serde::Serialize, schemars::JsonSchema)]
 pub struct RetrySummary {
@@ -77,13 +83,9 @@ impl CompletedReport {
         group: usize,
         path: PathBuf,
     ) -> Result<Self, ExtractionError> {
-        if !inventory.capture_complete()
-            || !inventory
-                .nextest_version
-                .starts_with("cargo-nextest 0.9.146 ")
-        {
+        if !inventory.capture_complete() || !qualified_writer(&inventory.nextest_version) {
             return Err(ExtractionError::Nextest(
-                "completed reports require qualified complete nextest 0.9.146 inventory".into(),
+                "completed reports require qualified complete nextest 0.9.151 inventory".into(),
             ));
         }
         let listing = &inventory
