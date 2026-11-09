@@ -308,6 +308,17 @@ selected. These three decisions discharge E09's bounded choice; E01–E08/E10 an
 
 ## Migration, recovery and acceptance
 
+For E02, receive [B01's finite ordinary contract](66b-contracts-generation-and-interpretation.md#shared-index-bindings-and-compiled-contract-ownership)
+through actual connected export and portable result reading. Exercise the recorded metadata
+using its own complete descriptor and verify exact context, presence and protected selection.
+Put the comparison to the full engineering world at the independent interop boundary.
+The ordinary reader build must exclude the broad engineering messages and validators.
+
+For E06, consume [C03's joined original causes](66c-preparation-execution-and-service-lifecycles.md#c03--close-performing-owners-and-worker-sessions)
+in diagnostic and retained evidence delivery. Check that admission refusal and an independent
+finish error each retain their typed stage, attempt and attribution through the real reader.
+Preserve original scientific permission from its completion owner.
+
 Available review-pack members require the exact finalized extent and a digest, including
 empty members. Whole-member delivery verifies the transferred bytes. A failed member's
 acknowledged prefix has a separate provisional reader. Live export admits regular file

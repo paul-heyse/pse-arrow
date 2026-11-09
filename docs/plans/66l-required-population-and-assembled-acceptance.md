@@ -91,6 +91,16 @@ or cold-build interruption cannot establish or refute whole-operation benefit.
 
 ## Discriminating scenarios and final outcome
 
+L02 receives the [shared-contract dispositions](66-integrated-simulation-target.md#shared-engineering-and-solver-contract-dispositions)
+through ordinary protected-result reading, independent discovery, and both Study RPCs on the
+prepared endpoint. Carry the original variant, physical identity and permission through
+reconnect and restore. L03 covers the revised worker's stale-session and unsupported-demand
+refusals, the actual class-specific preparation consumers and preservation of both admission
+and finish errors through drain and diagnostic delivery. Use each package's local generation
+and receiving controls as prerequisites. L04 owns any numerical build claim and compares
+matched roots, features, profiles, toolchains, edit stimuli and cache state. Structural
+compilation isolation has its own B01 evidence.
+
 **Proposed verification:** preserve valid zero-member structural Analyze and withheld point
 products; reorder species or members, alter datum, remove a required output and use wrong
 numeric answers to challenge comparators. Test foreign/ambiguous governing context, incomplete

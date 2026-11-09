@@ -34,6 +34,21 @@ Do not make a universal task enum, Proto interpreter or separate policy catalogu
 admission decides supported formulation, contextual membership and effects; generated views
 describe inputs and observations without reconstructing sealed permission.
 
+### A01 — Study input capabilities
+
+An explicit-point preparation consumes selected immutable sources, finite points and the
+requested output demand. Source-expanded preparation additionally owns inline edits, exact
+parent validation, bounded candidate enumeration and expansion provenance. Both enter the
+same native Study preparation and execution owner with admitted input and output demand.
+Share source/context and prepared operation facts where their meaning agrees. Keep variant
+identity and original interpretation available for restore. An explicit client's request and
+response dependency graph must exclude inline authoring, including through restore evidence
+used by that client. A passive receipt may identify the original variant without authorizing
+live reconstruction. B01/B03 derive both wire roots from this contract, and C02/F05 migrate
+the callers. Exercise both capabilities with equivalent valid points, then a foreign exact
+parent, a changed input variant and restore against the wrong interpretation.
+[Review disposition](66-integrated-simulation-target.md#shared-engineering-and-solver-contract-dispositions)
+
 Retain the source/context/structure checks and admitted value-only overlays already provided
 by `DeclaredExecution::prepared_model`. Make original admission versus editable request
 unambiguous where a consumer currently reconstructs that distinction. A value update on an

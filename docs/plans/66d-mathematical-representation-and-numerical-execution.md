@@ -258,6 +258,35 @@ D03 is a decision obligation, not a mandatory second backend. Likewise expressio
 new tensor machinery or another property/DAE library requires a demonstrated remaining consumer;
 record the concrete gap before adopting it. Existing native mathematical meaning stays authoritative.
 
+### D01/D02 — Shared admission and exact native demand
+
+Compose preparation once from immutable formulation facts, explicit fresh or retained
+witness ownership and the admitted resource context. Reuse the existing
+`routing::Requirements::decision` and `execution::Capability` under the pinned native
+solver profiles. The router selects the eligible class adapter. The adapter's
+`required_artifact` and `callback_demand` supply the exact preparation and evaluation
+requirements from the same capability decision. Carry that decision and the reconciled
+witness reservation to C instead of independently recomputing them in conditional
+artifact preparation, fitting and shooting. Reuse `OracleContract` for shared structural
+facts and ordered identities. Formulation, derivative source and resource context stay
+with their native owners.
+[Native router](../../crates/pse-backend-native/src/routing.rs) ·
+[Adapter contract](../../crates/pse-backend-native/src/execution.rs) ·
+[Oracle contract](../../crates/pse-backend-native/src/lib.rs)
+
+Preserve KINSOL directional Jacobian action versus an assembled preconditioner, constrained
+optimization curvature and bounds, residual fitting eligibility, and dynamic event and
+partial trajectory semantics. Reuse preparation only across unchanged consumed premises.
+Keep backend termination, independent original-coordinate screening and scientific-use
+permission distinct. Exercise fresh and retained witnesses, changed value and structural
+premises, and unsupported artifact or derivative demand before dispatch.
+[KINSOL demand selection](../../crates/pse-backend-native/src/execution/kinsol.rs)
+
+D04 receives the revised B03/C03 worker crossing with independently specified output order
+and derivative expectations. Confirm supported demand against the native provider and
+refuse an unsupported action without substituting another derivative product. Keep that
+evidence separate from matching wire structure or protocol readiness.
+
 ## Verification and outcome
 
 **Tested, partial.** The default-profile, force-validated native runtime selection

@@ -260,6 +260,11 @@ equality or a fabricated report.
 
 ### F04 — Complete independent-host and code-intelligence boundaries
 
+Use [B01's independently published descriptor and compiled contract slices](66b-contracts-generation-and-interpretation.md#shared-index-bindings-and-compiled-contract-ownership).
+An independent reader must discover and interpret its complete approved world with no
+performing runtime dependency. Check exact imported symbols, provenance and refusal of
+missing imports or foreign pool identity through the actual reader.
+
 The finite migration includes current host configuration, command requests, source/path facts,
 diagnostics and test identities, graph/investigation outputs, schema payload/search/compare and
 clients reading those facts. Inventory actual producers and consumers during implementation and
@@ -278,6 +283,13 @@ existing native `review_analysis` verdict/policy owner. Delete repeated generic 
 that this query replaces; retain small domain folds and avoid a persistent analytics database.
 
 ### F05 — Deliver complete independent clients
+
+Migrate the generated and independent Study clients with C02 to the versioned explicit-point
+and source-expansion procedures. The explicit client compiles its selected contract without
+the inline authoring closure. Verify both procedures against the actual authenticated endpoint
+and exercise original operation recovery, reconnect and protected result receiving. Replace
+combined-surface client mappings, route expectations and fixtures as the callers move.
+[Study input capabilities](66a-scientific-operations-and-product-semantics.md#a01--study-input-capabilities)
 
 Migrate all current engineering discovery/edit/preparation/study/submission/status/cancel/progress/
 readback client calls, prepared scientific worker/reference callers and separately driven
@@ -334,7 +346,7 @@ owns full product/science assembled acceptance; F supplies actual journeys and p
 
 ## Verification, decisions and completion
 
-Implementation is active. Report observation, inventory and compact and directory evidence
+Report observation, inventory and compact and directory evidence
 admit the current report interpretation and its original dependency account, with explicit
 omissions. Compiler investigation checks the original whole-stream commitment before selecting a
 record. The independent host consumes the source-generated native dependency-usage contracts.

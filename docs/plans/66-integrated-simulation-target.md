@@ -5,7 +5,9 @@ date: 2026-11-06
 doc_role: plan
 doc_owner: docs/plans/66-integrated-simulation-target.md
 doc_topics: [current-work, design, numerical-execution, validation]
-review_sources: [docs/plan_improvement_reviews/plan64-65-integrated-target-and-library-leverage-2026-11-06.md]
+review_sources:
+  - docs/plan_improvement_reviews/plan64-65-integrated-target-and-library-leverage-2026-11-06.md
+  - docs/design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md
 ---
 
 # Integrated simulation target
@@ -141,6 +143,22 @@ consumer evidence outstanding. DA-063's capture closure belongs to E08 and L. Re
 F01/F02/F05 manifestations and the delivered recycle improvements do not become new packages;
 broader unrelated diagnostic findings acquire no obligation through this crosswalk.
 
+### Shared engineering and solver contract dispositions
+
+The [November 8 review](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md)
+adds scope to the existing packages. The F identifiers below belong to that review.
+Its source observations include the working tree over `757ce921c`. The dated runtime checkpoint
+below still owns current integration and receiving evidence.
+
+| ID | Finding and scenario | Disposition | Work owner | Required evidence |
+| --- | --- | --- | --- | --- |
+| F01 | [Index-binding identity](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f01) · S01 | scheduled | [66b B01/B05](66b-contracts-generation-and-interpretation.md#b01--deliver-useful-generation-closures-and-reproducible-bootstrap) | One generated item and shared rule. A rule local to one occurrence stays local. |
+| F02 | [Engineering compilation reach](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f02) · S02 | scheduled | [66b B01](66b-contracts-generation-and-interpretation.md#b01--deliver-useful-generation-closures-and-reproducible-bootstrap) | Source-forward generation and separate ordinary, service and independent-reader closures. E02 and F04/F05 receive actual consumers. |
+| F03 | [Study input capabilities](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f03) · S02 | scheduled | [66a A01](66a-scientific-operations-and-product-semantics.md#packages) | B01/B03 generate both roots. C02 and F05 exercise both with exact restore and reconnect. |
+| F04 | [Worker protocol mirrors](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f04) · S03/S04 | scheduled | [66b B03](66b-contracts-generation-and-interpretation.md#b03--finish-finite-source-to-consumer-migrations) | Native-derived demand and handle. C03 refuses stale or incompatible sessions and D04 verifies supported derivative actions. |
+| F05 | [Native preparation and admission](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f05) · S03 | scheduled | [66d D01/D02](66d-mathematical-representation-and-numerical-execution.md#packages) | One routed preparation with exact class demands and witness lifetime. C receives it in fitting and shooting. |
+| F06 | [Launch and finish failures](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#f06) · S04 | scheduled | [66c C03](66c-preparation-execution-and-service-lifecycles.md#c03--close-performing-owners-and-worker-sessions) | Refusal and independent finish failure survive actual drain through C02/C05 and E06. |
+
 ## Dependency order and useful intermediate deliveries
 
 First resolve the smallest A semantic and B generation agreements needed for selected result
@@ -156,10 +174,19 @@ wait for all H physics; a gas-solid or SOC family must wait for its real constit
 inventory prerequisite. Interfaces settled in a document do not equal implemented prerequisites.
 One package may require coordinated edits across owners without transferring semantic authority.
 
+Settle A01's input meanings and B01's shared registry owner before generating their closures.
+B01 proves compilation ownership before choosing crate placement. E02 and F04 consume
+finite passive outputs as they become usable. B03, C02 and F05 deliver the versioned Study
+cutover together once both roots generate. Independently, B03 and C03 can prepare the private
+worker cutover once native demand and handle contracts are fixed. D01/D02 can deliver
+routed preparation to C independently of Study generation. C03's supervisor correction can
+advance on the current owner and supply E06's diagnostic facts. L02/L03 receive the actual
+scientific and developer journeys.
+
 On implementation resumption, use isolated worktrees only for genuinely concurrent changes,
 integrating coherent declarations, generators, callers, tests and deletions on main. Preserve
-candidate work until integrated or deliberately superseded. Execution is active under the
-maintainer's separate November6 implementation instruction.
+candidate work until integrated or deliberately superseded. Product execution is paused at the
+[November 8 checkpoint](#66af-checkpoint--november-8).
 
 ## Decisions and authorization boundaries
 
@@ -175,6 +202,17 @@ If further investigation reveals a specific rule replacement, present that exact
 for confirmation before freezing the dependent target. Ordinary private refactors and exact
 dependency moves follow normal judgment; no wholesale resolution or upgrade is implied.
 Native build width, incremental compilation and compiler caches remain in force.
+
+### Confirmed shared-contract decisions
+
+The maintainer selected these planning directions on 2026-11-08. Use the named decision
+routes before dependent implementation.
+
+| Review item | Confirmed direction | Decision route |
+| --- | --- | --- |
+| [RC01](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#rc01) | Separate explicit-point and source-expansion Study RPCs over one native operation. Version and replace the combined surface with its callers. | [ADR-0239](../adr/0239-owner-derived-engineering-boundaries.md), blueprint §4.7 and §21.8. |
+| [RC02](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#rc02) | Prefer a suitable existing compiled owner. Allow a new crate if B01's focused control shows it is required for the one-way boundary. | B01 records ownership evidence. A new crate requires the crate ADR and design-review route before addition. |
+| [RC03](../design_review/reviews/design_review_shared-engineering-and-solver-contracts_2026-11-08.md#rc03) | Adopt the native projection's derivative-order tags in a revised private protocol and replace both managed images together. | [ADR-0240](../adr/0240-prepared-local-scientific-workers.md), blueprint §9.11. |
 
 ## Verification, current outcome and cleanup handoff
 

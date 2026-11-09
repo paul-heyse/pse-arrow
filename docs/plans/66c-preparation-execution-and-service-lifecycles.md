@@ -197,6 +197,14 @@ not a reason to rebuild all preparation for every plan package.
 
 ### C02 — Complete actual local operation/service consumers
 
+Register the versioned explicit-point and source-expansion Study RPCs from
+[B01/B03](66b-contracts-generation-and-interpretation.md#shared-index-bindings-and-compiled-contract-ownership).
+Both dispatch the [A01 native Study operation](66a-scientific-operations-and-product-semantics.md#a01--study-input-capabilities)
+under its existing authentication, aggregate ingress admission and exact source context.
+Check the callable route set separately from descriptor discovery. Migrate F05's actual
+clients in the same cutover and remove the combined procedure. Reconnect and restore
+must preserve original operation, variant and interpretation without restarting its effects.
+
 The common engineering RPC delivery now consumes source-generated ingress, edit, identifier,
 status/progress and outgoing mappings. Native source-parent, membership, provider, effect and
 authentication checks remain with their existing owners. Main's selected receiving passed after
@@ -232,6 +240,29 @@ That invocation included the atomic-capture selection and its independent fixtur
 and scale failures. [66e capture evidence](66e-protected-data-and-result-delivery.md#migration-recovery-and-acceptance)
 
 ### C03 — Close performing owners and worker sessions
+
+Consume [B03's native-derived worker contract](66b-contracts-generation-and-interpretation.md#b03--finish-finite-source-to-consumer-migrations).
+Admit immutable demand before provider creation and carry that checked request into
+binding. Still check fresh provider capability, context, generation and attempt at the
+binding and invocation boundaries. Replace both managed images in the private protocol
+cutover and refuse mismatched revisions, stale handles and unsupported derivative demand.
+Preserve original deadline, native linearization lifetime and independent child and I/O
+settlement. The persistent provider and private root child retain their different execution
+contracts. [Provider session](../../crates/pse-runtime/src/scientific_worker/session.rs)
+
+Consume D01/D02's admitted route, witness and exact artifact/callback demands in fitting
+and shooting. Their window, residual and continuation decisions stay local. Retire
+their duplicate common admission and witness reservation composition as callers move.
+[Numerical preparation contract](66d-mathematical-representation-and-numerical-execution.md#d01d02--shared-admission-and-exact-native-demand)
+
+Move common deadline, cancellation, claim preflight and activity into the existing
+`RunSupervisor` launch contract. Preserve original operation, attempt and physical
+owner through registration, admission and settlement. Simulation, fitting and Study
+supply their actual dispatch and typed result. On refusal, cancel and await the started
+handle, retaining any independent finish failure alongside the initiating refusal.
+Keep registered ownership until physical drain is established. Remove the repeated
+launch policy with its callers and expose the original joined causes to E06.
+[Run supervisor](../../crates/pse-runtime/src/workflow/run.rs)
 
 Actual authenticated HTTP/2 receiving now drops an in-flight generated Prepare method on the
 original connection, observes its completion receiver close before the late Prepared send,
@@ -307,6 +338,12 @@ source-recompile, duplicate receiving or obsolete JSON paths only after exact re
 and native receiving acceptance exist. Historical readable records can retain unavailable use.
 
 ### C05 — Verify actual shutdown and transport composition
+
+Exercise a refused admission after dispatch with an independent finish error.
+Require both causes in the original outcome and actual native join before release.
+Distinguish passive wait or disconnect, cancellation request, physical exit and settled
+I/O. For a worker that accepted preparation before losing its acknowledgement, observe
+or retire the original attempt without submitting it again.
 
 The canonical observer control now holds a real protected revision on the original reader
 connection, cancels the pending observation and verifies the original grant was released
@@ -416,7 +453,7 @@ For canonical recipe receiving, JSON v3 is the active implementation. C04 activa
 binary reader only after D02 establishes bounded reconstruction for its consumers. The
 cutover removes the replaced reader in the same slice.
 
-Implementation is active. C01's targeted evidence and the remaining launcher/service work are
+C01's targeted evidence and the remaining launcher/service work are
 bounded above; neither establishes broader lifecycle qualification. Implementation uses
 targeted native routes and matching prepared profiles, with Arrow `force_validate` where consumed.
 Client and independently launched process journeys must exercise actual settlement and original

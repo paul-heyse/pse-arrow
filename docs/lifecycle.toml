@@ -7161,6 +7161,17 @@ status_profile = "finding"
 status_column = 1
 
 [[scope_tables]]
+path = "docs/plans/66-integrated-simulation-target.md"
+name = "shared-contract-dispositions"
+heading = "Shared engineering and solver contract dispositions"
+headers = ["ID", "Finding and scenario", "Disposition", "Work owner", "Required evidence"]
+kind = "finding"
+id_column = 0
+id_pattern = '^(F[0-9]+)\b'
+status_profile = "finding"
+status_column = 2
+
+[[scope_tables]]
 path = "docs/plans/66a-scientific-operations-and-product-semantics.md"
 name = "packages"
 heading = "Packages"

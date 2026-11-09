@@ -190,6 +190,61 @@ separate. Exact sources are `vendor/buffa/src/message.rs`, `encode_sink.rs`, `ps
 
 ### B01 — Deliver useful generation closures and reproducible bootstrap
 
+#### Shared index bindings and compiled contract ownership
+
+Name the authored index-binding item in the registry, following the existing named
+`ModelingUnitFactor` pattern. Generate its wire type and common local rule once and
+reference it from equivalent index fields. Check effective options, tags, presence and
+interpretation before moving the 19 occurrences identified in the review. Keep binder order,
+lexical resolution and occurrence provenance at the declaring field. Distinct vocabularies,
+identity roles and cohort page limits retain their own contracts. Retire the replaced anonymous
+items and their conversions with their callers. [Modeling registry](../../crates/pse-schema/src/catalog/modeling.rs)
+
+Start from the finite recorded-result cut. Derive separate roots for passive
+`ModelingInspection` and the [two Study input capabilities](66a-scientific-operations-and-product-semantics.md#a01--study-input-capabilities).
+Derive the transitive fields, alternatives and imports from those roots. Publish complete
+source-aware descriptors for independent tooling and compact complete pools for each runtime
+reflection world. Select compiled Rust and registered procedures independently. Gate broad
+engineering messages, validators and service adapters at the service boundary once their
+passive callers move. Scope each adapter to the actual crossing and keep private native
+construction at its owner. A passive compiler root uses the finite contract while the full
+descriptor world remains independently readable.
+[Recorded-result generation](../../xtask/src/codegen/recorded_result.rs)
+
+Use the maintained Buffa 0.9.2 `generate_with_diagnostics` with explicit `files_to_generate`
+and exact `extern_paths`. The complete descriptor input resolves imports and options,
+selected files determine Rust emission, and imported references resolve to the one compiled
+type owner. Split descriptor files where file-granularity selection requires it. Reuse
+`SharedCorpusContext` only for the same effective corpus and representation controls.
+Preserve consequential generator diagnostics, exact pool identity, and maintained view
+allocation accounting across admitted imports. [Buffa generator](../../vendor/buffa-codegen/src/lib.rs) ·
+[Maintained view profile](../../vendor/buffa-codegen/pse-patch.md)
+
+Use ConnectRPC codegen 0.9.0 `generate_services` and the maintained
+Protovalidate-Buffa 0.7.2 `prepare` and render from the same admitted corpus and
+ownership selection. Connect requires generated views at its roots. Its default outputs
+mode emits view encoders for outputs in selected services, skipping absolute external
+type mappings. Co-locate those implementations with their types. Use
+`EncodableImpls::AllMessages` only on a finite owner when downstream services actually
+require shared binary view returns. Owned returns are available where views add little.
+Compile generated `Validate` implementations with their Rust types. Generated local
+checks supply shape and field admission. Contextual scientific adoption stays native.
+[ConnectRPC codegen 0.9.0](https://github.com/connectrpc/connect-rust/blob/v0.9.0/connectrpc-codegen/src/codegen.rs) ·
+[Validator preparation](../../vendor/protoc-gen-protovalidate-buffa/src/prepare.rs) ·
+[Supplier composition](../../xtask/src/codegen/proto_projection/composition.rs)
+
+Resolve RC02 before fixing crate placement. Compile one shared message and its
+validator with an actual Connect service and a passive reader. Demonstrate one Rust
+type and validation owner, exact imports and pool behavior, and a one-way dependency
+that excludes broad engineering Rust from the passive root. Prefer an existing suitable
+owner. If the mixed ownership cannot work there, keep service-used types with their
+traits and separate the genuinely passive subset. If a required independent build
+boundary still needs a new crate, complete the crate ADR and design review before
+adding it. Until this control settles placement, only the source-level ownership and
+existing service gate are selected.
+
+#### Existing receiving baseline and remaining controls
+
 Start with the recorded-result ordinary reader and scientific inspection source already on main.
 Compile pure generated messages/validators/descriptors without `engineering-service`; keep service
 dispatch and broad service adapters gated. E's real Arrow/portable-reader cutover consumes the
@@ -211,6 +266,14 @@ round-trip controls still select the engineering service feature because the gen
 messages and adapters belong to that world. Broader source-forward engineering inspection
 bootstrap remains open until that projection has an independent generation closure.
 [Reference generator](../../xtask/src/codegen/reference_exchange.rs)
+
+Change one `ModelingInspection` field while the former service adapters still exist.
+Build the extractor from the source owners, emit the new closure, then compile both
+the ordinary and service consumers. Inspect planned units and actual module includes for
+the ordinary result reader, explicit Study client and performing service. Show that an
+unrelated service-only edit leaves passive compiled inputs unchanged. Move full-world
+interop assertions to the service or independent reader. Keep ordinary result assertions
+on the finite descriptor and real native reader.
 
 ### B02 — Make interpretation usable and refusal precise
 
@@ -254,6 +317,19 @@ The selected recorded-result CLI comparison reported compatible native coverage.
 [Acquired descriptor comparison](../../crates/pse-contract-proto/src/lib.rs)
 
 ### B03 — Finish finite source-to-consumer migrations
+
+For the versioned Study cutover, generate the two A01 roots and remove the combined
+wire request and superseded maps after C02 and F05 move their actual callers. For the
+private worker revision, project the native `ProviderDemand`, request and passive
+attempt/session/generation reference. Preserve checked ordinal widths, exact output order
+and typed alternative refusals. Use the native derivative-order tags selected in RC03.
+Verify that the maintained projection handles the actual tuple/record variants and
+checked integer conversions before fixing their emitted layout. The native declaration
+owns the checked realization if a generic projection cannot express that shape. Retire
+the handwritten demand/handle mirrors and both conversion directions. C03 owns fresh
+session binding and coordinated image activation.
+[Native provider declaration](../../crates/pse-kernels/src/provider.rs) ·
+[Current worker protocol](../../crates/pse-kernels/src/worker_protocol.rs)
 
 The migration population is the current selected engineering requests/responses/edits/progress,
 modeling inspection and prepared studies; preparation/evaluate/stop/close worker crossings;
@@ -316,6 +392,12 @@ larger backing storage. Claim memory or latency benefit only after whole produce
 
 ### B05 — Make extension and compatibility acceptance representative
 
+For the shared binding extension, add a local constraint at the named item and
+check independent descriptor interpretation and fallible native adoption across the
+migrated uses. Distinguish malformed structure from valid structure with unresolved
+lexical names. An equation-only rule stays local. Check one generated type and the
+retirement of the occurrence-specific messages.
+
 Add a source-owned provider request, method effect, diagnostic or result facet through its native
 owner and follow the resulting changes through every selected generated/default/service/host/client
 consumer. Preserve exact original errors, optional false/zero/empty and IEEE negative zero; exercise
@@ -325,8 +407,8 @@ do not manufacture an unused format matrix. Remove fixtures/tests solely support
 
 ## Verification, decisions and completion
 
-Implementation is active. Selected generator and consumer evidence is recorded at the coordinator;
-general bootstrap and the full consumer population remain open. Use targeted
+Selected generator and consumer evidence is recorded at the coordinator. General bootstrap
+and the full consumer population remain open. On execution resumption, use targeted
 native checks/tests with explicit `force_validate` on Arrow-consuming closures and `just codegen`
 when declarations/generators change. Check receiving default/service and independent-host closures
 as they migrate. L owns the final integrated population, independent journeys, hygiene and benefit
