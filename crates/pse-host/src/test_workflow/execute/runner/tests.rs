@@ -848,6 +848,42 @@ fn verify_current_rerun_context(original: &discovery::Inventory, scratch: &Path)
 }
 
 #[tokio::test]
+async fn actual_weighted_nextest_waiter_wakes_when_another_group_releases_capacity() {
+    let NativeFixture {
+        scratch,
+        root,
+        environment,
+    } = NativeFixture::new().with_weighted_wakeup();
+    let mut input = input(Action::Test);
+    input.request.scope = NativeFixture::scope(true);
+    input.request.filters.expressions = vec!["test(/^weighted_/)".into()];
+    let destination = scratch.path().join("workflow");
+    let mut report = run(&input, &root, &destination, environment).await.unwrap();
+    let terminal = report.publish(&destination).unwrap();
+    assert_eq!(
+        report.outcome,
+        Outcome::TestsSucceeded,
+        "{:?}",
+        report.failures
+    );
+    assert_eq!(report.selected_tests, Some(4));
+    assert!(report.required_capture_complete);
+    let [GroupObservation::Test { observation, .. }] = report.observations.as_slice() else {
+        panic!("expected one original native observation");
+    };
+    assert_eq!(observation.summary.completed(), 4);
+    assert!(observation.summary.failed().is_empty());
+    assert!(observation.summary.complete());
+    assert_eq!(observation.summary.native_child_exit(), Some(0));
+    assert_eq!(terminal.helper_exit(), 0);
+    terminal.validate(&input.invocation, Action::Test).unwrap();
+    let inventory: discovery::Inventory =
+        serde_json::from_slice(&fs::read(destination.join("inventory/inventory.json")).unwrap())
+            .unwrap();
+    assert!(crate::extraction::qualified_writer(&inventory.nextest_version));
+}
+
+#[tokio::test]
 async fn actual_package_workflow_reconciles_selected_tests_beside_an_ignored_only_suite() {
     let NativeFixture {
         scratch: evidence,

@@ -183,6 +183,120 @@ fn rerun_controlled_helper_failure_probe() {
         self
     }
 
+    pub(super) fn with_weighted_wakeup(mut self) -> Self {
+        use std::io::Write as _;
+
+        let rendezvous = self.scratch.path().join("weighted-wakeup");
+        fs::create_dir(&rendezvous).unwrap();
+        self.environment.insert(
+            "PSE_TEST_WEIGHTED_RENDEZVOUS".into(),
+            rendezvous.into_os_string(),
+        );
+        // Make the tiny runner fixture independent of the developer's ordinary lane count.
+        self.environment
+            .insert("NEXTEST_TEST_THREADS".into(), "4".into());
+        writeln!(
+            fs::OpenOptions::new()
+                .append(true)
+                .open(self.root.join(".config/nextest.toml"))
+                .unwrap(),
+            "{}",
+            r#"
+[test-groups.weighted]
+max-threads = 1
+
+[[profile.local.overrides]]
+filter = "test(=weighted_light)"
+test-group = "weighted"
+priority = 100
+
+[[profile.local.overrides]]
+filter = "test(=weighted_waiter)"
+test-group = "weighted"
+threads-required = 3
+priority = 90
+
+[[profile.local.overrides]]
+filter = "test(=weighted_outside)"
+threads-required = 3
+priority = 80
+
+[[profile.local.overrides]]
+filter = "test(=weighted_witness)"
+priority = 70
+"#,
+        )
+        .unwrap();
+        fs::write(
+            self.root.join("src/lib.rs"),
+            r#"
+#![cfg(test)]
+
+use std::{
+    fs,
+    path::PathBuf,
+    thread,
+    time::{Duration, Instant},
+};
+
+fn marker(name: &str) -> PathBuf {
+    PathBuf::from(std::env::var_os("PSE_TEST_WEIGHTED_RENDEZVOUS").unwrap()).join(name)
+}
+
+fn publish(name: &str) {
+    fs::write(marker(name), []).unwrap();
+}
+
+fn await_marker(name: &str) {
+    let path = marker(name);
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        match path.try_exists() {
+            Ok(true) => return,
+            Ok(false) if Instant::now() < deadline => thread::sleep(Duration::from_millis(5)),
+            Ok(false) => panic!("weighted runner did not reach {name}"),
+            Err(error) => panic!("cannot read {name}: {error}"),
+        }
+    }
+}
+
+#[test]
+fn weighted_light() {
+    publish("light-started");
+    await_marker("outside-started");
+    publish("light-returning");
+}
+
+#[test]
+fn weighted_waiter() {
+    // The witness still holds one slot, so the three-slot waiter can only
+    // start once the three-slot outside test has actually returned.
+    assert!(marker("outside-returning").try_exists().unwrap());
+    assert!(marker("witness-started").try_exists().unwrap());
+    publish("waiter-started");
+}
+
+#[test]
+fn weighted_outside() {
+    await_marker("light-started");
+    publish("outside-started");
+    await_marker("witness-started");
+    publish("outside-returning");
+}
+
+#[test]
+fn weighted_witness() {
+    // All four slots were occupied until the light test returned.
+    assert!(marker("light-returning").try_exists().unwrap());
+    publish("witness-started");
+    await_marker("waiter-started");
+}
+"#,
+        )
+        .unwrap();
+        self
+    }
+
     pub(super) fn scope(only_lib: bool) -> selection::Scope {
         selection::Scope::Packages(vec![selection::PackageIntent {
             package: "native-workflow-control".into(),

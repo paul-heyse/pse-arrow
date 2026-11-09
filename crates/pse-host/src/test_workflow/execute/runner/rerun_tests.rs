@@ -466,6 +466,90 @@ async fn actual_rerun_intent_uses_bound_original_failure_after_old_executable_di
     );
     fs::rename(&absent, &inventory_path).unwrap();
 
+    // An added sibling must not change the original selected failure identity or
+    // authorize its inclusion in the rerun. Compare two real retained populations.
+    let source = root.join("tests/rerun.rs");
+    let mut changed = fs::read_to_string(&source).unwrap();
+    changed.insert_str(0, "#[test]\nfn added_unrelated_case() {}\n");
+    fs::write(source, changed).unwrap();
+
+    let mut other = input(Action::Test);
+    other.request.scope = NativeFixture::scope(false);
+    other.request.filters.ignore_default_filter = true;
+    other.request.filters.words = vec!["added_unrelated_case".into()];
+    let other_destination = begin(&store, &other);
+    let mut observed = run(&other, root, &other_destination, environment.clone())
+        .await
+        .unwrap();
+    assert_eq!(
+        observed.outcome,
+        Outcome::TestsSucceeded,
+        "{:?}",
+        observed.failures
+    );
+    assert_eq!(observed.selected_tests, Some(1));
+    publish(&store, &other, &other_destination, &mut observed);
+
+    let address = |input: &Input, name: &str| {
+        let population = crate::test_inventory::read(
+            &store,
+            input.invocation.as_str(),
+            None,
+            None,
+            NonZeroUsize::new(1).unwrap(),
+            NonZeroUsize::new(64 * 1024).unwrap(),
+        )
+        .unwrap();
+        let [row] = population.payload.records.as_slice() else {
+            panic!("expected one original selected case");
+        };
+        assert_eq!(row.identity.test_name, name);
+        row.reference.encode().unwrap()
+    };
+    let original_address = address(&original, "rerun_controlled_helper_failure_probe");
+    let other_address = address(&other, "added_unrelated_case");
+    let compare = |from: &Input, address: &str, against: &Input| {
+        let compared = crate::test_inventory::compare_case(
+            &store,
+            from.invocation.as_str(),
+            None,
+            address,
+            against.invocation.as_str(),
+        )
+        .unwrap();
+        serde_json::to_value(compared.payload).unwrap()
+    };
+    let original_comparison = compare(&original, &original_address, &other);
+    assert_eq!(
+        original_comparison["original"]["observation"]["last_attempt"],
+        "failed"
+    );
+    assert_eq!(
+        original_comparison["against"]["observation"]["state"],
+        "not_selected"
+    );
+    assert_eq!(
+        original_comparison["against"]["observation"]["recorded_attempts"],
+        0
+    );
+    let added_comparison = compare(&other, &other_address, &original);
+    assert_eq!(
+        added_comparison["original"]["observation"]["last_attempt"],
+        "passed"
+    );
+    assert_eq!(
+        added_comparison["against"]["observation"]["state"],
+        "not_listed"
+    );
+    assert_eq!(
+        added_comparison["against"]["observation"]["recorded_attempts"],
+        0
+    );
+
+    let GroupObservation::Test { observation, .. } = &report.observations[0] else {
+        panic!("original runner report absent");
+    };
+    let original_xml = fs::read(&observation.report).unwrap();
     let fresh_destination = begin(&store, &rerun);
     let mut fresh = run(&rerun, root, &fresh_destination, environment)
         .await
@@ -481,6 +565,10 @@ async fn actual_rerun_intent_uses_bound_original_failure_after_old_executable_di
     publish(&store, &rerun, &fresh_destination, &mut fresh);
     let current = crate::test_inventory::captured(&store, rerun.invocation.as_str(), None).unwrap();
     test_workflow::source::verify_rerun(&current.inventory).unwrap();
+    assert_eq!(
+        current.inventory.selected_tests()[0].test_name,
+        failed[0].test_name
+    );
     assert!(
         current
             .inventory
@@ -488,6 +576,10 @@ async fn actual_rerun_intent_uses_bound_original_failure_after_old_executable_di
             .is_ok()
     );
     assert!(!old_executable.exists());
+    assert_eq!(fs::read(&report_path).unwrap(), original_report);
+    assert_eq!(fs::read(&manager_path).unwrap(), original_manager);
+    assert_eq!(fs::read(&inventory_path).unwrap(), inventory_bytes);
+    assert_eq!(fs::read(&observation.report).unwrap(), original_xml);
     assert_eq!(
         crate::test_inventory::captured(&store, original.invocation.as_str(), None)
             .unwrap()
