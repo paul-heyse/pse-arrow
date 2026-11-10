@@ -2212,6 +2212,71 @@ impl EvaluatorLoader<wide::f64x4> for CompiledSimdRealEvaluator {
 }
 
 impl CompiledSimdRealEvaluator {
+    /// Evaluate complete groups of four after admitting retained lane-buffer
+    /// growth. A partial group is refused before allocation or execution, so
+    /// inactive zero-padding never calls a domain-sensitive function.
+    pub fn try_evaluate_batch_with<C: super::OperationControl>(
+        &mut self,
+        batch_size: usize,
+        params: &[f64],
+        out: &mut [f64],
+        control: &mut C,
+    ) -> Result<(), super::OperationError<C::Error>> {
+        use super::{OperationError, OperationExtent, OperationStage};
+        control
+            .check(OperationExtent {
+                stage: OperationStage::Finalization,
+                ..Default::default()
+            })
+            .map_err(OperationError::Control)?;
+        if batch_size % 4 != 0 {
+            return Err(OperationError::Unsupported(
+                "packed batch requires complete groups of four",
+            ));
+        }
+        self.library
+            .borrow_dependent()
+            .dimensions
+            .check_batch(batch_size, params.len(), out.len())
+            .map_err(OperationError::InvalidProgram)?;
+        let inputs = (batch_size / 4)
+            .checked_mul(self.get_input_len())
+            .ok_or(OperationError::Overflow)?;
+        let outputs = (batch_size / 4)
+            .checked_mul(self.get_output_len())
+            .ok_or(OperationError::Overflow)?;
+        let retained = inputs
+            .max(self.batch_input_buffer.capacity())
+            .checked_add(outputs.max(self.batch_output_buffer.capacity()))
+            .and_then(|n| n.checked_add(self.buffer.capacity()))
+            .and_then(|n| n.checked_mul(size_of::<wide::f64x4>()))
+            .ok_or(OperationError::Overflow)?;
+        let borrowed = params
+            .len()
+            .checked_add(out.len())
+            .and_then(|n| n.checked_mul(size_of::<f64>()))
+            .ok_or(OperationError::Overflow)?;
+        let extent = OperationExtent {
+            stage: OperationStage::Finalization,
+            work: batch_size,
+            input_bytes: borrowed,
+            output_bytes: retained,
+            ..Default::default()
+        };
+        control.check(extent).map_err(OperationError::Control)?;
+        self.batch_input_buffer
+            .try_reserve_exact(inputs.saturating_sub(self.batch_input_buffer.len()))
+            .map_err(|_| OperationError::Allocation)?;
+        self.batch_output_buffer
+            .try_reserve_exact(outputs.saturating_sub(self.batch_output_buffer.len()))
+            .map_err(|_| OperationError::Allocation)?;
+        control
+            .check(OperationExtent { work: 0, ..extent })
+            .map_err(OperationError::Control)?;
+        <Self as BatchEvaluator<f64>>::evaluate_batch(self, batch_size, params, out)
+            .map_err(OperationError::InvalidProgram)
+    }
+
     /// Number of scalar inputs per evaluation (independent of SIMD width or CUDA batch size).
     pub fn get_input_len(&self) -> usize {
         self.library.borrow_dependent().dimensions.input_len
