@@ -144,7 +144,7 @@ impl CanonicalStore {
             let action = match kind.as_str() {
                 "prepare" => {
                     let scope = scope_from_object(readiness_object(codec::required(&mut row, "scope")?)?)?;
-                    let action: pse_model::study::PointAction = decode(codec::decode_bytes(codec::required(&mut row, "action")?)?.as_slice())?;
+                    let action: pse_model::study::PointAction = native::decode_study_point_action(codec::required(&mut row,"action")?).map_err(native_error)?;
                     if u64::from(action.occurrence.0) != scope.point.occurrence || action.expected_revision != scope.point.revision {
                         return Err(CanonicalError::IncompleteResponse);
                     }
@@ -186,8 +186,8 @@ impl CanonicalStore {
             let lifetime = i64::try_from(lifetime.as_micros()).map_err(|_| CanonicalError::PayloadLimit)?;
             if !(1..=86_400_000_000).contains(&lifetime) { return Err(CanonicalError::PayloadLimit); }
             let expected = scope_expected(scope)?;
-            let seed = encode(&seed)?;
-            bounded(&seed, 16 * 1024)?;
+            let seed = seed.map(native::encode_study_seed_fact).transpose().map_err(native_error)?.unwrap_or(Value::None);
+            bounded_native(&seed, 16 * 1024)?;
             let request = encode(&(operation, &preparation.issuer, &preparation.module, &scope.study, scope.generation, &scope.point.key, &expected.iter().map(|row| row.to_sql()).collect::<Vec<_>>(), &seed, worker, lifetime))?;
             let claim_operation = format!("{operation}:attempt");
             let attempt = execution_attempt_key(&scope.point.run, &claim_operation);
@@ -195,7 +195,7 @@ impl CanonicalStore {
             let response = self.protected_execution_query(&scope.point.run, "canonical_studies::claim_prepared_study_point", || Ok(self.db.query(
                 "RETURN fn::pse_study_v1::prepared_claim($pse_rpc_expires_at,$issuer,$module,$study,$generation,$point,$expected,$seed,$operation,$request,$claim_request,$attempt,$worker,$lifetime);")
                 .bind(("issuer", preparation.issuer.clone())).bind(("module", preparation.module.clone())).bind(("study", scope.study.clone())).bind(("generation", codec::encode_uint(scope.generation)?))
-                .bind(("point", scope.point.key.clone())).bind(("expected", expected.clone())).bind(("seed", Bytes::from(seed.clone()))).bind(("operation", operation.to_owned())).bind(("request", Bytes::from(request.clone())))
+                .bind(("point", scope.point.key.clone())).bind(("expected", expected.clone())).bind(("seed", seed.clone())).bind(("operation", operation.to_owned())).bind(("request", Bytes::from(request.clone())))
                 .bind(("claim_request", Bytes::from(claim_request.clone()))).bind(("attempt", attempt.clone())).bind(("worker", worker.to_owned())).bind(("lifetime", lifetime)))).await
                 .and_then(|mut response| response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse));
             #[cfg(test)]

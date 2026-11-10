@@ -35,6 +35,15 @@ impl IndexedResults {
     pub fn num_statements(&self) -> usize {
         self.values.len()
     }
+    /// The source-owned transaction ends in RETURN followed by COMMIT. Preserve
+    /// every failure before projecting its single semantic result; callers never
+    /// calculate a position from incidental prelude/body statement counts.
+    pub(crate) fn operation_return(self) -> EngineResult<Self> {
+        let prefix = self.values.len().checked_sub(2).ok_or_else(|| {
+            Error::configuration("Canonical operation response is incomplete".into(), None)
+        })?;
+        self.statement_window(prefix, 1)
+    }
     /// Preserve all original errors before removing owner-added transaction framing.
     pub(crate) fn statement_window(self, prefix: usize, suffix: usize) -> EngineResult<Self> {
         let checked = self.check()?;
@@ -421,6 +430,29 @@ mod tests {
                 (3, (Stats::default(), commit)),
             ]),
         }
+    }
+    #[test]
+    fn operation_return_checks_all_errors_and_normalizes_one_result() {
+        let mut reply = envelope(Ok(Value::String("receipt".into())), Ok(Value::None))
+            .operation_return()
+            .unwrap();
+        assert_eq!(reply.num_statements(), 1);
+        assert_eq!(
+            reply.take::<Value>(0).unwrap(),
+            Value::String("receipt".into())
+        );
+        assert!(
+            envelope(
+                Ok(Value::None),
+                Err(Error::configuration("lost commit".into(), None))
+            )
+            .operation_return()
+            .is_err()
+        );
+        let mut reply = envelope(Ok(Value::None), Ok(Value::None));
+        reply.values.remove(&1);
+        assert!(reply.operation_return().is_err());
+        assert!(result(Value::None).operation_return().is_err());
     }
     #[test]
     fn schema_envelope_keeps_original_slots_only_after_complete_success() {

@@ -186,6 +186,15 @@ async fn native_control_http_actor_grants_original_receipts_and_raw_envelopes() 
         assert_eq!(receipt["status"],"refused");
         assert_eq!(receipt["operation_id"],operation);
         assert_eq!(receipt["study"],cancel["study"]);
+        // Native privileged access and the constrained actor API enter the same
+        // command policy. Actor-scoped acknowledgement keys remain distinct.
+        let direct = store.cancel_study_command(&pse_operations::canonical_control::ControlCancelRequest {
+            document_version: Default::default(),
+            issuing_store: issuer.clone(),
+            operation_id: operation.into(),
+            study: "2026-10-29T00:00:00Z".into(),
+        }).await?;
+        assert_eq!(serde_json::to_value(direct).unwrap(), receipt);
         let (_, replay) = post(&client,&format!("{base}/cancel"),Some(&allowed),encode(envelope(&issuer,cancel.clone())?)).await?;
         assert_eq!(receipt,replay);
         let reconcile = json!({"document_version":1,"issuing_store":issuer,"operation_id":operation});

@@ -92,8 +92,6 @@ DEFINE FUNCTION fn::pse_maintenance_v1::validation_reads($expiry:int,$operation:
     fn::pse_execution_v1::deadline($expiry); RETURN true;
 };
 DEFINE FUNCTION fn::pse_maintenance_v1::activate($expiry:int,$predecessor:option<object>,$interpretation:string,$schema_digest:string,$study_module_sha256:string,$issuing:string,$payload_incarnation:string,$nonce:string,$input_sha256:string,$predecessor_bytes:bytes) -> bool {
-    LET $witness=SELECT * FROM ONLY type::record('canonical_guards','study-publication') FOR UPDATE;
-    IF $witness=NONE { CREATE ONLY type::record('canonical_guards','study-publication') SET key='study-publication',generation=0u64,incarnation=<string>rand::uuid::v4(); };
     fn::pse_execution_v1::deadline($expiry); LET $old=SELECT * FROM ONLY canonical_interpretations:current FOR UPDATE; LET $receipt=SELECT * FROM ONLY type::record('canonical_maintenance_activations',$nonce) FOR UPDATE; IF $receipt!=NONE { THROW 'PSE_REFUSAL:activation_operation_already_exists_settle_exact_receipt'; }; IF ($predecessor=NONE AND $old!=NONE) OR ($predecessor!=NONE AND ($old.interpretation!=$predecessor.interpretation OR $old.schema_digest!=$predecessor.schema_digest OR $old.study_module_sha256!=$predecessor.study_module_sha256 OR $old.issuing_store!=$predecessor.issuing_store)) { THROW 'PSE_REFUSAL:activation_predecessor_changed'; }; IF $old!=NONE AND $old.study_module_sha256!=$study_module_sha256 {THROW 'PSE_REFUSAL:activation_predecessor_changed';}; IF $old!=NONE AND $old.payload_incarnation!=$payload_incarnation { THROW 'PSE_REFUSAL:activation_payload_incarnation_differs'; }; LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE; IF $gate!=NONE AND $gate.storage_incarnation!=$payload_incarnation { THROW 'PSE_REFUSAL:activation_file_placement_differs'; }; IF $gate=NONE { CREATE canonical_file_admission:current SET key='current',storage_incarnation=$payload_incarnation,frozen=false,gc_frozen=false; }; UPSERT canonical_interpretations:current SET key='current', interpretation=$interpretation, schema_digest=$schema_digest,study_module_sha256=$study_module_sha256, issuing_store=$issuing,payload_incarnation=$payload_incarnation; CREATE ONLY type::record('canonical_maintenance_activations',$nonce) SET key=$nonce,input_sha256=$input_sha256,predecessor=$predecessor_bytes,interpretation=$interpretation,schema_digest=$schema_digest,study_module_sha256=$study_module_sha256,issuing_store=$issuing; fn::pse_execution_v1::deadline($expiry);
     RETURN true;
 };
@@ -102,15 +100,17 @@ DEFINE FUNCTION fn::pse_maintenance_v1::activate($expiry:int,$predecessor:option
 
 // These guards participate in the caller's transaction. FOR UPDATE registers
 // the marker for MX commit-time validation; it does not hold a blocking row lock.
+// Snapshot observations explicitly skip registrations that require a writable
+// transaction. They observe one cut; physical drain still precedes replacement.
 const MIGRATION: &str = r#"
 DEFINE FUNCTION fn::pse_schema_v1::admit($expiry:int,$expected:object,$settlement:option<object>,$schema_access:string) -> bool {
     fn::pse_execution_v1::deadline($expiry);
-    LET $marker=SELECT * FROM ONLY canonical_interpretations:current FOR UPDATE;
+    LET $marker=IF $schema_access='observe' {SELECT * FROM ONLY canonical_interpretations:current} ELSE {SELECT * FROM ONLY canonical_interpretations:current FOR UPDATE};
     IF $marker=NONE OR $marker.schema_epoch!=$expected.schema_epoch OR $marker.schema_version!=$expected.schema_version OR $marker.schema_digest!=$expected.schema_digest OR $marker.issuing_store!=$expected.issuing_store { THROW 'PSE_REFUSAL:schema_epoch_changed'; };
     IF $marker.admission_open { RETURN true; };
-    LET $pending=SELECT * FROM ONLY canonical_maintenance_operations:current FOR UPDATE;
+    LET $pending=IF $schema_access='observe' {SELECT * FROM ONLY canonical_maintenance_operations:current} ELSE {SELECT * FROM ONLY canonical_maintenance_operations:current FOR UPDATE};
     IF $pending=NONE OR $pending.kind!='schema' OR $pending.phase!='schema-draining' OR $pending.next!=$marker.schema_epoch { THROW 'PSE_REFUSAL:schema_migration_closed'; };
-    IF $schema_access IN ['read','cleanup'] { RETURN true; };
+    IF $schema_access IN ['observe','read','cleanup'] { RETURN true; };
     IF $settlement=NONE { THROW 'PSE_REFUSAL:schema_migration_closed'; };
     LET $attempt=SELECT * FROM ONLY type::record('canonical_attempts',$settlement.attempt) FOR UPDATE;
     LET $run=SELECT * FROM ONLY type::record('canonical_runs',$settlement.run) FOR UPDATE;

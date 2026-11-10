@@ -14,7 +14,7 @@ use surrealdb_types::Value;
 
 fn ordinary_wire(body: &str) -> String {
     format!(
-        "BEGIN;{}\n{body};\nCOMMIT",
+        "BEGIN ISOLATION LEVEL SERIALIZABLE;{}\n{body};\nCOMMIT",
         crate::canonical::migration::TRANSACTION_ADMISSION
     )
 }

@@ -300,7 +300,7 @@ impl crate::canonical::CanonicalStore {
         }
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {
-            let mut reply=protected_query("canonical_control::reconcile",||Ok(self.db.query("RETURN encoding::json::encode(fn::pse_control_v1::reconcile($pse_rpc_expires_at,'native-system',{document_version:1,issuing_store:$issuing_store,operation_id:$operation_id}));").bind(("issuing_store",request.issuing_store.clone())).bind(("operation_id",request.operation_id.clone())))).await?;
+            let mut reply=protected_query("canonical_control::reconcile",||Ok(self.db.metadata_read_query(crate::canonical::MetadataResponse::Header,"RETURN encoding::json::encode(fn::pse_control_v1::reconcile($pse_rpc_expires_at,'native-system',{document_version:1,issuing_store:$issuing_store,operation_id:$operation_id}));").bind(("issuing_store",request.issuing_store.clone())).bind(("operation_id",request.operation_id.clone())))).await?;
             let encoded:Option<String>=reply.take(0)?;
             let encoded=encoded.ok_or(CanonicalError::IncompleteResponse)?;
             serde_json::from_str(&encoded).map_err(|error|CanonicalError::Configuration(error.to_string()))

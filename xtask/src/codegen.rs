@@ -41,6 +41,8 @@ mod recorded_result;
 mod reference_exchange;
 #[cfg(feature = "surrealql-tools")]
 pub(super) mod source_change;
+#[cfg(any(feature = "product-schemas", feature = "native-study-contracts"))]
+mod study_native;
 
 #[cfg(feature = "native-abi")]
 mod coolprop;
@@ -323,6 +325,13 @@ fn language_tree(
     language: Language,
     only: Option<Target>,
 ) -> Result<GeneratedTree> {
+    #[cfg(any(feature = "product-schemas", feature = "native-study-contracts"))]
+    let mut tree = pse_codegen::codegen::generate_with_native_projections(
+        registry,
+        language,
+        &pse_model::study::native_projection_graph()?,
+    )?;
+    #[cfg(not(any(feature = "product-schemas", feature = "native-study-contracts")))]
     let mut tree = pse_codegen::codegen::generate(registry, language)?;
     if tree.roots != language.roots() {
         bail!(
@@ -348,6 +357,8 @@ fn language_tree(
         }
     }
     if language == Language::Surreal {
+        #[cfg(any(feature = "product-schemas", feature = "native-study-contracts"))]
+        study_native::append(&mut tree)?;
         grpc_wire::append(root, &mut tree)?;
     }
     if language == Language::Markdown {

@@ -1606,6 +1606,10 @@
           "kind": "file"
         },
         {
+          "path": "xtask/src/codegen/study_native.rs",
+          "kind": "file"
+        },
+        {
           "path": "xtask/src/development",
           "kind": "tree"
         },
@@ -2082,6 +2086,14 @@
         {
           "path": "crates/pse-operations/src/generated",
           "kind": "tree"
+        },
+        {
+          "path": "crates/pse-study-module/src/generated",
+          "kind": "tree"
+        },
+        {
+          "path": "docs/generated/source-relationships/study-native",
+          "kind": "tree"
         }
       ],
       "regenerate": [
@@ -2098,6 +2110,42 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-contract/src/boundary_projection/array.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-diagnostics/src/lib.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-diagnostics/src/vocabulary.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/applicability.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/diagnostic.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/generated/enums.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/generated/identities.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-model/src/study.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-schema/src",
           "kind": "tree"
         },
@@ -2111,6 +2159,10 @@
         },
         {
           "path": "xtask/src/codegen.rs",
+          "kind": "file"
+        },
+        {
+          "path": "xtask/src/codegen/study_native.rs",
           "kind": "file"
         }
       ],

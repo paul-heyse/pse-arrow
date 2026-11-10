@@ -148,6 +148,8 @@ scope.modules = [
   "native_fixture::logical::canonical_server_unit",
 ]
 scope.tests = [
+  "canonical::bootstrap::tests::closed_bootstrap_resumes_same_physical_identity_before_admitting_clients",
+  "canonical::bootstrap::tests::bootstrap_missing_index_refuses_without_opening_admission",
   "canonical_staging::canonical_server_unit::identical_source_edit_waits_for_live_and_closed_writer_receipt",
   "canonical_staging::canonical_server_unit::dropping_source_edit_waiter_preserves_writer_generation_and_lease",
   "canonical_staging::canonical_server_unit::sixteen_independent_source_staging_clients_preserve_closed_shared_version",
@@ -175,6 +177,7 @@ kind = "lib"
 ownership = "preparation-only"
 inputs = ["qualification-study-module"]
 scope.tests = [
+  "canonical_studies::canonical_studies_server_unit::canonical_studies_surrealism_open_refuses_missing_module_and_tampered_bucket",
   "canonical_studies::canonical_studies_server_unit::surrealism_qualification::canonical_studies_surrealism_qualification_faults_rollback_and_recover",
   "canonical_studies::canonical_studies_server_unit::surrealism_qualification::canonical_studies_surrealism_qualification_pool_original_expiry_cannot_start_late",
   "canonical_studies::canonical_studies_server_unit::surrealism_qualification::canonical_studies_surrealism_qualification_cancelled_apply_settles_original_receipt",
@@ -219,6 +222,15 @@ required-features = ["native-service"]
 ownership = "target-owned"
 inputs = ["server", "study-module", "service-helper"]
 scope.modules = ["native_fixture::migration_tests"]
+
+[[package.metadata.pse.test-fixtures]]
+id = "transition-owned"
+target = "pse_operations"
+kind = "lib"
+required-features = ["native-service"]
+ownership = "target-owned"
+inputs = ["server", "study-module", "service-helper"]
+scope.modules = ["native_fixture::transition_tests"]
 
 [[package.metadata.pse.test-fixtures]]
 id = "surrealkit-rollout-authority"

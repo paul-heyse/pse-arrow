@@ -26,6 +26,7 @@ doctest = false
 workspace = true
 
 [features]
+native-study-contracts = ["dep:pse-model"]
 fuzz-inspection = [
   "dep:libfuzzer-sys",
   "dep:pse-runtime",

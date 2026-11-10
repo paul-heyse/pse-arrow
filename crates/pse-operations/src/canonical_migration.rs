@@ -19,6 +19,8 @@ pub(crate) const TRANSACTION_ADMISSION: &str = "\nfn::pse_schema_v1::admit($pse_
 
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum SchemaAdmission {
+    /// Snapshot-only observation; never requests commit-time registrations.
+    Observation,
     Read,
     Mutation,
     Cleanup,
@@ -26,6 +28,7 @@ pub(crate) enum SchemaAdmission {
 impl SchemaAdmission {
     pub(crate) fn name(self) -> &'static str {
         match self {
+            Self::Observation => "observe",
             Self::Read => "read",
             Self::Mutation => "mutation",
             Self::Cleanup => "cleanup",
@@ -745,9 +748,10 @@ pub(crate) struct MigrationScript {
 }
 impl MigrationScript {
     fn new(body: &str, expression: &str, bindings: Object) -> Self {
+        let begin = crate::canonical_script::TransactionMode::Serializable.begin();
         Self {
             sql: format!(
-                "BEGIN;\nIF time::micros()>=$pse_rpc_expires_at {{ THROW 'PSE_REFUSAL:original_schema_installation_deadline_expired'; }};\n{body}\nLET $pse_migration_result=({expression});\nIF time::micros()>=$pse_rpc_expires_at {{ THROW 'PSE_REFUSAL:original_schema_installation_deadline_expired'; }};\nRETURN $pse_migration_result;\nCOMMIT;"
+                "{begin}\nIF time::micros()>=$pse_rpc_expires_at {{ THROW 'PSE_REFUSAL:original_schema_installation_deadline_expired'; }};\n{body}\nLET $pse_migration_result=({expression});\nIF time::micros()>=$pse_rpc_expires_at {{ THROW 'PSE_REFUSAL:original_schema_installation_deadline_expired'; }};\nRETURN $pse_migration_result;\nCOMMIT;"
             ),
             bindings,
         }
@@ -1228,6 +1232,7 @@ mod tests {
         changed.successor_epoch = changed.predecessor.schema_epoch.clone();
         assert!(changed.validate().is_err());
     }
+
     #[test]
     fn current_catalog_admission_refuses_foreign_markers_and_migration_requests() {
         let mut unversioned = marker();

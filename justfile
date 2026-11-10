@@ -320,7 +320,7 @@ codegen-docs-check:
 [group('local')]
 [doc('The canonical native schema and codecs match a fresh regeneration')]
 codegen-surreal-check:
-    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal --check
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features native-study-contracts --locked -- codegen --only surreal --check
 
 [group('local')]
 codegen-bindgen-check:
@@ -858,7 +858,7 @@ codegen-contracts:
     sh scripts/source-change-codegen scientific-worker
     sh scripts/source-change-codegen reference-exchange
     scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features host-contracts --locked -- codegen --only docs
-    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal
+    scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features native-study-contracts --locked -- codegen --only surreal
 
 [group('mutating')]
 [doc('Accept pending insta snapshots')]

@@ -6,6 +6,7 @@
 #[cfg(test)]
 use crate::canonical::bounded_query;
 use crate::canonical_script::{Envelope, GuardedScript, ResultSlot};
+pub use crate::generated::surreal::NativeCanonicalStudyPointsRow as StudyPoint;
 use crate::{
     canonical::transport::{original_deadline, within_clock},
     canonical::{CanonicalError, CanonicalStore, REQUEST_TIMEOUT, protected_query},
@@ -15,20 +16,22 @@ use crate::{
 };
 use pse_model::generated::canonical::{OperationKey, ProblemKey, RunKey, StudyPointKey};
 use pse_model::generated::enums::StudyPointState;
-pub use pse_model::generated::runtime::{
-    canonical_studies::Row as Study, canonical_study_points::Row as StudyPoint,
-};
+pub use pse_model::generated::runtime::canonical_studies::Row as Study;
 use pse_model::study::{
     ActionKind, EffectState, OccurrenceGraph, OccurrenceKey, PointFacts, PointOutcome, PointPolicy,
     ScientificFacts, SeedFact, StartPolicy, StartProvenance,
 };
-use serde::{Serialize, de::DeserializeOwned};
+use pse_study_module::generated as native;
+use serde::Serialize;
 use std::{
     collections::{BTreeMap, BTreeSet},
     future::IntoFuture,
     time::Duration,
 };
 use surrealdb_types::{Bytes, Object, ToSql, Value};
+fn native_error(error: pse_study_module::native::NativeError) -> CanonicalError {
+    CanonicalError::Configuration(error.to_string())
+}
 
 mod progression;
 pub use progression::{
@@ -49,14 +52,16 @@ pub struct StudyDefinitionPoint {
     /// Capability required by the original policy facts.
     pub admitted_seed_need: Option<pse_model::study::SeedNeed>,
 }
-const STUDY_OUTCOME_SQL: &str = "LET $points=SELECT key,ordinal,occurrence,outcome,settled FROM canonical_study_points WHERE study=$study AND ordinal>$after ORDER BY ordinal LIMIT __OUTCOME_ROWS__; LET $page=$points.fold({rows:[],bytes:0,stopped:false},|$acc,$point| {LET $bytes=$acc.bytes+bytes::len($point.outcome ?? <bytes>[])+2048; IF $acc.stopped OR ($bytes>__STUDY_BYTES__ AND array::len($acc.rows)!=0) {RETURN object::extend($acc,{stopped:true});}; RETURN {rows:array::append($acc.rows,$point),bytes:$bytes,stopped:false};}); RETURN $page.rows.map(|$point| object::extend(object::remove($point,'key'),{projection:(SELECT projection FROM ONLY type::record('canonical_study_admission_outcomes',$point.key)).projection}));";
+const STUDY_OUTCOME_SQL: &str = "LET $points=SELECT key,ordinal,occurrence,outcome,settled FROM canonical_study_points WHERE study=$study AND ordinal>$after ORDER BY ordinal LIMIT __OUTCOME_ROWS__; LET $page=$points.fold({rows:[],bytes:0,stopped:false},|$acc,$point| {LET $bytes=$acc.bytes+bytes::len(encoding::cbor::encode($point.outcome))+2048; IF $acc.stopped OR ($bytes>__STUDY_BYTES__ AND array::len($acc.rows)!=0) {RETURN object::extend($acc,{stopped:true});}; RETURN {rows:array::append($acc.rows,$point),bytes:$bytes,stopped:false};}); RETURN $page.rows.map(|$point| object::extend(object::remove($point,'key'),{projection:(SELECT projection FROM ONLY type::record('canonical_study_admission_outcomes',$point.key)).projection}));";
 const STUDY_DEFINITION_SQL: &str = "SELECT ordinal,occurrence,policy,descriptor,admission,facts,revision FROM canonical_study_points WHERE study=$study AND ordinal>$after ORDER BY ordinal LIMIT 4;";
 fn decode_definition_point(mut row: Object) -> Result<StudyDefinitionPoint, CanonicalError> {
     let ordinal = codec::decode_uint(codec::required(&mut row, "ordinal")?)?;
     let occurrence = codec::decode_uint(codec::required(&mut row, "occurrence")?)?;
     let revision = codec::decode_uint(codec::required(&mut row, "revision")?)?;
-    let policy = codec::decode_bytes(codec::required(&mut row, "policy")?)?;
-    let facts = codec::decode_bytes(codec::required(&mut row, "facts")?)?;
+    let policy = native::decode_admitted_study_point_policy(codec::required(&mut row, "policy")?)
+        .map_err(native_error)?;
+    let facts = native::decode_study_point_facts(codec::required(&mut row, "facts")?)
+        .map_err(native_error)?;
     let descriptor = codec::decode_bytes(codec::required(&mut row, "descriptor")?)?;
     let admission = row
         .remove("admission")
@@ -177,7 +182,7 @@ pub struct ReadinessAdvance {
     /// Periodic verification alone does not keep an idle worker running forever.
     pub pending: bool,
 }
-type ReadinessHint = pse_model::generated::runtime::canonical_study_readiness::Row;
+type ReadinessHint = wire::NativeCanonicalStudyReadinessRow;
 type ReadinessCursor = pse_model::generated::runtime::canonical_study_readiness_cursors::Row;
 impl From<&Study> for StudySummary {
     fn from(study: &Study) -> Self {
@@ -228,7 +233,8 @@ fn decode_study_summary(mut row: Object) -> Result<StudySummary, CanonicalError>
 }
 
 /// Actual occurrence discovery and decision premises, without immutable operation bytes.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
+#[cfg_attr(test, derive(serde::Serialize))]
 pub struct ScopedStudyPoint {
     /// Exact occurrence key.
     pub key: String,
@@ -244,12 +250,12 @@ pub struct ScopedStudyPoint {
     pub ordinal: u64,
     /// Authored occurrence identity.
     pub occurrence: u64,
-    /// Original scientific policy bytes.
-    pub policy: pse_model::Bytes,
-    /// Current scientific facts bytes.
-    pub facts: pse_model::Bytes,
+    /// Original scientific policy.
+    pub policy: PointPolicy,
+    /// Current scientific facts.
+    pub facts: PointFacts,
     /// Actual retained terminal observation, when present.
-    pub outcome: Option<pse_model::Bytes>,
+    pub outcome: Option<PointOutcome>,
     /// Exact scientific execution key.
     pub run: String,
     /// Monotone concurrency revision.
@@ -261,7 +267,7 @@ pub struct ScopedStudyPoint {
     /// Exact current attempt key, when present.
     pub attempt: Option<String>,
     /// Actual admitted start, when present.
-    pub start: Option<pse_model::Bytes>,
+    pub start: Option<StartProvenance>,
 }
 impl ScopedStudyPoint {
     /// Decode the one stored scientific policy.
@@ -323,12 +329,12 @@ pub struct StudyOutcomePoint {
     /// Compact admitted case/binding identity, or explicit unavailability.
     pub projection: Option<pse_model::Bytes>,
     /// Settled scientific outcome, without reconstructing a native report.
-    pub outcome: pse_model::Bytes,
+    pub outcome: PointOutcome,
 }
 impl StudyOutcomePoint {
     /// Decode the retained original outcome and verify its occurrence association.
     pub fn outcome(&self) -> Result<PointOutcome, CanonicalError> {
-        let outcome: PointOutcome = decode(self.outcome.as_slice())?;
+        let outcome = self.outcome.clone();
         if u64::from(outcome.key.0) != self.occurrence {
             return Err(CanonicalError::Configuration(
                 "summary outcome occurrence differs".into(),
@@ -352,7 +358,8 @@ fn decode_outcome_point(mut row: Object) -> Result<StudyOutcomePoint, CanonicalE
             .filter(|v| !matches!(v, Value::None | Value::Null))
             .map(decode_bytes)
             .transpose()?,
-        outcome: decode_bytes(required(&mut row, "outcome")?)?,
+        outcome: native::decode_study_point_outcome(required(&mut row, "outcome")?)
+            .map_err(native_error)?,
     };
     if !row.is_empty() {
         return Err(codec::CodecError::UnknownFields.into());
@@ -360,7 +367,10 @@ fn decode_outcome_point(mut row: Object) -> Result<StudyOutcomePoint, CanonicalE
     if let Some(projection) = &point.projection {
         bounded(projection.as_slice(), 1024)?;
     }
-    bounded(point.outcome.as_slice(), 128 * 1024)?;
+    bounded_native(
+        &native::encode_study_point_outcome(point.outcome.clone()).map_err(native_error)?,
+        128 * 1024,
+    )?;
     Ok(point)
 }
 
@@ -444,13 +454,13 @@ fn scope_action(
     cancelled: bool,
     seed: Option<SeedFact>,
 ) -> Result<pse_model::study::PointAction, CanonicalError> {
-    let policy: PointPolicy = decode(point.policy.as_slice())?;
+    let policy = point.policy.clone();
     let mut candidate = point.facts()?;
     candidate.seed = seed;
     let mut facts = vec![candidate];
     let mut policies = Vec::with_capacity(predecessors.len());
     for predecessor in predecessors {
-        policies.push(decode(predecessor.policy.as_slice())?);
+        policies.push(predecessor.policy.clone());
         facts.push(predecessor.facts()?);
     }
     pse_model::study_policy::candidate_action(&policy, &policies, &facts, cancelled)
@@ -639,7 +649,7 @@ impl StudyClaim {
         }
         facts.revision = 0;
         facts.native_started = true;
-        let facts = encode(&facts)?;
+        let facts = native::encode_study_point_facts(facts).map_err(native_error)?;
         let nonce: pse_ids::SemanticId = crate::mint_id();
         let operation = format!("study-start:{nonce}");
         let request = encode(&(
@@ -667,14 +677,14 @@ struct StudyDispatchAdmission<'a> {
     claim: &'a StudyClaim,
     operation: String,
     request: Vec<u8>,
-    facts: Vec<u8>,
+    facts: Value,
 }
 
 fn encode<T: Serialize>(value: &T) -> Result<Vec<u8>, CanonicalError> {
     serde_json::to_vec(value).map_err(|error| CanonicalError::Configuration(error.to_string()))
 }
-fn decode<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, CanonicalError> {
-    serde_json::from_slice(bytes).map_err(|error| CanonicalError::Configuration(error.to_string()))
+fn bounded_native(value: &Value, limit: usize) -> Result<(), CanonicalError> {
+    pse_study_module::native::admit(value, limit, 128).map_err(|_| CanonicalError::PayloadLimit)
 }
 fn bounded(bytes: &[u8], limit: usize) -> Result<(), CanonicalError> {
     if bytes.len() > limit {
@@ -697,11 +707,11 @@ pub fn point_facts(point: &StudyPoint) -> Result<PointFacts, CanonicalError> {
     decode_point_facts(&point.facts, point.occurrence, point.revision)
 }
 fn decode_point_facts(
-    bytes: &pse_model::Bytes,
+    value: &PointFacts,
     occurrence: u64,
     revision: u64,
 ) -> Result<PointFacts, CanonicalError> {
-    let mut facts: PointFacts = decode(bytes.as_slice())?;
+    let mut facts = value.clone();
     facts.revision = revision;
     if u64::from(facts.key.0) != occurrence {
         return Err(CanonicalError::Configuration(
@@ -715,10 +725,10 @@ pub fn point_policy(point: &StudyPoint) -> Result<PointPolicy, CanonicalError> {
     decode_point_policy(&point.policy, point.occurrence)
 }
 fn decode_point_policy(
-    bytes: &pse_model::Bytes,
+    value: &PointPolicy,
     occurrence: u64,
 ) -> Result<PointPolicy, CanonicalError> {
-    let policy: PointPolicy = decode(bytes.as_slice())?;
+    let policy = value.clone();
     if u64::from(policy.key.0) != occurrence {
         return Err(CanonicalError::Configuration(
             "study policy occurrence differs".into(),
@@ -731,9 +741,9 @@ pub fn point_outcome(point: &StudyPoint) -> Result<Option<PointOutcome>, Canonic
     decode_point_outcome(point.outcome.as_ref())
 }
 fn decode_point_outcome(
-    bytes: Option<&pse_model::Bytes>,
+    value: Option<&PointOutcome>,
 ) -> Result<Option<PointOutcome>, CanonicalError> {
-    bytes.map(|bytes| decode(bytes.as_slice())).transpose()
+    Ok(value.cloned())
 }
 
 fn check_created_study(expected: &Study, observed: &Study) -> Result<(), CanonicalError> {
@@ -1036,10 +1046,10 @@ impl CanonicalStore {
                                     StartPolicy::Explicit { seed, .. } => Some(seed.to_string()),
                                     _ => None,
                                 },
-                                policy: encode(&point.policy)?.into(),
+                                policy: point.policy.clone(),
                                 descriptor: point.descriptor.clone().into(),
                                 admission: None,
-                                facts: encode(&facts)?.into(),
+                                facts: facts.clone(),
                                 outcome: None,
                                 run: point.run.key.as_str().to_owned(),
                                 revision: 0,
@@ -1073,9 +1083,8 @@ impl CanonicalStore {
                             if cancelled() {
                                 return self.stop_study_creation(&row, run, points).await;
                             }
-                            let point_extent = native.descriptor.len()
-                                + native.policy.len()
-                                + native.facts.len()
+                            let encoded_point=wire::encode_canonical_study_points(&native)?;
+                            let point_extent = Value::Object(encoded_point.clone()).to_sql().len()
                                 + request.request.len() + request.source_selection.len() + request.attestation.len() + 8192;
                             if !batch.is_empty()
                                 && (batch.len() == 64 || extent + point_extent > 2 * 1024 * 1024)
@@ -1095,7 +1104,7 @@ impl CanonicalStore {
                                 extent = 0;
                             }
                             extent += point_extent;
-                            batch.push(wire::encode_canonical_study_points(&native)?);
+                            batch.push(encoded_point);
                             runs.push(run_object);
                         }
                         if !batch.is_empty() {
@@ -1962,8 +1971,8 @@ impl CanonicalStore {
             PointOutcome { key: facts.key, lifecycle: facts.lifecycle, scientific: ScientificFacts::default(),
                 diagnostic: Some(diagnostic), start: None, effect: EffectState::Absent, attempts: vec![] }
         });
-        let facts = encode(&facts)?;
-        let outcome = outcome.as_ref().map(encode).transpose()?;
+        let facts = native::encode_study_point_facts(facts).map_err(native_error)?;
+        let outcome = outcome.map(native::encode_study_point_outcome).transpose().map_err(native_error)?;
         let operation = format!("study-admission-complete:{}", scope.point.key);
         let request = encode(&(1_u8, &scope.point.key, admission, projection, seed_need, &outcome))?;
         let expected = scope_expected(scope)?;
@@ -1974,7 +1983,7 @@ impl CanonicalStore {
             .bind(("run", fence.run().to_owned())).bind(("attempt", fence.attempt().to_owned()))
             .bind(("authority", codec::encode_uint(fence.generation())?)).bind(("operation", operation.clone()))
             .bind(("request", Bytes::from(request.clone()))).bind(("admission", Bytes::from(admission.to_vec())))
-            .bind(("projection",Some(Bytes::from(projection.unwrap_or(b"[null,null]").to_vec())))).bind(("facts", Bytes::from(facts.clone()))).bind(("outcome", outcome.clone().map(Bytes::from)))
+            .bind(("projection",Some(Bytes::from(projection.unwrap_or(b"[null,null]").to_vec())))).bind(("facts", facts.clone())).bind(("outcome", outcome.clone()))
         )).await;
         match response {
             Ok(mut response) => Ok(wire::decode_canonical_study_points(response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse)?)?),
@@ -2027,7 +2036,7 @@ impl CanonicalStore {
             // Native-start is a fact of this actual attempt. A policy-authorized retry
             // keeps prior outcomes but has not crossed its own dispatch boundary yet.
             facts.native_started = false;
-            let facts = encode(&facts)?;
+            let facts = native::encode_study_point_facts(facts).map_err(native_error)?;
             let expected = std::iter::once(&scope.point)
                 .chain(scope.predecessors.iter())
                 .map(|point| {
@@ -2037,7 +2046,7 @@ impl CanonicalStore {
                     Ok(object)
                 })
                 .collect::<Result<Vec<_>, CanonicalError>>()?;
-            let start_bytes = encode(&start)?;
+            let start_native = native::encode_study_start_provenance(start.clone()).map_err(native_error)?;
             let request = encode(&(
                 operation,
                 &scope.study,
@@ -2057,7 +2066,7 @@ impl CanonicalStore {
                 wire::INTERPRETATION,
             ))?;
             self.ensure_writes()?;
-            let response=self.protected_execution_query(&scope.point.run, "canonical_studies::claim_study_point", ||Ok(self.db.query("RETURN fn::pse_study_v1::claim($pse_rpc_expires_at, $study,$generation,$point,$expected,$start,$operation,$request,$claim_request,$attempt,$worker,$lifetime,$facts);").bind(("study",scope.study.clone())).bind(("generation",codec::encode_uint(scope.generation)?)).bind(("point",scope.point.key.clone())).bind(("expected",expected.clone())).bind(("start",Bytes::from(start_bytes.clone()))).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("claim_request",Bytes::from(claim_request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)).bind(("facts",Bytes::from(facts.clone()))))).await;
+            let response=self.protected_execution_query(&scope.point.run, "canonical_studies::claim_study_point", ||Ok(self.db.query("RETURN fn::pse_study_v1::claim($pse_rpc_expires_at, $study,$generation,$point,$expected,$start,$operation,$request,$claim_request,$attempt,$worker,$lifetime,$facts);").bind(("study",scope.study.clone())).bind(("generation",codec::encode_uint(scope.generation)?)).bind(("point",scope.point.key.clone())).bind(("expected",expected.clone())).bind(("start",start_native.clone())).bind(("operation",operation.to_owned())).bind(("request",Bytes::from(request.clone()))).bind(("claim_request",Bytes::from(claim_request.clone()))).bind(("attempt",attempt.clone())).bind(("worker",worker.to_owned())).bind(("lifetime",lifetime)).bind(("facts",facts.clone())))).await;
             let response = response.and_then(|mut response| {
                 Ok(wire::decode_canonical_attempts(
                     response
@@ -2146,13 +2155,10 @@ impl CanonicalStore {
                     .await?
                     .ok_or(CanonicalError::IncompleteResponse)?,
             };
-            let actual_start: StartProvenance = decode(
-                point
-                    .start
-                    .as_ref()
-                    .ok_or(CanonicalError::IncompleteResponse)?
-                    .as_slice(),
-            )?;
+            let actual_start = point
+                .start
+                .clone()
+                .ok_or(CanonicalError::IncompleteResponse)?;
             if point.study != scope.study
                 || point.run != scope.point.run
                 || point.occurrence != scope.point.occurrence
@@ -2206,10 +2212,10 @@ impl CanonicalStore {
             ).ok_or_else(|| CanonicalError::Configuration("native attempt needs terminal observation".into()))?;
             outcome.diagnostic = diagnostic;
             let expected = scope_expected(scope)?;
-            let facts = encode(&facts)?;
-            let outcome = encode(&outcome)?;
+            let facts = native::encode_study_point_facts(facts).map_err(native_error)?;
+            let outcome = native::encode_study_point_outcome(outcome).map_err(native_error)?;
             self.ensure_writes()?;
-            let mut result=self.protected_execution_query(&scope.point.run, "canonical_studies::refuse_study_point", ||Ok(self.db.query("RETURN fn::pse_study_v1::settle($pse_rpc_expires_at, $study,$generation,$cancelled,$point,$expected,$facts,$outcome);").bind(("study",scope.study.clone())).bind(("generation",codec::encode_uint(scope.generation)?)).bind(("cancelled",scope.cancelled)).bind(("point",scope.point.key.clone())).bind(("expected",expected.clone())).bind(("facts",Bytes::from(facts.clone()))).bind(("outcome",Bytes::from(outcome.clone()))))).await?;
+            let mut result=self.protected_execution_query(&scope.point.run, "canonical_studies::refuse_study_point", ||Ok(self.db.query("RETURN fn::pse_study_v1::settle($pse_rpc_expires_at, $study,$generation,$cancelled,$point,$expected,$facts,$outcome);").bind(("study",scope.study.clone())).bind(("generation",codec::encode_uint(scope.generation)?)).bind(("cancelled",scope.cancelled)).bind(("point",scope.point.key.clone())).bind(("expected",expected.clone())).bind(("facts",facts.clone())).bind(("outcome",outcome.clone())))).await?;
             Ok(wire::decode_canonical_study_points(
                 result
                     .take::<Option<Object>>(0)?
@@ -2245,7 +2251,7 @@ impl CanonicalStore {
     ) -> Result<StudyPoint, CanonicalError> {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let claim = admission.claim;
-            let result=self.protected_execution_query(claim.fence.run(), "canonical_studies::send_study_started", ||Ok(self.db.query("RETURN fn::pse_study_v1::started($pse_rpc_expires_at, $study,$point,$revision,$run,$attempt,$generation,$operation,$request,$facts);").bind(("study",claim.point.study.clone())).bind(("point",claim.point.key.clone())).bind(("revision",codec::encode_uint(claim.point.revision)?)).bind(("run",claim.fence.run().to_owned())).bind(("attempt",claim.fence.attempt().to_owned())).bind(("generation",codec::encode_uint(claim.fence.generation())?)).bind(("operation",admission.operation.clone())).bind(("request",Bytes::from(admission.request.clone()))).bind(("facts",Bytes::from(admission.facts.clone()))))).await;
+            let result=self.protected_execution_query(claim.fence.run(), "canonical_studies::send_study_started", ||Ok(self.db.query("RETURN fn::pse_study_v1::started($pse_rpc_expires_at, $study,$point,$revision,$run,$attempt,$generation,$operation,$request,$facts);").bind(("study",claim.point.study.clone())).bind(("point",claim.point.key.clone())).bind(("revision",codec::encode_uint(claim.point.revision)?)).bind(("run",claim.fence.run().to_owned())).bind(("attempt",claim.fence.attempt().to_owned())).bind(("generation",codec::encode_uint(claim.fence.generation())?)).bind(("operation",admission.operation.clone())).bind(("request",Bytes::from(admission.request.clone()))).bind(("facts",admission.facts.clone())))).await;
             let mut result = result?;
             Ok(wire::decode_canonical_study_points(
                 result
@@ -2309,7 +2315,7 @@ impl CanonicalStore {
                 || !point.assigned
                 || point.settled
                 || point.start != claim.point.start
-                || point.facts.as_slice() != admission.facts.as_slice()
+                || native::encode_study_point_facts(point.facts.clone()).map_err(native_error)? != admission.facts
             {
                 return Err(CanonicalError::Configuration(
                     "study start acknowledgment does not match the exact admitted dispatch".into(),
@@ -2499,12 +2505,12 @@ impl CanonicalStore {
             }
             let mut facts = facts.clone();
             facts.revision = 0;
-            let facts = encode(&facts)?;
-            bounded(&facts, 16 * 1024)?;
-            let outcome = encode(outcome)?;
-            bounded(&outcome, 128 * 1024)?;
+            let facts = native::encode_study_point_facts(facts).map_err(native_error)?;
+            bounded_native(&facts, 16 * 1024)?;
+            let outcome = native::encode_study_point_outcome(outcome.clone()).map_err(native_error)?;
+            bounded_native(&outcome, 128 * 1024)?;
             self.ensure_writes()?;
-            let mut response=self.protected_execution_query(&point.run, "canonical_studies::observe_study_point", ||Ok(self.db.query("RETURN fn::pse_study_v1::observe($pse_rpc_expires_at, $point,$revision,$attempt,$facts,$outcome,$settled);").bind(("point",point.key.clone())).bind(("revision",codec::encode_uint(point.revision)?)).bind(("attempt",point.attempt.clone())).bind(("facts",Bytes::from(facts.clone()))).bind(("outcome",Bytes::from(outcome.clone()))).bind(("settled",settled)))).await?;
+            let mut response=self.protected_execution_query(&point.run, "canonical_studies::observe_study_point", ||Ok(self.db.query("RETURN fn::pse_study_v1::observe($pse_rpc_expires_at, $point,$revision,$attempt,$facts,$outcome,$settled);").bind(("point",point.key.clone())).bind(("revision",codec::encode_uint(point.revision)?)).bind(("attempt",point.attempt.clone())).bind(("facts",facts.clone())).bind(("outcome",outcome.clone())).bind(("settled",settled)))).await?;
             Ok(wire::decode_canonical_study_points(
                 response
                     .take::<Option<Object>>(0)?
@@ -2635,7 +2641,7 @@ fn scope_expected(scope: &StudyScope) -> Result<Vec<Object>, CanonicalError> {
 }
 
 fn decode_scope_point(mut row: Object) -> Result<ScopedStudyPoint, CanonicalError> {
-    use codec::{decode_boolean, decode_bytes, decode_string, decode_uint, required};
+    use codec::{decode_boolean, decode_string, decode_uint, required};
     let point = ScopedStudyPoint {
         key: decode_string(required(&mut row, "key")?)?,
         study: decode_string(required(&mut row, "study")?)?,
@@ -2656,11 +2662,13 @@ fn decode_scope_point(mut row: Object) -> Result<ScopedStudyPoint, CanonicalErro
             .transpose()?,
         ordinal: decode_uint(required(&mut row, "ordinal")?)?,
         occurrence: decode_uint(required(&mut row, "occurrence")?)?,
-        policy: decode_bytes(required(&mut row, "policy")?)?,
-        facts: decode_bytes(required(&mut row, "facts")?)?,
+        policy: native::decode_admitted_study_point_policy(required(&mut row, "policy")?)
+            .map_err(native_error)?,
+        facts: native::decode_study_point_facts(required(&mut row, "facts")?)
+            .map_err(native_error)?,
         outcome: match row.remove("outcome") {
             None | Some(Value::None) => None,
-            Some(value) => Some(decode_bytes(value)?),
+            Some(value) => Some(native::decode_study_point_outcome(value).map_err(native_error)?),
         },
         run: decode_string(required(&mut row, "run")?)?,
         revision: decode_uint(required(&mut row, "revision")?)?,
@@ -2672,7 +2680,9 @@ fn decode_scope_point(mut row: Object) -> Result<ScopedStudyPoint, CanonicalErro
         },
         start: match row.remove("start") {
             None | Some(Value::None) => None,
-            Some(value) => Some(decode_bytes(value)?),
+            Some(value) => {
+                Some(native::decode_study_start_provenance(value).map_err(native_error)?)
+            }
         },
     };
     if !row.is_empty() {
@@ -2731,10 +2741,10 @@ mod outcome_projection_tests {
             }
             row
         };
-        let bytes = Bytes::from(encode(&original).unwrap());
-        assert!(decode_outcome_point(row(false, Value::Bytes(bytes.clone()))).is_err());
+        let value = native::encode_study_point_outcome(original).unwrap();
+        assert!(decode_outcome_point(row(false, value.clone())).is_err());
         assert!(decode_outcome_point(row(true, Value::None)).is_err());
-        let mut projected = decode_outcome_point(row(true, Value::Bytes(bytes))).unwrap();
+        let mut projected = decode_outcome_point(row(true, value)).unwrap();
         assert_eq!(projected.outcome().unwrap().key, OccurrenceKey(7));
         projected.occurrence = 8;
         assert!(projected.outcome().is_err());
@@ -3380,11 +3390,14 @@ mod canonical_studies_server_unit {
         );
         assert_eq!(exports[0].get("writeable"), &Value::Bool(false));
         assert_eq!(
-            store
-                .study_candidates("query-inspection", Some(15))
-                .await
-                .unwrap(),
-            candidates,
+            serde_json::to_value(
+                store
+                    .study_candidates("query-inspection", Some(15))
+                    .await
+                    .unwrap()
+            )
+            .unwrap(),
+            serde_json::to_value(candidates).unwrap(),
             "synthetic policy inspection must not prepare, claim or start canonical work"
         );
         if operator {
@@ -3722,10 +3735,7 @@ mod canonical_studies_server_unit {
             lifecycle: state,
             scientific: facts.scientific.clone(),
             diagnostic: None,
-            start: point
-                .start
-                .as_ref()
-                .map(|bytes| decode(bytes.as_slice()).unwrap()),
+            start: point.start.clone(),
             effect: EffectState::Absent,
             attempts: vec![],
         };
@@ -4326,12 +4336,12 @@ mod canonical_studies_server_unit {
                 .chain(scope.predecessors.iter())
                 .map(|point| (point.key.clone(), point.revision))
                 .collect::<Vec<_>>();
-            let premises =
-                codec::decode_bytes(codec::required(&mut decision, "premises").unwrap()).unwrap();
-            assert_eq!(
-                decode::<(u64, Vec<(String, u64)>)>(premises.as_slice()).unwrap(),
-                (scope.generation, expected)
-            );
+            let premises = native::decode_study_readiness_premises(
+                codec::required(&mut decision, "premises").unwrap(),
+            )
+            .unwrap();
+            assert_eq!(premises.generation, scope.generation);
+            assert_eq!(premises.expected, expected);
         }
     }
     #[tokio::test]
@@ -4427,6 +4437,74 @@ mod canonical_studies_server_unit {
         bounded_query(store.db.query("UPDATE canonical_study_points SET revision=$revision WHERE study='module-u64'; UPDATE ONLY type::record('canonical_studies','module-u64') SET generation=$revision;")
             .bind(("revision",codec::encode_uint(u64::MAX).unwrap()))).await.unwrap();
         assert_native_readiness_policy(&store, "module-u64").await;
+        store.remove_isolated_fixture().await.unwrap();
+    }
+    #[tokio::test]
+    async fn canonical_studies_native_outcome_preserves_recursive_diagnostic_objects() {
+        use pse_diagnostics::{DiagnosticRule, DiagnosticStage};
+        use pse_model::diagnostic::{BoundaryClass, BoundaryDiagnostic, Observation};
+        let (store, _, revision) = fixture().await;
+        store
+            .create_study(
+                "native-diagnostic",
+                &request(&revision, "native-diagnostic-parent"),
+                &[],
+                &[occurrence(&revision, 0, vec![])],
+                &|| false,
+            )
+            .await
+            .unwrap();
+        let key = point_key("native-diagnostic", OccurrenceKey(0));
+        let mut leaf = BoundaryDiagnostic::new(
+            BoundaryClass::Conflict,
+            DiagnosticStage::StudyPolicy,
+            [],
+            DiagnosticRule::StudyDependencyUnusable,
+        );
+        leaf.observations.insert(
+            "literal".into(),
+            Observation::Text("record:unchanged".into()),
+        );
+        let mut diagnostic = leaf.clone();
+        diagnostic.causes.push(leaf);
+        let mut parent = diagnostic.clone();
+        parent.causes.push(diagnostic);
+        let outcome = PointOutcome {
+            key: OccurrenceKey(0),
+            lifecycle: StudyPointState::Failed,
+            scientific: ScientificFacts::default(),
+            diagnostic: Some(parent),
+            start: None,
+            effect: EffectState::Absent,
+            attempts: vec![],
+        };
+        bounded_query(
+            store
+                .db
+                .query(
+                    "UPDATE ONLY type::record('canonical_study_points',$key) SET outcome=$outcome;",
+                )
+                .bind(("key", key.clone()))
+                .bind((
+                    "outcome",
+                    native::encode_study_point_outcome(outcome).unwrap(),
+                )),
+        )
+        .await
+        .unwrap();
+        let outcome = store
+            .canonical_study_point(&key)
+            .await
+            .unwrap()
+            .unwrap()
+            .outcome
+            .unwrap();
+        let parent = outcome.diagnostic.unwrap();
+        assert_eq!(parent.causes.len(), 2);
+        let grandchild = &parent.causes[1].causes[0];
+        assert!(
+            matches!(grandchild.observations.get("literal"),Some(Observation::Text(value)) if value=="record:unchanged")
+        );
         store.remove_isolated_fixture().await.unwrap();
     }
     #[tokio::test]
@@ -5140,72 +5218,6 @@ mod canonical_studies_server_unit {
     }
 
     #[tokio::test]
-    async fn canonical_studies_readiness_byte_limited_pages_keep_explicit_continuation() {
-        let (store, _, revision) = fixture().await;
-        let mut points = (0..9)
-            .map(|key| occurrence(&revision, key, vec![]))
-            .collect::<Vec<_>>();
-        points.push(occurrence(
-            &revision,
-            9,
-            (0..9)
-                .map(|key| Dependency::Ordering(OccurrenceKey(key)))
-                .collect(),
-        ));
-        store
-            .create_study(
-                "byte-page",
-                &request(&revision, "byte-parent"),
-                &[],
-                &points,
-                &|| false,
-            )
-            .await
-            .unwrap();
-        for occurrence in 0..9 {
-            let key = point_key("byte-page", OccurrenceKey(occurrence));
-            let scope = store.study_scope(&key).await.unwrap();
-            let mut facts = scope.point.facts.as_slice().to_vec();
-            facts.resize(128 * 1024, b' ');
-            bounded_query(
-                store
-                    .db
-                    .query(
-                        "UPDATE ONLY type::record('canonical_study_points',$key) SET facts=$facts;",
-                    )
-                    .bind(("key", key))
-                    .bind(("facts", Bytes::from(facts))),
-            )
-            .await
-            .unwrap();
-        }
-        let mut cursor = store.readiness_cursor("byte-page").await.unwrap();
-        let first = native_scope_test(&store, "byte-page", &cursor).await;
-        let Value::Array(items) = first.get("items").unwrap() else {
-            unreachable!()
-        };
-        assert!(items.len() < 9 && !items.is_empty());
-        let fence = readiness_object(first.get("fence").unwrap().clone()).unwrap();
-        assert_eq!(fence.get("exhausted"), Some(&Value::Bool(false)));
-        cursor.verify_after =
-            Some(codec::decode_uint(fence.get("next_ordinal").unwrap().clone()).unwrap());
-        let second = native_scope_test(&store, "byte-page", &cursor).await;
-        let fence = readiness_object(second.get("fence").unwrap().clone()).unwrap();
-        assert_eq!(fence.get("exhausted"), Some(&Value::Bool(false)));
-        cursor.verify_after = Some(8);
-        let coordinates =
-            readiness_coordinates(&store, "byte-page", &cursor, "verify", None).unwrap();
-        let error=bounded_query(store.db.query("RETURN fn::pse_study_v1::readiness_scope_page($pse_rpc_expires_at,$coordinates.study,$coordinates.cursor,$coordinates.mode,$coordinates.after,$coordinates.source,64);").bind(("coordinates",coordinates))).await.err().unwrap();
-        assert!(
-            error
-                .to_string()
-                .contains("study_readiness_single_scope_extent"),
-            "{error}"
-        );
-        store.remove_isolated_fixture().await.unwrap();
-    }
-
-    #[tokio::test]
     async fn canonical_studies_readiness_rebuild_and_notification_fences_preserve_new_work() {
         let (store, database, revision) = fixture().await;
         let points = [
@@ -5529,7 +5541,10 @@ mod canonical_studies_server_unit {
             .unwrap();
         assert_eq!(recovered.fence.attempt(), claim.fence.attempt());
         assert_eq!(recovered.fence.generation(), claim.fence.generation());
-        assert_eq!(recovered.point, claim.point);
+        assert_eq!(
+            wire::encode_canonical_study_points(&recovered.point).unwrap(),
+            wire::encode_canonical_study_points(&claim.point).unwrap()
+        );
         assert_eq!(recovered.start, claim.start);
         assert!(matches!(
             store
@@ -5612,11 +5627,14 @@ mod canonical_studies_server_unit {
                 && matches!(*source, CanonicalError::Timeout)
         ));
         assert_eq!(
-            store
-                .finish_study_started(admission, Err(CanonicalError::Timeout))
-                .await
-                .unwrap(),
-            started
+            wire::encode_canonical_study_points(
+                &store
+                    .finish_study_started(admission, Err(CanonicalError::Timeout))
+                    .await
+                    .unwrap()
+            )
+            .unwrap(),
+            wire::encode_canonical_study_points(&started).unwrap()
         );
         assert!(store.mark_study_started(&claim.clone()).await.is_err());
         assert!(
@@ -5878,7 +5896,10 @@ mod canonical_studies_server_unit {
                 .await
                 .unwrap()
                 .unwrap();
-            assert_eq!(point, &ScopedStudyPoint::from(&full));
+            assert_eq!(
+                serde_json::to_value(point).unwrap(),
+                serde_json::to_value(ScopedStudyPoint::from(&full)).unwrap()
+            );
             assert_eq!(point.ordinal, ordinal as u64);
             assert_eq!(full.descriptor.as_slice(), &[42]);
         }

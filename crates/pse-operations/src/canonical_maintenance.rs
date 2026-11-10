@@ -30,7 +30,10 @@ pub use catalog::{
 };
 #[path = "canonical_maintenance/frozen_rollout.rs"]
 mod frozen_rollout;
-pub use frozen_rollout::{FrozenRollout, RolloutPhase};
+pub use frozen_rollout::{FrozenRollout, RolloutEffect, RolloutPhase};
+#[path = "canonical_maintenance/transition.rs"]
+mod transition;
+pub use transition::{SchemaTransitionIntent, TransitionDataPolicy};
 
 /// Exact predecessor, distinct from the generated target and beta schema hash.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, schemars::JsonSchema)]
@@ -204,7 +207,6 @@ fn parse_definition_input(
         let mut statement = *statement;
         if matches!(mode, DefinitionInput::FrozenRollout)
             && (matches!(&statement, DefineStatement::Table(table) if table.drop || table.view.is_some())
-                || matches!(&statement, DefineStatement::Field(field) if field.migrate.is_some())
                 || matches!(&statement, DefineStatement::Index(index) if index.concurrently))
         {
             return Err(invalid(

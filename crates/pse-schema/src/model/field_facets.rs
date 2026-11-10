@@ -3,7 +3,7 @@
 
 //! Field facet meanings, declared once and projected into the lower columnar layer.
 //! Physical observation retains every key. Undeclared keys remain significant.
-//! Use `just codegen-bootstrap` after changing these policies: the first stage emits
+//! Use `just codegen` after changing these policies: the first stage emits
 //! the columnar table and the second rebuilds its consumers before registry generation.
 
 /// Whether target value admission may attach a declaration to untyped storage.
@@ -66,6 +66,7 @@ facets! {
     (FK_COLUMN, "pse.domain.fk.column", true, true, false, false, true, Ignore),
     (GRAPH_ENDPOINT, "pse.domain.graph_endpoint", true, false, false, false, false, Ignore),
     (CANONICAL_KEY, "pse.domain.canonical.key", true, true, true, true, true, Preserve),
+    (CANONICAL_PROJECTION, "pse.domain.canonical.projection", true, false, false, false, false, Ignore),
     (CANONICAL_READONLY, "pse.domain.canonical.readonly", true, false, false, false, false, Ignore),
     (CANONICAL_ASSERT, "pse.domain.canonical.assert", true, false, false, false, false, Ignore),
     (CANONICAL_DEFAULT, "pse.domain.canonical.default", true, false, false, false, false, Ignore),

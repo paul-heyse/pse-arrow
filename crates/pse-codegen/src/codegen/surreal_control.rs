@@ -45,7 +45,6 @@ DEFINE FUNCTION fn::pse_control_v1::cancel($expiry:int,$actor:string,$request:ob
         fn::pse_execution_v1::deadline($expiry); RETURN encoding::cbor::decode($old.receipt);
     };
     fn::pse_schema_v1::current_mutation($expiry);
-    fn::pse_workbench_v1::publication($expiry);
     fn::pse_history_v1::check_owner($expiry,'study',$request.study);
     fn::pse_execution_v1::touch($expiry,'study-cancel:'+$request.study);
     LET $study=SELECT * FROM ONLY type::record('canonical_studies',$request.study) FOR UPDATE;

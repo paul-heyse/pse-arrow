@@ -11,7 +11,6 @@ const FUNCTIONS: &str = r#"
 
 // One physical source-deletion decision shared by stage and membership cleanup.
 DEFINE FUNCTION fn::pse_retention_v1::delete_source_version($pse_rpc_expires_at:int,$version:string,$excluded_membership:option<string>,$excluded_stage:option<string>) -> object {
-    fn::pse_workbench_v1::publication($pse_rpc_expires_at);
 LET $version_guard = type::record('canonical_guards', 'version:' + $version);
 SELECT * FROM $version_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $members = SELECT key FROM canonical_memberships WHERE version = $version AND ($excluded_membership = NONE OR key != $excluded_membership) LIMIT 1;
@@ -43,7 +42,6 @@ UPSERT $version_guard SET key = 'version:' + $version, generation = (generation 
 
 // Cursor and the candidate's full fresh decision commit in the same native transaction.
 DEFINE FUNCTION fn::pse_retention_v1::source_step($pse_rpc_expires_at:int,$problem:string) -> object {
-    fn::pse_workbench_v1::publication($pse_rpc_expires_at);
     fn::pse_execution_v1::register($pse_rpc_expires_at,'source-creators:'+$problem);
     LET $guard = type::record('canonical_guards','retention:'+$problem);
     LET $position = SELECT * FROM ONLY $guard FOR UPDATE;
@@ -139,7 +137,6 @@ DEFINE FUNCTION fn::pse_retention_v1::settle_protection($rpc_expiry:int,$problem
 };
 
 DEFINE FUNCTION fn::pse_retention_v1::forget_study($rpc_expiry: int, $study:string) -> bool {
-    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::touch($rpc_expiry, 'study:'+$study);
     LET $header=SELECT * FROM ONLY type::record('canonical_studies',$study);
@@ -154,7 +151,6 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_study($rpc_expiry: int, $study:stri
 
 // The occurrence key carries its immutable authority and expiry even after header deletion.
 DEFINE FUNCTION fn::pse_retention_v1::forget_analysis($rpc_expiry: int, $analysis:string) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $header=SELECT * FROM ONLY type::record('canonical_analyses',$analysis) FOR UPDATE;
     IF $header=NONE {
@@ -188,7 +184,6 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_analysis($rpc_expiry: int, $analysi
 };
 
 DEFINE FUNCTION fn::pse_retention_v1::settle_analysis($rpc_expiry:int,$intent:object) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $header=SELECT * FROM ONLY type::record('canonical_analyses',$intent.key) FOR UPDATE;
     LET $guard=SELECT * FROM ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) FOR UPDATE;
@@ -213,7 +208,6 @@ DEFINE FUNCTION fn::pse_retention_v1::settle_analysis($rpc_expiry:int,$intent:ob
 };
 
 DEFINE FUNCTION fn::pse_retention_v1::forget_run($rpc_expiry: int, $run:string) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
     LET $captures=SELECT key FROM canonical_study_capture_protections WHERE run=$run LIMIT 1;
     IF array::len($captures)!=0 { THROW 'PSE_REFUSAL:run_results_have_protected_readers'; };
     fn::pse_execution_v1::deadline($rpc_expiry);
@@ -256,7 +250,6 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_run($rpc_expiry: int, $run:string) 
 };
 
 DEFINE FUNCTION fn::pse_retention_v1::collect_run($rpc_expiry: int, $run:string) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
     LET $captures=SELECT key FROM canonical_study_capture_protections WHERE run=$run LIMIT 1;
     IF array::len($captures)!=0 { THROW 'PSE_REFUSAL:run_results_have_protected_readers'; };
     fn::pse_execution_v1::deadline($rpc_expiry);

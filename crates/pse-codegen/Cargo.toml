@@ -20,6 +20,8 @@ doctest = false
 workspace = true
 
 [dependencies]
+surrealdb-expr.workspace = true
+surrealdb-types.workspace = true
 pse-contract.workspace = true
 pse-contract-proto.workspace = true
 thiserror.workspace = true
@@ -27,7 +29,6 @@ miette.workspace = true
 buffa.workspace = true
 buffa-codegen.workspace = true
 buffa-descriptor.workspace = true
-buffa-types.workspace = true
 protovalidate-buffa-protos.workspace = true
 pse-columnar.workspace = true
 pse-schema.workspace = true
@@ -55,6 +56,10 @@ force-validate = [
 ]
 
 [dev-dependencies]
-surrealdb-expr.workspace = true
 pse-model.workspace = true
 tempfile.workspace = true
+
+# The vendor allocation test is linked through an external path module, which
+# cargo-shear does not traverse when detecting its tempfile calls.
+[package.metadata.cargo-shear]
+ignored = ["tempfile"]

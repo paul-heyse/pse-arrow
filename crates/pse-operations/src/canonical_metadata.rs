@@ -17,6 +17,8 @@ pub enum MetadataResponse {
     /// At most two header rows, each below 32 declared fields. Run headers carry
     /// request/source-selection bytes (up to the transport limit together).
     Header,
+    /// Fixed bootstrap marker/custody and one status per required native index.
+    Bootstrap,
     /// Header/manifest/protection selection, including 256 CBOR descriptors.
     Selection,
     /// A 64-row descriptor or analysis page, each below 32 declared fields.
@@ -38,6 +40,23 @@ impl MetadataResponse {
     /// Limits include 32 statement envelopes of at most eight fields, errors,
     /// and the root envelope. Keys are counted separately from their values.
     pub fn limits(self) -> crate::transport::client::ResponseLimits {
+        if matches!(self, Self::Bootstrap) {
+            let indexes = crate::generated::surreal::BOOTSTRAP_INDEX_DEFINITIONS.len();
+            return crate::transport::client::ResponseLimits {
+                wire_bytes: wire::RESULT_MESSAGE_BYTES,
+                // Each fixed observation contains the rendered definition and
+                // native building status (at most64 scalar fields). Eight wire
+                // nodes per field cover Value/Object/KeyValue wrappers;512
+                // further nodes cover marker, custody and result framing.
+                nodes: 512 + indexes * 64 * 8,
+                depth: 24,
+                container_items: indexes.max(64),
+                string_bytes: wire::RESULT_MESSAGE_BYTES,
+                string_length: wire::METADATA_ID_BYTES,
+                blob_bytes: 0,
+                blob_length: 0,
+            };
+        }
         if matches!(self, Self::InlinePayload) {
             return crate::transport::client::ResponseLimits {
                 wire_bytes: wire::RESULT_INLINE_BYTES + 64 * 1024,
@@ -110,7 +129,7 @@ impl MetadataResponse {
             Self::Page => crate::canonical_results::PAGE,
             Self::JoinedBlockPage => 2 * crate::canonical_results::PAGE,
             Self::OutputPage => 3 * crate::canonical_results::PAGE,
-            Self::DiagnosticPlan | Self::StudyPage | Self::CaptureLocators => 0,
+            Self::DiagnosticPlan | Self::StudyPage | Self::CaptureLocators | Self::Bootstrap => 0,
         };
         let nodes = 512 + rows * 32 * 2;
         let strings =
@@ -122,6 +141,7 @@ impl MetadataResponse {
             | Self::InlinePayload
             | Self::StudyPage
             | Self::CaptureLocators => 0,
+            Self::Bootstrap => 0,
             Self::JoinedBlockPage => {
                 crate::canonical_results::PAGE
                     * (pse_schema::catalog::substrate::RESULT_STATISTICS_BYTES

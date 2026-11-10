@@ -272,7 +272,7 @@ impl StudyCapture {
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async {
             let mut response=protected_query("canonical_study_workbench::capture_page",|| Ok(store.db.metadata_query(crate::canonical::MetadataResponse::StudyPage,"RETURN fn::pse_workbench_v1::capture_page($pse_rpc_expires_at,$capture,$owner,$request,$kind,$after);")
                 .bind(("capture",key.to_owned())).bind(("owner",owner.to_owned())).bind(("request",Bytes::from(request.to_vec())))
-                .bind(("kind",kind.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(codec::encode_int(-1)?))))).await?;
+                .bind(("kind",kind.to_owned())).bind(("after",after.map(codec::encode_uint).transpose()?.unwrap_or(Value::None))))).await?;
             let page=response.take::<Vec<Object>>(0)?;
             if page.len()>limit {return Err(CanonicalError::PayloadLimit);}
             let mut previous=after;
@@ -528,13 +528,11 @@ fn header(mut row: Object) -> Result<StudyWorkbenchHeader, CanonicalError> {
 }
 fn member(mut row: Object) -> Result<StudyCohortMember, CanonicalError> {
     use codec::{decode_boolean as flag, decode_string as text, decode_uint as uint, required};
-    let facts = codec::decode_bytes(required(&mut row, "facts")?)?;
-    if facts.len() > 16384 {
-        return Err(CanonicalError::PayloadLimit);
-    }
+    let facts = required(&mut row, "facts")?;
+    pse_study_module::native::admit(&facts, 16384, 64).map_err(|_| CanonicalError::PayloadLimit)?;
     let metadata_revision = uint(required(&mut row, "revision")?)?;
     let occurrence = uint(required(&mut row, "occurrence")?)?;
-    let mut facts: pse_model::study::PointFacts = serde_json::from_slice(facts.as_slice())
+    let mut facts = pse_study_module::generated::decode_study_point_facts(facts)
         .map_err(|e| CanonicalError::Configuration(e.to_string()))?;
     if u64::from(facts.key.0) != occurrence {
         return Err(CanonicalError::Configuration(
@@ -566,7 +564,7 @@ fn workbench_script(
             "$capture_reply.receipt",
         );
     }
-    GuardedScript::new(Envelope::DeadlineOnly).returning(
+    GuardedScript::new(Envelope::ReadOnly).returning(
         "LET $rows=fn::pse_workbench_v1::select_rows($pse_rpc_expires_at,{study:$study,project:$project,branch:$branch,source:$source,physical_revision:$physical_revision,context:$context,outcome:$outcome,research_reference:$research_reference},$after,$extent);",
         "fn::pse_workbench_v1::browse($pse_rpc_expires_at,$rows,$maximum)",
     )
@@ -750,6 +748,47 @@ impl CanonicalStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn captured_member_uses_typed_facts_and_exact_original_metadata() {
+        use pse_model::generated::enums::StudyPointState;
+        use pse_model::study::{EffectState, OccurrenceKey, PointFacts, ScientificFacts};
+        let facts = PointFacts {
+            admitted_seed_need: None,
+            key: OccurrenceKey(7),
+            revision: 41,
+            lifecycle: StudyPointState::Pending,
+            native_started: false,
+            scientific: ScientificFacts {
+                usable: false,
+                candidate_use: None,
+                seed_permission: false,
+            },
+            attempt_count: 0,
+            retry_failure: None,
+            effect: EffectState::Absent,
+            seed: None,
+        };
+        let mut row = Object::new();
+        for (name, value) in [("key", "point"), ("study", "study"), ("run", "run")] {
+            row.insert(name, value);
+        }
+        row.insert("ordinal", codec::encode_uint(3).unwrap());
+        row.insert("occurrence", codec::encode_uint(7).unwrap());
+        row.insert("revision", codec::encode_uint(u64::MAX).unwrap());
+        row.insert("settled", false);
+        row.insert(
+            "facts",
+            pse_study_module::generated::encode_study_point_facts(facts).unwrap(),
+        );
+        let observed = member(row.clone()).unwrap();
+        assert_eq!(observed.metadata_revision, u64::MAX);
+        assert_eq!(observed.facts.revision, u64::MAX);
+        assert_eq!(observed.facts.key, OccurrenceKey(7));
+        row.insert("occurrence", codec::encode_uint(8).unwrap());
+        assert!(member(row.clone()).is_err());
+        row.insert("facts", Value::String("x".repeat(16385)));
+        assert!(matches!(member(row), Err(CanonicalError::PayloadLimit)));
+    }
     #[test]
     fn workbench_query_has_real_predicates_and_never_interpolates_values() {
         let filter = StudyWorkbenchFilter {

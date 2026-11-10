@@ -75,7 +75,7 @@ fn expiry() -> i64 {
 fn body(query: &str) -> String {
     query
         .trim()
-        .strip_prefix("BEGIN;")
+        .strip_prefix(crate::canonical_script::TransactionMode::Serializable.begin())
         .unwrap()
         .trim()
         .strip_suffix("COMMIT;")
@@ -1004,6 +1004,10 @@ fn point(
     ordinal: u64,
     settled: bool,
 ) -> crate::canonical_studies::StudyPoint {
+    use pse_model::study::{
+        EffectState, OccurrenceKey, PointFacts, PointPolicy, ScientificFacts, SeedNeed, StartPolicy,
+    };
+    let occurrence = OccurrenceKey(u32::try_from(ordinal).unwrap());
     crate::canonical_studies::StudyPoint {
         key: key.into(),
         study: "study".into(),
@@ -1013,10 +1017,35 @@ fn point(
         ordinal,
         occurrence: ordinal,
         seed_solution: None,
-        policy: vec![1].into(),
+        policy: PointPolicy {
+            key: occurrence,
+            dependencies: vec![],
+            seed_need: SeedNeed::NotNeeded,
+            start: StartPolicy::Fresh,
+            attempt_limit: 1,
+        },
         descriptor: vec![2].into(),
         admission: None,
-        facts: vec![3].into(),
+        facts: PointFacts {
+            key: occurrence,
+            revision: 0,
+            admitted_seed_need: None,
+            lifecycle: if settled {
+                pse_model::generated::enums::StudyPointState::Cancelled
+            } else {
+                pse_model::generated::enums::StudyPointState::Pending
+            },
+            native_started: false,
+            scientific: ScientificFacts {
+                usable: false,
+                candidate_use: None,
+                seed_permission: false,
+            },
+            attempt_count: 0,
+            retry_failure: None,
+            effect: EffectState::Absent,
+            seed: None,
+        },
         outcome: None,
         run: run.into(),
         revision: 0,
@@ -1210,10 +1239,7 @@ async fn exact_result_pin_creation_retirement_both_orders() {
         creator
             .query(format!(
                 "{}\n{}",
-                crate::canonical_script::PROTECTED_BEGIN
-                    .trim()
-                    .strip_prefix("BEGIN;")
-                    .unwrap(),
+                crate::canonical_script::PROTECTED_BEGIN.trim(),
                 crate::canonical_results::RESULT_ADMISSION
             ))
             .bind(("pse_rpc_expires_at", expiry()))
@@ -1289,10 +1315,7 @@ async fn exact_dispatched_pre_ticket_renewal_and_expired_admission_retirement_bo
         renewal
             .query(format!(
                 "{}\n{}",
-                crate::canonical_script::PROTECTED_BEGIN
-                    .trim()
-                    .strip_prefix("BEGIN;")
-                    .unwrap(),
+                crate::canonical_script::PROTECTED_BEGIN.trim(),
                 crate::canonical_results::RENEW_PROTECTION
             ))
             .bind(("pse_rpc_expires_at", expiry()))
@@ -1389,10 +1412,7 @@ async fn exact_dispatched_source_renewal_and_expired_pin_reclaim_both_orders() {
         renewal
             .query(format!(
                 "{}\n{}",
-                crate::canonical_script::PROTECTED_BEGIN
-                    .trim()
-                    .strip_prefix("BEGIN;")
-                    .unwrap(),
+                crate::canonical_script::PROTECTED_BEGIN.trim(),
                 crate::canonical_results::RENEW_PROTECTION
             ))
             .bind(("pse_rpc_expires_at", expiry()))

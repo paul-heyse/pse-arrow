@@ -773,10 +773,14 @@ pub struct Query<'a> {
     guarded_bindings: std::collections::BTreeSet<String>,
     context: Option<RequestContext>,
     observer: Option<Arc<dyn QueryStatisticsObserver>>,
-    statement_window: Option<(usize, usize)>,
+    statement_window: Option<StatementProjection>,
     #[cfg(test)]
     transaction: Option<(uuid::Uuid, uuid::Uuid)>,
     cleanup: request::UndispatchedPayloadDrain,
+}
+enum StatementProjection {
+    Window { prefix: usize, suffix: usize },
+    OperationReturn,
 }
 impl std::fmt::Debug for Query<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -931,7 +935,13 @@ impl<'a> Query<'a> {
     /// An owner-added transaction envelope preserves the caller's original statement slots.
     /// Complete response errors, including failed COMMIT, are checked before projection.
     pub(crate) fn statement_window(mut self, prefix: usize, suffix: usize) -> Self {
-        self.statement_window = Some((prefix, suffix));
+        self.statement_window = Some(StatementProjection::Window { prefix, suffix });
+        self
+    }
+    /// Closed operation scripts publish precisely their final RETURN, after
+    /// all statement errors and the enclosing COMMIT have been checked.
+    pub(crate) fn operation_return(mut self) -> Self {
+        self.statement_window = Some(StatementProjection::OperationReturn);
         self
     }
     pub(crate) fn refuse(mut self, message: &str) -> Self {
@@ -1047,8 +1057,11 @@ impl<'a> IntoFuture for Query<'a> {
                 }
             }
             match statement_window {
-                Some((prefix, suffix)) => {
+                Some(StatementProjection::Window { prefix, suffix }) => {
                     result.and_then(|result| result.statement_window(prefix, suffix))
+                }
+                Some(StatementProjection::OperationReturn) => {
+                    result.and_then(IndexedResults::operation_return)
                 }
                 None => result,
             }

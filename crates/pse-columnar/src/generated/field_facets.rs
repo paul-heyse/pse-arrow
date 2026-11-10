@@ -55,6 +55,8 @@ pub const FK_COLUMN: &str = "pse.domain.fk.column";
 pub const GRAPH_ENDPOINT: &str = "pse.domain.graph_endpoint";
 #[doc = concat!("Declared field facet `", "pse.domain.canonical.key", "`.")]
 pub const CANONICAL_KEY: &str = "pse.domain.canonical.key";
+#[doc = concat!("Declared field facet `", "pse.domain.canonical.projection", "`.")]
+pub const CANONICAL_PROJECTION: &str = "pse.domain.canonical.projection";
 #[doc = concat!("Declared field facet `", "pse.domain.canonical.readonly", "`.")]
 pub const CANONICAL_READONLY: &str = "pse.domain.canonical.readonly";
 #[doc = concat!("Declared field facet `", "pse.domain.canonical.assert", "`.")]
@@ -242,6 +244,14 @@ pub const FACETS: &[Facet] = &[
         storage_root: true,
         type_identity: true,
         admission: Admission::Preserve,
+    },
+    Facet {
+        key: CANONICAL_PROJECTION,
+        execution: false,
+        value: false,
+        storage_root: false,
+        type_identity: false,
+        admission: Admission::Ignore,
     },
     Facet {
         key: CANONICAL_READONLY,

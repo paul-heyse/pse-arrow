@@ -9,10 +9,14 @@ use super::*;
 #[test]
 fn all_renderers_are_deterministic_and_json_escaping_roundtrips() {
     let registry = crate::registry().unwrap();
+    let graph = pse_model::study::native_projection_graph().unwrap();
     for language in Language::ALL {
-        let first = generate(registry, language).unwrap();
+        let first = generate_with_native_projections(registry, language, &graph).unwrap();
         assert!(!first.files.is_empty());
-        assert_eq!(first, generate(registry, language).unwrap());
+        assert_eq!(
+            first,
+            generate_with_native_projections(registry, language, &graph).unwrap()
+        );
     }
     let schema = jsonschema::generate(registry).unwrap();
     let parsed: serde_json::Value = serde_json::from_str(&schema).unwrap();

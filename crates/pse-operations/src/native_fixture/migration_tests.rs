@@ -7,10 +7,7 @@
     reason = "explicit original service identities support independent lifecycle readback"
 )]
 
-use crate::{
-    canonical::{CanonicalOptions, CanonicalStore},
-    native_service::{NativeCanonicalService, NativeServiceError},
-};
+use crate::native_service::{NativeCanonicalService, NativeServiceError};
 use std::time::{Duration, Instant};
 
 fn current_fixture() -> Result<NativeCanonicalService, NativeServiceError> {

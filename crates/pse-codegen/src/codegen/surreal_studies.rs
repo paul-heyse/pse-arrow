@@ -12,7 +12,7 @@ const FUNCTIONS: &str = r#"
 // Every point writer queues its own derivation and outgoing propagation in the
 // same transaction. These rows are evidence for discovery, never permission.
 DEFINE FUNCTION fn::pse_study_v1::readiness_invalidate($rpc_expiry:int,$p: object, $initial: bool) -> bool {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$p.study);
     SELECT * FROM ONLY type::record('canonical_study_readiness',$p.key) FOR UPDATE;
     LET $edges = type::record('canonical_study_points',$p.key)->(SELECT predecessor FROM canonical_study_dependencies LIMIT 193);
@@ -29,7 +29,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_invalidate($rpc_expiry:int,$p: objec
 };
 
 DEFINE FUNCTION fn::pse_study_v1::readiness_cursor($rpc_expiry:int,$study:string,$fresh:bool) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     SELECT * FROM ONLY type::record('canonical_study_readiness_cursors',$study) FOR UPDATE;
@@ -45,7 +45,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_cursor($rpc_expiry:int,$study:string
 };
 
 DEFINE FUNCTION fn::pse_study_v1::readiness_notify_advance($rpc_expiry:int,$study:string,$point:string,$revision:u64,$before:string,$after:string,$done:bool) -> bool {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     SELECT * FROM ONLY type::record('canonical_study_readiness',$point) FOR UPDATE;
@@ -57,7 +57,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_notify_advance($rpc_expiry:int,$stud
 };
 
 DEFINE FUNCTION fn::pse_study_v1::readiness_scan_advance($rpc_expiry:int,$study:string,$revision:u64,$mode:string,$after:option<u64>,$done:bool) -> bool {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     SELECT * FROM ONLY type::record('canonical_study_readiness_cursors',$study) FOR UPDATE;
@@ -77,7 +77,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_scan_advance($rpc_expiry:int,$study:
 // Scope pages retain one native row per distinct premise. A candidate is admitted
 // whole or left before the continuation; dependency lists are never truncated.
 DEFINE FUNCTION fn::pse_study_v1::readiness_page_item($rpc_expiry:int,$study:string,$acc:object,$entry:object,$maximum:int) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     IF $acc.stopped OR $acc.refused { RETURN $acc; };
     IF $entry.position>=$maximum { RETURN object::extend($acc,{stopped:true}); };
     IF $entry.point IN $acc.items.point { RETURN object::extend($acc,{next_edge:$entry.edge,next_ordinal:$entry.ordinal}); };
@@ -102,7 +102,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_page_item($rpc_expiry:int,$study:str
 };
 
 DEFINE FUNCTION fn::pse_study_v1::readiness_scope_page($rpc_expiry:int,$study:string,$cursor:u64,$mode:string,$after:option<u64>,$source:option<object>,$maximum:int) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     IF $maximum<1 OR $maximum>64 { THROW 'PSE_REFUSAL:study_readiness_page_extent'; };
@@ -139,7 +139,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_policy($page:object) -> object {
 // snapshot. Only the destination hint needs a write lock; scientific rows and
 // dependency edges are neither fetched nor decoded again per candidate.
 DEFINE FUNCTION fn::pse_study_v1::readiness_apply_hint($rpc_expiry:int,$point:object,$item:object,$mutating:bool) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     LET $hint=SELECT * FROM ONLY type::record('canonical_study_readiness',$point.key) FOR UPDATE;
     LET $eligible=$item.eligible AND $point.assigned=false AND $point.settled=false;
     LET $changed=$hint=NONE OR $hint.source_revision!=$point.revision OR $hint.pending!=$item.pending OR $hint.eligible!=$eligible OR $hint.premises!=$item.premises OR $hint.dirty;
@@ -160,7 +160,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_apply_hint($rpc_expiry:int,$point:ob
 };
 
 DEFINE FUNCTION fn::pse_study_v1::readiness_settlement($rpc_expiry:int,$operation:string,$study:string,$run:string) -> option<object> {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     LET $old=fn::pse_history_v1::study_repair_operation($rpc_expiry,$operation,$study,$run,NONE);
     RETURN IF $old=NONE OR $old.disposition NOT IN ['settled','no-effect','refused'] {NONE} ELSE IF $old.disposition='no-effect' {{no_effect:true}} ELSE IF $old.disposition='refused' {{refusal:true}} ELSE {encoding::cbor::decode($old.result)};
 };
@@ -168,7 +168,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_settlement($rpc_expiry:int,$operatio
 // The pending locator, exact original request and history obligation are born
 // in one transaction. Losing preparation's acknowledgment cannot orphan an ID.
 DEFINE FUNCTION fn::pse_study_v1::readiness_pending_page($rpc_expiry:int,$study:string) -> option<object> {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     LET $cursor=SELECT * FROM ONLY type::record('canonical_study_readiness_cursors',$study);
     IF $cursor.pending_operation=NONE { RETURN NONE; };
@@ -180,7 +180,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_pending_page($rpc_expiry:int,$study:
 };
 
 DEFINE FUNCTION fn::pse_study_v1::readiness_prepare_page($rpc_expiry:int,$operation:string,$coordinates:object) -> option<object> {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     LET $study=$coordinates.study;
     LET $module=(SELECT study_module_sha256 FROM ONLY canonical_interpretations:current).study_module_sha256;
     IF $coordinates.module_sha256!=$module {THROW 'PSE_REFUSAL:study_readiness_module_identity_changed';};
@@ -223,7 +223,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_prepare_page($rpc_expiry:int,$operat
 // A delayed old dispatch mismatches its epoch; an in-flight old transaction
 // cannot commit its receipt after this write wins under native SSI.
 DEFINE FUNCTION fn::pse_study_v1::readiness_fence_page($rpc_expiry:int,$operation:string,$study:string,$run:string,$before:string,$after:string) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     LET $old=fn::pse_history_v1::study_repair_operation($rpc_expiry,$operation,$study,$run,NONE);
     IF $old=NONE { THROW 'PSE_REFUSAL:study_readiness_pending_operation_unavailable'; };
     IF $old.disposition='no-effect' { RETURN {settled:true,result:{no_effect:true}}; };
@@ -236,7 +236,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_fence_page($rpc_expiry:int,$operatio
 };
 
 DEFINE FUNCTION fn::pse_study_v1::readiness_apply_decisions($rpc_expiry:int,$request:object,$page:object,$items:array<object>,$finish:bool) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     LET $study=$request.study; LET $fence=$request.fence;
     fn::pse_execution_v1::register($rpc_expiry,'study-cancel:'+$study);
     // Validate the entire guest result before any hint/cursor write. An empty
@@ -251,7 +251,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_apply_decisions($rpc_expiry:int,$req
         LET $pending=<u64>array::len($page.rows.filter(|$row| $row.key IN $members.predecessors AND $row.settled=false));
         LET $valid=$point!=NONE AND $point.study=$study AND array::sort($expected.key)=array::sort($keys)
             AND array::len($expected)=array::len($keys) AND type::is_number($item.pending) AND $item.pending=$pending
-            AND type::is_bool($item.eligible) AND type::is_bytes($item.premises) AND bytes::len($item.premises)<=16384
+            AND type::is_bool($item.eligible) AND type::is_object($item.premises) AND bytes::len(encoding::cbor::encode($item.premises))<=16384
             AND array::len($expected.filter(|$premise| type::is_number($premise.revision)=false OR array::len($page.rows.filter(|$row| $row.key=$premise.key AND $row.revision=$premise.revision AND $row.study=$study))!=1))=0;
         RETURN $valid!=true;
     });
@@ -277,7 +277,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_apply_decisions($rpc_expiry:int,$req
 // the same original operation, exact inputs and cursor fence. Committed prefixes
 // are retained in its pending body; only a complete result becomes immutable.
 DEFINE FUNCTION fn::pse_study_v1::readiness_apply_page($rpc_expiry:int,$operation:string,$study:string,$run:string,$epoch:string,$maximum:int) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     LET $old=fn::pse_history_v1::study_repair_operation($rpc_expiry,$operation,$study,$run,NONE);
     IF $old=NONE OR $maximum<1 OR $maximum>65 { THROW 'PSE_REFUSAL:study_readiness_pending_operation_unavailable'; };
     IF $old.disposition='no-effect' { RETURN {settled:true,result:{no_effect:true}}; };
@@ -321,7 +321,7 @@ DEFINE FUNCTION fn::pse_study_v1::readiness_apply_page($rpc_expiry:int,$operatio
 };
 
 DEFINE FUNCTION fn::pse_study_v1::create($rpc_expiry: int, $row: object, $digest:string) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$row.key);
     IF (SELECT * FROM ONLY type::record('canonical_study_retirements',$row.key) FOR UPDATE)!=NONE { THROW 'PSE_REFUSAL:study_identity_explicitly_retired'; };
     fn::pse_history_v1::run($rpc_expiry,$row.run);
@@ -356,7 +356,7 @@ DEFINE FUNCTION fn::pse_study_v1::create($rpc_expiry: int, $row: object, $digest
 // Issue the exact page once, before its effect transaction. A retry reads this
 // original grant; it cannot replace an expired issued operation with a new clock.
 DEFINE FUNCTION fn::pse_study_v1::issue_page($rpc_expiry:int,$study:string,$digest:string,$phase:string,$cursor:u64,$request:bytes,$count:int) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     LET $state=SELECT * FROM ONLY type::record('canonical_study_installations',$study) FOR UPDATE;
     IF $state=NONE OR $state.digest!=$digest OR $phase NOT IN ['nodes','edges'] { THROW 'PSE_REFUSAL:study_installation_identity_differs'; };
     LET $key=$study+':'+$phase+':'+<string><decimal>$cursor;
@@ -374,7 +374,7 @@ DEFINE FUNCTION fn::pse_study_v1::issue_page($rpc_expiry:int,$study:string,$dige
 // A page is one immutable native transaction and one exact receipt, independent
 // from the invocation's total population. Replaying never recreates runs/roots.
 DEFINE FUNCTION fn::pse_study_v1::install_page($rpc_expiry:int,$study:string,$digest:string,$phase:string,$cursor:u64,$request:bytes,$points:array<object>,$runs:array<object>,$edges:array<object>) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     LET $state=SELECT * FROM ONLY type::record('canonical_study_installations',$study) FOR UPDATE;
     IF $state=NONE OR $state.digest!=$digest OR $phase NOT IN ['nodes','edges'] { THROW 'PSE_REFUSAL:study_installation_identity_differs'; };
     LET $key=$study+':'+$phase+':'+<string><decimal>$cursor;
@@ -406,7 +406,7 @@ DEFINE FUNCTION fn::pse_study_v1::install_page($rpc_expiry:int,$study:string,$di
 };
 
 DEFINE FUNCTION fn::pse_study_v1::append($rpc_expiry: int, $study: string, $points: array<object>) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::register($rpc_expiry, 'study-cancel:' + $study);
@@ -456,7 +456,7 @@ DEFINE FUNCTION fn::pse_study_v1::append($rpc_expiry: int, $study: string, $poin
 };
 
 DEFINE FUNCTION fn::pse_study_v1::append_dependencies($rpc_expiry:int,$study:string,$edges:array<object>) -> bool {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::register($rpc_expiry,'study-cancel:'+$study);
     LET $s=SELECT * FROM ONLY type::record('canonical_studies',$study) FOR UPDATE;
@@ -485,7 +485,7 @@ DEFINE FUNCTION fn::pse_study_v1::append_dependencies($rpc_expiry:int,$study:str
 };
 
 DEFINE FUNCTION fn::pse_study_v1::activate($rpc_expiry: int, $study: string) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::register($rpc_expiry, 'study-cancel:' + $study);
@@ -536,8 +536,8 @@ DEFINE FUNCTION fn::pse_study_v1::guard($rpc_expiry: int, $study: string, $gener
     RETURN $rpc_result;
 };
 
-DEFINE FUNCTION fn::pse_study_v1::settle($rpc_expiry: int, $study: string, $generation: u64, $cancelled: bool, $point: string, $expected: array<object>, $facts: bytes, $outcome: bytes) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+DEFINE FUNCTION fn::pse_study_v1::settle($rpc_expiry: int, $study: string, $generation: u64, $cancelled: bool, $point: string, $expected: array<object>, $facts:pse_native_study_point_facts, $outcome:pse_native_study_point_outcome) -> object {
+
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $p = fn::pse_study_v1::guard($rpc_expiry, $study,$generation,$cancelled,$point,$expected);
@@ -556,8 +556,8 @@ DEFINE FUNCTION fn::pse_study_v1::settle($rpc_expiry: int, $study: string, $gene
     RETURN $rpc_result;
 };
 
-DEFINE FUNCTION fn::pse_study_v1::started($rpc_expiry: int, $study: string, $point: string, $revision: u64, $run: string, $attempt: string, $generation: u64, $operation: string, $request: bytes, $facts: bytes) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+DEFINE FUNCTION fn::pse_study_v1::started($rpc_expiry: int, $study: string, $point: string, $revision: u64, $run: string, $attempt: string, $generation: u64, $operation: string, $request: bytes, $facts:pse_native_study_point_facts) -> object {
+
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::register($rpc_expiry, 'study-cancel:' + $study);
@@ -586,7 +586,7 @@ DEFINE FUNCTION fn::pse_study_v1::started($rpc_expiry: int, $study: string, $poi
 };
 
 DEFINE FUNCTION fn::pse_study_v1::finalize($rpc_expiry: int, $study: string, $operation: string, $request: bytes, $attempt: string, $worker: string, $lifetime: int) -> option<object> {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::register($rpc_expiry, 'study-cancel:' + $study);
@@ -609,7 +609,7 @@ DEFINE FUNCTION fn::pse_study_v1::finalize($rpc_expiry: int, $study: string, $op
 };
 
 DEFINE FUNCTION fn::pse_study_v1::seal($rpc_expiry: int, $study: string, $run: string, $attempt: string, $authority: u64, $operation: string, $request: bytes, $manifest: string, $digest: string, $outcome: string, $completion: bytes) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::register($rpc_expiry, 'study-cancel:' + $study);
@@ -638,7 +638,7 @@ DEFINE FUNCTION fn::pse_study_v1::admission_authority($rpc_expiry:int,$authority
 
 // Input admission uses a separate run. Its lease never increments native point attempts.
 DEFINE FUNCTION fn::pse_study_v1::admission_claim($rpc_expiry:int,$study:string,$generation:u64,$point:string,$expected:array<object>,$operation:string,$request:bytes,$attempt:string,$worker:string,$lifetime:int) -> option<object> {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     LET $p=fn::pse_study_v1::guard($rpc_expiry,$study,$generation,false,$point,$expected);
     IF $p.admission!=NONE { RETURN NONE; };
     LET $run=$p.admission_run;
@@ -664,8 +664,8 @@ DEFINE FUNCTION fn::pse_study_v1::admission_claim($rpc_expiry:int,$study:string,
     RETURN $claimed;
 };
 
-DEFINE FUNCTION fn::pse_study_v1::admission_complete($rpc_expiry:int,$study:string,$generation:u64,$point:string,$expected:array<object>,$run:string,$attempt:string,$authority:u64,$operation:string,$request:bytes,$admission:bytes,$projection:option<bytes>,$facts:bytes,$outcome:option<bytes>) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+DEFINE FUNCTION fn::pse_study_v1::admission_complete($rpc_expiry:int,$study:string,$generation:u64,$point:string,$expected:array<object>,$run:string,$attempt:string,$authority:u64,$operation:string,$request:bytes,$admission:bytes,$projection:option<bytes>,$facts:pse_native_study_point_facts,$outcome:option<pse_native_study_point_outcome>) -> object {
+
     fn::pse_history_v1::point($rpc_expiry,$point);
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $op=fn::pse_execution_v1::operation($rpc_expiry,$operation,'study-admission',$request);
@@ -696,8 +696,8 @@ DEFINE FUNCTION fn::pse_study_v1::admission_complete($rpc_expiry:int,$study:stri
     RETURN $result;
 };
 
-DEFINE FUNCTION fn::pse_study_v1::claim($rpc_expiry: int, $study: string, $generation: u64, $point: string, $expected: array<object>, $start: bytes, $operation: string, $request: bytes, $claim_request: bytes, $attempt: string, $worker: string, $lifetime: int, $facts: bytes) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+DEFINE FUNCTION fn::pse_study_v1::claim($rpc_expiry: int, $study: string, $generation: u64, $point: string, $expected: array<object>, $start:pse_native_study_start_provenance, $operation: string, $request: bytes, $claim_request: bytes, $attempt: string, $worker: string, $lifetime: int, $facts:pse_native_study_point_facts) -> object {
+
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $op = fn::pse_execution_v1::operation($rpc_expiry, $operation, 'study-claim', $request);
@@ -727,8 +727,8 @@ DEFINE FUNCTION fn::pse_study_v1::claim($rpc_expiry: int, $study: string, $gener
     RETURN $rpc_result;
 };
 
-DEFINE FUNCTION fn::pse_study_v1::observe($rpc_expiry: int, $point: string, $revision: u64, $attempt: option<string>, $facts: bytes, $outcome: bytes, $settled: bool) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+DEFINE FUNCTION fn::pse_study_v1::observe($rpc_expiry: int, $point: string, $revision: u64, $attempt: option<string>, $facts:pse_native_study_point_facts, $outcome:pse_native_study_point_outcome, $settled: bool) -> object {
+
     fn::pse_history_v1::point($rpc_expiry,$point);
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::touch($rpc_expiry, 'study-point:' + $point);
@@ -760,7 +760,7 @@ DEFINE FUNCTION fn::pse_study_v1::observe($rpc_expiry: int, $point: string, $rev
 };
 
 DEFINE FUNCTION fn::pse_study_v1::cancel($rpc_expiry: int, $study: string) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::touch($rpc_expiry, 'study-cancel:' + $study);
@@ -773,7 +773,7 @@ DEFINE FUNCTION fn::pse_study_v1::cancel($rpc_expiry: int, $study: string) -> ob
 };
 
 DEFINE FUNCTION fn::pse_study_v1::conclude($rpc_expiry: int, $study: string) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
+
     fn::pse_history_v1::check_owner($rpc_expiry,'study',$study);
     fn::pse_execution_v1::deadline($rpc_expiry);
     fn::pse_execution_v1::register($rpc_expiry, 'study-cancel:' + $study);
@@ -795,7 +795,7 @@ DEFINE FUNCTION fn::pse_study_v1::conclude($rpc_expiry: int, $study: string) -> 
 // maintenance coordinates, interprets scientific policy and settles refusals;
 // native code owns preparation, resources, effects and original-request recovery.
 const PROGRESSION_FUNCTIONS: &str = r#"
-DEFINE FUNCTION fn::pse_study_v1::progression_policy($scope:object,$mode:string,$seed:option<bytes>) -> object {
+DEFINE FUNCTION fn::pse_study_v1::progression_policy($scope:object,$mode:string,$seed:option<pse_native_study_seed_fact>) -> object {
     LET $rows=array::concat([$scope.point],$scope.predecessors);
     IF bytes::len(encoding::cbor::encode($rows))>1048576 { THROW 'PSE_REFUSAL:study_readiness_single_scope_extent'; };
     LET $reply=ext::pse::study::readiness({generation:$scope.study.generation,cancelled:$scope.study.cancelled,mode:$mode,seed:$seed,
@@ -829,7 +829,7 @@ DEFINE FUNCTION fn::pse_study_v1::progress_result($expiry:int,$operation:string,
 };
 
 DEFINE FUNCTION fn::pse_study_v1::progress($expiry:int,$issuer:string,$module:string,$cursor:option<object>,$operation:string,$request:bytes) -> object {
-    fn::pse_workbench_v1::publication($expiry);
+
     fn::pse_project_v1::authority($expiry,$issuer);
     IF $module!=(SELECT study_module_sha256 FROM ONLY canonical_interpretations:current).study_module_sha256 {THROW 'PSE_REFUSAL:study_readiness_module_identity_changed';};
     LET $old=fn::pse_study_v1::progress_result($expiry,$operation,$request);
@@ -901,8 +901,8 @@ DEFINE FUNCTION fn::pse_study_v1::prepared_result($expiry:int,$operation:string,
     RETURN NONE;
 };
 
-DEFINE FUNCTION fn::pse_study_v1::prepared_claim($expiry:int,$issuer:string,$module:string,$study:string,$generation:u64,$point:string,$expected:array<object>,$seed:bytes,$operation:string,$request:bytes,$claim_request:bytes,$attempt:string,$worker:string,$lifetime:int) -> object {
-    fn::pse_workbench_v1::publication($expiry);
+DEFINE FUNCTION fn::pse_study_v1::prepared_claim($expiry:int,$issuer:string,$module:string,$study:string,$generation:u64,$point:string,$expected:array<object>,$seed:option<pse_native_study_seed_fact>,$operation:string,$request:bytes,$claim_request:bytes,$attempt:string,$worker:string,$lifetime:int) -> object {
+
     fn::pse_project_v1::authority($expiry,$issuer);
     IF $module!=(SELECT study_module_sha256 FROM ONLY canonical_interpretations:current).study_module_sha256 {THROW 'PSE_REFUSAL:study_readiness_module_identity_changed';};
     LET $old=fn::pse_study_v1::prepared_result($expiry,$operation,$request);

@@ -26,6 +26,8 @@ use pse_contract::boundary_projection::{
     Direction, Field, LocalRule, ProjectionGraph, Scalar, Shape, TypeRef,
 };
 mod source_error;
+/// Direct native database value projection from source-owned declarations.
+pub mod surreal;
 use pse_contract_proto::{CORE_IMPORT, NativeSelection, OptionEncoder, check_descriptors};
 pub use source_error::ProjectionCodegenError;
 
@@ -1681,7 +1683,7 @@ fn dependency_order(
     Ok(ordered)
 }
 
-fn snake_case(value: &str) -> String {
+pub(super) fn snake_case(value: &str) -> String {
     let mut output = String::new();
     for (index, ch) in value.chars().enumerate() {
         if ch.is_ascii_uppercase() && index != 0 {

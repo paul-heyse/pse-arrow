@@ -21,6 +21,14 @@ DEFINE FUNCTION fn::pse_history_v1::check_owner($rpc_expiry:int,$kind:string,$ow
     RETURN true;
 };
 
+// Snapshot observation never acquires custody or registers a commit-time fence.
+// Guarded readers and mutations continue to use check_owner above.
+DEFINE FUNCTION fn::pse_history_v1::observe_owner($rpc_expiry:int,$kind:string,$owner:string) -> bool {
+    LET $key=fn::pse_history_v1::owner_key($kind,$owner);
+    IF (SELECT * FROM ONLY type::record('canonical_history_retirements',$key))!=NONE { THROW 'PSE_REFUSAL:history_explicitly_retired_detailed_response_unavailable'; };
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
+};
+
 DEFINE FUNCTION fn::pse_history_v1::run($rpc_expiry:int,$run:string) -> bool {
     fn::pse_history_v1::check_owner($rpc_expiry,'run',$run);
     LET $parents=SELECT study FROM canonical_history_locators WHERE run=$run LIMIT 3;
@@ -253,7 +261,6 @@ DEFINE FUNCTION fn::pse_history_v1::drop_obligation($rpc_expiry:int,$key:string,
 };
 
 DEFINE FUNCTION fn::pse_history_v1::release($rpc_expiry:int,$kind:string,$owner:string) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
     LET $captures=IF $kind='run' {
         SELECT key FROM canonical_study_capture_protections WHERE run=$owner LIMIT 1
     } ELSE {
@@ -296,7 +303,6 @@ DEFINE FUNCTION fn::pse_history_v1::release($rpc_expiry:int,$kind:string,$owner:
 };
 
 DEFINE FUNCTION fn::pse_history_v1::collect($rpc_expiry:int,$kind:string,$owner:string) -> object {
-    fn::pse_workbench_v1::publication($rpc_expiry);
     LET $captures=IF $kind='run' {
         SELECT key FROM canonical_study_capture_protections WHERE run=$owner LIMIT 1
     } ELSE {

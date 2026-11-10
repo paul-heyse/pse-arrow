@@ -5446,7 +5446,7 @@ impl CanonicalStore {
         key: &str,
     ) -> Result<
         (
-            pse_model::generated::runtime::canonical_study_points::Row,
+            crate::canonical_studies::StudyPoint,
             CanonicalAttempt,
             pse_model::generated::runtime::canonical_studies::Row,
             CanonicalRun,
@@ -5508,7 +5508,7 @@ impl CanonicalStore {
                             protected_query("canonical_execution::canonical_result_origin", || {
                                 Ok(self
                                     .db
-                                    .metadata_read_query(
+                                    .metadata_guarded_read_query(
                                         crate::canonical::MetadataResponse::Header,
                                         crate::canonical_history::run_query(
                                             RESULT_ORIGIN_SQL,
@@ -5538,7 +5538,7 @@ impl CanonicalStore {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
                     let mut response = protected_query("canonical_execution::canonical_run", || Ok(
                         self.db
-                            .metadata_read_query(crate::canonical::MetadataResponse::Header, "RETURN fn::pse_history_v1::read_run($pse_rpc_expires_at,$key);")
+                            .metadata_guarded_read_query(crate::canonical::MetadataResponse::Header, "RETURN fn::pse_history_v1::read_run($pse_rpc_expires_at,$key);")
                             .bind(("key", key.to_owned()))))
                     .await?;
                     response
@@ -5590,7 +5590,7 @@ impl CanonicalStore {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
                     let mut response = protected_query("canonical_execution::canonical_attempt", || Ok(
                         self.db
-                            .metadata_read_query(crate::canonical::MetadataResponse::Header, "RETURN fn::pse_history_v1::read_attempt($pse_rpc_expires_at,$key);")
+                            .metadata_guarded_read_query(crate::canonical::MetadataResponse::Header, "RETURN fn::pse_history_v1::read_attempt($pse_rpc_expires_at,$key);")
                             .bind(("key", key.to_owned()))))
                     .await?;
                     response
@@ -5616,7 +5616,7 @@ impl CanonicalStore {
                 within_clock(original_deadline(REQUEST_TIMEOUT), async {
                     let mut response = protected_query("canonical_execution::canonical_result_manifest", || Ok(
                 self.db
-                    .metadata_read_query(crate::canonical::MetadataResponse::Header, "RETURN fn::pse_history_v1::read_manifest($pse_rpc_expires_at,$key);")
+                    .metadata_guarded_read_query(crate::canonical::MetadataResponse::Header, "RETURN fn::pse_history_v1::read_manifest($pse_rpc_expires_at,$key);")
                     .bind(("key", key.to_owned()))))
             .await?;
                     let row = response
@@ -5637,7 +5637,7 @@ impl CanonicalStore {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let mut retirement = bounded_query(
                 self.db
-                    .metadata_read_query(
+                    .metadata_guarded_read_query(
                         crate::canonical::MetadataResponse::Header,
                         "SELECT key FROM ONLY type::record('canonical_result_retirements',$run);",
                     )

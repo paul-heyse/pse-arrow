@@ -45,6 +45,12 @@ use surrealdb_types::{Number, SurrealValue, ToSql, Value};
 mod rollout_preview;
 #[cfg(feature = "canonical-maintenance")]
 pub use rollout_preview::OwnedRolloutPreview;
+#[path = "native_service/reconstruction.rs"]
+mod reconstruction;
+pub use reconstruction::{
+    ReconstructedCanonicalState, ReconstructionController, ReconstructionFailure,
+    ReconstructionIntent, ReconstructionObservation,
+};
 
 const PRIVATE_BYTES: u64 = 256 * 1024;
 const ROOT_USER: &str = "pse-fixture-owner";

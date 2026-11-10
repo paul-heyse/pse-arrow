@@ -40,7 +40,7 @@ DEFINE FUNCTION fn::pse_workbench_v1::capture_facts($rpc_expiry:int,$key:string,
     });
     LET $headers=$selected_headers.row;
     LET $selected=$rows.key;
-    LET $points=SELECT key,study,ordinal,occurrence,run,attempt,revision,settled,facts FROM canonical_study_points WHERE study IN $selected ORDER BY study,ordinal LIMIT __COHORT_SENTINEL__;
+    LET $points=IF array::len($selected)=0 {[]} ELSE {SELECT key,study,ordinal,occurrence,run,attempt,revision,settled,facts FROM canonical_study_points WHERE study IN $selected ORDER BY study,ordinal LIMIT __COHORT_SENTINEL__};
     IF array::len($points)!=$total { RETURN {refusal:'study_workbench_narrow_selection',headers:[],members:[],protections:[]}; };
     LET $facts=$points.map(|$point,$index| {
         LET $attempt=IF $point.attempt=NONE {NONE} ELSE {SELECT key,run,phase,closed_manifest FROM ONLY type::record('canonical_attempts',$point.attempt)};

@@ -69,6 +69,8 @@ pub struct CatalogObservation {
     pub target: CatalogTarget,
     /// Marker observed alongside the catalog. The module hash is the marker's claim.
     pub marker: Marker,
+    /// Exact epoch read with the catalogue, rather than a previously opened handle's epoch.
+    pub schema_epoch: String,
     /// Managed schema differences against the current generated target.
     pub comparison: CatalogComparison,
 }
@@ -269,7 +271,7 @@ async fn observe(
         bounded_query(client.query(DATABASE).request_context(query_context())).await?;
     let initial = take_object(&mut response, 0)?;
     let tables = managed_table_names(&initial)?;
-    let mut query = format!("BEGIN;\n{MARKER}\n{DATABASE}\n");
+    let mut query = format!("BEGIN READ ONLY ISOLATION LEVEL SNAPSHOT;\n{MARKER}\n{DATABASE}\n");
     for table in &tables {
         use std::fmt::Write as _;
         writeln!(query, "INFO FOR TABLE {table};").map_err(|_| CanonicalError::PayloadLimit)?;
@@ -305,6 +307,15 @@ async fn observe(
     Ok(CatalogObservation {
         target: target.clone(),
         marker,
+        schema_epoch: match initial_marker.get("schema_epoch") {
+            Some(Value::String(value))
+                if Uuid::parse_str(value)
+                    .is_ok_and(|id| !id.is_nil() && id.to_string() == *value) =>
+            {
+                value.clone()
+            }
+            _ => return Err(invalid("installed catalogue epoch is absent or malformed")),
+        },
         comparison: compare_generated(&parse_definitions(wire::SCHEMA)?, &installed.definitions),
     })
 }

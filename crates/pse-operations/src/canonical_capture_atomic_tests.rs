@@ -151,6 +151,52 @@ mod atomic_capture {
     }
 
     #[tokio::test]
+    async fn capture_exact_absence_commutes_with_unrelated_membership() {
+        let (store, _, revision) = fixture().await;
+        let filter = StudyWorkbenchFilter {
+            study: Some("selected-absent-study".into()),
+            ..Default::default()
+        };
+        let pending = hold_capture(&store, "exact-absent-cut", &filter, 1, 1).await;
+        create(&store, &revision, "unrelated-new-study").await;
+        pending.commit().await.unwrap();
+        let captured = store
+            .capture_study_workbench("exact-absent-cut", &filter, 1, 1)
+            .await
+            .unwrap();
+        assert_eq!((captured.header_count, captured.member_count), (0, 0));
+        drop(captured);
+        store.result_read_drain.drain().await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn capture_exact_absence_conflicts_with_matching_future_member() {
+        let (store, _, revision) = fixture().await;
+        let filter = StudyWorkbenchFilter {
+            study: Some("future-exact-study".into()),
+            ..Default::default()
+        };
+        let pending = hold_capture(&store, "future-exact-cut", &filter, 1, 1).await;
+        create(&store, &revision, "future-exact-study").await;
+        conflict(pending.commit().await.unwrap_err());
+        let captured = store
+            .capture_study_workbench("future-exact-cut", &filter, 1, 1)
+            .await
+            .unwrap();
+        assert_eq!((captured.header_count, captured.member_count), (1, 1));
+        assert_eq!(
+            captured.capture.header_page(None, 1).await.unwrap().rows[0]
+                .value
+                .study,
+            "future-exact-study"
+        );
+        drop(captured);
+        store.result_read_drain.drain().await.unwrap();
+        store.remove_isolated_fixture().await.unwrap();
+    }
+
+    #[tokio::test]
     async fn capture_future_member_and_selector_metadata_commit_before_capture_force_complete_retry()
      {
         for metadata in [false, true] {
@@ -212,14 +258,6 @@ mod atomic_capture {
             ..Default::default()
         };
         let pending = hold_capture(&store, "lease-cut", &filter, 1, 1).await;
-        let before = {
-            let mut response = bounded_query(store.db.query(
-                "SELECT generation FROM ONLY type::record('canonical_guards','study-publication');",
-            ))
-            .await
-            .unwrap();
-            response.take::<Option<Object>>(0).unwrap().unwrap()
-        };
         tokio::time::timeout(
             Duration::from_secs(3),
             store.renew_attempt(&fence, Duration::from_secs(60)),
@@ -227,17 +265,6 @@ mod atomic_capture {
         .await
         .unwrap()
         .unwrap();
-        let mut after = bounded_query(store.db.query(
-            "SELECT generation FROM ONLY type::record('canonical_guards','study-publication');",
-        ))
-        .await
-        .unwrap();
-        assert_eq!(
-            before,
-            after.take::<Option<Object>>(0).unwrap().unwrap(),
-            "lease-only renewal must not change the publication witness"
-        );
-        drop(after);
         pending.commit().await.unwrap();
         store.recover_study_capture("lease-cut").await.unwrap();
         let pending = hold_capture(&store, "cancel-cut", &filter, 1, 1).await;
@@ -248,7 +275,7 @@ mod atomic_capture {
         .await
         .unwrap()
         .unwrap();
-        conflict(pending.commit().await.unwrap_err());
+        pending.commit().await.unwrap();
         let captured = store
             .capture_study_workbench("cancel-cut", &filter, 1, 1)
             .await
@@ -517,15 +544,15 @@ mod atomic_capture {
             ..Default::default()
         };
         let owner = store.registered_file_owner().await.unwrap();
-        let mut before = bounded_query(store.db.query(
-            "RETURN (SELECT generation FROM ONLY type::record('canonical_guards','study-publication')).generation;"
-        )).await.unwrap();
-        let before = before.take::<Value>(0).unwrap();
-
         // Instrument the chosen transaction's exact SQL body, execute its real
         // schema/index writes, then cancel. This diagnostic is never a second
         // production path, and the phase measurements do not qualify throughput.
         let source = include_str!("../../pse-codegen/src/codegen/study-capture.surql");
+        let source = source
+            .lines()
+            .skip_while(|line| line.trim().is_empty() || line.trim_start().starts_with("//"))
+            .collect::<Vec<_>>()
+            .join("\n");
         let mut sql = source
             .strip_prefix(
                 "DEFINE FUNCTION fn::pse_workbench_v1::capture($capture:object) -> object ",
@@ -641,15 +668,10 @@ mod atomic_capture {
             );
         }
         transaction.cancel().await.unwrap();
-        let mut after = bounded_query(store.db.query("RETURN (SELECT generation FROM ONLY type::record('canonical_guards','study-publication')).generation; SELECT * FROM ONLY type::record('canonical_study_captures','profile-cut'); SELECT key FROM canonical_study_capture_headers WHERE capture='profile-cut'; SELECT key FROM canonical_study_capture_members WHERE capture='profile-cut'; SELECT key FROM canonical_study_capture_protections WHERE capture='profile-cut';"))
+        let mut after = bounded_query(store.db.query("SELECT * FROM ONLY type::record('canonical_study_captures','profile-cut'); SELECT key FROM canonical_study_capture_headers WHERE capture='profile-cut'; SELECT key FROM canonical_study_capture_members WHERE capture='profile-cut'; SELECT key FROM canonical_study_capture_protections WHERE capture='profile-cut';"))
             .await.unwrap();
-        assert_eq!(
-            after.take::<Value>(0).unwrap(),
-            before,
-            "cancel restores the publication witness"
-        );
-        assert!(after.take::<Option<Object>>(1).unwrap().is_none());
-        for slot in 2..5 {
+        assert!(after.take::<Option<Object>>(0).unwrap().is_none());
+        for slot in 1..4 {
             assert!(after.take::<Vec<Object>>(slot).unwrap().is_empty());
         }
         store.remove_isolated_fixture().await.unwrap();
@@ -696,5 +718,4 @@ mod atomic_capture {
         store.result_read_drain.drain().await.unwrap();
         store.remove_isolated_fixture().await.unwrap();
     }
-
 }

@@ -34,6 +34,9 @@ pub use logical::{canonical_fixture_store, canonical_fixture_with_options};
 #[cfg(all(test, feature = "native-service"))]
 #[path = "native_fixture/migration_tests.rs"]
 mod migration_tests;
+#[cfg(all(test, feature = "native-service"))]
+#[path = "native_fixture/transition_tests.rs"]
+mod transition_tests;
 
 #[cfg(all(test, feature = "native-service"))]
 #[allow(

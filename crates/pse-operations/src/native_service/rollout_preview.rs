@@ -7,7 +7,10 @@ use super::{
     Instant, NativeCanonicalService, NativeServiceError, Path, StudyModuleReceipt, UnitObservation,
 };
 use crate::{
-    canonical::maintenance::{CatalogObservation, CatalogRead, FrozenRollout},
+    canonical::maintenance::{
+        CatalogObservation, CatalogRead, FrozenRollout, SchemaTransitionIntent,
+        TransitionDataPolicy,
+    },
     generated::surreal::{INTERPRETATION, SCHEMA_DIGEST},
     transport::operation_scope,
 };
@@ -39,6 +42,60 @@ pub struct OwnedRolloutPreview {
     tool_binary_sha256: String,
     /// Checked producer-owned manifest and ordered frozen step identities.
     rollout: FrozenRollout,
+}
+
+impl OwnedRolloutPreview {
+    /// Bind explicit original intent to this observation without granting execution authority.
+    pub fn transition_intent(
+        &self,
+        operation: uuid::Uuid,
+        target_module_sha256: String,
+        data_policy: TransitionDataPolicy,
+    ) -> Result<SchemaTransitionIntent, crate::canonical::CanonicalError> {
+        SchemaTransitionIntent {
+            operation: operation.to_string(),
+            namespace: self.catalog.target.namespace.clone(),
+            database: self.catalog.target.database.clone(),
+            predecessor: self.catalog.marker.clone(),
+            source_epoch: self.catalog.schema_epoch.clone(),
+            installed_catalog_sha256: self.catalog.comparison.installed_catalog_sha256.clone(),
+            target_interpretation: self.target_interpretation.into(),
+            target_schema_digest: self.target_schema_digest.into(),
+            target_module_sha256,
+            manifest_sha256: self.rollout.manifest_sha256().into(),
+            tool_input_sha256: self.tool_input_sha256.clone(),
+            tool_binary_sha256: self.tool_binary_sha256.clone(),
+            data_policy,
+        }
+        .checked()
+    }
+
+    /// Check live source, tool and frozen-input premises against a fresh observation.
+    /// The enclosing owner must separately authenticate the original intent fingerprint
+    /// and prepared target module; this observation does not establish either fact.
+    /// Matching never establishes quiescence or permits SQL replay.
+    pub fn validate_intent(
+        &self,
+        intent: &SchemaTransitionIntent,
+    ) -> Result<(), crate::canonical::CanonicalError> {
+        intent.validate()?;
+        let operation = uuid::Uuid::parse_str(intent.operation()).map_err(|_| {
+            crate::canonical::CanonicalError::Configuration(
+                "invalid original transition operation".into(),
+            )
+        })?;
+        if self.transition_intent(
+            operation,
+            intent.target_module_sha256().into(),
+            intent.data_policy().clone(),
+        )? != *intent
+        {
+            return Err(crate::canonical::CanonicalError::Configuration(
+                "transition preview, issuer, predecessor or effective inputs changed".into(),
+            ));
+        }
+        Ok(())
+    }
 }
 
 impl NativeCanonicalService {

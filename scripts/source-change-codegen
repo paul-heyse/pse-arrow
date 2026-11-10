@@ -29,7 +29,7 @@ case "${1-}" in
         exec scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features reference-contracts --locked -- codegen --only reference-exchange
         ;;
     surreal)
-        exec scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --locked -- codegen --only surreal
+        exec scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features native-study-contracts --locked -- codegen --only surreal
         ;;
     engineering)
         exec scripts/cargo-bin/cargo-pse-correctness run --bin xtask -p xtask --no-default-features --features engineering-contracts,force-validate --locked -- codegen --only engineering

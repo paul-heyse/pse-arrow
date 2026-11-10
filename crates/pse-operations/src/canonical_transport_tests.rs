@@ -66,9 +66,19 @@ async fn canonical_schema_wrapping_preserves_the_original_body_result_slot() {
     assert_eq!(response.num_statements(), 1);
     assert_eq!(response.take::<Option<bool>>(0).unwrap(), Some(true));
     let sql = peer.received.recv().await.unwrap();
-    assert!(sql.starts_with("BEGIN;"));
+    assert!(sql.starts_with("BEGIN ISOLATION LEVEL SERIALIZABLE;"));
     assert!(sql.contains(crate::canonical::migration::TRANSACTION_ADMISSION));
     assert!(sql.ends_with("COMMIT"));
+    let mut response = crate::canonical::bounded_query(
+        client.metadata_read_query(crate::canonical::MetadataResponse::Header, "RETURN true;"),
+    )
+    .await
+    .unwrap();
+    assert_eq!(response.num_statements(), 1);
+    assert_eq!(response.take::<Option<bool>>(0).unwrap(), Some(true));
+    let sql = peer.received.recv().await.unwrap();
+    assert!(sql.starts_with("BEGIN READ ONLY ISOLATION LEVEL SNAPSHOT;"));
+    assert!(sql.contains(crate::canonical::migration::TRANSACTION_ADMISSION));
     client.client.disconnect().await.unwrap();
     tokio::time::timeout(Duration::from_secs(2), peer.server)
         .await

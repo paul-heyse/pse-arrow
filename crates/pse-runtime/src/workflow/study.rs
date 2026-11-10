@@ -1599,18 +1599,7 @@ impl Runtime {
                             ))
                         });
                 }
-                let older = match input
-                    .predecessor
-                    .start
-                    .as_ref()
-                    .map(|bytes| {
-                        serde_json::from_slice::<pse_model::study::StartProvenance>(
-                            bytes.as_slice(),
-                        )
-                        .map_err(|error| contract(error.to_string()))
-                    })
-                    .transpose()?
-                {
+                let older = match input.predecessor.start.clone() {
                     Some(pse_model::study::StartProvenance::Continuation {
                         predecessor,
                         seed,
@@ -1818,14 +1807,7 @@ impl Runtime {
                 facts.retry_failure = stored.termination.retry_failure;
                 facts.effect = stored.termination.effect;
                 facts.scientific = stored_scientific_facts(stored);
-                let start = point
-                    .start
-                    .as_ref()
-                    .map(|bytes| {
-                        serde_json::from_slice(bytes.as_slice())
-                            .map_err(|error| contract(error.to_string()))
-                    })
-                    .transpose()?;
+                let start = point.start.clone();
                 let diagnostic = stored_diagnostic(stored);
                 let mut outcome = point_outcome(point)?.unwrap_or(PointOutcome {
                     key: facts.key,
@@ -1980,7 +1962,7 @@ impl Runtime {
                         if page.is_empty() { break; }
                         for point in page {
                             after=Some(point.ordinal);
-                            retained_bytes+=point.outcome.len()+point.projection.as_ref().map_or(0,|bytes|bytes.len());
+                            retained_bytes+=pse_model::HeapUsage::owned_bytes(&point.outcome)+point.projection.as_ref().map_or(0,|bytes|bytes.len());
                             let outcome=point.outcome()?;
                             usable+=u64::from(outcome.scientific.usable);
                             rows.push(super::study_tables::projected_outcome_row(study_id,point.projection.as_ref().map(|bytes|bytes.as_slice()),&outcome)?);
@@ -2467,17 +2449,13 @@ impl StudyHandle {
                             + point.study.len()
                             + point.run.len()
                             + point.attempt.as_ref().map_or(0, String::len)
-                            + point.facts.as_slice().len()
+                            + pse_model::HeapUsage::owned_bytes(&point.facts)
                             + point
                                 .outcome
                                 .as_ref()
-                                .map_or(0, |value| value.as_slice().len());
-                        sum.checked_add(
-                            variable
-                                .checked_mul(4)
-                                .ok_or_else(|| contract("study point extent"))?,
-                        )
-                        .ok_or_else(|| contract("study point extent"))
+                                .map_or(0, pse_model::HeapUsage::owned_bytes);
+                        sum.checked_add(variable)
+                            .ok_or_else(|| contract("study point extent"))
                     })?;
                     owners.push(
                         self.services

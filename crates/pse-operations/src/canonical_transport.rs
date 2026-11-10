@@ -432,8 +432,19 @@ impl CanonicalClient {
         };
         let query = query.into();
         let query = if frame && !maintenance {
+            let mode = match access {
+                super::migration::SchemaAdmission::Observation => {
+                    crate::canonical_script::TransactionMode::ReadOnlySnapshot
+                }
+                super::migration::SchemaAdmission::Read
+                | super::migration::SchemaAdmission::Mutation
+                | super::migration::SchemaAdmission::Cleanup => {
+                    crate::canonical_script::TransactionMode::Serializable
+                }
+            };
             Cow::Owned(format!(
-                "BEGIN;{}\n{}\nCOMMIT;",
+                "{}{}\n{}\nCOMMIT;",
+                mode.begin(),
                 super::migration::TRANSACTION_ADMISSION,
                 query
             ))
@@ -501,8 +512,25 @@ impl CanonicalClient {
         self.query(query).response_limits(profile.limits())
     }
 
-    /// Explicit source-owned read endpoint, retaining its ordinary request lane.
+    /// Pure snapshot endpoint, retaining its ordinary request lane. Reads that
+    /// register retirement/authority fences use metadata_guarded_read_query.
     pub(crate) fn metadata_read_query<'r>(
+        &'r self,
+        profile: super::MetadataResponse,
+        query: impl Into<Cow<'r, str>>,
+    ) -> crate::transport::client::Query<'r> {
+        self.query_class(
+            query,
+            false,
+            SchemaEnvelope::Unframed {
+                access: super::migration::SchemaAdmission::Observation,
+            },
+        )
+        .response_limits(profile.limits())
+    }
+    /// Metadata readers that retain commit-time retirement/identity registration
+    /// are explicitly serializable, even though they create no new work.
+    pub(crate) fn metadata_guarded_read_query<'r>(
         &'r self,
         profile: super::MetadataResponse,
         query: impl Into<Cow<'r, str>>,
@@ -516,6 +544,8 @@ impl CanonicalClient {
         )
         .response_limits(profile.limits())
     }
+    /// Reserved recovery lane; its domain functions can register authority and
+    /// retirement reads, so it retains an explicit serializable transaction.
     pub(crate) fn control_query<'r>(
         &'r self,
         query: impl Into<Cow<'r, str>>,
@@ -569,6 +599,7 @@ impl CanonicalClient {
         script: super::migration::MigrationScript,
     ) -> crate::transport::client::Query<'static> {
         self.query_class(script.sql, true, SchemaEnvelope::Maintenance)
+            .operation_return()
             .bind_guarded(script.bindings)
             .into_owned()
     }
@@ -585,7 +616,7 @@ impl CanonicalClient {
                 "SELECT * FROM ONLY type::record($pse_selected_table,$pse_selected_key);",
                 false,
                 SchemaEnvelope::Unframed {
-                    access: super::migration::SchemaAdmission::Read,
+                    access: super::migration::SchemaAdmission::Observation,
                 },
             )
             .bind(("pse_selected_table", resource.0.to_owned()))
@@ -610,6 +641,7 @@ impl CanonicalClient {
                     SchemaEnvelope::Framed { access }
                 },
             )
+            .operation_return()
             .bind_guarded(bindings)
             .into_owned();
         match selection {

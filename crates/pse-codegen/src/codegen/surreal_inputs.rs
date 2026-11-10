@@ -10,6 +10,66 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use std::fmt::Write as _;
 
+fn projection_rust_type(
+    root: &str,
+    graph: Option<&pse_contract::boundary_projection::ProjectionGraph>,
+) -> Result<TokenStream, SchemaError> {
+    let owner = graph
+        .and_then(|graph| graph.definitions().get(root))
+        .ok_or_else(|| SchemaError::Codegen {
+            language: "surreal",
+            reason: format!("source-owned native projection {root} is unavailable"),
+        })?;
+    let path = owner.public_rust_path.as_deref().unwrap_or(owner.rust_type);
+    path.parse()
+        .map_err(|error: proc_macro2::LexError| SchemaError::Codegen {
+            language: "surreal",
+            reason: error.to_string(),
+        })
+}
+
+pub(super) fn rust_field_type(
+    field: &pse_schema::model::FieldContract,
+    graph: Option<&pse_contract::boundary_projection::ProjectionGraph>,
+) -> Result<TokenStream, SchemaError> {
+    let base = if let Some(root) = field.canonical_projection() {
+        if field.value_type().data_type() != DataType::Binary {
+            return Err(SchemaError::Codegen {
+                language: "surreal",
+                reason: format!(
+                    "native projection {} requires its declared portable binary boundary",
+                    field.name()
+                ),
+            });
+        }
+        projection_rust_type(root, graph)?
+    } else if let Some(domain) = field.enum_name() {
+        let name = format_ident!("{}", super::rust::types::pascal(domain));
+        quote!(pse_model::generated::enums::#name)
+    } else {
+        match field.value_type().data_type() {
+            DataType::Utf8 => quote!(String),
+            DataType::Binary => quote!(pse_model::Bytes),
+            DataType::FixedSizeBinary(16) => quote!(pse_ids::SemanticId),
+            DataType::UInt64 => quote!(u64),
+            DataType::Int64 | DataType::Timestamp(_, _) => quote!(i64),
+            DataType::Boolean => quote!(bool),
+            DataType::Float64 => quote!(f64),
+            other => {
+                return Err(SchemaError::Codegen {
+                    language: "surreal",
+                    reason: format!("unsupported native row field {other:?}"),
+                });
+            }
+        }
+    };
+    Ok(if field.nullable() {
+        quote!(Option<#base>)
+    } else {
+        base
+    })
+}
+
 pub(super) fn definitions(relation: &RelationSpec) -> Result<String, SchemaError> {
     let mut create = Vec::new();
     let mut replace = Vec::new();
@@ -17,7 +77,9 @@ pub(super) fn definitions(relation: &RelationSpec) -> Result<String, SchemaError
     let mut merge_keys = Vec::new();
     for field in &relation.columns {
         let policy = CanonicalInputPolicy::for_field(field)?;
-        let base = if let Some(domain) = field.enum_name() {
+        let base = if let Some(root) = field.canonical_projection() {
+            super::boundary_projection::surreal::native_type_name(root)
+        } else if let Some(domain) = field.enum_name() {
             super::surreal::native_enum_name(domain)
         } else {
             match field.value_type().data_type() {
@@ -153,6 +215,7 @@ pub(super) fn support() -> TokenStream {
 pub(super) fn relation(
     relation: &RelationSpec,
     row: &TokenStream,
+    graph: Option<&pse_contract::boundary_projection::ProjectionGraph>,
 ) -> Result<TokenStream, SchemaError> {
     let stem = format!("Runtime{}", super::rust::types::pascal(relation.key.name));
     let create = format_ident!("{stem}Create");
@@ -187,7 +250,9 @@ pub(super) fn relation(
                 });
             }
         };
-        let base = if let Some(identity) = field.identity() {
+        let base = if let Some(root) = field.canonical_projection() {
+            projection_rust_type(root, graph)?
+        } else if let Some(identity) = field.identity() {
             let ty = format_ident!("{}", super::rust::identities::type_name(identity));
             quote!(pse_model::generated::identities::#ty)
         } else if let Some(domain) = field.enum_name() {
@@ -202,7 +267,10 @@ pub(super) fn relation(
         } else {
             quote!(value.clone())
         };
-        let value = if field.enum_name().is_some() {
+        let value = if let Some(root) = field.canonical_projection() {
+            let encode = format_ident!("encode_{}", super::boundary_projection::snake_case(root));
+            quote!(pse_study_module::generated::#encode(value.clone()).map_err(|_|crate::canonical_codec::CodecError::Domain(#name))?)
+        } else if field.enum_name().is_some() {
             quote!(crate::canonical_codec::encode_string(
                 value.as_str().to_owned()
             )?)

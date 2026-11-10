@@ -13,10 +13,10 @@ use arrow_schema::DataType;
 /// Maximum logical edits in one closed canonical source publication.
 pub const SOURCE_PACKAGE_EDITS: usize = 8_192;
 
-/// Exact schema/codec/structural-operation interpretation.
-pub const INTERPRETATION: &str = "pse.substrate.v11";
+/// Exact schema/codec/structural-operation interpretation of the clean target.
+pub const INTERPRETATION: &str = "pse.substrate.v12";
 
-/// Native schema admission generation; scientific row interpretation remains v10.
+/// Native schema admission generation, independent of the row interpretation above.
 pub const SCHEMA_VERSION: u64 = 4;
 /// Self-contained scientific IPC admission, independent of derived indexes.
 pub const RESULT_BLOCK_BYTES: usize = 32 * 1024 * 1024;
@@ -1143,17 +1143,17 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("ordinal", uint()),
                 column("occurrence", uint()),
                 column("seed_solution", text()).optional(),
-                column("policy", bytes()),
+                column("policy", bytes()).with_canonical_projection("AdmittedStudyPointPolicy"),
                 column("descriptor", bytes()),
                 column("admission", bytes()).optional(),
-                column("facts", bytes()),
-                column("outcome", bytes()).optional(),
+                column("facts", bytes()).with_canonical_projection("StudyPointFacts"),
+                column("outcome", bytes()).with_canonical_projection("StudyPointOutcome").optional(),
                 column("run", text()).with_canonical_key(crate::model::CanonicalKeyKind::Run),
                 column("revision", uint()),
                 column("assigned", flag()),
                 column("settled", flag()),
                 column("attempt", text()).with_canonical_key(crate::model::CanonicalKeyKind::Attempt).optional(),
-                column("start", bytes()).optional(),
+                column("start", bytes()).with_canonical_projection("StudyStartProvenance").optional(),
             ],
             "Distinct requested occurrence, immutable operation and policy, fenced observations and actual selected start. Query flags are derived from the shared policy owner.",
             crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: true, enforced: false, generation_references: false },
@@ -1184,7 +1184,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("source_revision", uint()),
                 column("pending", uint()),
                 column("eligible", flag()),
-                column("premises", bytes()).optional(),
+                column("premises", bytes()).with_canonical_projection("StudyReadinessPremises").optional(),
                 column("dirty", flag()),
                 column("notify", flag()),
                 column("notify_revision", uint()),

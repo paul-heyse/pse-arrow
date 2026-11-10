@@ -435,10 +435,11 @@ pub(crate) fn capability_validation_body() -> Result<String, CanonicalError> {
         ActionKind, EffectState, OccurrenceKey, PointAction, PointFacts, PointPolicy,
         ScientificFacts, SeedNeed, StartPolicy, StartProvenance,
     };
-    use surrealdb_types::{Bytes, Object, ToSql, Value};
-    fn encode<T: serde::Serialize>(value: &T) -> Result<Vec<u8>, CanonicalError> {
-        serde_json::to_vec(value).map_err(|error| CanonicalError::Configuration(error.to_string()))
-    }
+    use pse_study_module::generated as native;
+    use surrealdb_types::{Object, ToSql, Value};
+    let invalid_native = |error: pse_study_module::native::NativeError| {
+        CanonicalError::Configuration(error.to_string())
+    };
     let policy = PointPolicy {
         key: OccurrenceKey(0),
         dependencies: Vec::new(),
@@ -467,8 +468,14 @@ pub(crate) fn capability_validation_body() -> Result<String, CanonicalError> {
     row.insert("key", "module-capability-probe");
     row.insert("occurrence", crate::canonical_codec::encode_uint(0)?);
     row.insert("revision", crate::canonical_codec::encode_uint(0)?);
-    row.insert("policy", Bytes::from(encode(&policy)?));
-    row.insert("facts", Bytes::from(encode(&facts)?));
+    row.insert(
+        "policy",
+        native::encode_admitted_study_point_policy(policy).map_err(invalid_native)?,
+    );
+    row.insert(
+        "facts",
+        native::encode_study_point_facts(facts).map_err(invalid_native)?,
+    );
     row.insert("assigned", false);
     row.insert("settled", false);
     row.insert("outcome", Value::None);
@@ -484,11 +491,15 @@ pub(crate) fn capability_validation_body() -> Result<String, CanonicalError> {
     page.insert("items", Value::Array(vec![Value::Object(item)].into()));
     let prepare = page.to_sql();
     page.insert("mode", "claim");
-    page.insert("seed", Bytes::from(b"null".to_vec()));
+    page.insert("seed", Value::None);
     Ok(format!(
         "{CATALOG_VALIDATION_BODY} LET $pse_catalog_matches=({CATALOG_VALIDATION_PREDICATE}); LET $pse_probe_action={}; LET $pse_probe_start={}; LET $pse_prepare_probe=IF $pse_catalog_matches {{ext::pse::study::readiness({prepare})}} ELSE {{NONE}}; LET $pse_claim_probe=IF $pse_catalog_matches {{ext::pse::study::readiness({})}} ELSE {{NONE}};",
-        Bytes::from(encode(&action)?).to_sql(),
-        Bytes::from(encode(&StartProvenance::NotNeeded)?).to_sql(),
+        native::encode_study_point_action(action)
+            .map_err(invalid_native)?
+            .to_sql(),
+        native::encode_study_start_provenance(StartProvenance::NotNeeded)
+            .map_err(invalid_native)?
+            .to_sql(),
         page.to_sql()
     ))
 }

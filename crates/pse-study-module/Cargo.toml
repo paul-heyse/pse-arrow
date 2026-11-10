@@ -27,8 +27,8 @@ workspace = true
 
 [dependencies]
 pse-contract.workspace = true
+pse-diagnostics.workspace = true
 pse-model.workspace = true
-serde_json.workspace = true
 surrealdb-types.workspace = true
 thiserror.workspace = true
 miette.workspace = true

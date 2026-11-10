@@ -693,8 +693,7 @@ mod canonical_history_tests {
                 .await
         }
         .unwrap();
-        let mut facts: pse_model::study::PointFacts =
-            serde_json::from_slice(claim.point.facts.as_slice()).unwrap();
+        let mut facts = claim.point.facts.clone();
         facts.lifecycle = pse_model::generated::enums::StudyPointState::Failed;
         facts.effect = pse_model::study::EffectState::Present;
         let outcome = pse_model::study::PointOutcome {

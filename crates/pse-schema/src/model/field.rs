@@ -54,6 +54,17 @@ impl std::hash::Hash for FieldContract {
 }
 
 impl FieldContract {
+    /// Select a source-owned native projection while preserving the portable Arrow field.
+    /// The native generator resolves this root in the owner's projection graph and refuses
+    /// unknown or incompatible roots; this annotation does not describe another shape.
+    #[must_use]
+    pub fn with_canonical_projection(self, root: &str) -> Self {
+        self.facet(super::field_facets::CANONICAL_PROJECTION, root)
+    }
+    /// Source-owned native projection root for this field occurrence.
+    pub fn canonical_projection(&self) -> Option<&str> {
+        self.get(super::field_facets::CANONICAL_PROJECTION)
+    }
     /// Declare a stable protobuf field number at the actual field owner.
     /// Selected boundary assembly rejects zero, reserved or duplicate numbers.
     #[must_use]

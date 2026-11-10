@@ -13,7 +13,11 @@ use std::{
     os::unix::fs::MetadataExt as _,
     path::{Component, Path},
 };
-use surrealdb_types::{Object, RecordId, Value};
+use surrealdb_expr::{
+    expr::{Expr, statements::define::DefineStatement},
+    parser::TopLevelExpr,
+};
+use surrealdb_types::{Object, RecordId, ToSql, Value};
 
 const MAX_STEPS: usize = 256;
 const MAX_MANIFEST_BYTES: usize = 256 * 1024;
@@ -36,6 +40,55 @@ pub struct FrozenRollout {
     steps: Vec<FrozenRolloutStep>,
 }
 
+/// Data-affecting actions derived from the exact frozen inputs, in execution order.
+/// These are preview facts, never proof of completed effects or execution authority.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, schemars::JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum RolloutEffect {
+    /// A named conversion may change every existing value of this field.
+    FieldMigration {
+        /// Selected table.
+        table: String,
+        /// Selected scalar field.
+        field: String,
+        /// Exact declared target kind, resolved against separately witnessed named types.
+        target_kind: String,
+        /// Table-scoped one-shot migration name.
+        name: String,
+        /// Exact engine-normalized transform over the old value.
+        using: String,
+        /// Explicit fallback; acceptance is a separate domain obligation.
+        fallback: Option<String>,
+        /// Identity of the complete declaration, including constraints.
+        declaration_sha256: String,
+    },
+    /// Irreversibly discard undeclared top-level values on a table.
+    TableCleanup {
+        /// Selected table.
+        table: String,
+        /// Table-scoped migration name.
+        name: String,
+        /// Exact admitted cleanup statement identity.
+        declaration_sha256: String,
+    },
+    /// Explicit removal. Definition reversal cannot restore discarded values.
+    Removal {
+        /// Native entity family.
+        family: String,
+        /// Parent table for table-scoped entities.
+        scope: Option<String>,
+        /// Selected entity name.
+        name: String,
+    },
+    /// Supplier completion barrier, distinct from activation and index readiness.
+    AwaitMigrations {
+        /// Tables whose background migrations must finish.
+        tables: Vec<String>,
+        /// Original wait budget. Expiry is not rollback.
+        timeout_secs: Option<u64>,
+    },
+}
+
 /// An ordered entry in the exact frozen rollout manifest.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, schemars::JsonSchema)]
 struct FrozenRolloutStep {
@@ -53,6 +106,8 @@ struct FrozenRolloutStep {
     files: Vec<FrozenRolloutFile>,
     /// Declared removal targets in dispatch order.
     removed: Vec<Entity>,
+    /// Data effects captured before catalog normalization can discard duplicates.
+    effects: Vec<RolloutEffect>,
 }
 
 /// Frozen, checked SQL path and exact byte digest.
@@ -102,8 +157,17 @@ struct Step {
 #[derive(Deserialize, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 enum Action {
-    ApplyFiles { files: Vec<FrozenRolloutFile> },
-    RemoveEntities { entities: Vec<Entity> },
+    ApplyFiles {
+        files: Vec<FrozenRolloutFile>,
+    },
+    RemoveEntities {
+        entities: Vec<Entity>,
+    },
+    AwaitMigrations {
+        tables: Vec<String>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        timeout_secs: Option<u64>,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, schemars::JsonSchema)]
@@ -173,6 +237,30 @@ impl FrozenRollout {
         &self.id
     }
 
+    /// Forward effects in the same phase order used by the supplier executor.
+    pub fn effects(&self) -> impl Iterator<Item = &RolloutEffect> {
+        [RolloutPhase::Start, RolloutPhase::Complete]
+            .into_iter()
+            .flat_map(|phase| {
+                self.steps
+                    .iter()
+                    .filter(move |step| step.phase == phase)
+                    .flat_map(|step| &step.effects)
+            })
+    }
+    /// Effects of one supplier phase, before any execution or authority is granted.
+    pub fn phase_effects(&self, phase: RolloutPhase) -> impl Iterator<Item = &RolloutEffect> {
+        self.steps
+            .iter()
+            .filter(move |step| step.phase == phase)
+            .flat_map(|step| &step.effects)
+    }
+
+    /// Digest of exact original manifest bytes, distinct from any installed schema hash.
+    pub fn manifest_sha256(&self) -> &str {
+        &self.manifest_sha256
+    }
+
     /// Forward removals of a field or table require independent evidence of the
     /// old data and its required postconditions, even when the journal and
     /// installed catalog agree.
@@ -217,11 +305,14 @@ impl FrozenRollout {
                 &serde_json::to_vec(&step)
                     .map_err(|_| invalid("cannot encode frozen schema rollout step"))?,
             );
-            let (kind, files, removed, requires_independent_data_witness) = match step.action {
+            let (kind, files, removed, requires_independent_data_witness, effects) = match step
+                .action
+            {
                 Action::ApplyFiles { files } => {
                     if files.is_empty() || files.len() > MAX_STEPS {
                         return Err(invalid("frozen schema rollout file list differs"));
                     }
+                    let mut effects = Vec::new();
                     for file in &files {
                         let path = Path::new(&file.path);
                         if !file.path.starts_with("schema/")
@@ -240,30 +331,28 @@ impl FrozenRollout {
                         if sha256(sql.as_bytes()) != file.hash || sql.contains("${") {
                             return Err(invalid("frozen rollout SQL or effective bytes differ"));
                         }
-                        if parse_definition_input(&sql, DefinitionInput::FrozenRollout)
-                            .map_err(|_| {
-                                invalid("frozen rollout SQL is not a supported schema declaration")
-                            })?
-                            .is_empty()
-                        {
-                            return Err(invalid("frozen rollout SQL is empty"));
-                        }
+                        effects.extend(frozen_effects(&sql)?);
                     }
-                    ("apply_files", files, Vec::new(), false)
+                    let data_witness = !effects.is_empty();
+                    ("apply_files", files, Vec::new(), data_witness, effects)
                 }
                 Action::RemoveEntities { entities } => {
                     if entities.is_empty()
                         || entities.len() > MAX_STEPS
                         || step.phase == RolloutPhase::Start
                         || entities.iter().any(|entity| {
-                            !identifier(&entity.name)
-                                || match entity.kind.as_str() {
-                                    "table" => entity.scope.is_some(),
-                                    "field" | "event" | "index" => {
-                                        !entity.scope.as_deref().is_some_and(identifier)
-                                    }
-                                    _ => true,
+                            !(if matches!(entity.kind.as_str(), "function" | "module") {
+                                entity.name.split("::").all(identifier)
+                            } else {
+                                identifier(&entity.name)
+                            }) || match entity.kind.as_str() {
+                                "table" | "type" | "module" => entity.scope.is_some(),
+                                "function" => entity.scope.is_some(),
+                                "field" | "event" | "index" => {
+                                    !entity.scope.as_deref().is_some_and(identifier)
                                 }
+                                _ => true,
+                            }
                         })
                     {
                         return Err(invalid("unsupported frozen rollout schema removal"));
@@ -271,11 +360,45 @@ impl FrozenRollout {
                     let requires_independent_data_witness = entities
                         .iter()
                         .any(|entity| matches!(entity.kind.as_str(), "field" | "table"));
+                    let effects = entities
+                        .iter()
+                        .map(|entity| RolloutEffect::Removal {
+                            family: entity.kind.clone(),
+                            scope: entity.scope.clone(),
+                            name: entity.name.clone(),
+                        })
+                        .collect();
                     (
                         "remove_entities",
                         Vec::new(),
                         entities,
                         requires_independent_data_witness,
+                        effects,
+                    )
+                }
+                Action::AwaitMigrations {
+                    tables,
+                    timeout_secs,
+                } => {
+                    let unique = tables.iter().collect::<BTreeSet<_>>();
+                    if tables.is_empty()
+                        || tables.len() > MAX_STEPS
+                        || unique.len() != tables.len()
+                        || tables.iter().any(|table| !identifier(table))
+                        || timeout_secs == Some(0)
+                    {
+                        return Err(invalid("unsupported frozen migration completion barrier"));
+                    }
+                    let effect = RolloutEffect::AwaitMigrations {
+                        tables,
+                        timeout_secs,
+                    };
+                    (
+                        "await_migrations",
+                        Vec::new(),
+                        Vec::new(),
+                        false,
+                        vec![effect],
                     )
                 }
             };
@@ -287,6 +410,7 @@ impl FrozenRollout {
                 checksum,
                 files,
                 removed,
+                effects,
             });
         }
         if !steps
@@ -295,13 +419,43 @@ impl FrozenRollout {
         {
             return Err(invalid("frozen rollout requires forward frozen SQL"));
         }
-        Ok(Self {
+        let rollout = Self {
             id: manifest.id,
             manifest_sha256: sha256(raw.as_bytes()),
             source_schema_hash: manifest.source_schema_hash,
             target_schema_hash: manifest.target_schema_hash,
             steps,
-        })
+        };
+        rollout.validate_migration_barriers()?;
+        Ok(rollout)
+    }
+
+    fn validate_migration_barriers(&self) -> Result<(), CanonicalError> {
+        let mut pending = BTreeSet::new();
+        let mut names = BTreeSet::new();
+        for effect in self.effects() {
+            match effect {
+                RolloutEffect::FieldMigration { table, name, .. }
+                | RolloutEffect::TableCleanup { table, name, .. } => {
+                    if !names.insert((table, name)) {
+                        return Err(invalid("frozen migration name is reused"));
+                    }
+                    pending.insert(table);
+                }
+                RolloutEffect::AwaitMigrations { tables, .. } => {
+                    for table in tables {
+                        pending.remove(table);
+                    }
+                }
+                RolloutEffect::Removal { .. } => {}
+            }
+        }
+        if !pending.is_empty() {
+            return Err(invalid(
+                "frozen migration requires a subsequent completion barrier",
+            ));
+        }
+        Ok(())
     }
 
     /// Compare an exact journal row to the frozen manifest and phase steps.
@@ -358,6 +512,86 @@ impl FrozenRollout {
     }
 }
 
+fn frozen_effects(sql: &str) -> Result<Vec<RolloutEffect>, CanonicalError> {
+    let ast =
+        surrealdb_expr::parser::parse(sql).map_err(|_| invalid("frozen migration parse failed"))?;
+    if ast.expressions.is_empty() {
+        return Err(invalid("frozen rollout SQL is empty"));
+    }
+    let mut effects = Vec::new();
+    for expression in ast.expressions {
+        if let TopLevelExpr::Expr(Expr::Alter(statement)) = &expression {
+            use surrealdb_expr::expr::{
+                Literal,
+                statements::alter::{AlterStatement, AlterTableStatement},
+            };
+            let AlterStatement::Table(table) = statement.as_ref() else {
+                return Err(invalid("unsupported frozen alteration"));
+            };
+            let Some(migration) = &table.migrate else {
+                return Err(invalid(
+                    "frozen table alteration requires an explicit cleanup",
+                ));
+            };
+            let name = table.name.to_sql();
+            let mut remaining = table.clone();
+            remaining.name = Expr::Literal(Literal::None);
+            remaining.migrate = None;
+            if !identifier(&name)
+                || !identifier(&migration.name)
+                || remaining != AlterTableStatement::default()
+            {
+                return Err(invalid(
+                    "frozen cleanup cannot carry unrelated table effects",
+                ));
+            }
+            effects.push(RolloutEffect::TableCleanup {
+                table: name,
+                name: migration.name.clone(),
+                declaration_sha256: sha256(statement.to_sql().as_bytes()),
+            });
+            continue;
+        }
+        let TopLevelExpr::Expr(Expr::Define(statement)) = expression else {
+            return Err(invalid("unsupported frozen rollout statement"));
+        };
+        parse_definition_input(&statement.to_sql(), DefinitionInput::FrozenRollout)
+            .map_err(|_| invalid("frozen rollout SQL is not a supported schema declaration"))?;
+        let DefineStatement::Field(field) = statement.as_ref() else {
+            continue;
+        };
+        let Some(migration) = &field.migrate else {
+            continue;
+        };
+        let table = field.what.to_sql();
+        let name = field.name.to_sql();
+        if !identifier(&table)
+            || !identifier(&name)
+            || !identifier(&migration.name)
+            || matches!(name.as_str(), "id" | "in" | "out")
+            || field.inline
+            || field.reference.is_some()
+            || field.computed.is_some()
+        {
+            return Err(invalid("unsupported frozen native migration field"));
+        }
+        effects.push(RolloutEffect::FieldMigration {
+            table,
+            field: name,
+            target_kind: field
+                .field_kind
+                .as_ref()
+                .ok_or_else(|| invalid("native migration requires a target kind"))?
+                .to_sql(),
+            name: migration.name.clone(),
+            using: migration.using.to_sql(),
+            fallback: migration.fallback.as_ref().map(ToSql::to_sql),
+            declaration_sha256: sha256(statement.to_sql().as_bytes()),
+        });
+    }
+    Ok(effects)
+}
+
 fn string_is(object: &Object, name: &str, expected: &str) -> bool {
     matches!(object.get(name), Some(Value::String(value)) if value == expected)
 }
@@ -365,6 +599,104 @@ fn string_is(object: &Object, name: &str, expected: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn migration_fixture(sql: &str, barrier: &str) -> tempfile::TempDir {
+        let project = tempfile::tempdir().unwrap();
+        let frozen = project.path().join("rollout/schema");
+        std::fs::create_dir_all(&frozen).unwrap();
+        std::fs::write(frozen.join("fixture.surql"), sql).unwrap();
+        std::fs::write(
+            project.path().join("rollout.toml"),
+            format!(
+                r#"
+id = "rollout"
+name = "unsigned ordinal"
+source_schema_hash = "{source}"
+target_schema_hash = "{target}"
+compatibility = "phased"
+[[steps]]
+id = "convert"
+phase = "start"
+kind = "apply_files"
+files = [{{ path = "schema/fixture.surql", hash = "{digest}" }}]
+{barrier}
+"#,
+                source = sha256(b"source"),
+                target = sha256(b"target"),
+                digest = sha256(sql.as_bytes())
+            ),
+        )
+        .unwrap();
+        project
+    }
+
+    #[test]
+    fn frozen_native_migration_captures_effect_and_requires_later_conformance() {
+        let sql = "DEFINE FIELD OVERWRITE ordinal ON canonical_result_batches TYPE u64 MIGRATE EXISTING ROWS AS ordinal_u64 USING <u64>$value FALLBACK 0u64;";
+        let barrier = r#"
+[[steps]]
+id = "conform"
+phase = "complete"
+kind = "await_migrations"
+tables = ["canonical_result_batches"]
+timeout_secs = 30
+"#;
+        let project = migration_fixture(sql, barrier);
+        let rollout = FrozenRollout::read(&project.path().join("rollout.toml")).unwrap();
+        assert!(rollout.requires_independent_data_witness());
+        let effects = rollout.effects().collect::<Vec<_>>();
+        assert!(
+            matches!(effects[0], RolloutEffect::FieldMigration { table, field, name, fallback: Some(_), .. }
+            if table == "canonical_result_batches" && field == "ordinal" && name == "ordinal_u64")
+        );
+        assert!(matches!(
+            effects[1],
+            RolloutEffect::AwaitMigrations {
+                timeout_secs: Some(30),
+                ..
+            }
+        ));
+        let unguarded = migration_fixture(sql, "");
+        assert!(FrozenRollout::read(&unguarded.path().join("rollout.toml")).is_err());
+        let wrong = migration_fixture(
+            sql,
+            &barrier.replace("canonical_result_batches", "canonical_other"),
+        );
+        assert!(FrozenRollout::read(&wrong.path().join("rollout.toml")).is_err());
+        let repeated = migration_fixture(&format!("{sql}{sql}"), barrier);
+        assert!(FrozenRollout::read(&repeated.path().join("rollout.toml")).is_err());
+    }
+
+    #[test]
+    fn frozen_cleanup_is_explicit_destructive_and_cannot_smuggle_other_alterations() {
+        let barrier = r#"
+[[steps]]
+id = "conform"
+phase = "complete"
+kind = "await_migrations"
+tables = ["canonical_probe"]
+"#;
+        let project = migration_fixture(
+            "ALTER TABLE canonical_probe MIGRATE EXISTING ROWS AS remove_extra REMOVE UNDECLARED FIELDS;",
+            barrier,
+        );
+        let rollout = FrozenRollout::read(&project.path().join("rollout.toml")).unwrap();
+        assert!(rollout.requires_independent_data_witness());
+        assert!(
+            matches!(rollout.effects().next(), Some(RolloutEffect::TableCleanup {table, name, ..}) if table=="canonical_probe" && name=="remove_extra")
+        );
+        for sql in [
+            "ALTER TABLE canonical_probe SCHEMALESS;",
+            "ALTER TABLE canonical_probe SCHEMALESS MIGRATE EXISTING ROWS AS remove_extra REMOVE UNDECLARED FIELDS;",
+            "ALTER TABLE canonical_probe COMPACT;",
+        ] {
+            let project = migration_fixture(sql, barrier);
+            assert!(
+                FrozenRollout::read(&project.path().join("rollout.toml")).is_err(),
+                "{sql}"
+            );
+        }
+    }
 
     #[test]
     fn frozen_rollout_refuses_substitution_unsupported_sql_and_linked_inputs() {

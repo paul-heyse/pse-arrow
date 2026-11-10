@@ -129,7 +129,6 @@ DEFINE FUNCTION fn::pse_execution_v1::source_creator($rpc_expiry:int,$problem:st
 };
 
 DEFINE FUNCTION fn::pse_execution_v1::result_creator($rpc_expiry:int,$run:string) -> bool {
-    fn::pse_workbench_v1::publication($rpc_expiry);
     fn::pse_history_v1::run($rpc_expiry,$run);
     SELECT * FROM ONLY type::record('canonical_result_retirements',$run) FOR UPDATE;
     IF (SELECT * FROM ONLY type::record('canonical_result_retirements',$run))!=NONE { THROW 'PSE_REFUSAL:execution_results_explicitly_retired'; };
@@ -278,7 +277,6 @@ DEFINE FUNCTION fn::pse_execution_v1::begin_run($rpc_expiry: int, $row: object, 
 // Installation supplies only already admitted eager/input-admission runs. Native
 // bulk rows and graph edges share the point page's atomic boundary.
 DEFINE FUNCTION fn::pse_execution_v1::install_runs($rpc_expiry:int,$items:array<object>) -> bool {
-    fn::pse_workbench_v1::publication($rpc_expiry);
     IF array::len($items)=0 OR array::len($items)>64 OR array::len(array::distinct($items.row.key))!=array::len($items) { THROW 'PSE_REFUSAL:study_run_page_extent'; };
     LET $marker=SELECT * FROM ONLY canonical_interpretations:current;
     LET $checked=$items.map(|$item| {

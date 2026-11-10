@@ -38,7 +38,10 @@ DEFINE FUNCTION fn::pse_workbench_v1::select_rows($rpc_expiry:int,$filter:object
     fn::pse_workbench_v1::validate_filter($filter);
     LET $problems=IF $filter.project=NONE OR $filter.project=NULL {[]} ELSE {SELECT VALUE problem FROM canonical_project_branches WHERE project=$filter.project LIMIT 65};
     IF array::len($problems)>64 { THROW 'PSE_REFUSAL:study_workbench_narrow_selection'; };
-    LET $rows=SELECT key,run,problem,revision,physical_revision,physical_identity,context,point_count,generation,active,cancelled,terminal FROM canonical_studies
+    // Exact selection uses the record's native point dependency, including its
+    // absence. A table scan for a single study would register unrelated rows.
+    LET $source=IF $filter.study IN [NONE,NULL] {type::table('canonical_studies')} ELSE {type::record('canonical_studies',$filter.study)};
+    LET $rows=SELECT key,run,problem,revision,physical_revision,physical_identity,context,point_count,generation,active,cancelled,terminal FROM $source
     WHERE key>$after
         AND ($filter.study IN [NONE,NULL] OR key=$filter.study)
         AND ($filter.source IN [NONE,NULL] OR revision=$filter.source)
@@ -56,12 +59,12 @@ DEFINE FUNCTION fn::pse_workbench_v1::select_rows($rpc_expiry:int,$filter:object
 DEFINE FUNCTION fn::pse_workbench_v1::protection_key($capture:string,$study:string,$attempt:string) -> string {
     RETURN encoding::base64::encode(encoding::cbor::encode([$capture,$study,$attempt]));
 };
-DEFINE FUNCTION fn::pse_workbench_v1::capture_page($rpc_expiry:int,$key:string,$owner:string,$request:bytes,$kind:string,$after:u64) -> array<object> {
+DEFINE FUNCTION fn::pse_workbench_v1::capture_page($rpc_expiry:int,$key:string,$owner:string,$request:bytes,$kind:string,$after:option<u64>) -> array<object> {
     LET $capture=SELECT * FROM ONLY type::record('canonical_study_captures',$key) FOR UPDATE;
     IF $capture=NONE OR $capture.owner!=$owner OR $capture.request!=$request OR $capture.state!='frozen' { THROW 'PSE_REFUSAL:study_capture_original_owner_closed'; };
     LET $process=SELECT * FROM ONLY type::record('canonical_file_owners',$owner) FOR UPDATE;
     IF $process=NONE OR $process.drained OR $process.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'PSE_REFUSAL:study_capture_actual_owner_unavailable'; };
-    LET $rows=IF $kind='headers' {SELECT ordinal,body FROM canonical_study_capture_headers WHERE capture=$key AND ordinal>$after ORDER BY ordinal LIMIT 64} ELSE IF $kind='members' {SELECT ordinal,body FROM canonical_study_capture_members WHERE capture=$key AND ordinal>$after ORDER BY ordinal LIMIT __CAPTURE_ROWS__} ELSE {THROW 'PSE_REFUSAL:study_capture_page_kind';};
+    LET $rows=IF $kind='headers' {SELECT ordinal,body FROM canonical_study_capture_headers WHERE capture=$key AND ($after=NONE OR ordinal>$after) ORDER BY ordinal LIMIT 64} ELSE IF $kind='members' {SELECT ordinal,body FROM canonical_study_capture_members WHERE capture=$key AND ($after=NONE OR ordinal>$after) ORDER BY ordinal LIMIT __CAPTURE_ROWS__} ELSE {THROW 'PSE_REFUSAL:study_capture_page_kind';};
     // Byte-bound each page as well as its row count; keep an exact prefix.
     LET $page=$rows.fold({items:[],bytes:0,stopped:false},|$acc,$row| {
         LET $bytes=$acc.bytes+bytes::len($row.body)+128;
@@ -160,7 +163,7 @@ DEFINE FUNCTION fn::pse_workbench_v1::release_capture($rpc_expiry:int,$key:strin
 
 DEFINE FUNCTION fn::pse_workbench_v1::browse($rpc_expiry:int,$rows:array<object>,$maximum:int) -> object {
     LET $selected=array::slice($rows,0,$maximum);
-    FOR $s IN $selected {fn::pse_history_v1::check_owner($rpc_expiry,'study',$s.key);};
+    FOR $s IN $selected {fn::pse_history_v1::observe_owner($rpc_expiry,'study',$s.key);};
     LET $headers=$selected.map(|$s| {
         LET $run=SELECT terminal_attempt,terminal_class FROM ONLY type::record('canonical_runs',$s.run);
         RETURN object::extend($s,{result_attempt:$run.terminal_attempt,outcome:$run.terminal_class});

@@ -6,6 +6,8 @@
 use crate::canonical_script::{Envelope, GuardedScript, Recheck, ResultSlot};
 pub(crate) use crate::transport::lifetime;
 use crate::{canonical_codec::CodecError, generated::surreal as wire};
+#[path = "canonical_bootstrap.rs"]
+mod bootstrap;
 #[cfg(feature = "canonical-maintenance")]
 #[path = "canonical_maintenance.rs"]
 pub mod maintenance;
@@ -1545,7 +1547,9 @@ impl CanonicalStore {
                 },
             )
             .await?;
-            // An acknowledged installation is never retried because readback failed.
+            // An acknowledged installation is never replayed because index
+            // readiness or publication readback failed. Resume the same marker.
+            self.complete_bootstrap().await?;
             self.open().await
         })
         .await
@@ -2624,9 +2628,9 @@ fn initialization_statement(
     module: &study_module::StudyModuleReceipt,
 ) -> Result<crate::canonical_script::PreparedScript<Value>, CanonicalError> {
     let body = format!(
-        "{}{}\nCREATE canonical_interpretations:current SET key = 'current', interpretation = $interpretation, schema_digest = $schema_digest, study_module_sha256 = $study_module_sha256, issuing_store = <string>rand::uuid::v4(), payload_incarnation = $payload_incarnation,schema_version=$schema_version,schema_epoch=$schema_epoch,admission_open=true;\nCREATE canonical_file_admission:current SET key='current',storage_incarnation=$payload_incarnation,frozen=false,gc_frozen=false;\nCREATE canonical_guards:⟨study-publication⟩ SET key='study-publication',generation=0;",
+        "{}{}\nCREATE canonical_interpretations:current SET key = 'current', interpretation = $interpretation, schema_digest = $schema_digest, study_module_sha256 = $study_module_sha256, issuing_store = <string>rand::uuid::v4(), payload_incarnation = $payload_incarnation,schema_version=$schema_version,schema_epoch=$schema_epoch,admission_open=false;\nCREATE canonical_guards:bootstrap SET key='bootstrap',generation=0u64,incarnation=$schema_epoch;\nCREATE canonical_file_admission:current SET key='current',storage_incarnation=$payload_incarnation,frozen=false,gc_frozen=false;",
         module.declarations(false),
-        wire::SCHEMA,
+        wire::BOOTSTRAP_SCHEMA,
     );
     GuardedScript::new(Envelope::Installation).returning::<Value>(&body, "NONE")
 }
@@ -5545,7 +5549,9 @@ mod canonical_server_unit {
             ]),
         );
         let registry = builder.build().unwrap();
-        let schema = pse_codegen::codegen::canonical_schema(&registry).unwrap();
+        let graph = pse_model::study::native_projection_graph().unwrap();
+        let schema =
+            pse_codegen::codegen::canonical_schema_with_projections(&registry, &graph).unwrap();
         let fixture = schema
             .lines()
             .filter(|line| {

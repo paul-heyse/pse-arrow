@@ -482,7 +482,11 @@ async fn start_scripted(
                                         || query.contains("RETURN $pse_guarded_script_result;")
                                     {
                                         source_stage_acknowledgement_frames(value)
-                                    } else if query.starts_with("BEGIN;")
+                                    } else if (query
+                                        .starts_with("BEGIN ISOLATION LEVEL SERIALIZABLE;")
+                                        || query.starts_with(
+                                            "BEGIN READ ONLY ISOLATION LEVEL SNAPSHOT;",
+                                        ))
                                         && query.contains(
                                             crate::canonical::migration::TRANSACTION_ADMISSION,
                                         )

@@ -9,6 +9,72 @@ use crate::{
     canonical_study_workbench::StudyWorkbenchFilter,
 };
 
+/// A handler error converted to an API response must still poison the complete
+/// caller transaction, including a write made before entering the handler.
+#[tokio::test]
+async fn native_api_failure_rolls_back_earlier_enclosing_write_but_409_commits()
+-> Result<(), crate::canonical::CanonicalError> {
+    use crate::canonical::bounded_query;
+    use surrealdb_types::Object;
+    let store = crate::native_fixture::canonical_fixture_store()?;
+    bounded_query(store.db.query(r#"
+        DEFINE API '/pse-test-failure' FOR get PERMISSIONS FULL THEN {
+            CREATE canonical_guards:api_handler_failure SET key='api_handler_failure',generation=0u64;
+            THROW 'controlled handler failure';
+        };
+        DEFINE API '/pse-test-refusal' FOR get PERMISSIONS FULL THEN {
+            CREATE canonical_guards:api_handler_refusal SET key='api_handler_refusal',generation=0u64;
+            RETURN {status:409,body:{refused:true}};
+        };
+    "#)).await?;
+    let failed = bounded_query(store.db.query(
+        r#"
+        CREATE canonical_guards:api_earlier_failure SET key='api_earlier_failure',generation=0u64;
+        RETURN api::invoke('/pse-test-failure',{method:'get'});
+    "#,
+    ))
+    .await;
+    assert!(
+        failed.is_err(),
+        "API error cannot authorize the enclosing commit"
+    );
+    for key in ["api_earlier_failure", "api_handler_failure"] {
+        let mut reply = bounded_query(
+            store
+                .db
+                .metadata_read_query(
+                    crate::canonical::MetadataResponse::Header,
+                    "SELECT * FROM ONLY type::record('canonical_guards',$key);",
+                )
+                .bind(("key", key)),
+        )
+        .await?;
+        assert!(reply.take::<Option<Object>>(0)?.is_none());
+    }
+    bounded_query(store.db.query(
+        r#"
+        CREATE canonical_guards:api_earlier_refusal SET key='api_earlier_refusal',generation=0u64;
+        RETURN api::invoke('/pse-test-refusal',{method:'get'});
+    "#,
+    ))
+    .await?;
+    for key in ["api_earlier_refusal", "api_handler_refusal"] {
+        let mut reply = bounded_query(
+            store
+                .db
+                .metadata_read_query(
+                    crate::canonical::MetadataResponse::Header,
+                    "SELECT * FROM ONLY type::record('canonical_guards',$key);",
+                )
+                .bind(("key", key)),
+        )
+        .await?;
+        assert!(reply.take::<Option<Object>>(0)?.is_some());
+    }
+    store.remove_isolated_fixture().await?;
+    Ok(())
+}
+
 #[tokio::test]
 async fn native_control_browse_and_original_refused_command_require_no_math()
 -> Result<(), crate::canonical::CanonicalError> {

@@ -105,7 +105,6 @@ DEFINE FUNCTION fn::pse_lifecycle_v1::explain($expiry:int,$selection:object) -> 
     RETURN {selection:$s,blockers:$blockers,blockers_complete:false,logical_bytes:$logical,detail_released:$draft.retired ?? $retired.complete ?? false};
 };
 DEFINE FUNCTION fn::pse_project_v1::retire_draft_version($expiry:int,$s:object) -> object {
-    fn::pse_workbench_v1::publication($expiry);
     fn::pse_lifecycle_v1::check($expiry,$s);
     LET $v=SELECT * FROM ONLY type::record('canonical_project_draft_versions',$s.key) FOR UPDATE;
     LET $p=SELECT * FROM ONLY type::record('canonical_projects',$v.project) FOR UPDATE;
@@ -130,7 +129,6 @@ DEFINE FUNCTION fn::pse_project_v1::retire_draft_version($expiry:int,$s:object) 
     fn::pse_execution_v1::deadline($expiry); RETURN {complete:true};
 };
 DEFINE FUNCTION fn::pse_lifecycle_v1::release($expiry:int,$s:object) -> object {
-    fn::pse_workbench_v1::publication($expiry);
     fn::pse_lifecycle_v1::check($expiry,$s);
     // Explanation is advisory. The original owner checks live guards in this
     // same effect transaction; no prior explanation is a deletion capability.

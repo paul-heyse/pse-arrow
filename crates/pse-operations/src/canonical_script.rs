@@ -9,6 +9,24 @@ use surrealdb_types::{Object, SurrealValue, Value};
 
 const INSTALLATION_BEGIN: &str = "BEGIN ISOLATION LEVEL SNAPSHOT;";
 
+/// Selected by the semantic operation, never inferred from its SQL text or the
+/// patched server default. Custody acquisition and renewal are writing operations.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum TransactionMode {
+    Serializable,
+    ReadOnlySnapshot,
+    InstallationSnapshot,
+}
+impl TransactionMode {
+    pub(crate) const fn begin(self) -> &'static str {
+        match self {
+            Self::Serializable => "BEGIN ISOLATION LEVEL SERIALIZABLE;",
+            Self::ReadOnlySnapshot => "BEGIN READ ONLY ISOLATION LEVEL SNAPSHOT;",
+            Self::InstallationSnapshot => INSTALLATION_BEGIN,
+        }
+    }
+}
+
 /// Read postlude must retain its original pin-versus-ticket meaning.
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum Recheck {
@@ -72,6 +90,12 @@ pub(crate) enum Envelope<'a> {
     StageCleanup(StageCleanup<'a>),
     /// Bootstrap cannot call a native deadline function before installing it.
     Installation,
+    /// Fixed bootstrap observations before ordinary schema admission exists.
+    BootstrapObservation,
+    /// Exact bootstrap identity publication after all physical indexes are ready.
+    BootstrapPublication,
+    /// Pure observation; no custody acquisition, renewal or publication.
+    ReadOnly,
     DeadlineOnly,
     /// Original custody release only; no new work may be created during migration drain.
     DrainCleanup,
@@ -139,11 +163,10 @@ impl ScriptResponse for crate::transport::client::IndexedResults {
     where
         usize: crate::transport::client::QueryResult<T>,
     {
-        let slot = self
-            .num_statements()
-            .checked_sub(2)
-            .ok_or(CanonicalError::IncompleteResponse)?;
-        self.take(slot).map_err(Into::into)
+        if self.num_statements() != 1 {
+            return Err(CanonicalError::IncompleteResponse);
+        }
+        self.take(0).map_err(Into::into)
     }
 }
 impl<T> ResultSlot<T> {
@@ -197,7 +220,23 @@ impl<'a> GuardedScript<'a> {
     ) -> Result<PreparedScript<T>, CanonicalError> {
         let mut bindings = Object::default();
         let mut selection = None;
-        let mut sql = String::new();
+        let installation = matches!(
+            self.envelope,
+            Envelope::Installation
+                | Envelope::BootstrapObservation
+                | Envelope::BootstrapPublication
+        );
+        let mode = match self.envelope {
+            Envelope::Installation => TransactionMode::InstallationSnapshot,
+            Envelope::ReadOnly | Envelope::BootstrapObservation => {
+                TransactionMode::ReadOnlySnapshot
+            }
+            _ => TransactionMode::Serializable,
+        };
+        let mut sql = String::from(mode.begin());
+        if !installation {
+            sql.push_str(crate::canonical::migration::TRANSACTION_ADMISSION);
+        }
         let mut postlude = String::new();
         let mut after_body = String::new();
         match self.envelope {
@@ -220,7 +259,7 @@ impl<'a> GuardedScript<'a> {
                 selection = Some(pin.clone());
             }
             Envelope::ProjectAuthority { issuer } => {
-                sql.push_str("BEGIN;\nfn::pse_project_v1::authority($pse_rpc_expires_at,$project_issuing_store);\n");
+                sql.push_str("\nfn::pse_project_v1::authority($pse_rpc_expires_at,$project_issuing_store);\n");
                 bindings.insert("project_issuing_store", (issuer.to_owned()).into_value());
             }
             Envelope::StageGuard(authority) => {
@@ -261,7 +300,7 @@ impl<'a> GuardedScript<'a> {
                 );
             }
             Envelope::StageAcquisition(authority) => {
-                sql.push_str("BEGIN;\n");
+                sql.push('\n');
                 postlude.push_str("fn::pse_execution_v1::deadline($pse_rpc_expires_at);\n");
                 bindings.insert(
                     "problem",
@@ -307,17 +346,18 @@ impl<'a> GuardedScript<'a> {
                     (authority.operation.as_str().to_owned()).into_value(),
                 );
             }
-            Envelope::DeadlineOnly | Envelope::DrainCleanup => {
-                sql.push_str("BEGIN;\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\n");
+            Envelope::DeadlineOnly | Envelope::DrainCleanup | Envelope::ReadOnly => {
+                sql.push_str("\nfn::pse_execution_v1::deadline($pse_rpc_expires_at);\n");
                 postlude.push_str("fn::pse_execution_v1::deadline($pse_rpc_expires_at);\n");
             }
-            Envelope::Installation => {
+            Envelope::Installation
+            | Envelope::BootstrapObservation
+            | Envelope::BootstrapPublication => {
                 const DEADLINE: &str = "IF time::micros() >= $pse_rpc_expires_at { THROW 'PSE_REFUSAL:original_schema_installation_deadline_expired'; };\n";
                 // Blocking v4 index builds commit their own bookkeeping while
                 // this fresh catalog transaction is open. A serializable read
                 // set conflicts with those writes. The catalog and fixed
                 // interpretation record still commit together.
-                sql.push_str(INSTALLATION_BEGIN);
                 sql.push('\n');
                 sql.push_str(DEADLINE);
                 postlude.push_str(DEADLINE);
@@ -334,20 +374,14 @@ impl<'a> GuardedScript<'a> {
         sql.push_str(");\n");
         sql.push_str(&postlude);
         sql.push_str("RETURN $pse_guarded_script_result;\nCOMMIT;");
-        let installation = matches!(self.envelope, Envelope::Installation);
         let access = match self.envelope {
             Envelope::ProtectedRead { .. } => crate::canonical::migration::SchemaAdmission::Read,
+            Envelope::ReadOnly => crate::canonical::migration::SchemaAdmission::Observation,
             Envelope::StageCleanup(_) | Envelope::DrainCleanup => {
                 crate::canonical::migration::SchemaAdmission::Cleanup
             }
             _ => crate::canonical::migration::SchemaAdmission::Mutation,
         };
-        if !installation {
-            sql.insert_str(
-                "BEGIN;".len(),
-                crate::canonical::migration::TRANSACTION_ADMISSION,
-            );
-        }
         Ok(PreparedScript {
             sql,
             bindings,
@@ -385,7 +419,7 @@ pub(crate) fn test_script<T>(
     GuardedScript::new(Envelope::DeadlineOnly).returning(body, expression)
 }
 
-pub(crate) const PROTECTED_BEGIN: &str = r#"BEGIN;
+pub(crate) const PROTECTED_BEGIN: &str = r#"
 SELECT * FROM type::record('canonical_guards', 'retention:' + $problem) FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $pin = SELECT * FROM ONLY type::record('canonical_protections', $protection) FOR UPDATE;
 IF $pin = NONE OR $pin.problem != $problem OR $pin.revision != $revision OR $pin.sequence != $sequence OR $pin.released OR ($pin.expires_at <= time::micros() AND !fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$protection)) { THROW 'PSE_REFUSAL:immutable_selection_protection_expired'; };
@@ -398,7 +432,7 @@ IF $result_pin!=NONE {
     IF $retirement!=NONE OR $selected_manifest=NONE OR $selected_manifest.attempt!=$result_pin.attempt { THROW 'PSE_REFUSAL:result_protection_retired_or_manifest_unavailable'; };
 };"#;
 
-pub(crate) const STAGE_BEGIN: &str = r#"BEGIN;
+pub(crate) const STAGE_BEGIN: &str = r#"
 LET $retention_guard = type::record('canonical_guards', 'retention:' + $problem);
 SELECT * FROM $retention_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $stage_guard = type::record('canonical_guards', 'stage:' + $operation);
@@ -414,7 +448,7 @@ fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 IF $lease.expires_at <= time::micros() { THROW 'PSE_REFUSAL:staging_lease_expired_before_commit'; };
 COMMIT;"#;
 
-pub(crate) const CLOSE_STAGE_BEGIN: &str = r#"BEGIN;
+pub(crate) const CLOSE_STAGE_BEGIN: &str = r#"
 LET $retention_guard = type::record('canonical_guards', 'retention:' + $problem);
 SELECT * FROM $retention_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $stage_guard = type::record('canonical_guards', 'stage:' + $operation);
@@ -432,7 +466,7 @@ fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 IF $lease.closed = false AND $lease.expires_at <= time::micros() { THROW 'PSE_REFUSAL:staging_close_lease_expired_before_commit'; };
 COMMIT;"#;
 
-pub(crate) const CLEANUP_STAGE_BEGIN: &str = r#"BEGIN;
+pub(crate) const CLEANUP_STAGE_BEGIN: &str = r#"
 fn::pse_execution_v1::register($pse_rpc_expires_at,'source-creators:'+$problem);
 LET $retention_guard = type::record('canonical_guards', 'retention:' + $problem);
 SELECT * FROM $retention_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
@@ -564,6 +598,9 @@ mod tests {
                 fence: CleanupFence::AfterBody,
             }),
             Envelope::Installation,
+            Envelope::BootstrapObservation,
+            Envelope::BootstrapPublication,
+            Envelope::ReadOnly,
             Envelope::DeadlineOnly,
         ];
         for envelope in envelopes {
@@ -635,6 +672,40 @@ mod tests {
         }
     }
     #[test]
+    fn pure_observation_and_custody_have_distinct_transaction_modes() {
+        let pure = GuardedScript::new(Envelope::ReadOnly)
+            .returning::<Value>("", "true")
+            .unwrap();
+        assert!(matches!(
+            pure.schema_policy().0,
+            crate::canonical::migration::SchemaAdmission::Observation
+        ));
+        assert!(
+            pure.into_parts()
+                .0
+                .starts_with(TransactionMode::ReadOnlySnapshot.begin())
+        );
+        let pin = selection();
+        for envelope in [
+            Envelope::ProtectedRead {
+                selection: &pin,
+                recheck: Recheck::Pin,
+            },
+            Envelope::ProtectedAdmission { selection: &pin },
+            Envelope::DeadlineOnly,
+            Envelope::DrainCleanup,
+        ] {
+            let sql = GuardedScript::new(envelope)
+                .returning::<Value>("", "true")
+                .unwrap()
+                .into_parts()
+                .0;
+            assert!(sql.starts_with(TransactionMode::Serializable.begin()));
+            assert!(sql.contains(crate::canonical::migration::TRANSACTION_ADMISSION));
+            assert_eq!(sql.matches("BEGIN ").count(), 1);
+        }
+    }
+    #[test]
     fn project_authority_binds_issuer_without_interpreting_it_as_sql() {
         let script = GuardedScript::new(Envelope::ProjectAuthority {
             issuer: "native-'issuer",
@@ -645,9 +716,12 @@ mod tests {
         )
         .unwrap();
         let (sql, bindings, selection) = script.into_parts();
-        assert!(sql.starts_with("BEGIN;"));
+        assert!(sql.starts_with(TransactionMode::Serializable.begin()));
         assert!(sql.ends_with("COMMIT;"));
-        assert_eq!(sql.matches("BEGIN;").count(), 1);
+        assert_eq!(
+            sql.matches(TransactionMode::Serializable.begin()).count(),
+            1
+        );
         assert_eq!(sql.matches("COMMIT;").count(), 1);
         assert!(!sql.contains("native-'issuer"));
         assert!(selection.is_none());
@@ -675,7 +749,10 @@ mod tests {
                 .returning::<Value>("LET $selected=true;", "$selected")
                 .unwrap();
             let (sql, bindings, _) = script.into_parts();
-            assert_eq!(sql.matches("BEGIN;").count(), 1);
+            assert_eq!(
+                sql.matches(TransactionMode::Serializable.begin()).count(),
+                1
+            );
             assert_eq!(sql.matches("COMMIT;").count(), 1);
             assert_eq!(
                 bindings.get("generation"),
