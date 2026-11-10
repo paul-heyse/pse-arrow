@@ -333,6 +333,7 @@ gmp-mpfr-sys = { version = "=1.7.1", default-features = false, features = [
 symbolica = { version = "=3.0.1", default-features = false, features = [
   "integer-gmp",
   "float-mpfr",
+  "serde",
 ] }
 root1d = { version = "=0.4.1", default-features = false }
 faer = { version = "=0.24.4", default-features = false, features = [
@@ -628,10 +629,10 @@ unsafe-allowlist = [
   "pse-host",           # ADR-0233/0234: early inherited-descriptor initialization and exclusively owned native event-descriptor AsyncFd registration.
   "xtask",              # ADR-0164: composition-owned worker deployment qualification.
   "pse-operations",     # ADR-0164: admitted scientific publication and completion writer assertions.
-  "pse-compiler",       # ADR-0164: test-only mint for compiler-issued recipe controls.
+  "pse-compiler",       # ADR-0164/0265: compiler-issued recipe controls and original-source arithmetic admission.
   "pse-ids",            # ADR-0164: sealed scientific reconstruction trust permit.
   "pse-runtime",        # ADR-0164: admitted kernel completion and qualified stored reconstruction.
-  "pse-math",           # ADR-0088: immutable linked GMP/MPFR version strings only.
+  "pse-math",           # ADR-0088/0265: immutable linked GMP/MPFR version strings and compiler-only arithmetic admission seal.
   "pse-buildinfo",      # ADR-0164: bounded glibc loader callbacks with panic containment.
   "pse-ipopt-sys",
   "pse-uno-sys",        # ADR-0157: shielded Uno project ABI.
