@@ -326,3 +326,11 @@ impl EvaluationDomain for Complex<ErrorPropagatingFloat<Float>> {
         ))
     }
 }
+
+// Real-ball arithmetic is admitted only through the checked arithmetic constructor.
+// This trait supplies native storage, never transcendental certification.
+impl EvaluationDomain for crate::domains::float::RealBall {
+    const FIXED_PRECISION: Option<u32> = None;
+    fn resolve_function(_: &[AtomView], _: &EvaluationInfo)
+        -> Option<Box<dyn ExternalFunction<Self>>> { None }
+}

@@ -277,9 +277,20 @@ impl<T: Real> ExpressionEvaluator<T> {
         stack: &mut [T],
         external_fns: &mut [ExternalFunctionContainer<T>],
     ) {
+        let result = Self::evaluate_program_with(instructions, stack, external_fns,
+            &mut |_| Ok::<_, std::convert::Infallible>(()));
+        match result { Ok(()) => {}, Err(never) => match never {} }
+    }
+
+    fn evaluate_program_with<E>(
+        instructions: &[(Instr, ComplexPhase)], stack: &mut [T],
+        external_fns: &mut [ExternalFunctionContainer<T>],
+        control: &mut impl FnMut(usize) -> Result<(), E>,
+    ) -> Result<(), E> {
         let mut tmp = T::new_zero();
         let mut i = 0;
         while i < instructions.len() {
+            control(i)?;
             let (instr, _) = unsafe { &instructions.get_unchecked(i) };
             match instr {
                 Instr::Add(r, v) => unsafe {
@@ -343,6 +354,31 @@ impl<T: Real> ExpressionEvaluator<T> {
 
             i += 1;
         }
+        control(instructions.len())?;
+        Ok(())
+    }
+
+    /// Execute a checked real programme with current cancellation/work admission.
+    /// Branches and callbacks are refused so no nested interpreter can evade safe points.
+    /// Results are copied only after the final control check.
+    pub fn try_evaluate_with<C: OperationControl>(&mut self, params: &[T], out: &mut [T],
+        control: &mut C) -> Result<(), OperationError<C::Error>> {
+        if params.len() != self.param_count || out.len() != self.result_indices.len() {
+            return Err(OperationError::Unsupported("diagnostic input/output shape"));
+        }
+        if self.instructions.iter().any(|(instruction, _)| matches!(instruction,
+            Instr::ExternalFun(..) | Instr::IfElse(..) | Instr::Goto(..) | Instr::Join(..))) {
+            return Err(OperationError::Unsupported("uncontrolled callback or branch"));
+        }
+        for (target, parameter) in self.stack.iter_mut().zip(params) { target.set_from(parameter); }
+        Self::evaluate_program_with(&self.instructions, &mut self.stack, &mut self.external_fns,
+            &mut |work| control.check(OperationExtent { stage: OperationStage::Finalization,
+                work, output_entries: self.result_indices.len(), ..OperationExtent::default() }))
+            .map_err(OperationError::Control)?;
+        for (target, index) in out.iter_mut().zip(&self.result_indices) {
+            target.set_from(&self.stack[*index]);
+        }
+        Ok(())
     }
 
     /// Evaluate the expression evaluator and write the results in `out`.

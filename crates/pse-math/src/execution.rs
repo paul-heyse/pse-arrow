@@ -1195,6 +1195,11 @@ impl PreparedBody {
         }
         Ok(true)
     }
+    /// Original admitted slot/formal correspondence for selected diagnostic guards.
+    pub(crate) fn diagnostic_formals(&self) -> Result<Vec<Atom>, MathError> {
+        self.parameters()
+    }
+
     fn parameters(&self) -> Result<Vec<Atom>, MathError> {
         if self.formal_slots.is_empty() {
             (0..self.slots).map(library::formal).collect()

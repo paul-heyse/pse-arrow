@@ -584,3 +584,84 @@ impl ExpressionEvaluator<Complex<Rational>> {
         self.try_map_f64_known_with(&[], control)
     }
 }
+
+
+impl ExpressionEvaluator<Complex<Rational>> {
+    /// Fallible precision mapping for the native real diagnostic profile. Arbitrary
+    /// callbacks, tagged generators, branches and nested bodies are not admitted.
+    pub fn try_map_coeff_with_prec<T: EvaluationDomain, C: OperationControl>(
+        &self, map: &impl Fn(&Complex<Rational>) -> Result<T, String>, precision: u32,
+        control: &mut C,
+    ) -> Result<ExpressionEvaluator<T>, OperationError<C::Error>> {
+        if precision == 0 { return Err(OperationError::Unsupported("zero precision")); }
+        let source = extent(self, control::payload)?;
+        if self.settings.abort_check.is_some() {
+            return Err(OperationError::Unsupported("retained producer abort callback"));
+        }
+        for external in &self.external_fns {
+            if external.imp.is_some() || external.body.is_some() || !external.stack.is_empty()
+                || external.constant_index.is_none() || !external.fixed_args.is_empty()
+                || !external.tags.is_empty() || ![Symbol::PI, Symbol::E].contains(&external.symbol) {
+                return Err(OperationError::Unsupported("unqualified precision provider"));
+            }
+        }
+        // Phase metadata may be `Any` for an unconstrained symbolic formal. Real
+        // inputs, real constants and the checked instruction profile establish this
+        // realization's real arithmetic; that metadata is not a complex input proof.
+        for (instruction, _) in &self.instructions {
+            if matches!(instruction,
+                Instr::ExternalFun(..) | Instr::IfElse(..) | Instr::Goto(..) | Instr::Join(..)) {
+                return Err(OperationError::Unsupported("nonreal or conditional diagnostic programme"));
+            }
+        }
+        if self.stack.iter().any(|value| !value.im.is_zero()) {
+            return Err(OperationError::Unsupported("nonreal diagnostic coefficient"));
+        }
+        let limbs = (precision as usize).checked_add(63).ok_or(OperationError::Overflow)? / 64;
+        let target = bytes::<C::Error, T>(self.stack.len())?.checked_add(
+            self.stack.len().checked_mul(limbs.checked_mul(32).ok_or(OperationError::Overflow)?)
+                .ok_or(OperationError::Overflow)?).ok_or(OperationError::Overflow)?;
+        control.check(OperationExtent { stage: OperationStage::Construction,
+            work: self.stack.len(), input_bytes: source.input_bytes,
+            temporary_bytes: source.input_bytes.checked_mul(8).ok_or(OperationError::Overflow)?,
+            output_bytes: target, output_entries: self.stack.len() }).map_err(OperationError::Control)?;
+        let mut stack = Vec::new();
+        stack.try_reserve_exact(self.stack.len()).map_err(|_| OperationError::Allocation)?;
+        for value in &self.stack {
+            control.check(OperationExtent { work: 1, ..OperationExtent::default() })
+                .map_err(OperationError::Control)?;
+            stack.push(map(value).map_err(OperationError::InvalidProgram)?);
+        }
+        for external in &self.external_fns {
+            let index = external.constant_index.ok_or(OperationError::Unsupported("constant slot"))?;
+            if self.param_count + index >= self.reserved_indices {
+                return Err(OperationError::Unsupported("invalid constant slot"));
+            }
+            stack[self.param_count + index] = external.evaluate_constant::<T>(precision)
+                .map_err(OperationError::InvalidProgram)?;
+        }
+        let product = ExpressionEvaluator { stack, param_count: self.param_count,
+            reserved_indices: self.reserved_indices, instructions: self.instructions.clone(),
+            result_indices: self.result_indices.clone(), external_fns: vec![], settings: self.settings.clone() };
+        control.check(OperationExtent { stage: OperationStage::Finalization, work: 0,
+            input_bytes: source.input_bytes, output_bytes: target,
+            output_entries: product.stack.len(), ..OperationExtent::default() })
+            .map_err(OperationError::Control)?;
+        Ok(product)
+    }
+
+    /// Map only certifying real arithmetic to balls. Source eligibility remains a
+    /// separate caller obligation; this validates the actual final native programme.
+    pub fn try_map_real_ball_with<C: OperationControl>(&self, precision: u32, control: &mut C)
+        -> Result<ExpressionEvaluator<crate::domains::float::RealBall>, OperationError<C::Error>> {
+        use crate::domains::float::RealBall;
+        if !self.external_fns.is_empty() || self.instructions.iter().any(|(instruction, _)|
+            !matches!(instruction, Instr::Add(..) | Instr::Mul(..) | Instr::Pow(..))) {
+            return Err(OperationError::Unsupported("noncertifying real-ball instruction"));
+        }
+        self.try_map_coeff_with_prec(&|value| {
+            if !value.im.is_zero() { return Err("nonreal ball coefficient".into()); }
+            Ok(RealBall::from_rational_bounds(&value.re, &value.re, precision))
+        }, precision, control)
+    }
+}

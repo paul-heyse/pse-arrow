@@ -214,14 +214,12 @@ impl CasePlan {
             .and_then(|w| w.checked_mul(w + 1))
             .map(|v| v / 2)
             .ok_or(MathError::Limit("quadratic coefficient capacity"))?;
-        for (level, expression) in expressions.into_iter().enumerate() {
+        for (level, objective_view) in expressions.into_iter().enumerate() {
             if cancel.load(Ordering::Relaxed) {
                 return Err(MathError::Cancelled);
             }
             allowance.charge(capacity)?;
-            let polynomial = expression
-                .expand()
-                .to_polynomial_in_vars::<u16>(formals.clone());
+            let polynomial = objective_view.polynomial;
             if polynomial.nterms() > capacity {
                 return Err(MathError::Limit("polynomial terms"));
             }
@@ -323,9 +321,24 @@ pub(crate) fn number(atom: &Atom, cancel: &Arc<AtomicBool>) -> Result<f64, MathE
     if cancel.load(Ordering::Relaxed) {
         return Err(MathError::Cancelled);
     }
-    let output = atom
-        .evaluate(&std::collections::HashMap::<Atom, f64>::new())
-        .map_err(|e| MathError::Library(e.to_string()))?;
+    let rational = match atom.as_view() {
+        symbolica::atom::AtomView::Num(number) => match number.get_coeff_view() {
+            symbolica::coefficient::CoefficientView::Natural(n, d, 0, _) if d != 0 => {
+                Some(symbolica::domains::rational::Rational::new(n, d))
+            }
+            symbolica::coefficient::CoefficientView::Large(re, im) if im.is_zero() => {
+                Some(re.to_rat())
+            }
+            _ => None,
+        },
+        _ => None,
+    };
+    let output = if let Some(rational) = rational {
+        crate::rational_binary64::nearest(&rational)?
+    } else {
+        atom.evaluate(&std::collections::HashMap::<Atom, f64>::new())
+            .map_err(|e| MathError::Library(e.to_string()))?
+    };
     if cancel.load(Ordering::Relaxed) {
         return Err(MathError::Cancelled);
     }

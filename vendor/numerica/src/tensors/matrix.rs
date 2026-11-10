@@ -1638,6 +1638,25 @@ impl<'a, F: Ring> IntoIterator for &'a Matrix<F> {
     }
 }
 
+/// The next native field operation, exposed before arithmetic can widen backing.
+#[derive(Clone, Copy, Debug)]
+pub enum RowReductionOperation<'a, F: Field> {
+    Inspect,
+    Inverse(&'a F::Element),
+    Multiply(&'a F::Element, &'a F::Element),
+    SubtractProduct(&'a F::Element, &'a F::Element, &'a F::Element),
+}
+
+/// Native elimination evidence. Every pivot was tested nonzero before division;
+/// over a rational-function field these are sufficient generic exclusions.
+#[derive(Clone, Debug)]
+pub struct RowReductionWitness<F: Field> {
+    pub rank: usize,
+    pub pivot_columns: Vec<usize>,
+    pub pivots: Vec<F::Element>,
+    pub work: usize,
+}
+
 /// Errors that can occur when performing matrix operations.
 #[derive(Debug)]
 pub enum MatrixError<F: Ring> {
@@ -2002,9 +2021,69 @@ impl<F: Field> Matrix<F> {
 
     /// Row-reduce the first `max_col` columns of the matrix in-place using Gaussian elimination and return the rank.
     pub fn row_reduce(&mut self, max_col: u32) -> usize {
-        let rank = self.partial_row_reduce(max_col) as usize;
-        self.back_substitution(max_col);
-        rank
+        match self.row_reduce_with(max_col, &mut |_, _, _, _| Ok::<_, std::convert::Infallible>(())) {
+            Ok(witness) => witness.rank,
+            Err(never) => match never {},
+        }
+    }
+
+    /// Checked native Gauss-Jordan reduction. The callback sees the full current
+    /// programme and pivot population before every arithmetic step and after
+    /// finalization. It can refuse cancellation, work or coefficient growth.
+    /// Append an identity matrix before reduction to retain original-row witnesses.
+    /// No condition is inferred for parameter specializations where a pivot vanishes.
+    pub fn row_reduce_with<E>(
+        &mut self,
+        max_col: u32,
+        control: &mut impl FnMut(&Self, &[F::Element], usize, RowReductionOperation<'_, F>) -> Result<(), E>,
+    ) -> Result<RowReductionWitness<F>, E> {
+        let mut pivots = Vec::new();
+        let mut columns = Vec::new();
+        let mut work = 0usize;
+        control(self, &pivots, work, RowReductionOperation::Inspect)?;
+        let mut rank = 0u32;
+        for column in 0..max_col.min(self.ncols) {
+            if rank == self.nrows { break; }
+            let mut selected = None;
+            for row in rank..self.nrows {
+                work = work.saturating_add(1);
+                control(self, &pivots, work, RowReductionOperation::Inspect)?;
+                if !self.field.is_zero(&self[(row, column)]) { selected = Some(row); break; }
+            }
+            let Some(selected) = selected else { continue; };
+            self.swap_rows(rank, selected, 0);
+            let pivot = self[(rank, column)].clone();
+            pivots.push(pivot.clone());
+            columns.push(column as usize);
+            work = work.saturating_add(1);
+            control(self, &pivots, work, RowReductionOperation::Inspect)?;
+            control(self, &pivots, work, RowReductionOperation::Inverse(&pivot))?;
+            let inverse = self.field.inv(&pivot);
+            for col in 0..self.ncols {
+                work = work.saturating_add(1);
+                control(self, &pivots, work, RowReductionOperation::Inspect)?;
+                control(self, &pivots, work,
+                    RowReductionOperation::Multiply(&self[(rank, col)], &inverse))?;
+                let value = self.field.mul(&self[(rank, col)], &inverse);
+                self[(rank, col)] = value;
+            }
+            for row in 0..self.nrows {
+                if row == rank || self.field.is_zero(&self[(row, column)]) { continue; }
+                let scale = self[(row, column)].clone();
+                for col in 0..self.ncols {
+                    work = work.saturating_add(1);
+                    control(self, &pivots, work, RowReductionOperation::Inspect)?;
+                    control(self, &pivots, work,
+                        RowReductionOperation::SubtractProduct(&self[(row, col)], &self[(rank, col)], &scale))?;
+                    let mut value = self[(row, col)].clone();
+                    self.field.sub_mul_assign(&mut value, &self[(rank, col)], &scale);
+                    self[(row, col)] = value;
+                }
+            }
+            rank += 1;
+        }
+        control(self, &pivots, work, RowReductionOperation::Inspect)?;
+        Ok(RowReductionWitness { rank: rank as usize, pivot_columns: columns, pivots, work })
     }
 
     /// Get the rank of the matrix.

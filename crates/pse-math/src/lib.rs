@@ -32,6 +32,7 @@ pub mod index;
 pub mod initialization;
 pub mod jets;
 pub mod library;
+pub mod mathematical_diagnostics;
 #[cfg(feature = "compiled-evaluator")]
 mod native_compiled;
 pub mod normalization;

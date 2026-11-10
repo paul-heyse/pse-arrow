@@ -406,7 +406,7 @@ fn exact_evaluator(
     Ok(evaluator)
 }
 
-mod admission;
+pub(crate) mod admission;
 pub use admission::ScalarProducts;
 pub(crate) use admission::{
     ScalarCache, bounded_defined_scalar_evaluator, bounded_evaluator, bounded_scalar_evaluator,

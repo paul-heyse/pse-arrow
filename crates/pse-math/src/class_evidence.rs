@@ -17,7 +17,11 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
 };
-use symbolica::atom::{Atom, AtomCore, AtomView, Indeterminate, Symbol};
+use symbolica::{
+    atom::{Atom, AtomCore, AtomView, Indeterminate, Symbol},
+    domains::atom::AtomField,
+    poly::polynomial::MultivariatePolynomial,
+};
 
 /// The algebraic evidence needed to consider coefficient backends.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -440,7 +444,60 @@ pub(crate) fn shape_facts(
 /// Exact objectives and ordered column formals live only through one coefficient request.
 pub(super) struct ExactObjectives {
     pub(super) formals: Vec<Atom>,
-    pub(super) expressions: Vec<Atom>,
+    pub(super) expressions: Vec<ExactObjective>,
+}
+
+/// One native polynomial view shared by classification and projection. A nonconstant
+/// coefficient records unsupported polynomial representation, not a negative proof.
+pub(super) struct ExactObjective {
+    pub(super) expression: Atom,
+    pub(super) polynomial: MultivariatePolynomial<AtomField, u16>,
+}
+impl ExactObjective {
+    fn new(
+        expression: Atom,
+        formals: &[Atom],
+        allowance: &mut Allowance,
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<Self, MathError> {
+        checkpoint(cancel)?;
+        allowance.charge(expression.as_view().get_byte_size())?;
+        let polynomial = expression
+            .expand()
+            .to_polynomial_in_vars::<u16>(formals.to_vec());
+        checkpoint(cancel)?;
+        allowance.charge(
+            polynomial
+                .nterms()
+                .checked_mul(formals.len().saturating_add(1))
+                .ok_or(MathError::Limit("objective polynomial extent"))?,
+        )?;
+        for coefficient in &polynomial.coefficients {
+            allowance.charge(coefficient.as_view().get_byte_size())?;
+        }
+        Ok(Self {
+            expression,
+            polynomial,
+        })
+    }
+    fn polynomial_degree(&self) -> Option<usize> {
+        self.polynomial
+            .coefficients
+            .iter()
+            .all(AtomCore::is_constant)
+            .then(|| {
+                (0..self.polynomial.nterms())
+                    .map(|term| {
+                        self.polynomial
+                            .exponents(term)
+                            .iter()
+                            .map(|&e| usize::from(e))
+                            .sum()
+                    })
+                    .max()
+                    .unwrap_or(0)
+            })
+    }
 }
 
 pub(super) fn shape_facts_with_objectives(
@@ -562,34 +619,65 @@ pub(super) fn shape_facts_with_objectives(
         let expression = expressions
             .remove(&Target::Objective(level))
             .unwrap_or_else(|| Atom::num(0));
+        let objective = ExactObjective::new(expression, &formals, &mut allowance, cancel)?;
         let mut degree = 0;
-        for (column, formal) in formals.iter().enumerate() {
-            let first = allowance.derivative(&expression, formal, cancel)?;
-            if !first.is_zero() {
-                degree = degree.max(1);
-            }
-            if level == 0 {
-                facts.objective_linear[column] = first.is_constant();
-            }
-            if level > 0 && !first.is_constant() {
-                facts.lexicographic_degree = None;
-                facts.class_status =
-                    ClassStatus::RuledOut(ClassWitness::NonlinearLaterObjective { level });
+        if let Some(polynomial_degree) = objective.polynomial_degree() {
+            if polynomial_degree > if level == 0 { 2 } else { 1 } {
+                let witness = if level == 0 {
+                    facts.objective_degree = None;
+                    ClassWitness::NonQuadraticObjective { level }
+                } else {
+                    facts.lexicographic_degree = None;
+                    ClassWitness::NonlinearLaterObjective { level }
+                };
+                facts.class_status = ClassStatus::RuledOut(witness);
                 facts.proof_remaining = allowance.remaining;
                 return Ok((facts, None));
             }
-            if level == 0 && !first.is_constant() {
-                for other in &formals[column..] {
-                    let second = allowance.derivative(&first, other, cancel)?;
-                    if !second.is_constant() {
-                        facts.objective_degree = None;
-                        facts.class_status =
-                            ClassStatus::RuledOut(ClassWitness::NonQuadraticObjective { level });
-                        facts.proof_remaining = allowance.remaining;
-                        return Ok((facts, None));
+            degree = polynomial_degree as u8;
+            if level == 0 {
+                for term in 0..objective.polynomial.nterms() {
+                    let powers = objective.polynomial.exponents(term);
+                    if powers.iter().map(|&e| usize::from(e)).sum::<usize>() > 1 {
+                        for (column, &power) in powers.iter().enumerate() {
+                            if power != 0 {
+                                facts.objective_linear[column] = false;
+                            }
+                        }
                     }
-                    if !second.is_zero() {
-                        degree = 2;
+                }
+            }
+        } else {
+            for (column, formal) in formals.iter().enumerate() {
+                let first = allowance.derivative(&objective.expression, formal, cancel)?;
+                if !first.is_zero() {
+                    degree = degree.max(1);
+                }
+                if level == 0 {
+                    facts.objective_linear[column] = first.is_constant();
+                }
+                if level > 0 && !first.is_constant() {
+                    facts.lexicographic_degree = None;
+                    facts.class_status =
+                        ClassStatus::RuledOut(ClassWitness::NonlinearLaterObjective { level });
+                    facts.proof_remaining = allowance.remaining;
+                    return Ok((facts, None));
+                }
+                if level == 0 && !first.is_constant() {
+                    for other in &formals[column..] {
+                        let second = allowance.derivative(&first, other, cancel)?;
+                        if !second.is_constant() {
+                            facts.objective_degree = None;
+                            facts.class_status =
+                                ClassStatus::RuledOut(ClassWitness::NonQuadraticObjective {
+                                    level,
+                                });
+                            facts.proof_remaining = allowance.remaining;
+                            return Ok((facts, None));
+                        }
+                        if !second.is_zero() {
+                            degree = 2;
+                        }
                     }
                 }
             }
@@ -602,7 +690,7 @@ pub(super) fn shape_facts_with_objectives(
                 .map(|previous| previous.max(degree));
         }
         if let Some(objectives) = &mut objectives {
-            objectives.push(expression);
+            objectives.push(objective);
         }
     }
     facts.proof_remaining = allowance.remaining;
@@ -641,18 +729,22 @@ pub(crate) fn aggregate_objectives(
                 .map_or(0, |atom| atom.as_view().get_byte_size()),
         )?;
     }
-    let objectives = (0..plan.structure().objectives().len())
+    let expressions = (0..plan.structure().objectives().len())
         .map(|level| {
             expressions
                 .get(&Target::Objective(level))
                 .cloned()
                 .unwrap_or_else(|| Atom::num(0))
         })
-        .collect();
+        .collect::<Vec<_>>();
     // Coefficient projection consumes this dense objective coordinate product explicitly.
     allowance.charge(plan.columns().len())?;
     let formals = (0..plan.columns().len())
         .map(library::formal)
+        .collect::<Result<Vec<_>, _>>()?;
+    let objectives = expressions
+        .into_iter()
+        .map(|expression| ExactObjective::new(expression, &formals, &mut allowance, cancel))
         .collect::<Result<Vec<_>, _>>()?;
     Ok((
         ExactObjectives {
@@ -796,6 +888,17 @@ fn aggregate_expressions(
     allowance: &mut Allowance,
     cancel: &Arc<AtomicBool>,
 ) -> Result<AggregatedExpressions, MathError> {
+    aggregate_expressions_with_coordinates(plan, values, selected, None, allowance, cancel)
+}
+
+fn aggregate_expressions_with_coordinates(
+    plan: &CasePlan,
+    values: &CaseValues,
+    selected: Aggregation<'_>,
+    coordinates: Option<&BTreeMap<SemanticId, usize>>,
+    allowance: &mut Allowance,
+    cancel: &Arc<AtomicBool>,
+) -> Result<AggregatedExpressions, MathError> {
     // Aggregate original contributions before proof: nonlinear terms may cancel across
     // different bodies, aliases and contribution scales. Symbolica owns normalization.
     let mut formals = FormalCoordinates::default();
@@ -852,9 +955,15 @@ fn aggregate_expressions(
                 let binding = binding.slots.get(slot).ok_or_else(|| {
                     MathError::Contract("class input outside binding layout".into())
                 })?;
-                let replacement = if let Some(&column) =
-                    plan.projection_topology().columns.get(&binding.source())
-                {
+                let column = if let Some(coordinates) = coordinates {
+                    coordinates.get(&binding.source()).copied()
+                } else {
+                    plan.projection_topology()
+                        .columns
+                        .get(&binding.source())
+                        .copied()
+                };
+                let replacement = if let Some(column) = column {
                     formals.get(column, allowance)? * Atom::num(binding.scale())
                         + Atom::num(binding.offset())
                 } else {
@@ -862,7 +971,11 @@ fn aggregate_expressions(
                         .scalars
                         .get(&binding.source())
                         .ok_or_else(|| MathError::Contract("missing class assumption".into()))?;
-                    Atom::num(binding.scale() * value + binding.offset())
+                    if coordinates.is_some() {
+                        Atom::num(binding.scale()) * Atom::num(*value) + Atom::num(binding.offset())
+                    } else {
+                        Atom::num(binding.scale() * value + binding.offset())
+                    }
                 };
                 checkpoint(cancel)?;
                 allowance.charge(replacement.as_view().get_byte_size())?;
@@ -916,6 +1029,46 @@ fn aggregate_expressions(
         }
     }
     Ok((formals, expressions, missing))
+}
+
+/// The exact diagnostic consumes the same selected sparse aggregation owner, with
+/// explicit symbolic parameter coordinates rather than prematurely freezing them.
+pub(crate) fn diagnostic_expressions(
+    plan: &CasePlan,
+    values: &CaseValues,
+    rows: &[SemanticId],
+    coordinates: &[SemanticId],
+    limit: usize,
+    cancel: &Arc<AtomicBool>,
+) -> Result<Vec<Atom>, MathError> {
+    let coordinates = coordinates
+        .iter()
+        .enumerate()
+        .map(|(index, id)| (*id, index))
+        .collect::<BTreeMap<_, _>>();
+    let selected = rows.iter().copied().collect::<BTreeSet<_>>();
+    let mut allowance = Allowance { remaining: limit };
+    let (_, expressions, missing) = aggregate_expressions_with_coordinates(
+        plan,
+        values,
+        Aggregation::Rows(&selected),
+        Some(&coordinates),
+        &mut allowance,
+        cancel,
+    )?;
+    if !missing.is_empty() {
+        return Err(MathError::Contract(
+            "unsupported selected diagnostic body".into(),
+        ));
+    }
+    rows.iter()
+        .map(|row| {
+            Ok(expressions
+                .get(&Target::Row(*row))
+                .cloned()
+                .unwrap_or_else(|| Atom::num(0)))
+        })
+        .collect()
 }
 
 fn prove_affine(
@@ -1005,6 +1158,45 @@ mod affine_controls {
             let _ = coordinates.get(column, allowance).unwrap();
         }
         coordinates
+    }
+
+    #[test]
+    fn exact_objective_view_preserves_degree_support_and_cancellation() {
+        crate::initialize().unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let formals = vec![library::formal(0).unwrap(), library::formal(1).unwrap()];
+        let x = &formals[0];
+        let y = &formals[1];
+        let expression =
+            x * x + x * y * Atom::num(3) + y * Atom::num(2) + Atom::num(7) + y * y - y * y;
+        let mut allowance = Allowance { remaining: 100_000 };
+        let view = ExactObjective::new(expression, &formals, &mut allowance, &cancel).unwrap();
+        assert_eq!(view.polynomial_degree(), Some(2));
+        let terms = (0..view.polynomial.nterms())
+            .map(|term| {
+                (
+                    view.polynomial.exponents(term).to_vec(),
+                    crate::coefficients::number(&view.polynomial.coefficients[term], &cancel)
+                        .unwrap(),
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
+        assert_eq!(
+            terms,
+            BTreeMap::from([
+                (vec![2, 0], 1.0),
+                (vec![1, 1], 3.0),
+                (vec![0, 1], 2.0),
+                (vec![0, 0], 7.0),
+            ])
+        );
+        let nonlinear = ExactObjective::new(x.sin(), &formals, &mut allowance, &cancel).unwrap();
+        assert_eq!(nonlinear.polynomial_degree(), None);
+        cancel.store(true, Ordering::Relaxed);
+        assert!(matches!(
+            ExactObjective::new(x.clone(), &formals, &mut allowance, &cancel),
+            Err(MathError::Cancelled)
+        ));
     }
 
     #[test]

@@ -1247,9 +1247,9 @@ impl<'a> Pass<'a> {
                 t
             }
             Shape::Quadratic(q) => {
-                let mut linear = Linear::constant(q.constant.to_f64());
+                let mut linear = Linear::constant(project_rational(&q.constant)?);
                 for (c, v) in &q.linear {
-                    linear.terms.insert(*c, v.to_f64());
+                    linear.terms.insert(*c, project_rational(v)?);
                 }
                 linear.terms.retain(|_, v| *v != 0.0);
                 if q.factors.rank() == 0 {
@@ -1265,10 +1265,14 @@ impl<'a> Pass<'a> {
                         Linear::constant(1.0).plus(&u, -1.0),
                     ];
                     for (w, row) in q.factors.terms() {
-                        let scale = 2.0 * w.to_f64().sqrt();
+                        let scale = 2.0 * project_rational(w)?.sqrt();
                         let mut y = Linear::default();
                         for (c, v) in row {
-                            y.terms.insert(*c, scale * v.to_f64());
+                            let value = scale * project_rational(v)?;
+                            if !value.is_finite() || (value == 0.0 && !v.is_zero()) {
+                                return Err(MathError::CoefficientRange.into());
+                            }
+                            y.terms.insert(*c, value);
                         }
                         y.terms.retain(|_, v| *v != 0.0);
                         members.push(y);
@@ -1286,6 +1290,14 @@ impl<'a> Pass<'a> {
         Ok(form)
     }
 }
+fn project_rational(value: &Rational) -> Result<f64, MathError> {
+    let projected = crate::rational_binary64::nearest(value)?;
+    if !projected.is_finite() || (projected == 0.0 && !value.is_zero()) {
+        return Err(MathError::CoefficientRange);
+    }
+    Ok(projected)
+}
+
 fn children(node: &Node) -> &[NodeId] {
     match node {
         Node::Sum(c) | Node::Product(c) => c,
@@ -1437,6 +1449,20 @@ mod predicate_domain_tests {
         tape_construction_fixture,
     };
     use pse_ids::SemanticId;
+
+    #[test]
+    fn quadratic_projection_refuses_erased_rational_support() {
+        use symbolica::domains::integer::Integer;
+        let tiny = Rational::new(Integer::one(), Integer::from(2).pow(1075));
+        for value in [tiny.clone(), -tiny] {
+            assert!(matches!(
+                project_rational(&value),
+                Err(MathError::CoefficientRange)
+            ));
+        }
+        assert_eq!(project_rational(&Rational::zero()).unwrap(), 0.0);
+        assert_eq!(project_rational(&Rational::from((1, 2))).unwrap(), 0.5);
+    }
 
     #[test]
     fn nonzero_domain_requires_an_enclosure_excluding_zero() {

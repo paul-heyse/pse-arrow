@@ -161,8 +161,8 @@ pub struct ScalarProducts {
     owner: Option<Arc<dyn crate::AllocationOwner>>,
     foreign_bytes: usize,
 }
-struct ScalarProduct {
-    evaluator: ExpressionEvaluator<Complex<Rational>>,
+pub(crate) struct ScalarProduct {
+    pub(crate) evaluator: ExpressionEvaluator<Complex<Rational>>,
     bytes: usize,
     facts: EvaluatorFacts,
     source: SourceShape,
@@ -392,7 +392,7 @@ impl ScalarCache {
         limits: EvaluationLimits,
         occupied_entries: usize,
         source_limit: SourceOperationLimit,
-    ) -> Result<&ScalarProduct, MathError> {
+    ) -> Result<&Arc<ScalarProduct>, MathError> {
         let _phase = pse_diagnostics::observation::phase("math.scalar_prepare");
         stop.check()?;
         // Scalar optimization does not consume the later execution selector.
@@ -495,7 +495,7 @@ impl ScalarCache {
             }
         };
         source_limit.check(product.source.operations, product.source_atom_operations)?;
-        Ok(product.as_ref())
+        Ok(product)
     }
 }
 
@@ -2036,4 +2036,27 @@ mod tests {
         compiled.evaluator.evaluate(&[2.0, 3.0, 4.0], &mut output);
         assert_eq!(output, [30.0]);
     }
+}
+
+/// Retain the existing request-local exact scalar owner for diagnostic realizations.
+pub(crate) fn diagnostic_product(
+    expressions: &[Atom],
+    parameters: &[Atom],
+    options: Optimization,
+    scope: &pse_kernels::ExecutionScope,
+    limits: EvaluationLimits,
+) -> Result<Arc<ScalarProduct>, MathError> {
+    let mut cache = ScalarCache::default();
+    cache
+        .prepare(
+            expressions,
+            parameters,
+            &[],
+            options,
+            scope.into(),
+            limits,
+            0,
+            SourceOperationLimit::Scalar(limits.operations),
+        )
+        .cloned()
 }
