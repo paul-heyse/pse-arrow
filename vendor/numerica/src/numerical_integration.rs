@@ -1007,7 +1007,7 @@ impl<T: Real + Constructible + Copy + RealLike + PartialOrd> DiscreteGrid<T> {
         for bin in &mut d.bins {
             bin.accumulator.clear_samples();
 
-            bin.sub_grid.as_ref().map(|g| g.clone_without_samples());
+            bin.sub_grid = bin.sub_grid.as_ref().map(Grid::clone_without_samples);
         }
 
         d.accumulator.clear_samples();
@@ -1716,6 +1716,67 @@ mod test {
     use rand_xoshiro::Xoshiro256StarStar;
 
     use super::{ContinuousGrid, DiscreteGrid, Grid, MonteCarloRng, Probe, Sample};
+
+    #[test]
+    fn nested_clone_without_samples_clears_child_observations() {
+        fn pending(grid: &Grid<f64>) -> usize {
+            match grid {
+                Grid::Discrete(grid) => {
+                    grid.accumulator.new_samples
+                        + grid
+                            .bins
+                            .iter()
+                            .map(|bin| {
+                                bin.accumulator.new_samples
+                                    + bin.sub_grid.as_ref().map_or(0, pending)
+                            })
+                            .sum::<usize>()
+                }
+                Grid::Continuous(grid) | Grid::Uniform(_, grid) => {
+                    grid.accumulator.new_samples
+                        + grid
+                            .continuous_dimensions
+                            .iter()
+                            .flat_map(|dimension| &dimension.bin_accumulator)
+                            .map(|bin| bin.new_samples)
+                            .sum::<usize>()
+                }
+            }
+        }
+
+        let continuous = || {
+            Grid::Continuous(ContinuousGrid::new(2, 4, 16, None, false).unwrap())
+        };
+        let child = || {
+            Grid::Discrete(
+                DiscreteGrid::new(vec![Some(continuous()), Some(continuous())], 4., false)
+                    .unwrap(),
+            )
+        };
+        let mut original = Grid::Discrete(
+            DiscreteGrid::new(vec![Some(child()), Some(child())], 4., false).unwrap(),
+        );
+        let mut rng = MonteCarloRng::new(23, 2);
+        let mut sample = Sample::new();
+        for value in [2., 3., 5., 7.] {
+            original.sample(&mut rng, &mut sample);
+            original.add_training_sample(&sample, value).unwrap();
+        }
+        let original_pending = pending(&original);
+        assert!(original_pending > 4);
+        let mut cleared = original.clone_without_samples();
+        assert_eq!(pending(&cleared), 0);
+        assert_eq!(pending(&original), original_pending);
+        original.is_mergeable(&cleared).unwrap();
+
+        // A fork contributes only its new observations when merged. The original
+        // observations in nested children must not be counted for a second time.
+        cleared.sample(&mut rng, &mut sample);
+        cleared.add_training_sample(&sample, 11.).unwrap();
+        let added = pending(&cleared);
+        original.merge(&cleared).unwrap();
+        assert_eq!(pending(&original), original_pending + added);
+    }
 
     #[test]
     fn multichannel() {
