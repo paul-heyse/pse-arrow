@@ -1,52 +1,71 @@
-# Symbolica: discovery briefing
+# Symbolica ecosystem: discovery briefing
 
-Inspected 2026-11-02 at source `7a2f73342`, including the concurrent working tree.
-Current-use explanations are **Interface-checked** representative reads; the later census
-does not refresh every older applicability conclusion. Research priorities are **Proposed**.
-No scientific execution or performance measurement was run.
+Inspected 2026-11-09 at `d9e82627feec6cea5470dbcf1974fd4e8dfe19df`, including
+user-supplied Numerica/Graphica overviews and unrelated concurrent Plan72 changes.
+**Interface-checked:** representative repository and exact supplier source reads.
+**Proposed:** research priorities and composed workflows. No scientific execution or measured
+speed, compilation or memory benefit is claimed. [Coverage and evidence](coverage.md) distinguish
+fresh defining-package API exports, retained historical reference evidence and fresh census failures.
 
-The later [pilot census](../../pilot-evidence.md) observed 1,629 resolved references in the
-frozen `ad69066e7` source. It confirms the existing `evaluator_multiple` and
-`export_instructions` integration. This path-overridden supplier retains a different package
-identity from upstream; reference and API acquisition contexts remain separately qualified.
+The useful target is to preserve sharing and mathematical structure through a complete operation,
+then select the strongest useful library representation. Current code already delegates expression
+normalization, substitutions, joint evaluator construction, aliases, direct translation, dynamic
+hyperdual arithmetic and exact roots. This refresh therefore broadens the November2 inquiry from
+individual evaluator APIs to transformations, exact algorithms, numerical domains, graph structure
+and their compositions. Earlier applicability accounts retain their own dates and limits.
 
-## Capability territory and current usage
+## Topic accounts
 
-| Family | Current observation and research relevance |
+| Topic | Research account |
 | --- | --- |
-| Expressions, rewriting and differentiation | The symbolic engine provides the expression representation and transformations. Its full pattern/rewrite surface remains eligible beyond familiar parser and derivative routes. |
-| Optimized evaluators and code generation | [Math library integration](../../../../crates/pse-math/src/library.rs) already prepares outputs jointly through `Atom::evaluator_multiple` in `exact_evaluator`, exports instructions once per floating representation, and derives storage/eligibility facts. Both joint preparation and export are current leverage. |
-| Exact polynomial algebra and roots | The [maintained supplier delta](../../../../vendor/symbolica-bounded-roots.md) adds bounded square-free and isolation overloads to the 3.0.1 source. This local surface differs from the upstream API at the same version. |
-| Coefficient domains and numerical composition | Exact coefficients, floating mapping, series and derivative representations offer useful compositions. Mathematical equivalence alone does not establish identical floating-point realization. |
-| Streaming, matrices, tensors and companion systems | The [broad overview](../../../libraries/scientific_calcs/symbolica.md) supplies territory to investigate. This pass establishes no complete local-use or configuration verdict for those families. |
+| Shared definitions, native traversal, rewriting and function hooks | [Symbolic transformations](symbolic-transformations.md) |
+| Polynomial domains, elimination, solution coverage, roots and analytical tooling | [Exact algebra and solving](exact-algebra-and-solving.md) |
+| Joint preparation, reusable modules, derivatives and execution backends | [Evaluator composition and execution](evaluator-composition-and-execution.md), [technical contract](evaluator-contract.md) |
+| Clean/incremental Rust builds, mathematical preparation, streaming and persistence | [Build, memory and transfer](build-memory-and-transfer.md) |
+| Numerical domains, exact matrices, rounding and enclosure certification | [Numerica briefing](../numerica/briefing.md), [domains and certification](../numerica/domains-and-certification.md) |
+| Dynamic/fixed derivative shapes, adaptive integration and combinatorial work | [Differentiation and integration](../numerica/differentiation-and-integration.md) |
+| Topology equivalence, symmetry, generation and semantic mapping | [Graphica briefing](../graphica/briefing.md), [technical boundaries](../graphica/canonical-generation.md) |
+| Tensors, contraction networks, integration companions and mathematical presentation | [Structured ecosystem](ecosystem.md) |
 
-## Research priorities
+## Priorities and composed workflows
 
-1. **Extend useful grouping and reuse of multi-output preparation.** `Atom::evaluator_multiple`
-   already optimizes expressions together in `exact_evaluator`. Further leverage could matter
-   where related outputs remain outside that grouping. Establish the existing reuse boundaries, then ask
-   whether preparation, memory lifetime and numerical policy permit combining them. Do not
-   infer redundancy from multiple evaluator objects alone. [Evaluator contract](evaluator-contract.md).
-2. **Reuse exported representation facts across consumers.** `ExpressionEvaluator::export_instructions`
-   exposes a structured program. The current adapter already shares an inspection copy; next
-   investigate whether other selected consumers can use the same facts without losing authored
-   obligations or fidelity. The optimized stream is not a replacement for every domain IR.
-   [Existing instruction type and applicability](README.md#symbolicaevaluator-instruction-interchange).
-3. **Review library-owned exact algebra before expanding local scientific mechanisms.** GCD,
-   square-free decomposition and root isolation provide substantial algorithms. Distinguish
-   supplier capability from operational contracts such as cancellation and pre-allocation
-   admission. The maintained bounded overload is material counterevidence to older claims that
-   the local integration has only the unbounded upstream API. Further adoption must preserve
-   exactness and the existing supplier/consumer division.
+1. **Preserve shared products through transformation and differentiation.** Trace a real pair of
+   consumers of equivalent local definitions/partials through the existing prepared owner. Native
+   aliases, visitors, collection and reusable transformations could remove repeated construction
+   before CSE runs. Different guards, coordinate layouts or derivative demands defeat naive reuse.
+   Determine which construction actually repeats after existing caching and sharing.
+2. **Use stronger exact domains for a selected mathematical question.** Combine parameter-aware
+   extraction, polynomial/rational or matrix algorithms, elimination, original-coordinate checks
+   and shared numerical preparation. This could replace repeated coefficient inspection or enable
+   useful exact reduction. Exceptional parameter values, retained domain restrictions and
+   coefficient growth are central countercases. Identify one small useful block before proposing
+   a general preprocessing framework.
+3. **Compose independently reusable numerical products.** Native merge and newer composer/import
+   interfaces may avoid rebuilding symbolic expressions while retaining module reuse. Compare a
+   real pure chain against one joint evaluator, including input maps, lifetime and preparation.
+   A single joint build may already be simpler. Non-inlining can conflict with dualization;
+   coordinate agreement and real specialization have lifecycle requirements.
+4. **Reuse derivative shape and choose arithmetic for the claim.** Dynamic hyperduals already
+   share immutable shape; investigate repeated shape construction that survives product reuse.
+   Fixed shapes trade runtime preparation for Rust specialization. Precision, error estimates and
+   certified balls offer distinct products; certified arithmetic does not establish certified
+   transcendental evaluation. Start with a named accuracy-sensitive consumer and independent check.
+5. **Enable structure-aware exploration and repeated execution.** Graphica canonical templates or
+   constrained generation could feed physical admission and shared/batched evaluators. Parameterized
+   mathematical template reuse differs from deduplicating scientific trials. Preserve axis/port
+   permutations and actual varying values. Adaptive integration similarly offers a new expectation
+   workflow only after its probability measure, weights and failure semantics are defined.
 
-Broad rewrite rules, coefficient-domain conversions, series, compiled evaluators and out-of-core
-facilities remain research candidates. Label released, local-maintained and upgrade routes
-separately; upstream documentation does not describe every local addition or numerical policy.
+These priorities order attention, not eligibility. Streaming, modular reconstruction, asymptotic
+series, symbolic integration, tensors, special functions and mathematical presentation remain
+useful directions where their complete workflow has value. Missing current callers do not exclude
+new capabilities. Breaking boundaries are eligible when they improve the target and retain required
+meaning; a current wrapper or IR is not itself a preservation requirement.
 
-## Next evidence and handoff
+## Handoff
 
-Refresh `symbolica` family evidence from the exact path-overridden supplier and selected native
-world. Verify source identity before joining it to public upstream documentation. A fresh reader
-should explain which exported evaluator transformations can alter expression shape and why the
-bounded root overload cannot be inferred from version number alone. Preserve existing opportunity
-IDs and their original evidence dates when later refreshing applicability.
+The [current Plan66 owner](../../../plans/66-integrated-simulation-target.md#symbolica-improvement-dispositions)
+retains scheduling and acceptance. This discovery creates neither new CBO IDs nor adoption decisions.
+For a selected responsibility, deepen its codebase opportunity and applicability, then compare
+complete alternatives through the existing leverage routes. Reusable technical accounts remain
+separate from contextual hypotheses. No licence was used to exclude a direction.

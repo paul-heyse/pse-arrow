@@ -1,5 +1,7 @@
 # Symbolica
 
+[November9 ecosystem discovery](briefing.md) and [coverage/evidence](coverage.md) broaden the earlier account; older applicability conclusions below retain their original dates.
+
 Read the [library-led briefing](briefing.md) for the 2026-11-02 current-use synthesis,
 maintained-supplier distinction and research priorities. The
 [evaluator contract](evaluator-contract.md) adds reusable technical depth; it does not refresh

@@ -1,5 +1,7 @@
 # Numerica
 
+[November9 discovery](briefing.md): [domains and certification](domains-and-certification.md), [differentiation and integration](differentiation-and-integration.md).
+
 Realizations considered: installed `numerica` 3.0.1 (crates.io, released 2026-09-29, the newest
 release), consumed through Symbolica's `domains`/`tensors` re-exports. The unreleased Symbolica
 `main` at `bfb481cdc` carries Numerica in `lib/numerica`.

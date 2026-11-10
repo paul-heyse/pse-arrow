@@ -31,6 +31,8 @@ still connects them to a concrete opportunity. Follow the
 [technical research guide](../references/technical-contracts.md) for selected implementation
 details rather than treating a broad API inventory as a behavioral contract.
 
+The [November 9 Symbolica ecosystem discovery](symbolica/briefing.md) spans shared transformations, exact algebra, evaluator composition, numerical domains, derivatives/integration, graph symmetry and structured companions. Its topic accounts and coverage retain separate source and evidence limits.
+
 ## Applicability account
 
 **Account state: first assessment with integrated comparative reassessment, 2026-10-27.** This collection is maintained by the

@@ -49,3 +49,23 @@ to that artifact and are not stable capability identities.
 Sources: [numerical evaluation guide](https://symbolica.io/docs/numerical_evaluation),
 [3.0.1 evaluation API](https://docs.rs/symbolica/3.0.1/symbolica/evaluate/index.html),
 [3.0.1 instruction implementation](https://docs.rs/symbolica/3.0.1/src/symbolica/evaluate/instruction.rs.html).
+
+## Selected composition contracts, refreshed November 9
+
+**Interface-checked** against tagged 3.0.2 source; this adds a candidate-version account
+without refreshing the entire November2 maintained-3.0.1 investigation.
+
+`EvaluatorComposer` binds earlier outputs/constants to later inputs. `finish` requires
+`Eq + Hash`, prunes dead work, interns constants and performs instruction CSE/CPE and stack
+optimization without repeating symbolic Horner search. A single joint evaluator remains a
+credible alternative when independent module reuse has no value. Parameter/coordinate meaning
+is external to slot identity. [Tagged composer](https://raw.githubusercontent.com/symbolica-dev/symbolica/v3.0.2/src/evaluate/compose.rs).
+
+`ExpressionEvaluator::from_instructions` validates structured control flow and definitions,
+including nested bodies, then constructs evaluator backing. The instructions are already
+allocated; this is neither a passive byte preflight nor an original-layout or symbolic-state
+restore. Callback/function resolution and coefficient domain still matter.
+[Tagged importer](https://raw.githubusercontent.com/symbolica-dev/symbolica/v3.0.2/src/evaluate/instruction/import.rs).
+
+These contracts establish candidate mechanisms, not their suitability for a particular receiver
+or a measured preparation benefit. No execution probe was run for this refresh.
