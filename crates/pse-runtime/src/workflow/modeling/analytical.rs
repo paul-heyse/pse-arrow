@@ -32,6 +32,10 @@ impl AuthoredAnalyticalResult {
 impl ModelingPackage {
     /// Select through the same checked source/frontier owners as ordinary modeling.
     /// The request names an original member and coordinates, never an Atom parser.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "source specialization, selected analytical demand and limits, and the original execution owner remain explicit"
+    )]
     pub async fn analyze_authored(
         &self,
         services: &crate::workflow::PreparationServices,

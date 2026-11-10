@@ -487,8 +487,14 @@ pub(crate) async fn reuse_execution_current(
                             )
                         })?
                         .into_iter();
-                    let passive_owner = owners.next().expect("partition has passive owner");
-                    let _temporary_owner = owners.next().expect("partition has temporary owner");
+                    let passive_owner = owners.next().ok_or_else(|| {
+                        PortableError::Qualification("numerical passive decode lease absent".into())
+                    })?;
+                    let _temporary_owner = owners.next().ok_or_else(|| {
+                        PortableError::Qualification(
+                            "numerical temporary decode lease absent".into(),
+                        )
+                    })?;
                     let captures = incoming
                         .executions
                         .into_iter()

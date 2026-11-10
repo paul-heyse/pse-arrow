@@ -444,7 +444,7 @@ pub enum ReplayConstructor {
         /// Original immutable statistical parent.
         parent: pse_model::generated::identities::StudyId,
         /// Actual admitted request; no supplier Grid or private checkpoint is accepted here.
-        request: super::expectation::ExpectationRequest,
+        request: Box<super::expectation::ExpectationRequest>,
     },
     /// Original selected mathematical operation without supplier executable state.
     Mathematical {
@@ -544,14 +544,48 @@ pub(super) struct ReplayRequestFacts {
     pub contexts: Vec<pse_model::generated::runtime::scientific_contexts::Row>,
     pub constructor: ReplayConstructor,
 }
-pub(super) fn expectation_request_facts(request: &super::expectation::PreparedExpectationOperation) -> Result<ReplayRequestFacts, WorkflowError> {
-    Ok(ReplayRequestFacts { runtime_premises: vec![], solver_settings: vec![], contexts: vec![], constructor: ReplayConstructor::Expectation { source_position:0, parent:request.parent, request:request.request.clone() } })
+pub(super) fn expectation_request_facts(
+    request: &super::expectation::PreparedExpectationOperation,
+) -> Result<ReplayRequestFacts, WorkflowError> {
+    Ok(ReplayRequestFacts {
+        runtime_premises: vec![],
+        solver_settings: vec![],
+        contexts: vec![],
+        constructor: ReplayConstructor::Expectation {
+            source_position: 0,
+            parent: request.parent,
+            request: Box::new(request.request.clone()),
+        },
+    })
 }
-pub(super) fn mathematical_request_facts(request: &super::PreparedMathematicalOperation) -> Result<ReplayRequestFacts, WorkflowError> {
-    Ok(ReplayRequestFacts { runtime_premises: vec![], solver_settings: vec![], contexts: vec![], constructor: ReplayConstructor::Mathematical { source_position: 0, request: request.request.clone(), preparation: request.preparation.clone() } })
+pub(super) fn mathematical_request_facts(
+    request: &super::PreparedMathematicalOperation,
+) -> Result<ReplayRequestFacts, WorkflowError> {
+    Ok(ReplayRequestFacts {
+        runtime_premises: vec![],
+        solver_settings: vec![],
+        contexts: vec![],
+        constructor: ReplayConstructor::Mathematical {
+            source_position: 0,
+            request: request.request.clone(),
+            preparation: request.preparation.clone(),
+        },
+    })
 }
-pub(super) fn selected_observation_request_facts(request: &super::PreparedSelectedObservation) -> Result<ReplayRequestFacts, WorkflowError> {
-    Ok(ReplayRequestFacts { runtime_premises: vec![], solver_settings: vec![], contexts: vec![], constructor: ReplayConstructor::SelectedObservation { source_position: 0, operation: request.operation.clone(), settings: request.settings.clone(), values: request.values.scalars.clone() } })
+pub(super) fn selected_observation_request_facts(
+    request: &super::PreparedSelectedObservation,
+) -> Result<ReplayRequestFacts, WorkflowError> {
+    Ok(ReplayRequestFacts {
+        runtime_premises: vec![],
+        solver_settings: vec![],
+        contexts: vec![],
+        constructor: ReplayConstructor::SelectedObservation {
+            source_position: 0,
+            operation: request.operation.clone(),
+            settings: request.settings.clone(),
+            values: request.values.scalars.clone(),
+        },
+    })
 }
 pub(super) fn initialization_request_facts(
     request: &super::PreparedInitializationOperation,
@@ -926,7 +960,9 @@ impl ScientificReplay {
                 replay.start(&self.result.services, cancel)
             }
             RunRequest::Mathematical(original) => original.start(&self.result.services, cancel),
-            RunRequest::SelectedObservation(original) => original.start(&self.result.services, cancel),
+            RunRequest::SelectedObservation(original) => {
+                original.start(&self.result.services, cancel)
+            }
             RunRequest::Initialization(original) => {
                 let mut source = original.source.clone();
                 source.held_preparation = None;
@@ -3941,9 +3977,21 @@ pub struct ReplayDecisionDocument {
 impl ScientificReplay {
     fn constructor_extent(&self) -> Result<usize, WorkflowError> {
         let original = match self.inputs() {
-            RunRequest::Expectation(request) => super::study_variants::document_extent(&request.request, 16 << 20)?,
-            RunRequest::Mathematical(request) => super::study_variants::document_extent(&(&request.request, &request.preparation), 16 << 20)?,
-            RunRequest::SelectedObservation(request) => super::study_variants::document_extent(&(&request.operation, &request.settings, &request.values.scalars), 16 << 20)?,
+            RunRequest::Expectation(request) => {
+                super::study_variants::document_extent(&request.request, 16 << 20)?
+            }
+            RunRequest::Mathematical(request) => super::study_variants::document_extent(
+                &(&request.request, &request.preparation),
+                16 << 20,
+            )?,
+            RunRequest::SelectedObservation(request) => super::study_variants::document_extent(
+                &(
+                    &request.operation,
+                    &request.settings,
+                    &request.values.scalars,
+                ),
+                16 << 20,
+            )?,
             RunRequest::Initialization(request) => {
                 let analysis = &request.execution.analysis;
                 // Count borrowed variable metadata before cloning the portable

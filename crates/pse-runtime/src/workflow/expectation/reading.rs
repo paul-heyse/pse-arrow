@@ -155,103 +155,110 @@ impl ExpectationIteration {
                 scientific_failure,
                 operational_incomplete: scientific_failure.is_none(),
             };
-            if outcome.scientific.usable {
-                if let Some(result) = &report.results[index] {
-                    match &admitted.request.member {
-                        ExpectationMember::Observation(_) => {
-                            let (_, batches) = original_rows(
-                                report,
-                                result,
-                                "runtime.selected_observations",
-                                cancel,
-                            )
-                            .await?;
+            if outcome.scientific.usable
+                && let Some(result) = &report.results[index]
+            {
+                match &admitted.request.member {
+                    ExpectationMember::Observation(_) => {
+                        let (_, batches) =
+                            original_rows(report, result, "runtime.selected_observations", cancel)
+                                .await?;
+                        for batch in batches {
+                            let rows =
+                                pse_model::generated::runtime::selected_observations::Row::rows(
+                                    &batch,
+                                )
+                                .map_err(super::super::relation)?;
+                            for row in rows {
+                                if row.run_id != result.run_id() {
+                                    return Err(contract(
+                                        "expectation selected output original run differs",
+                                    ));
+                                }
+                                if let Some(output) = admitted
+                                    .outputs
+                                    .iter()
+                                    .position(|output| output.request.output == row.member_id)
+                                {
+                                    if row.quantity_id.as_id()
+                                        != admitted.outputs[output].request.quantity.as_id()
+                                        || observation.values[output].is_some()
+                                        || !row.canonical.is_finite()
+                                    {
+                                        return Err(contract(
+                                            "expectation selected physical output quantity, coverage or value differs",
+                                        ));
+                                    }
+                                    observation.values[output] = Some(row.canonical);
+                                }
+                            }
+                        }
+                    }
+                    ExpectationMember::Case(_) => {
+                        let (completion, batches) =
+                            original_rows(report, result, "runtime.solve_variables", cancel)
+                                .await?;
+                        let Some(completion) = completion else {
+                            observations.push(observation);
+                            continue;
+                        };
+                        let step = completion.solves.iter().map(|solve| solve.step).max();
+                        let permitted = step.is_some_and(|step| {
+                            completion.step_permissions.iter().any(|permission| {
+                                permission.step == Some(step) && permission.permits_result()
+                            })
+                        });
+                        if permitted {
                             for batch in batches {
-                                let rows=pse_model::generated::runtime::selected_observations::Row::rows(&batch).map_err(super::super::relation)?;
+                                let rows =
+                                    pse_model::generated::runtime::solve_variables::Row::rows(
+                                        &batch,
+                                    )
+                                    .map_err(super::super::relation)?;
                                 for row in rows {
+                                    if Some(row.step) != step {
+                                        continue;
+                                    }
                                     if row.run_id != result.run_id() {
                                         return Err(contract(
-                                            "expectation selected output original run differs",
+                                            "expectation solve output original run differs",
                                         ));
                                     }
                                     if let Some(output) = admitted
                                         .outputs
                                         .iter()
-                                        .position(|output| output.request.output == row.member_id)
+                                        .position(|output| output.request.output == row.symbol_id)
                                     {
-                                        if row.quantity_id.as_id()
-                                            != admitted.outputs[output].request.quantity.as_id()
+                                        let expected = &admitted.outputs[output].request;
+                                        if row.quantity_id != Some(expected.quantity.as_id())
                                             || observation.values[output].is_some()
-                                            || !row.canonical.is_finite()
                                         {
                                             return Err(contract(
-                                                "expectation selected physical output quantity, coverage or value differs",
+                                                "expectation original solve physical output differs",
                                             ));
                                         }
-                                        observation.values[output] = Some(row.canonical);
-                                    }
-                                }
-                            }
-                        }
-                        ExpectationMember::Case(_) => {
-                            let (completion, batches) =
-                                original_rows(report, result, "runtime.solve_variables", cancel)
-                                    .await?;
-                            let Some(completion) = completion else {
-                                observations.push(observation);
-                                continue;
-                            };
-                            let step = completion.solves.iter().map(|solve| solve.step).max();
-                            let permitted = step.is_some_and(|step| {
-                                completion.step_permissions.iter().any(|permission| {
-                                    permission.step == Some(step) && permission.permits_result()
-                                })
-                            });
-                            if permitted {
-                                for batch in batches {
-                                    let rows =
-                                        pse_model::generated::runtime::solve_variables::Row::rows(
-                                            &batch,
-                                        )
-                                        .map_err(super::super::relation)?;
-                                    for row in rows {
-                                        if Some(row.step) != step {
-                                            continue;
-                                        }
-                                        if row.run_id != result.run_id() {
-                                            return Err(contract(
-                                                "expectation solve output original run differs",
-                                            ));
-                                        }
-                                        if let Some(output) =
-                                            admitted.outputs.iter().position(|output| {
-                                                output.request.output == row.symbol_id
-                                            })
+                                        if let (Some(value), Some(unit)) = (row.value, row.unit_id)
                                         {
-                                            let expected = &admitted.outputs[output].request;
-                                            if row.quantity_id != Some(expected.quantity.as_id())
-                                                || observation.values[output].is_some()
-                                            {
-                                                return Err(contract(
-                                                    "expectation original solve physical output differs",
-                                                ));
-                                            }
-                                            if let (Some(value), Some(unit)) =
-                                                (row.value, row.unit_id)
-                                            {
-                                                let plan=pse_quantity::CanonicalConversionPlan::registered(&admitted.original.quantities,expected.quantity,pse_quantity::UnitId::from_id(unit)).map_err(|error|super::super::math(pse_math::MathError::Quantity(error)))?;
-                                                observation.values[output] = Some(
-                                                    plan.apply(value)
-                                                        .map_err(|error| {
-                                                            super::super::math(
-                                                                pse_math::MathError::Quantity(
-                                                                    error,
-                                                                ),
-                                                            )
-                                                        })?
-                                                        .value(),
-                                                );
-                                            }
+                                            let plan =
+                                                pse_quantity::CanonicalConversionPlan::registered(
+                                                    &admitted.original.quantities,
+                                                    expected.quantity,
+                                                    pse_quantity::UnitId::from_id(unit),
+                                                )
+                                                .map_err(|error| {
+                                                    super::super::math(
+                                                        pse_math::MathError::Quantity(error),
+                                                    )
+                                                })?;
+                                            observation.values[output] = Some(
+                                                plan.apply(value)
+                                                    .map_err(|error| {
+                                                        super::super::math(
+                                                            pse_math::MathError::Quantity(error),
+                                                        )
+                                                    })?
+                                                    .value(),
+                                            );
                                         }
                                     }
                                 }

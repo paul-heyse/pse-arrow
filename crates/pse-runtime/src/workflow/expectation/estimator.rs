@@ -615,18 +615,19 @@ impl ExpectationParent {
         if next.failure_available - next.failure.processed_samples >= 2 {
             next.failure.update_iter(false);
         }
-        if !operational && trainable {
-            if let Some(grid) = &mut next.grid {
-                for lane in grids.iter().flatten() {
-                    grid.is_mergeable(lane).map_err(contract)?;
-                    grid.merge(lane).map_err(contract)?;
-                }
-                if let ExpectationEstimator::Adaptive(settings) = &self.admitted.request.estimator {
-                    grid.update(
-                        settings.discrete_learning_rate,
-                        settings.continuous_learning_rate,
-                    );
-                }
+        if !operational
+            && trainable
+            && let Some(grid) = &mut next.grid
+        {
+            for lane in grids.iter().flatten() {
+                grid.is_mergeable(lane).map_err(contract)?;
+                grid.merge(lane).map_err(contract)?;
+            }
+            if let ExpectationEstimator::Adaptive(settings) = &self.admitted.request.estimator {
+                grid.update(
+                    settings.discrete_learning_rate,
+                    settings.continuous_learning_rate,
+                );
             }
         }
         next.issued += pending.samples.len();

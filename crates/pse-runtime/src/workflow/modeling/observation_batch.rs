@@ -9,10 +9,6 @@ impl ModelingPackage {
     /// Evaluate an ordered independent population of the same selected authored
     /// properties. Source admission, local physical transport and applicability stay
     /// attached to each original point; provider-effect populations refuse this route.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "the selected scientific model/rows, ordered values, explicit compiler profile and original execution owner remain distinct"
-    )]
     pub async fn observe_batch(
         &self,
         services: &crate::workflow::PreparationServices,

@@ -318,12 +318,12 @@ impl MathService {
                             let request = request.with_owner(request_owner.clone());
                             execution.request = request.clone();
                             let bound = request.binding().assembly_allocation_bytes(&execution.templates)?
-                                .checked_add(size_of::<NumericalArtifact>() + 8 * size_of::<usize>())
+                                .checked_add(size_of::<NumericalArtifact>() + size_of::<[usize; 8]>())
                                 .ok_or(MathRuntimeError::Limit("numerical assembly shell"))?;
                             let owner = finalize.reserve("math:numerical-artifact-binding", bound)?;
                             let assembly = request.binding().assemble(execution.templates.clone())?;
                             let retained = assembly.retained_bytes()
-                                .checked_add(size_of::<NumericalArtifact>() + 8 * size_of::<usize>())
+                                .checked_add(size_of::<NumericalArtifact>() + size_of::<[usize; 8]>())
                                 .ok_or(MathRuntimeError::Limit("numerical retained assembly"))?;
                             let owner = owner.partition(&[retained])
                                 .map_err(|_| MathRuntimeError::Limit("numerical assembly exceeds construction bound"))?

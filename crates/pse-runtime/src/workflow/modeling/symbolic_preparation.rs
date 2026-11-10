@@ -6,10 +6,6 @@ impl ModelingPackage {
     /// Prepare authored mathematics for later derivative, structural or class work.
     /// Protected typed recipes retain their original source/proof authority; a
     /// genuine absence uses ordinary source admission under this same operation.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "original source specialization and the current source/deployment operation remain explicit"
-    )]
     pub async fn prepare_authored(
         &self,
         services: &crate::workflow::SourceServices,

@@ -191,8 +191,10 @@ mod tests {
         let source = runtime.source_services();
         let services = source.preparation();
         let driver = crate::CancelSource::new();
-        let mut bindings = Bindings::default();
-        bindings.demand = vec!["x".into(), "y".into()];
+        let bindings = Bindings {
+            demand: vec!["x".into(), "y".into()],
+            ..Default::default()
+        };
         let model = package
             .prepare(
                 services,

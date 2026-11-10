@@ -94,7 +94,7 @@ impl<'a> RunRequest<'a> {
             Self::Expectation(request) => RequestFacts {
                 sources: vec![&request.source],
                 identity: Box::new(move || Ok((request.identity()?, None))),
-                provenance: encode(&(request.parent, &request.request)).map(|value| vec![value]),
+                provenance: encode((request.parent, &request.request)).map(|value| vec![value]),
                 requested_steps: 1,
                 native_record_coverage: Coverage::OriginalStudyMembers,
                 replay: Box::new(move |_| super::replay::expectation_request_facts(request)),
@@ -113,7 +113,9 @@ impl<'a> RunRequest<'a> {
                 provenance: encode(&request.operation).map(|value| vec![value]),
                 requested_steps: 1,
                 native_record_coverage: Coverage::NoNativeRecords,
-                replay: Box::new(move |_| super::replay::selected_observation_request_facts(request)),
+                replay: Box::new(move |_| {
+                    super::replay::selected_observation_request_facts(request)
+                }),
             },
             Self::Initialization(request) => RequestFacts {
                 sources: vec![&request.source],
@@ -378,9 +380,15 @@ impl RunOutcome {
     }
     pub(super) fn report(&self) -> Result<RunReport<'_>, &Arc<WorkflowError>> {
         match self {
-            Self::Expectation { result, .. } => result.as_ref().map(|report| RunReport::Expectation(report)),
-            Self::Mathematical { result, .. } => result.as_ref().map(|report| RunReport::Mathematical(report)),
-            Self::SelectedObservation { result, .. } => result.as_ref().map(|report| RunReport::SelectedObservation(report)),
+            Self::Expectation { result, .. } => {
+                result.as_ref().map(|report| RunReport::Expectation(report))
+            }
+            Self::Mathematical { result, .. } => result
+                .as_ref()
+                .map(|report| RunReport::Mathematical(report)),
+            Self::SelectedObservation { result, .. } => result
+                .as_ref()
+                .map(|report| RunReport::SelectedObservation(report)),
             Self::Initialization { result, .. } => result
                 .as_ref()
                 .map(|report| RunReport::Initialization(report)),
@@ -612,13 +620,23 @@ impl super::RunResult {
             RunOutcome::Expectation { result, .. } => {
                 facts.requested = 1;
                 facts.observed = usize::from(result.is_ok());
-                facts.non_modeling_accepted = Some(result.as_ref().is_ok_and(|product| product.permits_result()));
-                facts.table_ids.extend([expectation_summaries::RELATION_ID, expectation_estimates::RELATION_ID, expectation_samples::RELATION_ID]);
+                facts.non_modeling_accepted = Some(
+                    result
+                        .as_ref()
+                        .is_ok_and(|product| product.permits_result()),
+                );
+                facts.table_ids.extend([
+                    expectation_summaries::RELATION_ID,
+                    expectation_estimates::RELATION_ID,
+                    expectation_samples::RELATION_ID,
+                ]);
             }
             RunOutcome::Mathematical { result, .. } => {
                 facts.requested = 1;
-                facts.observed = usize::from(result.as_ref().is_ok_and(|product| product.succeeded));
-                facts.non_modeling_accepted = Some(result.as_ref().is_ok_and(|product| product.supported));
+                facts.observed =
+                    usize::from(result.as_ref().is_ok_and(|product| product.succeeded));
+                facts.non_modeling_accepted =
+                    Some(result.as_ref().is_ok_and(|product| product.supported));
                 facts.table_ids.push(mathematical_products::RELATION_ID);
             }
             RunOutcome::SelectedObservation { request, result } => {
