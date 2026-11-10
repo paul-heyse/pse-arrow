@@ -31,14 +31,17 @@ pub struct MathematicalView {
     /// Namespace-preserving native Typst presentation.
     pub typst: String,
 }
+pse_contract::projection_struct! {
 /// Exact rational exponent/order, with arbitrary precision decimal integer components.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RationalView {
+    projection:{name:"AnalyticalRational",rust_path:crate::analytical::RationalView,version:1,direction:pse_contract::boundary_projection::Direction::Both,reserved_tags:[],reserved_names:[]};
     /// Exact numerator or its native mathematical view.
-    pub numerator: String,
+    pub numerator: String => {tag:1,direction:pse_contract::boundary_projection::Direction::Both,rules:[]};
     /// Exact nonzero denominator or its native mathematical view.
-    pub denominator: String,
+    pub denominator: String => {tag:2,direction:pse_contract::boundary_projection::Direction::Both,rules:[]};
+}
 }
 impl From<&Rational> for RationalView {
     fn from(value: &Rational) -> Self {
@@ -134,6 +137,8 @@ pub enum AnalyticalObservation {
     },
     /// Original finite contraction and its native canonical form.
     Indexed(IndexedObservation),
+    /// Opt-in bounded numerical hypothesis with separately retained exact verification.
+    IntegerRelation(RelationObservation),
 }
 
 /// Compiler-issued indexed coordinate; physical external identities stay fixed.
@@ -190,6 +195,7 @@ pub struct DummyCorrespondence {
 }
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
+/// Native canonicalization and original binder provenance remain separate observations.
 pub struct IndexedObservation {
     /// Original source context or original mathematical view.
     pub original: MathematicalView,
@@ -397,6 +403,86 @@ impl AnalyticalResult {
 }
 fn check(scope: &ExecutionScope) -> Result<(), MathError> {
     scope.check().map_err(crate::error::scope_error)
+}
+fn operation_control(
+    limits: EvaluationLimits,
+    scope: &ExecutionScope,
+) -> impl FnMut(symbolica::evaluate::OperationExtent) -> Result<(), MathError> {
+    let mut work = 0usize;
+    let mut admitted = 0usize;
+    move |extent| {
+        check(scope)?;
+        work = work
+            .checked_add(extent.work)
+            .ok_or(MathError::Limit("analytical native work overflow"))?;
+        if work > limits.operations {
+            return Err(MathError::Limit("analytical native work"));
+        }
+        let bytes = extent
+            .peak_bytes()
+            .ok_or(MathError::Limit("analytical native backing overflow"))?;
+        if bytes > limits.scratch_bytes {
+            return Err(MathError::Limit("analytical native backing"));
+        }
+        crate::construction::additional(bytes.saturating_sub(admitted))?;
+        admitted = admitted.max(bytes);
+        Ok(())
+    }
+}
+fn controlled_series(
+    expression: &Atom,
+    axis: &Atom,
+    point: &Atom,
+    depth: SeriesDepth,
+    limits: EvaluationLimits,
+    scope: &ExecutionScope,
+) -> Result<symbolica::poly::series::Series<symbolica::domains::atom::AtomField>, MathError> {
+    use symbolica::evaluate::{OperationControl, OperationExtent};
+    let mut control = operation_control(limits, scope);
+    let requested = match &depth {
+        SeriesDepth::Absolute(value) | SeriesDepth::Relative(value) => value,
+    };
+    let width = requested
+        .numerator_ref()
+        .to_string()
+        .parse::<usize>()
+        .map_err(|_| MathError::Limit("analytical series integral width"))?
+        .checked_add(2)
+        .ok_or(MathError::Limit("analytical series width"))?;
+    let work = width
+        .checked_mul(width)
+        .ok_or(MathError::Limit("analytical series work"))?;
+    let input = expression
+        .as_view()
+        .get_byte_size()
+        .checked_add(point.as_view().get_byte_size())
+        .ok_or(MathError::Limit("analytical series input backing"))?;
+    let temporary = input
+        .checked_mul(work)
+        .and_then(|bytes| bytes.checked_mul(4))
+        .ok_or(MathError::Limit("analytical series temporary backing"))?;
+    control.check(OperationExtent {
+        work,
+        input_bytes: input,
+        temporary_bytes: temporary,
+        ..Default::default()
+    })?;
+    symbolica::analytical::series_with(
+        expression.as_view(),
+        &axis
+            .get_symbol()
+            .ok_or_else(|| MathError::Contract("analytical native coordinate".into()))?
+            .into(),
+        point.as_view(),
+        depth,
+        &mut control,
+    )
+    .map_err(|error| match error {
+        symbolica::analytical::SeriesOperationError::Control(error) => error,
+        symbolica::analytical::SeriesOperationError::Series(error) => {
+            MathError::Library(error.to_string())
+        }
+    })
 }
 fn bounded(atom: &Atom, limits: EvaluationLimits, scope: &ExecutionScope) -> Result<(), MathError> {
     check(scope)?;
@@ -643,6 +729,38 @@ impl SelectedExpression {
         }
         Ok(axis)
     }
+    // Retain symbolic conditions; decide only exact rational point requirements.
+    fn check_exact_point(
+        &self,
+        axis: &Atom,
+        point: &Atom,
+        limits: EvaluationLimits,
+        scope: &ExecutionScope,
+    ) -> Result<(), MathError> {
+        for requirement in &self.requirements {
+            let argument = requirement
+                .argument
+                .replace(axis.clone())
+                .with(point.clone());
+            bounded(&argument, limits, scope)?;
+            // Remaining original inputs keep their condition symbolic. Decide
+            // exact rational points without a lossy binary64 conversion.
+            if let Ok(value) = Rational::try_from(argument.as_view()) {
+                let permitted = match requirement.condition {
+                    Condition::Positive => !value.is_negative() && !value.is_zero(),
+                    Condition::Nonnegative => !value.is_negative(),
+                    Condition::Nonzero => !value.is_zero(),
+                };
+                if !permitted {
+                    return Err(MathError::Domain {
+                        source_id: requirement.source,
+                        requirement: requirement.condition.description(),
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
     /// Differentiate in the requested original coordinate order.
     pub fn derivative(
         &self,
@@ -654,12 +772,18 @@ impl SelectedExpression {
             return Err(MathError::Limit("analytical derivative order"));
         }
         let mut expression = self.expression.clone();
+        let mut control = operation_control(limits, scope);
         for coordinate in coordinates {
             bounded(&expression, limits, scope)?;
-            expression =
-                expression.derivative(self.axis(*coordinate)?.get_symbol().ok_or_else(|| {
-                    MathError::Contract("analytical derivative coordinate".into())
-                })?);
+            let axis = self
+                .axis(*coordinate)?
+                .get_symbol()
+                .ok_or_else(|| MathError::Contract("analytical derivative coordinate".into()))?;
+            expression = symbolica::analytical::derivative_with(
+                expression.as_view(),
+                &axis.into(),
+                &mut control,
+            )?;
         }
         let result = mathematical_view(&expression, limits, scope)?;
         Ok(AnalyticalResult {
@@ -695,15 +819,9 @@ impl SelectedExpression {
                 "analytical expansion point depends on its coordinate".into(),
             ));
         }
-        let series = self
-            .expression
-            .series(
-                axis.get_symbol()
-                    .ok_or_else(|| MathError::Contract("analytical series coordinate".into()))?,
-                point,
-                depth.clone(),
-            )
-            .map_err(|error| MathError::Library(error.to_string()))?;
+        self.check_exact_point(&axis, point, limits, scope)?;
+        let series =
+            controlled_series(&self.expression, &axis, point, depth.clone(), limits, scope)?;
         let expression = series.to_atom();
         bounded(&expression, limits, scope)?;
         let (relative_order, absolute_order) = match series.precision() {
@@ -771,7 +889,7 @@ impl SelectedExpression {
         } else {
             self.derivative(coordinates, limits, scope)?.expression
         };
-        let difference = (&left - &other.expression).expand().cancel();
+        let mut difference = (&left - &other.expression).expand().cancel();
         bounded(&difference, limits, scope)?;
         let mut rational = true;
         difference.visitor(&mut |node| {
@@ -790,6 +908,18 @@ impl SelectedExpression {
             }
             true
         });
+        // Native rational conversion brings nested coefficient denominators into
+        // one exact field before a nonzero claim; local cancel alone is incomplete.
+        if rational {
+            use symbolica::domains::{
+                integer::Z, rational::Q, rational_polynomial::RationalPolynomial,
+            };
+            let normal: RationalPolynomial<_, u32> = difference
+                .try_to_rational_polynomial(&Q, &Z, None)
+                .map_err(|error| MathError::Library(error.to_string()))?;
+            difference = normal.to_expression();
+            bounded(&difference, limits, scope)?;
+        }
         let meaning = if difference.is_zero() {
             IdentityMeaning::Zero
         } else if rational {
@@ -809,3 +939,7 @@ impl SelectedExpression {
 
 #[cfg(test)]
 mod tests;
+
+mod rational_approximation;
+mod relation;
+pub use relation::{RelationMeaning, RelationObservation, RelationRequest, RelationStop};

@@ -6901,8 +6901,24 @@ impl<F: Field, E: PositiveExponent> MultivariatePolynomial<F, E, LexOrder> {
     where
         F: PolynomialGCD<E>,
     {
+        match self.rational_approximant_univariate_with(deg_n,deg_d,&mut |_: crate::evaluate::OperationExtent|Ok::<_,std::convert::Infallible>(())) {
+            Ok(value)=>value,
+            Err(never)=>match never {},
+        }
+    }
+
+    /// Native Padé with borrowed operation control at entry and each Euclidean
+    /// iteration. Exact polynomial arithmetic/GCD calls remain indivisible.
+    pub fn rational_approximant_univariate_with<C:crate::evaluate::OperationControl>(&self, deg_n: u32, deg_d: u32,control:&mut C) -> Result<Option<(Self, Self)>,C::Error>
+    where
+        F: PolynomialGCD<E>,
+    {
+        control.check(crate::evaluate::OperationExtent {work:self.nterms(),..Default::default()})?;
+        if self.is_zero() {
+            return Ok(Some((self.clone(), self.one())));
+        }
         let Some(var) = self.last_exponents().iter().position(|x| *x > E::zero()) else {
-            return Some((self.clone(), self.one()));
+            return Ok(Some((self.clone(), self.one())));
         };
 
         let mut exp = self.last_exponents().to_vec();
@@ -6914,6 +6930,7 @@ impl<F: Field, E: PositiveExponent> MultivariatePolynomial<F, E, LexOrder> {
         let mut w1 = self.one();
 
         while w0.degree(var).to_u32() > deg_n {
+            control.check(crate::evaluate::OperationExtent {work:w0.nterms().saturating_mul(v0.nterms()),..Default::default()})?;
             let (q, r) = v0.quot_rem_univariate(&mut w0);
             (w1, v1) = (v1 - q * &w1, w1);
             (v0, w0) = (w0, r);
@@ -6922,7 +6939,7 @@ impl<F: Field, E: PositiveExponent> MultivariatePolynomial<F, E, LexOrder> {
         // TODO: normalize denominator?
         let r = w0.gcd(&w1);
 
-        Some((w0 / &r, w1 / &r))
+        Ok(Some((w0 / &r, w1 / &r)))
     }
 
     /// Shift a variable `var` to `var+shift`, using an optimized routine that

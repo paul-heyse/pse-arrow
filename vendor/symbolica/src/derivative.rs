@@ -43,12 +43,26 @@ impl AtomView<'_> {
         workspace: &Workspace,
         out: &mut Atom,
     ) -> bool {
+        match self.derivative_with_ws_into_control(x, workspace, out, &mut |_: crate::evaluate::OperationExtent| Ok::<_, std::convert::Infallible>(())) {
+            Ok(value) => value,
+            Err(never) => match never {},
+        }
+    }
+
+    pub(crate) fn derivative_with_ws_into_control<C: crate::evaluate::OperationControl>(
+        &self,
+        x: &Indeterminate,
+        workspace: &Workspace,
+        out: &mut Atom,
+        control: &mut C,
+    ) -> Result<bool, C::Error> {
+        control.check(crate::evaluate::OperationExtent { work: 1, input_bytes:self.get_byte_size(), ..Default::default() })?;
         if x == self {
             out.to_num(1);
-            return true;
+            return Ok(true);
         }
 
-        match self {
+        Ok(match self {
             AtomView::Num(_) | AtomView::Var(_) => {
                 out.to_num(Coefficient::zero());
                 false
@@ -64,7 +78,7 @@ impl AtomView<'_> {
                             self.printer(PrintOptions::file())
                         );
                         out.to_num(Coefficient::Indeterminate);
-                        return false;
+                        return Ok(false);
                     }
 
                     let der_depth_count = (f_orig.get_nargs() - 1) / 2;
@@ -76,7 +90,7 @@ impl AtomView<'_> {
                                 self.printer(PrintOptions::file())
                             );
                             out.to_num(Coefficient::Indeterminate);
-                            return false;
+                            return Ok(false);
                         }
                     };
 
@@ -101,14 +115,14 @@ impl AtomView<'_> {
                 let mut args_der = Vec::with_capacity(f.get_nargs());
                 for (i, arg) in f.iter().enumerate() {
                     let mut arg_der = workspace.new_atom();
-                    if arg.derivative_with_ws_into(x, workspace, &mut arg_der) {
+                    if arg.derivative_with_ws_into_control(x, workspace, &mut arg_der, control)? {
                         args_der.push((i, arg_der));
                     }
                 }
 
                 if args_der.is_empty() {
                     out.to_num(Coefficient::zero());
-                    return false;
+                    return Ok(false);
                 }
 
                 // derive special functions
@@ -154,7 +168,7 @@ impl AtomView<'_> {
                         mul.as_view().normalize(workspace, out);
                     }
 
-                    return true;
+                    return Ok(true);
                 }
 
                 if f.get_nargs() == 3 && f.get_symbol_id() == Symbol::IF_ID {
@@ -175,7 +189,7 @@ impl AtomView<'_> {
                     };
 
                     fn_der.as_view().normalize(workspace, out);
-                    return true;
+                    return Ok(true);
                 }
 
                 // create a derivative function that tags which index was derived
@@ -233,14 +247,14 @@ impl AtomView<'_> {
                 let (base, exp) = p.get_base_exp();
 
                 let mut exp_der = workspace.new_atom();
-                let exp_der_non_zero = exp.derivative_with_ws_into(x, workspace, &mut exp_der);
+                let exp_der_non_zero = exp.derivative_with_ws_into_control(x, workspace, &mut exp_der, control)?;
 
                 let mut base_der = workspace.new_atom();
-                let base_der_non_zero = base.derivative_with_ws_into(x, workspace, &mut base_der);
+                let base_der_non_zero = base.derivative_with_ws_into_control(x, workspace, &mut base_der, control)?;
 
                 if !exp_der_non_zero && !base_der_non_zero {
                     out.to_num(0);
-                    return false;
+                    return Ok(false);
                 }
 
                 let mut exp_der_contrib = workspace.new_atom();
@@ -266,7 +280,7 @@ impl AtomView<'_> {
 
                     if !base_der_non_zero {
                         out.set_from_view(&exp_der_contrib.as_view());
-                        return true;
+                        return Ok(true);
                     }
                 }
 
@@ -318,7 +332,7 @@ impl AtomView<'_> {
                 let mut non_zero = false;
                 for arg in args.iter() {
                     let mut arg_der = workspace.new_atom();
-                    if arg.derivative_with_ws_into(x, workspace, &mut arg_der) {
+                    if arg.derivative_with_ws_into_control(x, workspace, &mut arg_der, control)? {
                         if let Atom::Mul(mm) = arg_der.deref_mut() {
                             for other_arg in args.iter() {
                                 if other_arg != arg {
@@ -356,7 +370,7 @@ impl AtomView<'_> {
                 let mut arg_der = workspace.new_atom();
                 let mut non_zero = false;
                 for arg in args.iter() {
-                    if arg.derivative_with_ws_into(x, workspace, &mut arg_der) {
+                    if arg.derivative_with_ws_into_control(x, workspace, &mut arg_der, control)? {
                         add.extend(arg_der.as_view());
                         non_zero = true;
                     }
@@ -370,7 +384,7 @@ impl AtomView<'_> {
                     false
                 }
             }
-        }
+        })
     }
 
     pub(crate) fn series(
@@ -379,9 +393,23 @@ impl AtomView<'_> {
         expansion_point: AtomView,
         depth: SeriesDepth,
     ) -> Result<Series<AtomField>, SeriesError> {
+        match self.series_control(x,expansion_point,depth,&mut |_: crate::evaluate::OperationExtent|Ok::<_,std::convert::Infallible>(())) {
+            Ok(value)=>Ok(value),
+            Err(crate::analytical::SeriesOperationError::Series(error))=>Err(error),
+            Err(crate::analytical::SeriesOperationError::Control(never))=>match never {},
+        }
+    }
+
+    pub(crate) fn series_control<C: crate::evaluate::OperationControl>(
+        &self,
+        x: &Indeterminate,
+        expansion_point: AtomView,
+        depth: SeriesDepth,
+        control:&mut C,
+    ) -> Result<Series<AtomField>, crate::analytical::SeriesOperationError<C::Error>> {
         let order = depth.order();
         if !depth.is_absolute() && (order.is_negative() || order.is_zero()) {
-            return Err(SeriesError::NonPositiveRelativeDepth { depth });
+            return Err(SeriesError::NonPositiveRelativeDepth { depth }.into());
         }
 
         // heuristic current depth
@@ -399,6 +427,8 @@ impl AtomView<'_> {
         };
 
         loop {
+            let width=current_depth.numerator().to_i64().and_then(|value|usize::try_from(value).ok()).and_then(|value|value.checked_add(2)).ok_or_else(||crate::analytical::SeriesOperationError::Series(SeriesError::UnsupportedLargeExponent{expression:self.to_owned()}))?;
+            control.check(crate::evaluate::OperationExtent {work:width.saturating_mul(width),input_bytes:self.get_byte_size(),temporary_bytes:self.get_byte_size().saturating_mul(width).saturating_mul(width).saturating_mul(4),output_entries:width,..Default::default()}).map_err(crate::analytical::SeriesOperationError::Control)?;
             let info = Series::new(
                 &field,
                 None,
@@ -407,7 +437,7 @@ impl AtomView<'_> {
                 &current_depth + &(1.into(), current_depth.denominator()).into(),
             );
 
-            let mut series = self.series_impl(x, expansion_point, &info)?;
+            let mut series = self.series_impl_control(x, expansion_point, &info, control)?;
             if !depth.is_absolute() && series.relative_order() >= *order {
                 series.truncate_relative_order(order.clone());
                 break Ok(series);
@@ -429,6 +459,21 @@ impl AtomView<'_> {
         expansion_point: AtomView,
         info: &Series<AtomField>,
     ) -> Result<Series<AtomField>, SeriesError> {
+        match self.series_impl_control(x,expansion_point,info,&mut |_: crate::evaluate::OperationExtent|Ok::<_,std::convert::Infallible>(())) {
+            Ok(value)=>Ok(value),
+            Err(crate::analytical::SeriesOperationError::Series(error))=>Err(error),
+            Err(crate::analytical::SeriesOperationError::Control(never))=>match never {},
+        }
+    }
+
+    pub(crate) fn series_impl_control<C: crate::evaluate::OperationControl>(
+        &self,
+        x: &Indeterminate,
+        expansion_point: AtomView,
+        info: &Series<AtomField>,
+        control:&mut C,
+    ) -> Result<Series<AtomField>, crate::analytical::SeriesOperationError<C::Error>> {
+        control.check(crate::evaluate::OperationExtent {work:1,input_bytes:self.get_byte_size(),..Default::default()}).map_err(crate::analytical::SeriesOperationError::Control)?;
         if !self.contains_indeterminate(x) {
             return Ok(info.constant(self.to_owned()));
         }
@@ -443,7 +488,7 @@ impl AtomView<'_> {
             AtomView::Fun(f) => {
                 let mut args_series = Vec::with_capacity(f.get_nargs());
                 for arg in f {
-                    args_series.push(arg.series_impl(x, expansion_point, info)?);
+                    args_series.push(arg.series_impl_control(x, expansion_point, info, control)?);
                 }
 
                 if args_series.is_empty() {
@@ -456,7 +501,7 @@ impl AtomView<'_> {
                 {
                     return Err(SeriesError::NonConstantIf {
                         expression: self.to_owned(),
-                    });
+                    }.into());
                 }
 
                 if !f.get_symbol().is_fixed_builtin()
@@ -473,25 +518,25 @@ impl AtomView<'_> {
                     let a = f_eval.finish();
 
                     if !matches!(a, Atom::Fun(_)) {
-                        return a.as_view().series_impl(x, expansion_point, info);
+                        return a.as_view().series_impl_control(x, expansion_point, info, control);
                     }
                 }
 
                 match f.get_symbol_id() {
-                    Symbol::COS_ID => args_series[0].cos(),
-                    Symbol::SIN_ID => args_series[0].sin(),
-                    Symbol::LOG_ID => args_series[0].log(),
+                    Symbol::COS_ID => args_series[0].cos().map_err(Into::into),
+                    Symbol::SIN_ID => args_series[0].sin().map_err(Into::into),
+                    Symbol::LOG_ID => args_series[0].log().map_err(Into::into),
                     _ => {
                         if let Some(custom_series) = &f.get_symbol().get_series_function()
                             && let Some((singular, regularized)) = custom_series(&args_series)
                         {
                             let singular_series =
-                                singular.as_view().series_impl(x, expansion_point, info)?;
+                                singular.as_view().series_impl_control(x, expansion_point, info, control)?;
                             // TODO: expand deeper?
                             let regularized_series =
                                 regularized
                                     .as_view()
-                                    .series_impl(x, expansion_point, info)?;
+                                    .series_impl_control(x, expansion_point, info, control)?;
                             return Ok(&singular_series * &regularized_series);
                         }
 
@@ -502,7 +547,7 @@ impl AtomView<'_> {
                         {
                             return Err(SeriesError::FunctionArgumentPole {
                                 expression: self.to_owned(),
-                            });
+                            }.into());
                         }
 
                         let mut f_eval = FunctionBuilder::new(f.get_symbol());
@@ -525,7 +570,9 @@ impl AtomView<'_> {
                         let mut d = a.clone();
                         for i in 1..=depth {
                             // Collect repeated calls before differentiating again, to prevent exponential growth.
-                            d = d.as_view().derivative(x).collect_symbol::<i32>(symbol);
+                            let mut derivative=Atom::Zero;
+                            Workspace::get_local().with(|workspace|d.as_view().derivative_with_ws_into_control(x,workspace,&mut derivative,control)).map_err(crate::analytical::SeriesOperationError::Control)?;
+                            d=derivative.collect_symbol::<i32>(symbol);
 
                             if d.is_zero() {
                                 break;
@@ -547,14 +594,14 @@ impl AtomView<'_> {
             AtomView::Pow(p) => {
                 let (base, exp) = p.get_base_exp();
 
-                let mut base_series = base.series_impl(x, expansion_point, info)?;
+                let mut base_series = base.series_impl_control(x, expansion_point, info, control)?;
 
                 if let AtomView::Num(n) = exp {
                     if let CoefficientView::Natural(n, d, ni, _) = n.get_coeff_view() {
                         if ni != 0 {
                             return Err(SeriesError::UnsupportedComplexExponent {
                                 expression: self.to_owned(),
-                            });
+                            }.into());
                         }
 
                         if n < 0 {
@@ -584,37 +631,37 @@ impl AtomView<'_> {
                                         + &(1.into(), current_depth.denominator()).into(),
                                 );
 
-                                base_series = base.series_impl(x, expansion_point, &info)?;
+                                base_series = base.series_impl_control(x, expansion_point, &info, control)?;
                                 current_depth = &current_depth * &2.into();
                                 first_attempt = false;
                             }
                         }
 
-                        base_series.rpow((n, d).into())
+                        base_series.rpow((n, d).into()).map_err(Into::into)
                     } else {
                         Err(SeriesError::UnsupportedLargeExponent {
                             expression: self.to_owned(),
-                        })
+                        }.into())
                     }
                 } else {
-                    let e = exp.series_impl(x, expansion_point, info)?;
-                    base_series.pow(&e)
+                    let e = exp.series_impl_control(x, expansion_point, info, control)?;
+                    base_series.pow(&e).map_err(Into::into)
                 }
             }
             AtomView::Mul(args) => {
                 let mut iter = args.iter();
-                let mut series = iter.next().unwrap().series_impl(x, expansion_point, info)?;
+                let mut series = iter.next().unwrap().series_impl_control(x, expansion_point, info, control)?;
                 for arg in iter {
-                    series = &series * &arg.series_impl(x, expansion_point, info)?;
+                    series = &series * &arg.series_impl_control(x, expansion_point, info, control)?;
                 }
 
                 Ok(series)
             }
             AtomView::Add(args) => {
                 let mut iter = args.iter();
-                let mut series = iter.next().unwrap().series_impl(x, expansion_point, info)?;
+                let mut series = iter.next().unwrap().series_impl_control(x, expansion_point, info, control)?;
                 for arg in iter {
-                    series = &series + &arg.series_impl(x, expansion_point, info)?;
+                    series = &series + &arg.series_impl_control(x, expansion_point, info, control)?;
                 }
 
                 Ok(series)

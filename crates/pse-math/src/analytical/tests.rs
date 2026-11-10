@@ -25,6 +25,253 @@ fn selected(inputs: usize, expression: Atom) -> SelectedExpression {
         .analytical_expression(0, EvaluationLimits::default(), &scope())
         .unwrap()
 }
+
+#[test]
+fn analytical_native_controls_stop_recursive_work_without_a_partial_product() {
+    crate::initialize().unwrap();
+    let x = crate::library::formal(0).unwrap();
+    let expression = (&x + Atom::num(1)).log() + x.pow(3);
+    let axis = x.get_symbol().unwrap().into();
+    let mut polls = 0;
+    let derivative = symbolica::analytical::derivative_with(
+        expression.as_view(),
+        &axis,
+        &mut |_: symbolica::evaluate::OperationExtent| {
+            polls += 1;
+            if polls == 3 {
+                Err("original recursive stop")
+            } else {
+                Ok(())
+            }
+        },
+    );
+    assert_eq!(derivative, Err("original recursive stop"));
+    assert_eq!(polls, 3);
+    let mut polls = 0;
+    let series = symbolica::analytical::series_with(
+        expression.as_view(),
+        &axis,
+        Atom::Zero.as_view(),
+        SeriesDepth::absolute(5),
+        &mut |_: symbolica::evaluate::OperationExtent| {
+            polls += 1;
+            if polls == 3 {
+                Err("original series stop")
+            } else {
+                Ok(())
+            }
+        },
+    );
+    assert!(matches!(
+        series,
+        Err(symbolica::analytical::SeriesOperationError::Control(
+            "original series stop"
+        ))
+    ));
+    assert_eq!(polls, 3);
+}
+
+#[test]
+fn analytical_indexed_common_alphabet_preserves_fixed_axes_and_binder_provenance() {
+    crate::initialize().unwrap();
+    let id = |byte| SemanticId::from_bytes([byte; 16]);
+    let factors = |binder, external| {
+        vec![
+            TensorOccurrence {
+                family: id(10),
+                axes: vec![
+                    TensorAxis::External {
+                        identity: external,
+                        group: id(1),
+                    },
+                    TensorAxis::Dummy {
+                        binder,
+                        group: id(1),
+                    },
+                ],
+            },
+            TensorOccurrence {
+                family: id(11),
+                axes: vec![TensorAxis::Dummy {
+                    binder,
+                    group: id(1),
+                }],
+            },
+        ]
+    };
+    let observe = |binder, external| {
+        canonicalize_contraction(
+            &factors(binder, external),
+            &[IndexAlphabet {
+                group: id(1),
+                labels: 2,
+            }],
+            EvaluationLimits::default(),
+            &scope(),
+        )
+        .unwrap()
+    };
+    let first = observe(id(2), id(3));
+    let renamed = observe(id(4), id(3));
+    let fixed_changed = observe(id(2), id(5));
+    assert_eq!(first.expression(), renamed.expression());
+    assert_ne!(first.expression(), fixed_changed.expression());
+    let AnalyticalObservation::Indexed(first) = first.observation else {
+        panic!("indexed")
+    };
+    let AnalyticalObservation::Indexed(renamed) = renamed.observation else {
+        panic!("indexed")
+    };
+    assert_ne!(first.original, renamed.original);
+    assert_eq!(
+        first.original_to_input[0].input,
+        renamed.original_to_input[0].input
+    );
+    assert_ne!(
+        first.original_to_input[0].binder,
+        renamed.original_to_input[0].binder
+    );
+    assert_eq!(first.external_indices.len(), 1);
+}
+
+#[test]
+fn analytical_native_pade_checks_formal_congruence_and_preserves_symbolic_coefficients() {
+    crate::initialize().unwrap();
+    let x = crate::library::formal(0).unwrap();
+    let a = crate::library::formal(1).unwrap();
+    let source = selected(2, (&a * &x).exp());
+    let result = source
+        .rational_approximation(0, &Atom::Zero, 1, 1, EvaluationLimits::default(), &scope())
+        .unwrap();
+    let expected =
+        (Atom::num(1) + &a * &x / Atom::num(2)) / (Atom::num(1) - &a * &x / Atom::num(2));
+    let comparison = selected(2, expected);
+    assert!(matches!(
+        selected(2, result.expression().clone())
+            .identity(&comparison, EvaluationLimits::default(), &scope())
+            .unwrap()
+            .observation,
+        AnalyticalObservation::Identity {
+            meaning: IdentityMeaning::Zero,
+            ..
+        }
+    ));
+    assert_eq!(
+        result.expression().replace(a.clone()).with(Atom::Zero),
+        Atom::num(1),
+        "coefficient-field common scales cannot introduce a removable parameter pole"
+    );
+    let AnalyticalObservation::RationalApproximation { formal_order, .. } = result.observation
+    else {
+        panic!("Padé")
+    };
+    assert_eq!(formal_order, RationalView::from(&Rational::from(3)));
+    let zero = selected(1, Atom::Zero)
+        .rational_approximation(0, &Atom::Zero, 1, 1, EvaluationLimits::default(), &scope())
+        .unwrap();
+    assert!(zero.expression().is_zero());
+    assert!(
+        selected(1, x.pow(-1))
+            .rational_approximation(0, &Atom::Zero, 1, 1, EvaluationLimits::default(), &scope())
+            .is_err()
+    );
+}
+
+#[test]
+fn analytical_native_relation_keeps_hypothesis_stopping_and_exact_algebraic_proof_separate() {
+    crate::initialize().unwrap();
+    let first = selected(0, Atom::num(2).sqrt());
+    let second = selected(0, Atom::num(3).sqrt());
+    let third = selected(0, Atom::num(2).sqrt() + Atom::num(3).sqrt());
+    let request = RelationRequest {
+        precision: 192,
+        tolerance: RationalView {
+            numerator: "1".into(),
+            denominator: "100000000000000000000000000000000000000000000000000".into(),
+        },
+        max_iterations: 100,
+        max_coefficient: 100,
+    };
+    let result = first
+        .integer_relation(
+            &[&second, &third],
+            &request,
+            EvaluationLimits::default(),
+            &scope(),
+        )
+        .unwrap();
+    let AnalyticalObservation::IntegerRelation(observation) = result.observation else {
+        panic!("relation")
+    };
+    assert_eq!(observation.stop, RelationStop::Tolerance);
+    assert_eq!(observation.meaning, RelationMeaning::ExactAlgebraicZero);
+    assert_eq!(observation.algebraic_normal_form.unwrap().symbolica, "0");
+    assert_eq!(observation.candidate.unwrap().len(), 3);
+    let rounded = |value| {
+        selected(
+            0,
+            Atom::num(symbolica::domains::float::Float::with_val(128, value)),
+        )
+    };
+    let [a, b, c] = [-32.0177, 3.1416, 2.7183].map(rounded);
+    let request = RelationRequest {
+        precision: 128,
+        tolerance: RationalView {
+            numerator: "1".into(),
+            denominator: "10000".into(),
+        },
+        max_iterations: 100,
+        max_coefficient: 100,
+    };
+    let result = a
+        .integer_relation(&[&b, &c], &request, EvaluationLimits::default(), &scope())
+        .unwrap();
+    let AnalyticalObservation::IntegerRelation(observation) = result.observation else {
+        panic!("relation")
+    };
+    assert_eq!(observation.meaning, RelationMeaning::NumericalHypothesis);
+    assert!(observation.algebraic_normal_form.is_none());
+    let exhausted = first
+        .integer_relation(
+            &[&second, &third],
+            &RelationRequest {
+                max_iterations: 1,
+                ..request
+            },
+            EvaluationLimits::default(),
+            &scope(),
+        )
+        .unwrap();
+    let AnalyticalObservation::IntegerRelation(exhausted) = exhausted.observation else {
+        panic!("relation")
+    };
+    assert!(matches!(
+        exhausted.stop,
+        RelationStop::IterationLimit | RelationStop::Tolerance
+    ));
+    use symbolica::domains::{
+        float::{Float, Real},
+        integer::{Integer, IntegerRelationError},
+    };
+    let mut polls = 0;
+    let search = Integer::solve_integer_relation_with(
+        &[
+            Float::with_val(128, 2).sqrt(),
+            Float::with_val(128, 3).sqrt(),
+            Float::with_val(128, 5).sqrt(),
+        ],
+        Float::with_val(128, 1e-30),
+        100,
+        Some(Integer::from(100)),
+        None,
+        || {
+            polls += 1;
+            polls < 3
+        },
+    );
+    assert_eq!(search, Err(IntegerRelationError::Interrupted));
+    assert_eq!(polls, 3);
+}
 #[test]
 fn analytical_caloric_polynomial_preserves_reference_and_exact_coefficients() {
     crate::initialize().unwrap();
@@ -109,6 +356,7 @@ fn analytical_stable_log_ratio_has_higher_series_without_changing_numerical_head
             .all(|requirement| requirement.source == source_id)
     );
     assert_eq!(source.original_body(), &original);
+    assert!(matches!(source.series(0,&Atom::Zero,SeriesDepth::absolute(4),EvaluationLimits::default(),&scope()),Err(MathError::Domain{source_id:actual,..}) if actual==source_id));
     let result = source
         .series(
             0,

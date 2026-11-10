@@ -106,6 +106,7 @@ impl PythonInteger {
             gamma.map(|x| x.0),
         )
         .map_err(|e| match e {
+            IntegerRelationError::Interrupted => exceptions::PyValueError::new_err("Integer relation reconstruction interrupted"),
             IntegerRelationError::CoefficientLimit => {
                 exceptions::PyValueError::new_err("Coefficient limit exceeded")
             }

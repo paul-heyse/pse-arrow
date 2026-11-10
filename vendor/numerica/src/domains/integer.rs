@@ -286,6 +286,8 @@ impl<Context> bincode::Decode<Context> for Integer {
 /// An error that can occur when performing integer-reconstruction operations.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum IntegerRelationError {
+    /// Caller control refused further reconstruction work.
+    Interrupted,
     PrecisionLimit,
     IterationLimit(Vec<Integer>),
     CoefficientLimit,
@@ -296,6 +298,7 @@ impl std::error::Error for IntegerRelationError {}
 impl std::fmt::Display for IntegerRelationError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            IntegerRelationError::Interrupted => f.write_str("integer relation reconstruction interrupted by caller control"),
             IntegerRelationError::PrecisionLimit => {
                 f.write_str("precision limit reached during integer relation reconstruction")
             }
@@ -2040,7 +2043,7 @@ impl Integer {
     /// where every element of `a` is less than `max_coeff`, using a specified tolerance and number
     /// of iterations. The parameter `gamma` must be more than or equal to `2/sqrt(3)`.
     ///
-    /// If the procedure runs out of iterations, the current best solution is returned.
+    /// Exhaustion returns `IterationLimit` carrying the current candidate.
     pub fn solve_integer_relation<
         T: FloatLike
             + RealLike
@@ -2057,6 +2060,20 @@ impl Integer {
         max_coeff: Option<Integer>,
         gamma: Option<T>,
     ) -> Result<Vec<Integer>, IntegerRelationError> {
+        Self::solve_integer_relation_with(x,tolerance,max_iter,max_coeff,gamma,||true)
+    }
+
+    /// Run native PSLQ with caller control checked before setup, each reduction,
+    /// and each iteration. `false` returns `Interrupted`, never a candidate.
+    pub fn solve_integer_relation_with<T: FloatLike + RealLike + Real + SingleFloat
+        + std::hash::Hash + Eq + InternalOrdering + PartialOrd>(
+        x:&[T], tolerance:T, max_iter:usize, max_coeff:Option<Integer>, gamma:Option<T>,
+        mut control:impl FnMut()->bool,
+    )->Result<Vec<Integer>,IntegerRelationError>{
+        if !control(){return Err(IntegerRelationError::Interrupted);}
+        if x.len()<2||x.iter().any(|value|!value.is_finite()||value.is_zero()){
+            return Err(IntegerRelationError::PrecisionLimit);
+        }
         let gamma = gamma.unwrap_or_else(|| x[0].from_usize(2) / x[0].from_usize(3).sqrt());
         let field = FloatField::from_rep(x[0].clone());
         let n = x.len();
@@ -2095,6 +2112,7 @@ impl Integer {
 
         macro_rules! hermite_reduction {
             ($i: expr, $j: expr) => {
+                if !control(){return Err(IntegerRelationError::Interrupted);}
                 if h[($j, $j)].is_zero() {
                     return Err(IntegerRelationError::PrecisionLimit);
                 }
@@ -2128,6 +2146,7 @@ impl Integer {
         }
 
         for i in 0..max_iter {
+            if !control(){return Err(IntegerRelationError::Interrupted);}
             let mut gamma_max = gamma.clone();
             let ms: Vec<_> = (0..n as u32 - 1)
                 .map(|i| {

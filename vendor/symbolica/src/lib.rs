@@ -43,6 +43,7 @@ use std::sync::atomic::AtomicBool;
 pub mod api;
 #[cfg(not(feature = "python_export"))]
 mod api;
+pub mod analytical;
 pub mod atom;
 pub mod coefficient;
 mod collect;
