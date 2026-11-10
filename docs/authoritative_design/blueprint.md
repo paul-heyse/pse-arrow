@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 382
+revision: 383
 date: 2026-11-10
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 383 | 2026-11-10 | Express semantic dependency ceilings through product responsibilities while permitting concurrency libraries, and govern quantity's isolated receipt-replay fixture mint (§3.1, §3.2). | Proposed ADR-0268; maintainer clarification and scope-end repairs, formal acceptance remains separate. |
 | 382 | 2026-11-10 | Bind finite request/release work to the original physical-client executor and record the selected native pipeline envelope for whole-block query analysis (§20.5, §21.7). | Proposed ADR-0267 receiving corrections; original custody and explicit analysis remain unchanged. |
 | 381 | 2026-11-10 | Clarify frozen native path pages and capture export, query-first scientific summaries, retained sealed-file custody, passive original-producer persistence reads and truthful SurrealKit progress availability (§20.5, §21.7). | Proposed ADR-0267 implementation integration; Plan72d-h retain receiving status. |
 | 380 | 2026-11-10 | Propose complete native discovery, owned gRPC follow/batch delivery, explicit Collector export and spill readiness (§20.5, §21.7). | Proposed ADR-0267; authorized Plan72d-h execution, receiving remains with the owning companions. |

@@ -1097,7 +1097,7 @@ mod replay_tests {
         // SAFETY: this private fixture controls the exact complete receipt stream,
         // including deliberate corruptions used only to test fail-closed replay.
         unsafe {
-            QualifiedScientificRecipe::from_canonical_product(
+            QualifiedScientificRecipe::from_admitted_record_fixture(
                 payload,
                 digest,
                 pse_ids::ContentHash::from_bytes([29; 32]),

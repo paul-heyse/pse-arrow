@@ -46,7 +46,9 @@ jobs:
           shared-key: miri
           save-if: "true"
       - name: pure scientific replay authority
-        run: cargo miri test -p pse-ids -p pse-relations --lib --locked --features pse-relations/force-validate scientific_replay::tests
+        run: |
+          cargo miri test -p pse-ids -p pse-relations --lib --locked --features pse-relations/force-validate scientific_replay::tests
+          cargo miri test -p pse-quantity --lib --locked resolved::receipts::replay_tests
 
   # Feature powersets and release-profile/native lifecycle journeys require their
   # selected local preparation and remain H-owned; this hosted workflow does not

@@ -65,7 +65,7 @@ telemetry follow shortcut is removed; explicit one-shot per-attempt telemetry re
 Fresh principal registration, rather than same-session cached roles, revalidates authority
 within 30 seconds; dirty notifications cannot postpone that deadline. Summary run-header
 dependencies retain exact linked-run invalidation. Native loss, rollback, revocation and
-capture receiving remain pending and do not inherit a pass from compilation.
+capture receiving now pass the selected controls linked in the Outcome.
 
 Query-first grouped summaries preserve original lifecycle, settlement and usable-result facts.
 Existing 72c native predicate protection remains the capture owner; summaries grant no capture
@@ -75,10 +75,10 @@ projection owner; arbitrary source-file edits still require original-cut reconst
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| E01 | In progress | Current native client/service owners; O10 snapshot/continuity contract | Select and implement an owned native subscription surface with snapshot alignment, invalidation and settled cancellation. |
-| E02 | In progress | E01 owned subscriptions and current selected-state readers | Native study/run/evidence follow returns current snapshots and explicit resynchronization while preserving permission and custody. |
-| E03 | In progress | 72c chosen predicate/scoped guard contract; 72d composed selection | Shared query-first summaries and precise invalidation replace broad reconstruction/conflict work without missing dependencies. |
-| E04 | In progress | E03 explicit projection dependency/source identity | Select maintained/replayable projections where useful; otherwise retain on-demand/reconstruction and close each branch with its reason/trigger. |
+| E01 | Complete | Current native client/service owners; O10 snapshot/continuity contract | Select and implement an owned native subscription surface with snapshot alignment, invalidation and settled cancellation. |
+| E02 | Complete | E01 owned subscriptions and current selected-state readers | Native study/run/evidence follow returns current snapshots and explicit resynchronization while preserving permission and custody. |
+| E03 | Complete | 72c chosen predicate/scoped guard contract; 72d composed selection | Shared query-first summaries and precise invalidation replace broad reconstruction/conflict work without missing dependencies. |
+| E04 | Complete | E03 explicit projection dependency/source identity | Select maintained/replayable projections where useful; otherwise retain on-demand/reconstruction and close each branch with its reason/trigger. |
 
 <a id="E01"></a>
 ### E01 — Own the subscription and snapshot boundary
@@ -158,3 +158,38 @@ membership belongs to 72d's relationship choice, not a second summary authority.
 with explicit force-validation where Arrow is consumed. 72i joins current-state, projection and
 capture receiving at scope end. No blanket load or replay campaign is needed; only serious
 unresolved correctness/performance risk warrants additional proof. No tests ran during authoring.
+
+## Outcome
+
+**Implemented**, 2026-11-10. E01–E04 deliver owned native gRPC Subscribe, fixed-Viewer
+generations, Begin-before-snapshot alignment, continuously drained coalesced invalidations,
+explicit loss/resynchronization and kill/detach settlement. Snapshot construction and
+publication respect both the original window and the bounded principal recheck deadline.
+An as-of snapshot and `next_revalidation_at` confer no validity lease or write authority.
+
+Study/run summaries use native grouped queries preserving lifecycle, assigned/settled and
+scientifically usable categories. Study follow includes the exact linked-run dependency.
+Evidence/knowledge follow observes imported cut/pointer/generation changes; arbitrary source
+file edits still require reconstruction. The connection-only project reader exposes a finite
+follow window. The delayed `StudyObserver::follow` polling shortcut and `delay_ms` action
+branch are deleted; useful one-shot detailed telemetry remains.
+
+**Tested** under the selected Linux/native conditions in the
+[shared receiving record](72-surrealdb-functional-improvements.md#observation-and-custody-receiving):
+the joined 80-case population and the ordinary reader passed against zero failures. Native
+summary/follow exercises rollback, indirect linked-run changes, authority recheck crossing
+the snapshot seam, channel loss before publication and fresh resynchronization. The
+[7-case private discovery selection](72-surrealdb-functional-improvements.md#discovery-receiving)
+also exercises invalidation and Viewer password revoke/refuse/restore. These are current-state
+controls, not durable transition-delivery evidence.
+
+**Mistake corrected.** The supplier caches actor roles in a session. Reusing that session
+would not revalidate authority. A fresh signin/register occurs within 30 seconds of the
+original registration, and dirty traffic cannot postpone it. Linked-run changes are observed
+explicitly rather than inferred from study-point writes.
+
+**Deliberate deviations.** Query-first reconstruction is the complete selected realization;
+no maintained view, feed cursor, durable replay broker or concurrency witness replacement is
+added. Existing 72c native capture protection remains authoritative. Its parked qualification
+obligations retain that owner. Blueprint §20.5/§21.7 and proposed ADR-0267 retain the enduring
+contract; 72i owns series acceptance and retirement. E01–E04 implementation is complete.

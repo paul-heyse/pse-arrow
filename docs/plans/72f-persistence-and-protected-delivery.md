@@ -66,15 +66,15 @@ file and publishes only after QueryEnd, EOF, trailers and every statement succee
 complete bounded pages remain. Independent per-frame and whole-query admission retain the
 original request/allocation/driver custody. Sealed-file publication is retained: selected local
 buckets lack fsynced atomic publication and recoverable no-clobber reservation failure. Reopen
-that replacement only when the complete native custody contract exists. Native receiving and
-interruption verification remain pending; the initial synthetic batch control has passed.
+that replacement only when the complete native custody contract exists. Native receiving,
+interruption, terminal accounting and runtime export controls now pass as linked below.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| F01 | In progress | Current service/files/retention owners and 72c explicit isolation contract | Native maintenance and recorded-history inspection use truthful ownership and preserve authored scientific time; nonselected topology branches have explicit triggers. |
-| F02 | In progress | Current sealed-file contract; independent selected Arrow/Proto readers | Close native bucket custody decision and deliver the selected artifact realization with original-instance publication/read/release/recovery. |
-| F03 | In progress | 72a declared exact-value mapping and current request/result owners | Generated native mappings and bounded incremental selected delivery replace repetitive conversion/materialization without weakening terminal completeness. |
-| F04 | In progress | F01–F03 changed lifetime/data contracts and actual migrated consumers | Targeted recovery, interruption and held-reader controls establish the changed correctness boundaries; replaced code/callers/tests are removed. |
+| F01 | Complete | Current service/files/retention owners and 72c explicit isolation contract | Native maintenance and recorded-history inspection use truthful ownership and preserve authored scientific time; nonselected topology branches have explicit triggers. |
+| F02 | Complete | Current sealed-file contract; independent selected Arrow/Proto readers | Close native bucket custody decision and deliver the selected artifact realization with original-instance publication/read/release/recovery. |
+| F03 | Complete | 72a declared exact-value mapping and current request/result owners | Generated native mappings and bounded incremental selected delivery replace repetitive conversion/materialization without weakening terminal completeness. |
+| F04 | Complete | F01–F03 changed lifetime/data contracts and actual migrated consumers | Targeted recovery, interruption and held-reader controls establish the changed correctness boundaries; replaced code/callers/tests are removed. |
 
 <a id="F01"></a>
 ### F01 — Owned persistence and recorded-history inspection
@@ -172,3 +172,43 @@ the changed mechanisms, with force-validation on Arrow closures. 72i owns integr
 and scope-end qualification. Clear removal of unnecessary work needs no speedup benchmark;
 measure only an unresolved serious performance degradation risk or a claimed quantitative benefit.
 No product probe, test, engine selection or qualification ran during authoring.
+
+## Outcome
+
+**Implemented**, 2026-11-10. F01–F04 retain persistent integrated MX and sealed files, with
+passive persistence observations bound to the original executable, private startup records,
+unit/invocation and listener before and after the authenticated bounded metrics read. Supplied
+Collector records have a distinct weaker origin. Missing native gauges, VERSION queries and
+manual snapshot completion remain unknown/unsupported; deletion does not imply physical release.
+The selected bucket contract lacks fsynced atomic no-clobber publication and recoverable
+reservation failure, so the existing protected physical-file owner remains the single route.
+
+`consume_batches` delivers borrowed tentative batches inside the original request, driver,
+deadline and allocation custody. Per-frame admission and cumulative query accounting are
+independent; a released batch does not reset the cumulative limit. Completion requires dense
+selected statement framing, QueryEnd, EOF, trailers and every statement/COMMIT verdict.
+Study capture metadata export streams contiguous 64-row frames into an incomplete staging
+file, checks expected population and publishes only on complete success. Useful bounded
+complete pages remain for ordinary reads.
+
+**Tested** under the selected native Linux conditions in
+[observation/custody receiving](72-surrealdb-functional-improvements.md#observation-and-custody-receiving):
+80 joined native tests, 19 focused lifecycle/auth tests, the ordinary project reader and the
+runtime frozen-cohort export test passed against zero failures. Independent controls cover
+u64 maximum/bytes, malformed and late statement failures, cumulative overflow, original
+deadline/backpressure, caller runtime withdrawal, detach refusal, retained close errors and
+native 65-member streaming. Runtime export checks published extent/count and incomplete-file
+retention on refusal. Existing artifact custody is retained; no new backend durability claim
+or device-power-loss qualification is made.
+
+**Mistake corrected.** A reply could precede physical drain scheduled on the observer's
+current-thread executor, stranding cleanup when that caller stopped polling. Request,
+reconnect, recovery, subscription and release work now stays on the original raw Client
+executor through aggregate close. The selected server's neutral default token metadata on
+successful Authenticate is normalized narrowly while actual rotations remain replayable.
+
+**Deliberate deviations.** No SDK/protocol fallback, engine facade or native bucket sibling
+is added. New history/capacity/topology participants and a complete bucket custody contract
+are the observable revisit triggers above. Scientific source/interpretation and protection
+owners remain intact. Blueprint §20.5/§21.7 and proposed ADR-0267 own enduring contracts;
+72i retains series acceptance/retirement. F01–F04 implementation is complete.

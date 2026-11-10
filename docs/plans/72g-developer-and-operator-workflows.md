@@ -58,7 +58,8 @@ logical cleanup readback. It preserves original work and cleanup failures indepe
 Structured project commands consume native graph/path snapshots, compact study/run summaries,
 bounded follow and original-incarnation persistence observations. Existing schema/drift,
 transition and original-result commands retain their own owners. No terminal scraping or new
-report ledger is introduced. Compilation and native suite receiving remain open obligations.
+report ledger is introduced. Compilation, native suite and ordinary reader receiving now pass
+the selected controls linked in the Outcome.
 
 G04 selects the typed native route. The selected MCP surface also mutates local project files,
 so Viewer database credentials do not make that adapter read-only. SQL-wire and generated
@@ -70,10 +71,10 @@ no browser/session or Node companion is introduced for this Rust operating targe
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| [G01](#G01) | In progress | Existing native fixture and prepared tool; selected 72a/72c contract as each changes | Shared contract groups and independent native readback exercise the changed declaration/operation with one physical owner. |
-| [G02](#G02) | In progress | G01 suite/actor inputs; existing Plan71 result and fixture owners | Selected external consumers reuse logical provisioning and report assertion/infrastructure/cleanup outcomes without duplicate setup. |
-| [G03](#G03) | In progress | Existing native command/output contracts; 72a schema inspection and 72b transitions when available | Structured inspection, drift/test/transition views carry exact selection, authority and original result references. |
-| [G04](#G04) | In progress | G03 operation contracts; exact selected tool/client features | Resolve optional adapter branches by callable/type/authority fit; implement fitting read-scoped adapters and retain explicit nonselected outcomes. |
+| [G01](#G01) | Complete | Existing native fixture and prepared tool; selected 72a/72c contract as each changes | Shared contract groups and independent native readback exercise the changed declaration/operation with one physical owner. |
+| [G02](#G02) | Complete | G01 suite/actor inputs; existing Plan71 result and fixture owners | Selected external consumers reuse logical provisioning and report assertion/infrastructure/cleanup outcomes without duplicate setup. |
+| [G03](#G03) | Complete | Existing native command/output contracts; 72a schema inspection and 72b transitions when available | Structured inspection, drift/test/transition views carry exact selection, authority and original result references. |
+| [G04](#G04) | Complete | G03 operation contracts; exact selected tool/client features | Resolve optional adapter branches by callable/type/authority fit; implement fitting read-scoped adapters and retain explicit nonselected outcomes. |
 
 <a id="G01"></a>
 ## G01 — Share database contracts and preserve independent interpretation
@@ -172,3 +173,37 @@ No product test, tool preparation or MCP installation was run to author this doc
 | JSON/library APIs, configuration identity, preparation and progress | G03; effective transition inputs are 72b, progress interpretation is 72h. |
 | MCP, SQL/GraphQL and HTTP/session boundaries | G04 explicit fit/authority decision and selected adapter implementation. |
 | Web/Node/hosted companions | G04 nonselected branches with participant-based triggers. |
+
+## Outcome
+
+**Implemented**, 2026-11-10. G01–G04 extend the existing owned SurrealKit suite with a
+prebuilt connection-only `test --exec` native reader. The suite owns logical provisioning;
+the original native fixture owns endpoint, credentials, deadline and physical settlement.
+Independent u64-maximum and byte expectations exercise a real foreign consumer. Deliberate
+consumer mismatch and interruption preserve the original failure plus cleanup outcome.
+Parent-side bounded reports and native namespace inventory reject false success and remove
+only owned logical populations. No duplicate database bootstrap or result ledger is added.
+
+Ordinary `pse project` graph/path, study/run summary, finite follow and persistence reads use
+typed connection-only product readers. They perform no implicit database startup, preparation
+or mutation. Developer graph description/static explanation/explicit experiment remain distinct.
+Existing schema/drift/transition/result routes retain their original owners.
+
+**Tested** in the [operator receiving record](72-surrealdb-functional-improvements.md#operator-and-diagnostic-receiving):
+the complete native SurrealKit fixture passed against zero failures, including original
+contract/parity/drift cases, deliberately wrong setup/seed inputs, setup and seed interruptions,
+external pass/fail/interruption, logical inventory cleanup and physical disposal. The ordinary
+runtime reader also passed against zero, including selected-store/foreign cursor refusal,
+summaries, real fixed-Viewer follow and original-server persistence inspection.
+
+**Mistake corrected.** The independent helper expected a bare digest while the selected
+semantic identity is `sha256:<64 lowercase hex>`. It now validates that actual contract.
+Native JWT Authenticate also required F's narrow neutral-token correction. Diagnostic phases
+and error classes are retained without exposing credentials or raw child setup messages.
+
+**Deliberate deviations.** SurrealKit remains a prepared subprocess. MCP's filesystem effects
+cannot be fenced by Viewer credentials; SQL/GraphQL listeners would add an interpretation and
+continuation participant without simplifying the chosen native operation. Those branches and
+browser/Node companions remain unselected with named participant triggers above. Blueprint
+§21.7 and the substrate guide retain operating contracts under proposed ADR-0267. G01–G04
+implementation is complete; 72i retains series acceptance and retirement.

@@ -2,7 +2,7 @@
 title: "Plan72: SurrealDB functional improvements"
 status: active
 date: 2026-11-09
-adrs: [ADR-0261, ADR-0262, ADR-0267]
+adrs: [ADR-0261, ADR-0262, ADR-0267, ADR-0268]
 doc_role: plan
 doc_owner: docs/plans/72-surrealdb-functional-improvements.md
 doc_topics: [current-work, design, deployment, storage, libraries, validation, diagnostics]
@@ -160,18 +160,18 @@ outcome can close that investigation without leaving an unbounded backlog.
 | [O04](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O04) | Scheduled | 72c C01/C03 | Explicit complete transactions and one retry owner; independent concurrency/refusal cases protect guard removal. |
 | [O05](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O05) | Scheduled | 72c C02; 72a carriers | Typed pure shared readiness with visible acquisition; transaction access/init/bindings selected only for concrete benefit and supported contract. |
 | [O06](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O06) | Scheduled | 72c C04 | Shared operation meaning and explicit invocation/execution authority; replace an ingress rather than add duplicate policy. |
-| [O07](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O07) | Scheduled | 72d | Filter complete selected population before paging; choose useful access/index/count shape directly. |
-| [O08](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O08) | Scheduled | 72d | Bounded evidence paths and relation-specific representation; finite materialization/GQL decisions by semantics and exposure. |
-| [O09](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O09) | Scheduled | 72d | Ranked lexical mode; assess semantic extension against judged questions, not a requirement for an existing caller. Spatial has no selected geographical meaning. |
-| [O10](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O10) | Scheduled | 72e; 72f subscription boundary | Snapshot/notification follow with explicit race/reconnect/custody; durable transitions are a separate contract. |
-| [O11](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O11) | Scheduled | 72e with 72c conflict owner | Query-first summaries, precise invalidation; views/feed maintenance only with complete refresh/reconstruction semantics. |
-| [O12](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O12) | Scheduled | 72f | Deliver useful maintenance/history under MX; record finite KV/standalone/topology decision and explicit triggers. |
-| [O13](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O13) | Scheduled | 72f | Resolve complete bucket publication/range/no-clobber/transfer-capability custody; adopt replacement if supported, otherwise retain files with reason. |
-| [O14](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O14) | Scheduled | 72a declared mapping; 72f wire/client | Exact generated mappings and demand-shaped delivery; retain direct client unless a complete public replacement removes its real gaps. |
-| [O15](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O15) | Scheduled | 72g with Plan71 fixture/evidence owners | Shared SurrealKit contracts and independent consumers under native outer custody; no competing test infrastructure. |
-| [O16](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O16) | Scheduled | 72g | Structured useful operating interactions; explicit optional MCP/standard-client decision without an automatic frontend/server estate. |
-| [O17](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O17) | Scheduled | 72h with Plan71 diagnostics | Join original request, plan, response and incarnation; reuse existing telemetry and report owners. |
-| [O18](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O18) | Scheduled | 72h; 72i receiving | Credible native execution with owned scratch; compare/tune only for serious remaining degradation risk or a quantitative claim. |
+| [O07](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O07) | Resolved | [O07 receiving](72d-query-graph-and-ranked-discovery.md#outcome) | Complete native selected-population filtering, explicit set coverage and one hydration; targeted late-match controls passed. |
+| [O08](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O08) | Resolved | [O08 receiving](72d-query-graph-and-ranked-discovery.md#outcome) | Frozen bounded occurrence/evidence paths delivered; SurrealQL selected, GQL/materialized inverses closed with triggers. |
+| [O09](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O09) | Resolved | [O09 receiving](72d-query-graph-and-ranked-discovery.md#outcome) | Native best-excerpt BM25, Unicode offsets and rank-epoch continuation delivered; maintainer selected lexical/graph without embeddings. |
+| [O10](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O10) | Resolved | [O10 receiving](72e-observation-and-derived-state.md#outcome) | Owned fixed-Viewer Subscribe, as-of refresh, bounded fresh principal registration and explicit loss/cleanup delivered and tested. |
+| [O11](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O11) | Resolved | [O11 receiving](72e-observation-and-derived-state.md#outcome) | Native grouped summaries and exact indirect-run invalidation delivered; query-first reconstruction selected, capture SSI remains 72c’s owner. |
+| [O12](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O12) | Resolved | [O12 receiving](72f-persistence-and-protected-delivery.md#outcome) | Original-incarnation passive metrics delivered; unsupported MX VERSION/manual snapshot remain explicit; capacity/history/topology triggers retained. |
+| [O13](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O13) | Resolved | [O13 receiving](72f-persistence-and-protected-delivery.md#outcome) | Sealed files retained: selected bucket lacks complete durable no-clobber publication/recoverable reservation custody; replacement trigger explicit. |
+| [O14](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O14) | Resolved | [O14 receiving](72f-persistence-and-protected-delivery.md#outcome) | Exact native/Proto readback plus tentative incremental delivery under original terminal/allocation/executor custody delivered and tested. |
+| [O15](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O15) | Resolved | [O15 receiving](72g-developer-and-operator-workflows.md#outcome) | Existing SurrealKit suite composes independent external pass/fail/interruption under original physical ownership; full fixture passed. |
+| [O16](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O16) | Resolved | [O16 receiving](72g-developer-and-operator-workflows.md#outcome) | Typed ordinary operating reads delivered; MCP filesystem effects and extra SQL/GraphQL interpretation boundaries close unselected adapters with participant triggers. |
+| [O17](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O17) | Resolved | [O17 receiving](72h-diagnostics-and-execution-fit.md#outcome) | Shared same-query/versioned explanations and actual Collector delivery integrated with original outcome/report owners; unavailable counters/progress explicit. |
+| [O18](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O18) | Resolved | [O18 receiving](72h-diagnostics-and-execution-fit.md#outcome) | Native sort spill, cancellation, failed scratch allocation, readiness refusal and cleanup tested; supplier scheduling retained without a quantitative benefit claim. |
 
 The source review's [complete discovery correspondence](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#complete-discovery-correspondence)
 is included in scope at the level of its individual directions, not just these eighteen titles.
@@ -199,3 +199,95 @@ effects. Local implementation, assembled qualification and benefit measurements 
 Plan66 scientific acceptance and Plan71 completion remain with their own owners. Move enduring
 meaning to its architecture/developer owners through the required routes before retiring this
 series and resolved source reviews. No production change is performed by authoring this draft.
+
+<a id="72dh-execution-outcome"></a>
+## 72d–72h execution outcome
+
+**Implemented**, 2026-11-10. Authorized D01–H04 functionality is delivered with migrated
+consumers and replacement deletions. The companion Outcomes own their behavior, corrected
+mistakes and finite branch decisions. Enduring meaning is in blueprint §20.5/§21.7 and the
+native substrate guide under proposed ADR-0267; scope-end boundary corrections use proposed
+ADR-0268 and blueprint §3.1/§3.2. Formal ADR acceptance is separate from implementation.
+
+The companions remain available as receiving inputs to 72i. This is not completion of the
+whole series: 72b/72c retain their parked verification/repair obligations, and 72i retains
+series-wide journeys, qualification selection and retirement. No scientific/IDAES acceptance,
+durable notification history, filesystem-change observation or quantitative speedup is claimed.
+
+**Tested.** The selections below ran on Linux with the pinned toolchain, source-built v4
+server, prepared native module/SurrealKit and owned local fixtures. Native correctness routes
+retain explicit force-validation for their actual Arrow closures. Every listed final pass
+has zero failures against a zero baseline and complete original invocation settlement.
+Selections overlap; counts are not added into a new coverage total.
+
+### Discovery receiving
+
+```bash
+scripts/pse test xtask --lib --no-default-features --features evidence-tools --ignored all -E 'test(~knowledge_) or test(~evidence_native_scoped_roles_complete_generation_and_cursor_fences)'
+scripts/pse test pse-operations --lib --features native-service,canonical-maintenance -E 'test(~bounded_path_) or test(~canonical_graph_explanation_preserves_isolates_parallel_edges_and_protected_inputs)'
+```
+
+**Tested:** 7/7 private discovery/follow cases and 3/3 graph cases passed. These establish
+the selected late-match/rank/Unicode/cursor/permission and bounded frozen-path distinctions
+described in 72d/72e. They do not establish semantic paraphrase quality or complete closure
+outside the declared path scope.
+
+### Observation and custody receiving
+
+```bash
+scripts/pse test pse-operations --lib --features native-service,canonical-maintenance -E 'test(~canonical::transport::tests::) or test(~transport::client::results::) or test(~transport::lifetime::tests::) or test(completed_query_drains_on_its_physical_executor_after_the_caller_stops_polling) or test(early_query_ack_keeps_physical_admission_bounded_and_original_deadline_releases_uploads) or test(~bounded_path_) or test(~canonical_graph_explanation_preserves_isolates_parallel_edges_and_protected_inputs) or test(~current_summary_and_fixed_viewer_follow_preserve_scientific_classification) or test(~native_server_metrics_reach_owned_collector) or test(~native_sort_spills_exact_results) or test(~native_explicit_invalid_scratch)'
+scripts/pse test pse-operations --lib -E 'test(~transport::lifetime::tests::) | test(grpc_authenticate_preserves_access_for_neutral_responses_and_replays_real_rotation) | test(completed_query_drains_on_its_physical_executor_after_the_caller_stops_polling) | test(early_query_ack_keeps_physical_admission_bounded_and_original_deadline_releases_uploads)'
+scripts/pse test pse-runtime --lib --features product-reader,engineering-service -E 'test(=tooling::reader::tests::canonical::project_study_workbench_reads_the_selected_store_and_refuses_foreign_cursor)'
+scripts/pse test pse-runtime --lib --features product-reader,engineering-service -E 'test(~workbench_public_cohort_retains_population_compares_value_variants_and_refuses_incompatible_quantity)'
+```
+
+**Tested:** 80/80 joined native cases, 19/19 focused lifecycle/auth cases and both selected
+runtime journeys (1/1 each) passed. The joined scope receives original-executor drain,
+terminal framing/errors, aggregate close, subscription registration/cleanup failures, native
+summary/follow/65-member streaming, graph, Collector and spill. The runtime journeys receive
+ordinary project access and frozen cohort export with original scientific classifications.
+
+### Operator and diagnostic receiving
+
+```bash
+scripts/pse test pse-operations:native_service --features native-service,canonical-maintenance --ignored only -E 'test(=surrealkit::surrealkit_generated_contract_uses_owned_service_and_disposes)'
+scripts/pse test pse-operations --lib --features native-service -E 'test(~native_server_metrics_reach_owned_collector) or test(~native_telemetry_is_explicit) or test(~native_persistence_observation_requires) or test(~native_persistence_prometheus_preserves) or test(~native_plan_unknown_operators) or test(~native_explanation_keeps) or test(~query_memory)'
+```
+
+**Tested:** the complete authored SurrealKit receiving fixture passed (1/1), including
+independent external pass/fail/interruption and owned logical/physical disposal. The focused
+telemetry/explanation/memory selection passed 7/7. Actual native sort/spill, cancellation,
+scratch refusal/cleanup and delivered Collector metrics also passed in the joined 80-case
+selection. These are concrete delivery and lifecycle controls, not measured throughput.
+
+### Scope-end corrections
+
+**Implemented.** The initial aggregate hygiene/governance run failed against the zero target:
+stale ADR index, Python lint/type findings, outdated Tokio ceiling, unused dependencies,
+new-code Clippy findings and two quantity fixture governance failures. Those failures were
+repaired rather than accepted as a baseline. Final aggregate results are recorded below
+when the current repaired selection settles.
+
+Proposed ADR-0268 aligns the ceiling with the maintainer's explicit semantic/runtime
+clarification. It excludes product execution owners while permitting concurrency libraries.
+The quantity fixture uses its existing nondefault isolated-fixture authority, with a
+dev-only feature, reasoned cfg(test) assertion and selected scientific-replay Miri coverage.
+The allowlist governs crate membership/reasons; it does not itself prove test-only use.
+That confinement must also be established from the source and review. Formal decision
+acceptance remains separate.
+
+**Interface-checked:** the [independent focused boundary assessment](../design_review/reviews/design_review_semantic_boundaries_2026-11-10.md)
+supports this target without a new public mint or execution framework. Its F01 stale
+layering sentence is resolved in blueprint §3.2 under revision 383. The quantity replay
+selection `scripts/pse test pse-quantity --lib -E 'test(~resolved::receipts::replay_tests)'`
+passed 2/2 against zero failures. The added Miri declarations are inspected coverage;
+Miri has not been run here and is not claimed as semantic-admission proof.
+
+### Scope-end qualification
+
+**Tested:** `just codegen` passed all 16 generators; `just ready` passed skill sync and
+doctor after the selected supplier patch/preparation change. The all-target check
+`scripts/pse check pse-runtime pse-host xtask --all-targets --features pse-runtime/product-reader,pse-runtime/engineering-service,xtask/canonical-tools,xtask/evidence-tools`
+passed with zero compiler diagnostics. Later focused tests compiled their final changed
+closures. Aggregate hygiene/governance and the final turn-end result remain to be recorded
+after the scope-end repairs settle.

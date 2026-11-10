@@ -79,17 +79,17 @@ ranking-population epoch. Native path execution stages one bounded read-only sna
 including the root header, then pages frozen evidence without a mutable refetch cursor.
 The snapshot bytes/allocation and original deadline remain with pages; native activity ends
 at complete receipt. Structured project and developer readers consume these owners.
-Receiving is pending against the newly prepared server; pure parsing alone is not native
-query or permission evidence. The maintainer's lexical/graph choice closes semantic retrieval
+Native receiving against the prepared source-built server has passed; the Outcome links
+the selected cases and their limits. The maintainer's lexical/graph choice closes semantic retrieval
 for this scope; a new corpus/model requirement is its revisit trigger. GQL and materialized
 inverses do not simplify the selected attributed, occurrence-preserving path question.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| D01 | In progress | Current knowledge/query builders; owner-approved selection meaning | Complete selected-population predicates precede pagination; typed exact/bounded modes, cursors, projections and native count/existence access are integrated. |
-| D02 | In progress | D01 query contract; declared graph meaning and generated-schema changes from 72a where needed | Bounded multi-hop provenance/dependent explanations, occurrence/evidence-preserving relation choices and suitable native access replace client reconstruction. |
-| D03 | In progress | D01 selection/cursor contract and existing analyzer corpus | Ranked lexical mode, explanations of matches and deterministic continuation are delivered alongside exact lookup. |
-| D04 | In progress | D02 concrete path examples and D03 judged questions | Close the bounded GQL/materialization/semantic retrieval decisions; implement selected extensions or record explicit rejected branches and triggers. |
+| D01 | Complete | Current knowledge/query builders; owner-approved selection meaning | Complete selected-population predicates precede pagination; typed exact/bounded modes, cursors, projections and native count/existence access are integrated. |
+| D02 | Complete | D01 query contract; declared graph meaning and generated-schema changes from 72a where needed | Bounded multi-hop provenance/dependent explanations, occurrence/evidence-preserving relation choices and suitable native access replace client reconstruction. |
+| D03 | Complete | D01 selection/cursor contract and existing analyzer corpus | Ranked lexical mode, explanations of matches and deterministic continuation are delivered alongside exact lookup. |
+| D04 | Complete | D02 concrete path examples and D03 judged questions | Close the bounded GQL/materialization/semantic retrieval decisions; implement selected extensions or record explicit rejected branches and triggers. |
 
 <a id="D01"></a>
 ### D01 — Complete intent and native selection
@@ -166,3 +166,39 @@ within-scope requirement; no dormant backend is retained.
 through `pse check`/`pse test`; generated declarations use `just codegen`. Run the selected joined
 journeys in 72i at scope end. Only a serious unresolved degradation risk warrants extra measurement.
 No product tests or probes ran during plan authoring. Publication is not implementation or qualification.
+
+## Outcome
+
+**Implemented**, 2026-11-10. D01–D04 deliver complete selected-generation predicates before
+paging, explicit bounded-set coverage, exact and BM25 modes, one selected-subject hydration,
+native best-excerpt ranking and deterministic continuation. Knowledge interpretation v4 and
+query/page/explanation v2 bind the cut and an atomic ranking epoch covering staging/reset.
+The explicit admitted corpus limit is 4096; it is not the former accidental 257-row prefilter.
+
+Native bounded paths preserve root/header/cut, cycles, parallel occurrences and attributed
+evidence in one read-only snapshot. Whole-sequence completeness, remaining paths and frozen
+offset pages remain distinct from dependency closure. Original deadline and cumulative
+work/byte/allocation bounds survive paging; no mutable refetch cursor is retained. Ordinary
+project readers and developer explanation commands consume these owners.
+
+**Tested** under Linux, the pinned toolchain and the selected source-built v4 server:
+[discovery receiving](72-surrealdb-functional-improvements.md#discovery-receiving) passed
+7 private knowledge/follow cases and 3 graph cases against zero failures. These exercise
+late matches across 300 staged subjects, selected IDs, duplicate/tied excerpts, Unicode
+snippets, irrelevant symbol terms, generation/epoch refusal, denied reads, cycles, parallel
+evidence, isolated roots, frozen mutation, expired/oversized paths and static/analyzed plans.
+The joined native population also passed; scope-end checks have their
+[single aggregate owner](72-surrealdb-functional-improvements.md#72dh-execution-outcome).
+
+**Mistake corrected.** BM25 scores are native finite floats, not scientific bit-cell values.
+Native offsets require `HIGHLIGHTS` on the index; Unicode scalar slicing now uses those
+offsets rather than searching authored marker text. Bare imperative blocks also cannot be
+analyzed by this v4 IR: the same checked path body now uses a native SELECT-value envelope,
+without preliminary traversal or invented counters.
+
+**Deliberate deviations.** Lexical and graph retrieval are the selected target. Symbol-token
+expected results do not establish natural-language paraphrase or semantic equivalence.
+GQL, materialized inverses and embeddings add no selected responsibility here; their named
+participant/meaning triggers remain above. No speedup is claimed. Enduring contracts are in
+blueprint §20.5/§21.7 under proposed ADR-0267. This companion remains available for 72i's
+series-wide acceptance and retirement; it has no remaining D01–D04 implementation work.

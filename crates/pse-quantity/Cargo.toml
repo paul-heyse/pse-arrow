@@ -34,5 +34,6 @@ reference-package-projection = []
 fixtures = ["reference-package-projection"]
 
 [dev-dependencies]
+pse-ids = { workspace = true, features = ["fixtures"] }
 proptest.workspace = true
 serde_json.workspace = true

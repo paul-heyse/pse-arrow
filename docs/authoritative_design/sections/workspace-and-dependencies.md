@@ -98,9 +98,13 @@ whose resolved normal-dependency closure must exclude named crates. `family-chec
 this list too, including back-edges through native dependencies. The manifest declares
 the following responsibility boundaries; its root and forbidden-pattern lists are authoritative:
 
+> Decision: [ADR-0268](../../adr/0268-semantic-library-and-replay-fixture-boundaries.md)
+> (proposed). Concurrency libraries, including Tokio, do not themselves establish a
+> dependency on product runtime infrastructure.
+
 | Ceiling | Roots | Excluded from the closure |
 |---|---|---|
-| semantic | `pse-ids`, `pse-diagnostics`, `pse-vocabulary`, `pse-model`, `pse-authoring`, `pse-quantity`, `pse-modeling`, `pse-structural`, `pse-compiler` | Arrow, Parquet, DataFusion, Delta, `object_store`, Tokio |
+| semantic | `pse-ids`, `pse-diagnostics`, `pse-vocabulary`, `pse-model`, `pse-authoring`, `pse-quantity`, `pse-modeling`, `pse-structural`, `pse-compiler` | Arrow, Parquet, DataFusion, Delta, `object_store`, product engine/runtime/operations/backend owners |
 | columnar | `pse-schema`, `pse-relations`, `pse-columnar` | full DataFusion/SQL, Delta, engine, catalog, runtime and codegen crates |
 | generator | `pse-codegen` | DataFusion, Delta and every crate that consumes generated values |
 | admission | `pse-admission` | Runtime, mathematics, compiler, operations and native-backend/Ipopt crates |
@@ -220,7 +224,8 @@ existing runtime binary targets.
 Dependencies point one way. The semantic foundations (`pse-diagnostics`, `pse-ids`,
 `pse-quantity`, `pse-model`) sit below `pse-authoring`, `pse-modeling`, `pse-kernels`,
 `pse-structural`, `pse-math`, `pse-compiler` and `pse-backend-native`. None of these
-reaches Arrow, DataFusion, Delta or Tokio. The columnar crates (`pse-columnar`,
+reaches Arrow, DataFusion or Delta. Concurrency libraries may serve these responsibilities;
+they do not grant product runtime or canonical-store authority. The columnar crates (`pse-columnar`,
 `pse-schema`, `pse-relations`) sit beside them and use Arrow plus the DataFusion leaf
 expression APIs. `pse-engine` adds sessions. `pse-rules` builds on the
 engine. `pse-vocabulary` sits beneath `pse-schema` and `pse-model`, so the registry and the
@@ -244,6 +249,11 @@ reconstruction, publication and deployment assertions introduced by
 its designated admission owner; it does not grant a general reconstruction API.
 Every profile keeps `panic = "unwind"` so native callback boundaries can contain
 unwinds; an unwinding failure cannot cross a foreign ABI.
+
+> Decision: [ADR-0268](../../adr/0268-semantic-library-and-replay-fixture-boundaries.md)
+> (proposed). Quantity's isolated receipt-replay tests use the nondefault fixture
+> authority constructor through a dev-dependency. Its reasoned assertion is confined
+> to cfg(test), governed by the allowlist and included in scientific-replay Miri.
 
 ### 3.3 Supporting libraries and their boundaries
 

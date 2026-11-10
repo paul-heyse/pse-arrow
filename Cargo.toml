@@ -631,6 +631,7 @@ unsafe-allowlist = [
   "pse-operations",     # ADR-0164: admitted scientific publication and completion writer assertions.
   "pse-compiler",       # ADR-0164/0265: compiler-issued recipe controls and original-source arithmetic admission.
   "pse-ids",            # ADR-0164: sealed scientific reconstruction trust permit.
+  "pse-quantity",       # ADR-0268: isolated receipt-replay test authority only; no product mint.
   "pse-runtime",        # ADR-0164: admitted kernel completion and qualified stored reconstruction.
   "pse-math",           # ADR-0088/0265: immutable linked GMP/MPFR version strings and compiler-only arithmetic admission seal.
   "pse-buildinfo",      # ADR-0164: bounded glibc loader callbacks with panic containment.
@@ -807,7 +808,10 @@ forbidden = [
   "datafusion-*",
   "buoyant_kernel*",
   "object_store",
-  "tokio",
+  "pse-engine",
+  "pse-runtime",
+  "pse-operations",
+  "pse-backend*",
 ]
 [workspace.metadata.pse.dependency-ceilings.columnar]
 roots = ["pse-schema", "pse-relations", "pse-columnar"]

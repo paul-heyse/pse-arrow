@@ -52,7 +52,8 @@ server version when supplied by that generation. Unknown operators/counters rema
 Static graph inspection no longer executes a separate graph read before obtaining its plan.
 Native server OTLP configuration is explicit, loopback gRPC and incarnation-attributed; the
 new receiving fixture uses the already prepared Collector rather than another receiver.
-Pure source/encoding controls have passed, but delivered native metrics remain unverified.
+Pure source/encoding controls and actual delivered native metrics now pass the selected
+controls linked in the Outcome.
 
 SurrealKit remains a standalone subprocess with structured reports and bounded redacted capture.
 The selected rc.1 CLI does not expose its task-local ProgressSink attachment/drop counter;
@@ -63,17 +64,17 @@ provider exports its bounded attachment with original operation attribution.
 
 The maintained supplier scratch patch validates the instantiated native temporary store before
 readiness. Targeted native tests now cover eligible sort spill, cancellation with run files,
-runtime allocation refusal, cleanup and invalid scratch startup; their execution is pending.
+runtime allocation refusal, cleanup and invalid scratch startup; their execution has passed.
 The first rebuild hit a kernel process-exit/artifact-lock residual. Recovery uses the existing
 isolated tool preparation and verified source-release import routes; no source pin, lock file,
 compiler-job limit, scheduler default or workstation resource selection is changed.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| [H01](#H01) | In progress | Existing query descriptions and Plan71 references; each selected 72d/72f operation as delivered | One bounded explanation joins query intent, versioned plan and complete native outcome without executing ordinary inspection. |
-| [H02](#H02) | In progress | H01 identity; existing telemetry and 72g report owners | Real available signals/progress join the original operation with visible omission/loss and existing release semantics. |
-| [H03](#H03) | In progress | 72d query contracts and 72f consumer lifetime; current native scratch owner | Eligible larger reads use native sort/group spill and owned cleanup without application-side duplicate materialization. |
-| [H04](#H04) | In progress | H03 useful execution; only a named serious coexistence/regression risk | Resolve remaining scheduler/maintenance contention by the smallest relevant evidence; keep defaults if no risk warrants tuning. |
+| [H01](#H01) | Complete | Existing query descriptions and Plan71 references; each selected 72d/72f operation as delivered | One bounded explanation joins query intent, versioned plan and complete native outcome without executing ordinary inspection. |
+| [H02](#H02) | Complete | H01 identity; existing telemetry and 72g report owners | Real available signals/progress join the original operation with visible omission/loss and existing release semantics. |
+| [H03](#H03) | Complete | 72d query contracts and 72f consumer lifetime; current native scratch owner | Eligible larger reads use native sort/group spill and owned cleanup without application-side duplicate materialization. |
+| [H04](#H04) | Complete | H03 useful execution; only a named serious coexistence/regression risk | Resolve remaining scheduler/maintenance contention by the smallest relevant evidence; keep defaults if no risk warrants tuning. |
 
 <a id="H01"></a>
 ## H01 — Explain the same operation that the caller performs
@@ -181,3 +182,45 @@ diagnostic, spill experiment or measurement ran to author this plan.
 | Structured report versus bounded progress; optional audit/slow-query logs | H02 selected report/progress separation, explicit durable-diagnosis branch. |
 | Sort/group spill, memory, retained bytes and physical scratch | H03 actual selected operators and original cleanup owner. |
 | Parallel scans, index maintenance, morsel/OLTP settings and cold/warm comparisons | H04 only for a named serious degradation risk; otherwise reasoned default selection. |
+
+## Outcome
+
+**Implemented**, 2026-11-10. H01–H04 share bounded version-qualified explanations across
+graph/path/knowledge readers using the actual checked builder and complete response facts.
+Response statistics are captured before consuming plan slots. Static inspection performs no
+preliminary graph read; explicit analysis uses the same checked body in the selected native
+pipeline envelope. Missing operators/counters remain unknown, and outer pipeline counters
+are not invented inner traversal measurements.
+
+Native telemetry is explicitly configured through the cleared child environment to the
+existing owned loopback gRPC Collector, with bounded redacted headers and original incarnation.
+The persistence reader distinguishes actual original-server observations from supplied records.
+Native MX signal keys use the actual `surrealdb.storage.surrealmx` prefix. SurrealKit structured
+terminal reports remain available; the selected CLI does not expose its task-local progress
+attachment/drop counter. Capture overflow is not mislabeled as provider queue loss.
+
+The maintained supplier patch validates the actual native temporary store before readiness,
+replacing warning-and-disable startup. Native sort spill retains original service scratch
+ownership and query-memory controls; cumulative nonspillable results stay bounded separately.
+Supplier scheduling and the maintainer's unbounded host placement retain their defaults.
+
+**Tested** in [diagnostic receiving](72-surrealdb-functional-improvements.md#operator-and-diagnostic-receiving):
+7 focused telemetry/explanation/memory controls and the joined native population pass against
+zero failures. Actual server metrics reach an owned Collector file; an actual canonical
+request reaches its scoped SDK exporter. Native sort verifies exact order of 5000 integers,
+run-file creation, cancellation while present, cleanup, runtime allocation refusal, subsequent
+healthy query and invalid-scratch startup refusal. No throughput, recall or speedup is claimed.
+
+**Mistake corrected.** Treating a supplied Collector-shaped record as delivered native data
+would overstate evidence. The native fixture now observes actual delivery; its Collector
+disables the unrelated default internal port already occupied on this workstation. The native
+MX prefix and plan-slot consumption order were corrected from real receiving/source evidence.
+The first source rebuild encountered a kernel exit/artifact-lock residual; recovery used
+existing isolated preparation and verified release import, with unchanged source pins/resources.
+
+**Deliberate deviations.** No custom receiver, progress ledger, GQL-only spill claim or
+scheduler tuning programme is introduced. Actual lifecycle controls resolve the changed
+correctness risks; no serious remaining coexistence premise justifies a matched benchmark.
+Blueprint §20.5/§21.7 and proposed ADR-0267 retain the enduring contract. H01–H04 implementation
+is complete; aggregate checks have their [single owner](72-surrealdb-functional-improvements.md#72dh-execution-outcome)
+and 72i retains series acceptance/retirement.
