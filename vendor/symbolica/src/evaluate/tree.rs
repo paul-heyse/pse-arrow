@@ -350,14 +350,9 @@ impl<'a> AtomView<'a> {
             }
             None => {
                 // start with an occurence order Horner scheme
-                let mut v = HashMap::default();
-
-                for t in expressions {
-                    t.count_indeterminates(true, &mut v);
-                }
-
-                let mut v: Vec<_> = v.into_iter().collect();
-                v.retain(|(_, vv)| *vv > 1);
+                let mut v: Vec<_> = Self::horner_indeterminates(expressions)
+                    .into_iter()
+                    .collect();
                 v.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
                 v.truncate(settings.max_horner_scheme_variables);
                 v.into_iter()
@@ -404,7 +399,7 @@ impl<'a> AtomView<'a> {
 
         loop {
             if let Some(observer) = observer {
-                observer.stage(OperationStage::Optimization);
+                observer.optimization(&e, false);
             }
             let r = e.remove_common_instructions();
 
@@ -421,7 +416,7 @@ impl<'a> AtomView<'a> {
 
         for _ in 0..e.settings.cpe_iterations.unwrap_or(usize::MAX) {
             if let Some(observer) = observer {
-                observer.stage(OperationStage::Optimization);
+                observer.optimization(&e, true);
             }
             let r = e.remove_common_pairs();
             if r == 0 || e.settings.abort_level > 0 {
@@ -436,10 +431,21 @@ impl<'a> AtomView<'a> {
         }
 
         if let Some(observer) = observer {
-            observer.stage(OperationStage::Optimization);
+            observer.optimization(&e, false);
         }
         e.optimize_stack();
         Ok(e)
+    }
+
+    /// Native occurrence-order candidate discovery, shared with checked
+    /// allocation preflight; the returned keys borrow the immutable source.
+    pub(super) fn horner_indeterminates(expressions: &[Self]) -> HashMap<Self, usize> {
+        let mut variables = HashMap::default();
+        for expression in expressions {
+            expression.count_indeterminates(true, &mut variables);
+        }
+        variables.retain(|_, count| *count > 1);
+        variables
     }
 
     /// Search for a Horner variable order that reduces the combined operation

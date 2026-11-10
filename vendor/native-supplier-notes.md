@@ -41,9 +41,12 @@ Checked borrowed-alias builder construction admits native map/tag staging before
 copying. Checked exact-to-binary64 mapping admits the actual post-Horner payload
 and fresh source/target overlap, using the shared native mapping and constant
 rounding algorithms with only fixed trusted implementations. It does not resolve
-arbitrary registered generators. Legacy EvalTree construction, new exact numerical
-fractional-power normalization and tighter large-DAG/optimizer stage facts remain
-separate qualifications; these entries do not grant those profiles eligibility.
+arbitrary registered generators. Constructor facts distinguish shared alias DAG
+records from per-body normalization, use the native occurrence-selected Horner
+scheme width, and count optimizer operands/pairs immediately before each pass.
+Common-pair cache facts respect the configured ceiling and the native extra entry.
+Legacy EvalTree construction and new exact numerical fractional-power normalization
+remain unsupported by the checked profile.
 
 Cargo cache markers and `.cargo-checksum.json` are omitted. The original package
 checksums in the linked archive table identify the imported sources; they do not authenticate patched
@@ -140,9 +143,9 @@ input/temporary/output overlap before cloning or expanding the program. The same
 engine serves the ordinary API. Borrowed controls run between scalar expansions, generated
 components and optimizer passes; interruption inside a scalar arithmetic call or an optimizer
 pass is not promised. Refusals preserve the caller's original typed error and return no partial
-evaluator. Returned products have no inherited or current abort callback. Exact symbolic
-builder/Horner construction remains a separate migration obligation; this control is not a
-claim that every evaluator construction path is checked.
+evaluator. Returned products have no inherited or current abort callback. The direct
+builder/Horner profile described above has its own checked entry; this does not grant
+eligibility to legacy EvalTree, arbitrary normalization callbacks or retained functions.
 
 Checked coefficient copies use Numerica's existing backend-copy and canonical-rational
 constructor APIs. They preserve already established numerator/denominator normalization

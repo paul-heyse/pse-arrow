@@ -1148,10 +1148,10 @@ index 1fad7aac401041e024cd169e0fe0c824bc47545a..f842990feabadd5ffdc62c45971a0606
          self.library.borrow_dependent().dimensions.input_len
 diff --git a/src/evaluate/checked_build.rs b/src/evaluate/checked_build.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..333ee4df55cd2c21d832228bb99ad9f82610ccf7
+index 0000000000000000000000000000000000000000..9e2f2d131d81f3449ecf0d5c2c8f17ec464d6ccd
 --- /dev/null
 +++ b/src/evaluate/checked_build.rs
-@@ -0,0 +1,1080 @@
+@@ -0,0 +1,1825 @@
 +//! Borrowed controls on the shared direct translator and its actual workers.
 +use super::*;
 +use crate::coefficient::{SerializedFloat, SerializedRational};
@@ -1176,31 +1176,47 @@ index 0000000000000000000000000000000000000000..333ee4df55cd2c21d832228bb99ad9f8
 +    a: usize,
 +    d: usize,
 +}
++fn product_bits<E>(a: usize, b: usize) -> Result<usize, OperationError<E>> {
++    // A nonnegative integer with at most one bit is exactly zero or one.
++    // In particular an at-most-one-bit positive denominator is exactly one.
++    if a == 0 || b == 0 {
++        Ok(0)
++    } else if a == 1 {
++        Ok(b)
++    } else if b == 1 {
++        Ok(a)
++    } else {
++        add(a, b)
++    }
++}
 +impl Height {
 +    const ONE: Self = Self { a: 1, d: 1 };
 +    fn sum<E>(self, other: Self) -> Result<Self, OperationError<E>> {
 +        Ok(Self {
-+            a: add(add(self.a, other.d)?.max(add(other.a, self.d)?), 1)?,
-+            d: add(self.d, other.d)?,
++            a: add(
++                product_bits(self.a, other.d)?.max(product_bits(other.a, self.d)?),
++                1,
++            )?,
++            d: product_bits(self.d, other.d)?,
 +        })
 +    }
 +    fn product<E>(self, other: Self) -> Result<Self, OperationError<E>> {
 +        Ok(Self {
-+            a: add(add(self.a, other.a)?, 1)?,
-+            d: add(self.d, other.d)?,
++            a: add(product_bits(self.a, other.a)?, 1)?,
++            d: product_bits(self.d, other.d)?,
 +        })
 +    }
 +    fn power<E>(mut self, exponent: i64) -> Result<Self, OperationError<E>> {
 +        if exponent < 0 {
 +            self = Self {
-+                a: add(self.a, self.d)?,
++                a: product_bits(self.a, self.d)?,
 +                d: add(mul(2, self.a)?, 1)?,
 +            };
 +        }
 +        let n = usize::try_from(exponent.unsigned_abs()).map_err(|_| OperationError::Overflow)?;
 +        Ok(Self {
 +            a: mul(n, add(self.a, 1)?)?,
-+            d: mul(n, self.d)?,
++            d: if self.d == 1 { 1 } else { mul(n, self.d)? },
 +        })
 +    }
 +    fn bits<E>(self) -> Result<usize, OperationError<E>> {
@@ -1226,10 +1242,18 @@ index 0000000000000000000000000000000000000000..333ee4df55cd2c21d832228bb99ad9f8
 +    state: Mutex<State<'a, C>>,
 +    input: usize,
 +    nodes: usize,
++    source_nodes: usize,
 +    source_bytes: usize,
++    max_atom_nodes: usize,
++    max_atom_bytes: usize,
++    source_depth: usize,
++    branch_depth: usize,
++    scheme_variables: usize,
++    horner: bool,
 +    parameters: usize,
 +    outputs: usize,
 +    names: usize,
++    externals: usize,
 +    workers: usize,
 +    permutations: usize,
 +}
@@ -1261,59 +1285,113 @@ index 0000000000000000000000000000000000000000..333ee4df55cd2c21d832228bb99ad9f8
 +        work: usize,
 +    ) -> Result<OperationExtent, OperationError<C::Error>> {
 +        let n = self.nodes.max(1);
-+        let entries = add(self.parameters, mul(24, n)?)?;
-+        let instructions = mul(24, n)?;
 +        let integer = limbs(mul(4, add(height, 2)?)?)?;
 +        let coefficient = add(size_of::<Complex<Rational>>(), mul(4, integer)?)?;
-+        // Coefficient collection and integer-power distribution introduce at most
-+        // a Mul/Num or Pow wrapper per original edge. No linear user heads are
-+        // admitted. Three nodes per original node bound every canonical result.
-+        let atom = add(
++        // Horner's coefficient grouping/power distribution adds at most a
++        // Mul/Num or Pow wrapper per edge, hence three canonical nodes per
++        // source node. Only one source expression/body is normalized at a time
++        // on each worker; shared alias bodies are not expanded by Horner.
++        let node_bytes = add(64, mul(4, integer)?)?;
++        let all_atoms = add(
 +            self.source_bytes,
-+            mul(mul(3, n)?, add(64, mul(4, integer)?)?)?,
++            mul(mul(3, self.source_nodes)?, node_bytes)?,
 +        )?;
-+        // Each recursive collection/replacement frame can hold input, rebuilt and
-+        // normalized encodings. Vec growth includes old/new geometric overlap.
-+        let workspace = mul(mul(3, add(n, 1)?)?, atom)?;
-+        // At most eight live complex coefficient values (32 integers) occur in
-+        // native complex/rational normalization, including unreduced cross-products.
-+        // Private GMP/MPFR algorithm scratch is NOT inferred from these limbs:
-+        // it remains the caller's separately admitted opaque foreign allowance.
-+        let arithmetic = mul(add(n, 1)?, mul(8, coefficient)?)?;
++        let local_atom = add(
++            self.max_atom_bytes,
++            mul(mul(3, self.max_atom_nodes)?, node_bytes)?,
++        )?;
++        let depth = mul(3, mul(self.source_depth, add(self.scheme_variables, 1)?)?)?;
++        let workspace = if self.horner {
++            add(all_atoms, mul(mul(4, add(depth, 1)?)?, local_atom)?)?
++        } else {
++            0
++        };
++        // Eight complex/rational temporaries cover visible arithmetic and
++        // unreduced cross-products. Backend-private GMP/MPFR algorithm scratch
++        // remains in the caller's separately admitted opaque allowance.
++        let arithmetic = mul(add(depth, 1)?, mul(8, coefficient)?)?;
++        let entries = add(self.parameters, mul(9, n)?)?;
++        let instructions = mul(12, n)?;
 +        let output = add(
++            mul(entries, size_of::<Complex<Rational>>())?,
 +            add(
-+                mul(entries, coefficient)?,
-+                mul(
-+                    instructions,
-+                    add(size_of::<(Instr, ComplexPhase)>(), 4 * size_of::<usize>())?,
-+                )?,
-+            )?,
-+            add(
-+                mul(self.outputs, size_of::<usize>())?,
++                mul(mul(3, n)?, mul(4, integer)?)?,
 +                add(
-+                    self.names,
-+                    mul(n, size_of::<ExternalFunctionContainer<Complex<Rational>>>())?,
++                    mul(
++                        instructions,
++                        add(size_of::<(Instr, ComplexPhase)>(), 4 * size_of::<usize>())?,
++                    )?,
++                    add(
++                        mul(self.outputs, size_of::<usize>())?,
++                        add(
++                            self.names,
++                            mul(
++                                self.externals,
++                                size_of::<ExternalFunctionContainer<Complex<Rational>>>(),
++                            )?,
++                        )?,
++                    )?,
 +                )?,
 +            )?,
 +        )?;
-+        // Lowering simultaneously retains public Instruction/Slot and private
-+        // Instr forms, constant/alias/subexpression tables and branch maps. A
-+        // pair belongs to at most one operand pair occurrence, so all CPE keys,
-+        // occurrence lists and heap records together have at most n^2 entries.
-+        let records = add(
-+            mul(n, 64 * size_of::<usize>())?,
-+            mul(mul(n, n)?, 32 * size_of::<usize>())?,
++        // Native lowerer tables: borrowed subexpressions, constant values,
++        // fixed external keys and recursion/parameter bindings. Branch caches
++        // clone only the subexpression table. No CPE quadratic predictor is
++        // charged here: actual pair/cache/line populations are admitted at the
++        // optimizer safe point immediately before each real native pass.
++        let values = mul(3, n)?;
++        let subexpressions = mul(
++            add(self.branch_depth, 2)?,
++            table_bytes::<AtomView, Slot, C::Error>(values)?,
 +        )?;
-+        let permutation_bytes = mul(
-+            self.permutations,
-+            add(size_of::<Vec<usize>>(), 9 * size_of::<usize>())?,
++        let constants = add(
++            table_bytes::<Complex<Rational>, usize, C::Error>(values)?,
++            mul(values, mul(4, integer)?)?,
++        )?;
++        let externals = add(
++            table_bytes::<(Symbol, Vec<Atom>, Option<Vec<Complex<Rational>>>), usize, C::Error>(
++                self.externals,
++            )?,
++            mul(mul(2, self.externals)?, coefficient)?,
++        )?;
++        let bindings = add(
++            table_bytes::<usize, (), C::Error>(values)?,
++            table_bytes::<AtomView, Slot, C::Error>(self.parameters)?,
++        )?;
++        let instructions_work = add(
++            mul(mul(6, n)?, size_of::<Instruction>())?,
++            mul(mul(6, n)?, size_of::<Slot>())?,
++        )?;
++        let records = add(
++            mul(
++                2,
++                add(subexpressions, add(constants, add(externals, bindings)?)?)?,
++            )?,
++            instructions_work,
++        )?;
++        let schemes = mul(
++            add(self.workers, 3)?,
++            mul(
++                self.scheme_variables,
++                add(size_of::<Indeterminate>(), self.max_atom_bytes)?,
++            )?,
++        )?;
++        let permutation_bytes = add(
++            mul(
++                self.permutations,
++                add(3 * size_of::<Vec<usize>>(), 9 * size_of::<usize>())?,
++            )?,
++            table_bytes::<usize, usize, C::Error>(9)?,
 +        )?;
 +        let temporary = add(
++            self.input,
 +            add(
 +                mul(add(self.workers, 2)?, add(workspace, arithmetic)?)?,
-+                mul(3, add(output, records)?)?,
++                add(
++                    mul(3, add(output, records)?)?,
++                    add(schemes, permutation_bytes)?,
++                )?,
 +            )?,
-+            permutation_bytes,
 +        )?;
 +        let extent = OperationExtent {
 +            stage,
@@ -1354,6 +1432,17 @@ index 0000000000000000000000000000000000000000..333ee4df55cd2c21d832228bb99ad9f8
 +
 +    fn finalize(&self, product: &ExpressionEvaluator<Complex<Rational>>) {
 +        let resident = self.value(super::checked_copy::extent(product, control::payload));
++        self.report(OperationExtent {
++            stage: OperationStage::Finalization,
++            work: 0,
++            input_bytes: self.input,
++            temporary_bytes: 0,
++            output_bytes: resident.input_bytes,
++            output_entries: product.stack.len(),
++        });
++    }
++
++    fn report(&self, extent: OperationExtent) {
 +        let mut state = self
 +            .state
 +            .lock()
@@ -1362,19 +1451,8 @@ index 0000000000000000000000000000000000000000..333ee4df55cd2c21d832228bb99ad9f8
 +            drop(state);
 +            panic::resume_unwind(Box::new(Stop));
 +        }
-+        let extent = self
-+            .extent(state.height, OperationStage::Finalization, 0)
-+            .map(|extent| OperationExtent {
-+                output_bytes: resident.input_bytes,
-+                output_entries: product.stack.len(),
-+                ..extent
-+            });
-+        let checked = match extent {
-+            Ok(extent) => state.control.check(extent).map_err(OperationError::Control),
-+            Err(error) => Err(error),
-+        };
-+        if let Err(error) = checked {
-+            state.refusal = Some(error);
++        if let Err(error) = state.control.check(extent) {
++            state.refusal = Some(OperationError::Control(error));
 +            drop(state);
 +            panic::resume_unwind(Box::new(Stop));
 +        }
@@ -1445,8 +1523,10 @@ index 0000000000000000000000000000000000000000..333ee4df55cd2c21d832228bb99ad9f8
 +        };
 +        (
 +            Height {
-+                a: self.value(add(nr, di)).max(self.value(add(ni, dr))),
-+                d: self.value(add(dr.max(1), di.max(1))),
++                a: self
++                    .value(product_bits(nr, di))
++                    .max(self.value(product_bits(ni, dr))),
++                d: self.value(product_bits(dr.max(1), di.max(1))),
 +            },
 +            wide,
 +        )
@@ -1463,6 +1543,12 @@ index 0000000000000000000000000000000000000000..333ee4df55cd2c21d832228bb99ad9f8
 +            }
 +            AtomView::Var(_) => {}
 +            AtomView::Add(_) | AtomView::Mul(_) | AtomView::Fun(_) => {
++                // Balance the positive absolute-numerator/common-denominator
++                // envelope, not the native arithmetic. Its unreduced numerator
++                // dominates every sequential partial sum (all omitted positive
++                // denominator factors are >= 1). This avoids a carry bit per
++                // source operand while retaining a bound on native temporaries.
++                let mut sums = [None::<Height>; usize::BITS as usize];
 +                let children = match atom {
 +                    AtomView::Add(a) => a.iter(),
 +                    AtomView::Mul(m) => m.iter(),
@@ -1475,12 +1561,30 @@ index 0000000000000000000000000000000000000000..333ee4df55cd2c21d832228bb99ad9f8
 +                    peak = peak.max(child.peak);
 +                    wide_float |= child.wide_float;
 +                    height = if matches!(atom, AtomView::Add(_)) {
-+                        self.value(height.sum(child.height))
++                        let mut carry = child.height;
++                        let mut level = 0;
++                        while let Some(previous) = sums[level].take() {
++                            carry = self.value(previous.sum(carry));
++                            level += 1;
++                        }
++                        sums[level] = Some(carry);
++                        Height::ONE
 +                    } else if matches!(atom, AtomView::Mul(_)) {
 +                        self.value(height.product(child.height))
 +                    } else {
 +                        Height::ONE
 +                    };
++                }
++                if matches!(atom, AtomView::Add(_)) {
++                    let mut total = None::<Height>;
++                    for part in sums.into_iter().flatten() {
++                        total = Some(if let Some(previous) = total {
++                            self.value(previous.sum(part))
++                        } else {
++                            part
++                        });
++                    }
++                    height = total.unwrap_or(Height::ONE);
 +                }
 +            }
 +            AtomView::Pow(power) => {
@@ -1590,9 +1694,22 @@ index 0000000000000000000000000000000000000000..333ee4df55cd2c21d832228bb99ad9f8
 +    fn stage(&self, stage: OperationStage) {
 +        self.check(1, stage, 0);
 +    }
++    fn optimization(&self, programme: &ExpressionEvaluator<Complex<Rational>>, pairs: bool) {
++        let mut extent = self.value(optimizer_extent(programme, pairs));
++        extent.input_bytes = self.input;
++        self.report(extent);
++    }
 +}
 +
 +fn alias<'a>(map: &'a FunctionMap, atom: AtomView<'_>) -> Option<&'a Expr> {
++    if let AtomView::Var(v) = atom {
++        return map.tagged_fn_map.get(&(v.get_symbol(), Vec::new()));
++    }
++    if let AtomView::Fun(f) = atom
++        && map.tag.get(&f.get_symbol()).copied() != Some(f.get_nargs())
++    {
++        return None;
++    }
 +    map.tagged_fn_map.iter().find_map(|((symbol, tags), body)| {
 +        let matches = match atom {
 +            AtomView::Var(v) => v.get_symbol() == *symbol && tags.is_empty(),
@@ -1652,13 +1769,8 @@ index 0000000000000000000000000000000000000000..333ee4df55cd2c21d832228bb99ad9f8
 +            .unwrap_or(0)
 +            .max(symbol.get_name().len());
 +        if !opaque && !is_parameter {
-+            if let Some(body) = alias(map, atom) {
-+                let (nodes, body_names) =
-+                    qualify(body.body.as_view(), params, map, heads, depth + 1, false)?;
-+                let mut nodes = add(nodes, 1)?;
-+                names = add(names, body_names)?;
-+                // Lowering treats the whole fixed-tag alias as a definition;
-+                // Horner still visits its original arguments before lowering.
++            if alias(map, atom).is_some() {
++                let mut nodes = 1;
 +                if let AtomView::Fun(f) = atom {
 +                    for child in f {
 +                        let (n, child_names) = qualify(child, params, map, heads, depth, true)?;
@@ -1730,6 +1842,367 @@ index 0000000000000000000000000000000000000000..333ee4df55cd2c21d832228bb99ad9f8
 +    Ok((nodes, names))
 +}
 +
++// Count the native alias DAG within the actual branch-cache scopes. Merely
++// summing recursively-expanded alias bodies would charge shared arithmetic many
++// times, whereas each native local scope caches an alias after its first use.
++fn lower_nodes<C: OperationControl>(
++    atom: AtomView<'_>,
++    params: &[Atom],
++    map: &FunctionMap,
++    seen: &mut [u8],
++    branch_depth: usize,
++    max_branch_depth: &mut usize,
++    input: usize,
++    control: &mut C,
++) -> Result<usize, OperationError<C::Error>> {
++    control
++        .check(OperationExtent {
++            stage: OperationStage::Construction,
++            work: 1,
++            input_bytes: input,
++            temporary_bytes: mul(seen.len(), add(branch_depth, 2)?)?,
++            ..OperationExtent::default()
++        })
++        .map_err(OperationError::Control)?;
++    if params.iter().any(|p| p.as_view() == atom) {
++        return Ok(1);
++    }
++    if let Some(body) = alias(map, atom) {
++        let status = seen
++            .get_mut(body.id)
++            .ok_or(OperationError::Unsupported("invalid alias identity"))?;
++        if *status == 1 {
++            return Err(OperationError::Unsupported("cyclic alias construction"));
++        }
++        if *status == 2 {
++            return Ok(1);
++        }
++        *status = 1;
++        let nodes = lower_nodes(
++            body.body.as_view(),
++            params,
++            map,
++            seen,
++            branch_depth,
++            max_branch_depth,
++            input,
++            control,
++        )?;
++        seen[body.id] = 2;
++        return add(nodes, 1);
++    }
++    if let AtomView::Fun(f) = atom
++        && f.get_symbol() == Symbol::IF
++        && f.get_nargs() == 3
++    {
++        let mut args = f.iter();
++        let condition = args
++            .next()
++            .ok_or(OperationError::Unsupported("conditional arity"))?;
++        let then_branch = args
++            .next()
++            .ok_or(OperationError::Unsupported("conditional arity"))?;
++        let else_branch = args
++            .next()
++            .ok_or(OperationError::Unsupported("conditional arity"))?;
++        let condition = lower_nodes(
++            condition,
++            params,
++            map,
++            seen,
++            branch_depth,
++            max_branch_depth,
++            input,
++            control,
++        )?;
++        let next_depth = add(branch_depth, 1)?;
++        *max_branch_depth = (*max_branch_depth).max(next_depth);
++        control
++            .check(OperationExtent {
++                stage: OperationStage::Construction,
++                work: 0,
++                input_bytes: input,
++                temporary_bytes: mul(seen.len(), add(next_depth, 2)?)?,
++                ..OperationExtent::default()
++            })
++            .map_err(OperationError::Control)?;
++        let mut child = seen.to_vec();
++        let then_count = lower_nodes(
++            then_branch,
++            params,
++            map,
++            &mut child,
++            next_depth,
++            max_branch_depth,
++            input,
++            control,
++        )?;
++        child.copy_from_slice(seen);
++        let else_count = lower_nodes(
++            else_branch,
++            params,
++            map,
++            &mut child,
++            next_depth,
++            max_branch_depth,
++            input,
++            control,
++        )?;
++        // Native lowering emits IfElse, Goto, two Labels and Join. A fully
++        // numerical condition only removes records, so both branches are a bound.
++        return add(5, add(condition, add(then_count, else_count)?)?);
++    }
++    let mut nodes = 1;
++    let children = match atom {
++        AtomView::Add(a) => Some(a.iter()),
++        AtomView::Mul(m) => Some(m.iter()),
++        AtomView::Fun(f) => Some(f.iter()),
++        _ => None,
++    };
++    if let Some(children) = children {
++        for child in children {
++            nodes = add(
++                nodes,
++                lower_nodes(
++                    child,
++                    params,
++                    map,
++                    seen,
++                    branch_depth,
++                    max_branch_depth,
++                    input,
++                    control,
++                )?,
++            )?;
++        }
++    } else if let AtomView::Pow(p) = atom {
++        for child in [p.get_base(), p.get_exp()] {
++            nodes = add(
++                nodes,
++                lower_nodes(
++                    child,
++                    params,
++                    map,
++                    seen,
++                    branch_depth,
++                    max_branch_depth,
++                    input,
++                    control,
++                )?,
++            )?;
++        }
++    }
++    Ok(nodes)
++}
++
++fn external_population<E>(
++    atom: AtomView<'_>,
++    params: &[Atom],
++    map: &FunctionMap,
++) -> Result<usize, OperationError<E>> {
++    if params.iter().any(|p| p.as_view() == atom) {
++        return Ok(0);
++    }
++    // E as an exponential base lowers to the EXP instruction, not an external
++    // constant. Direct pi/e values do occupy exact external constant slots.
++    if let AtomView::Pow(p) = atom
++        && p.get_base() == crate::atom::InlineVar::new(Symbol::E).as_view()
++    {
++        return external_population(p.get_exp(), params, map);
++    }
++    let mut count = 0;
++    if let AtomView::Fun(f) = atom
++        && !f.get_symbol().is_fixed_builtin()
++        && alias(map, atom).is_none()
++    {
++        count = 1;
++    } else if let AtomView::Var(v) = atom
++        && alias(map, atom).is_none()
++        && (!v.get_symbol().is_fixed_builtin() || [Symbol::PI, Symbol::E].contains(&v.get_symbol()))
++    {
++        count = 1;
++    }
++    let children = match atom {
++        AtomView::Add(a) => Some(a.iter()),
++        AtomView::Mul(m) => Some(m.iter()),
++        AtomView::Fun(f) => Some(f.iter()),
++        _ => None,
++    };
++    if let Some(children) = children {
++        for child in children {
++            count = add(count, external_population(child, params, map)?)?;
++        }
++    } else if let AtomView::Pow(p) = atom {
++        for child in [p.get_base(), p.get_exp()] {
++            count = add(count, external_population(child, params, map)?)?;
++        }
++    }
++    Ok(count)
++}
++
++fn raw_shape<E>(atom: AtomView<'_>) -> Result<(usize, usize), OperationError<E>> {
++    let mut nodes = 1;
++    let mut depth = 1;
++    let children = match atom {
++        AtomView::Add(a) => Some(a.iter()),
++        AtomView::Mul(m) => Some(m.iter()),
++        AtomView::Fun(f) => Some(f.iter()),
++        _ => None,
++    };
++    if let Some(children) = children {
++        for child in children {
++            let (n, d) = raw_shape(child)?;
++            nodes = add(nodes, n)?;
++            depth = depth.max(add(d, 1)?);
++        }
++    } else if let AtomView::Pow(p) = atom {
++        for child in [p.get_base(), p.get_exp()] {
++            let (n, d) = raw_shape(child)?;
++            nodes = add(nodes, n)?;
++            depth = depth.max(add(d, 1)?);
++        }
++    }
++    Ok((nodes, depth))
++}
++
++fn table_bytes<K, V, E>(entries: usize) -> Result<usize, OperationError<E>> {
++    if entries == 0 {
++        return Ok(0);
++    }
++    let buckets = entries
++        .checked_mul(8)
++        .and_then(|n| n.checked_add(6))
++        .map(|n| n / 7)
++        .and_then(usize::checked_next_power_of_two)
++        .ok_or(OperationError::Overflow)?
++        .max(4);
++    add(
++        mul(buckets, add(size_of::<(K, V)>(), 1)?)?,
++        16 + std::mem::align_of::<(K, V)>(),
++    )
++}
++
++fn optimizer_extent<E>(
++    e: &ExpressionEvaluator<Complex<Rational>>,
++    pairs: bool,
++) -> Result<OperationExtent, OperationError<E>> {
++    let resident = super::checked_copy::extent(e, control::payload)?;
++    let instructions = e.instructions.len();
++    let mut operands = 0;
++    let mut occurrences = 0;
++    for (instruction, _) in &e.instructions {
++        match instruction {
++            Instr::Add(_, args) | Instr::Mul(_, args) => {
++                operands = add(operands, args.len())?;
++                occurrences = add(
++                    occurrences,
++                    mul(args.len(), args.len().saturating_sub(1))? / 2,
++                )?;
++            }
++            Instr::ExternalFun(_, _, args) => operands = add(operands, args.len())?,
++            _ => {}
++        }
++    }
++    let keys = if pairs {
++        if occurrences <= e.settings.max_common_pair_cache_entries {
++            occurrences
++        } else {
++            add(e.settings.max_common_pair_cache_entries, 1)?
++        }
++    } else {
++        0
++    };
++    let lines = occurrences.min(mul(keys, instructions)?);
++    let introduced = if pairs { keys.min(operands / 2) } else { 0 };
++    let next_instructions = add(instructions, introduced)?;
++    let next_stack = add(e.stack.len(), introduced)?;
++    let instruction_capacity = mul(2, next_instructions)?
++        .max(4)
++        .max(e.instructions.capacity());
++    let stack_capacity = mul(2, next_stack)?.max(4).max(e.stack.capacity());
++    let output = add(
++        resident.input_bytes,
++        add(
++            mul(
++                instruction_capacity - e.instructions.capacity(),
++                size_of::<(Instr, ComplexPhase)>(),
++            )?,
++            add(
++                mul(
++                    stack_capacity - e.stack.capacity(),
++                    size_of::<Complex<Rational>>(),
++                )?,
++                mul(mul(2, introduced)?, size_of::<usize>())?,
++            )?,
++        )?,
++    )?;
++    // CSE keys borrow operands; their largest discriminated key is bounded by
++    // four words, with two-word position/branch values. Include old/new hash
++    // table growth and the exact cloned-operand population.
++    let cse = add(
++        mul(
++            2,
++            table_bytes::<[usize; 4], (usize, usize), E>(instructions)?,
++        )?,
++        add(
++            mul(instructions, size_of::<(Instr, ComplexPhase)>())?,
++            mul(operands, size_of::<usize>())?,
++        )?,
++    )?;
++    // Live stack optimization/label/DAG/rename maps and heap. These counts use
++    // actual private stack/instruction populations, including capacity overlap.
++    let stack_work = add(
++        mul(add(next_stack, next_instructions)?, 8 * size_of::<usize>())?,
++        mul(2, table_bytes::<usize, usize, E>(next_instructions)?)?,
++    )?;
++    let pair_work = if pairs {
++        let hashes = add(
++            table_bytes::<u64, u32, E>(keys)?,
++            add(
++                table_bytes::<u64, u32, E>(operands)?,
++                add(
++                    table_bytes::<u32, Vec<(usize, u32)>, E>(instructions)?,
++                    table_bytes::<usize, usize, E>(introduced)?,
++                )?,
++            )?,
++        )?;
++        let pair_vectors = add(
++            mul(mul(2, keys)?.max(4), size_of::<(u64, Vec<u32>)>())?,
++            add(
++                mul(add(mul(3, lines)?, mul(4, keys)?)?, size_of::<u32>())?,
++                add(
++                    mul(
++                        mul(2, instructions)?.max(4),
++                        size_of::<(u32, u32, u32, u32)>(),
++                    )?,
++                    mul(
++                        mul(2, introduced)?.max(4),
++                        size_of::<(usize, usize, Instr)>(),
++                    )?,
++                )?,
++            )?,
++        )?;
++        let replacements = add(
++            mul(mul(2, operands)?.max(4), size_of::<(usize, u32)>())?,
++            instructions,
++        )?;
++        add(mul(2, hashes)?, add(pair_vectors, replacements)?)?
++    } else {
++        0
++    };
++    let temporary = add(resident.input_bytes, add(cse, add(stack_work, pair_work)?)?)?;
++    let extent = OperationExtent {
++        stage: OperationStage::Optimization,
++        work: 0,
++        input_bytes: 0,
++        temporary_bytes: temporary,
++        output_bytes: output,
++        output_entries: next_stack,
++    };
++    extent.peak_bytes().ok_or(OperationError::Overflow)?;
++    Ok(extent)
++}
++
 +pub(super) fn build<C: OperationControl + Send>(
 +    expressions: &[AtomView<'_>],
 +    map: &FunctionMap,
@@ -1769,9 +2242,13 @@ index 0000000000000000000000000000000000000000..333ee4df55cd2c21d832228bb99ad9f8
 +            "non-alias or retained function definitions",
 +        ));
 +    }
-+    let mut nodes = 0;
++    let mut source_nodes = 0;
 +    let mut names = 0;
 +    let mut source_bytes = 0;
++    let mut max_atom_nodes = 0;
++    let mut max_atom_bytes = 0;
++    let mut source_depth = 0;
++    let mut externals = 0;
 +    for atom in expressions
 +        .iter()
 +        .copied()
@@ -1779,8 +2256,16 @@ index 0000000000000000000000000000000000000000..333ee4df55cd2c21d832228bb99ad9f8
 +        .chain(map.tagged_fn_map.values().map(|body| body.body.as_view()))
 +    {
 +        let (n, names_) = qualify(atom, params, map, heads, 0, false)?;
-+        nodes = add(nodes, n)?;
++        source_nodes = add(source_nodes, n)?;
 +        names = add(names, names_)?;
++        let (atom_nodes, depth) = raw_shape::<C::Error>(atom)?;
++        externals = add(
++            externals,
++            external_population::<C::Error>(atom, params, map)?,
++        )?;
++        max_atom_nodes = max_atom_nodes.max(atom_nodes);
++        max_atom_bytes = max_atom_bytes.max(atom.get_byte_size());
++        source_depth = source_depth.max(depth);
 +        source_bytes = add(source_bytes, atom.get_byte_size())?;
 +    }
 +    let mut input = add(source_bytes, mul(params.len(), size_of::<Atom>())?)?;
@@ -1815,9 +2300,76 @@ index 0000000000000000000000000000000000000000..333ee4df55cd2c21d832228bb99ad9f8
 +            2 * (size_of::<(Symbol, usize)>() + 16),
 +        )?,
 +    )?;
++    control
++        .check(OperationExtent {
++            stage: OperationStage::Construction,
++            work: 0,
++            input_bytes: input,
++            temporary_bytes: map.tagged_fn_map.len(),
++            ..OperationExtent::default()
++        })
++        .map_err(OperationError::Control)?;
++    let mut seen = Vec::new();
++    seen.try_reserve_exact(map.tagged_fn_map.len())
++        .map_err(|_| OperationError::Allocation)?;
++    seen.resize(map.tagged_fn_map.len(), 0u8);
++    for body in map.tagged_fn_map.values() {
++        let id = seen
++            .get_mut(body.id)
++            .ok_or(OperationError::Unsupported("invalid alias identity"))?;
++        if *id != 0 {
++            return Err(OperationError::Unsupported("duplicate alias identity"));
++        }
++        *id = 1;
++    }
++    seen.fill(0);
++    let mut nodes = 0;
++    let mut branch_depth = 0;
++    for expression in expressions {
++        nodes = add(
++            nodes,
++            lower_nodes(
++                *expression,
++                params,
++                map,
++                &mut seen,
++                0,
++                &mut branch_depth,
++                input,
++                control,
++            )?,
++        )?;
++    }
++    drop(seen);
++    let scheme_variables = if settings.horner_iterations == 0 {
++        0
++    } else {
++        let mut expression_nodes = 0;
++        for expression in expressions {
++            expression_nodes = add(expression_nodes, raw_shape::<C::Error>(*expression)?.0)?;
++        }
++        control
++            .check(OperationExtent {
++                stage: OperationStage::Construction,
++                work: expression_nodes,
++                input_bytes: input,
++                temporary_bytes: mul(
++                    2,
++                    table_bytes::<AtomView, usize, C::Error>(expression_nodes)?,
++                )?,
++                ..OperationExtent::default()
++            })
++            .map_err(OperationError::Control)?;
++        AtomView::horner_indeterminates(expressions)
++            .len()
++            .min(settings.max_horner_scheme_variables)
++    };
 +    let mut permutations = 0;
 +    let mut factorial = 1usize;
-+    for count in 1..=9.min(nodes).min(settings.max_horner_scheme_variables) {
++    for count in 1..=9
++        .min(source_nodes)
++        .min(settings.max_horner_scheme_variables)
++    {
 +        factorial = mul(factorial, count)?;
 +        if factorial <= settings.horner_iterations {
 +            permutations = factorial;
@@ -1833,10 +2385,18 @@ index 0000000000000000000000000000000000000000..333ee4df55cd2c21d832228bb99ad9f8
 +        }),
 +        input,
 +        nodes,
++        source_nodes,
 +        source_bytes,
++        max_atom_nodes,
++        max_atom_bytes,
++        source_depth,
++        branch_depth,
++        scheme_variables,
++        horner: settings.horner_iterations > 0,
 +        parameters: params.len(),
 +        outputs: expressions.len(),
 +        names,
++        externals,
 +        workers,
 +        permutations,
 +    };
@@ -1893,6 +2453,9 @@ index 0000000000000000000000000000000000000000..333ee4df55cd2c21d832228bb99ad9f8
 +    fn linearization(&self, atom: AtomView<'_>);
 +    fn float_rational(&self, value: &Float);
 +    fn stage(&self, stage: OperationStage);
++    fn optimization(&self, _programme: &ExpressionEvaluator<Complex<Rational>>, _pairs: bool) {
++        self.stage(OperationStage::Optimization);
++    }
 +}
 +
 +pub(crate) fn horner(
@@ -1914,6 +2477,188 @@ index 0000000000000000000000000000000000000000..333ee4df55cd2c21d832228bb99ad9f8
 +    use super::*;
 +    use crate::{domains::backend::integer::IntegerAllocationContext, parse};
 +    use std::sync::atomic::{AtomicUsize, Ordering};
++
++    #[test]
++    fn checked_builder_staged_cpe_tracks_actual_operands_and_configured_cache() {
++        let parameters = (0..17)
++            .map(|i| crate::parse!(format!("checked_cpe_parameter_{i}").as_str()))
++            .collect::<Vec<_>>();
++        let first = parameters[..16]
++            .iter()
++            .fold(Atom::num(0), |sum, value| sum + value);
++        let second = parameters[..15]
++            .iter()
++            .fold(Atom::num(0), |sum, value| sum + value)
++            + &parameters[16];
++        let expressions = [first, second];
++        let mut peaks = Vec::new();
++        for cache in [0, 65536] {
++            let mut peak = 0;
++            let mut final_bytes = 0;
++            let product = Atom::evaluator_multiple(&expressions, &parameters)
++                .direct_translation(true)
++                .horner_iterations(1)
++                .max_common_pair_cache_entries(cache)
++                .cpe_iterations(Some(1))
++                .try_build_with(&mut |extent: OperationExtent| {
++                    if extent.stage == OperationStage::Optimization {
++                        peak = peak.max(extent.temporary_bytes);
++                    }
++                    if extent.stage == OperationStage::Finalization {
++                        final_bytes = extent.output_bytes;
++                    }
++                    Ok::<_, std::convert::Infallible>(())
++                })
++                .unwrap();
++            assert_eq!(
++                final_bytes,
++                super::super::checked_copy::extent::<_, std::convert::Infallible>(
++                    &product,
++                    control::payload
++                )
++                .unwrap()
++                .input_bytes
++            );
++            let mut numeric = product.map_coeff(&|value| value.re.to_f64());
++            let inputs = (1..=17).map(f64::from).collect::<Vec<_>>();
++            let mut output = [0.; 2];
++            numeric.evaluate(&inputs, &mut output);
++            assert_eq!(output, [136., 137.]);
++            peaks.push(peak);
++        }
++        assert!(
++            peaks[1] > peaks[0],
++            "the finite native cache cap changes actual optimizer admission"
++        );
++        #[derive(Debug, PartialEq, Eq)]
++        struct Refused;
++        let refusal = Atom::evaluator_multiple(&expressions, &parameters)
++            .direct_translation(true)
++            .horner_iterations(1)
++            .cpe_iterations(Some(1))
++            .try_build_with(&mut |extent: OperationExtent| {
++                if extent.stage == OperationStage::Optimization {
++                    Err(Refused)
++                } else {
++                    Ok(())
++                }
++            });
++        assert_eq!(refusal.unwrap_err(), OperationError::Control(Refused));
++    }
++
++    #[test]
++    fn checked_builder_branch_scopes_keep_alias_values_and_refuse_before_optimizer() {
++        let parameters = [
++            parse!("checked_branch_condition"),
++            parse!("checked_branch_x"),
++            parse!("checked_branch_y"),
++        ];
++        let alias = parse!("checked_branch_shared");
++        let expressions = [
++            parse!("if(checked_branch_condition,checked_branch_shared+1,checked_branch_shared-1)"),
++            alias.clone(),
++        ];
++        let definitions = [(alias, &parameters[1] * &parameters[2])];
++        let mut final_bytes = 0;
++        let product = EvaluatorBuilder::try_new_aliases_with(
++            &expressions,
++            &parameters,
++            &definitions,
++            &mut |_: OperationExtent| Ok::<_, std::convert::Infallible>(()),
++        )
++        .unwrap()
++        .direct_translation(true)
++        .horner_iterations(1)
++        .cpe_iterations(Some(1))
++        .try_build_with(&mut |extent: OperationExtent| {
++            if extent.stage == OperationStage::Finalization {
++                final_bytes = extent.output_bytes;
++            }
++            Ok::<_, std::convert::Infallible>(())
++        })
++        .unwrap();
++        assert_eq!(
++            final_bytes,
++            super::super::checked_copy::extent::<_, std::convert::Infallible>(
++                &product,
++                control::payload
++            )
++            .unwrap()
++            .input_bytes
++        );
++        let mut numeric = product
++            .try_map_f64_with(&mut |_: OperationExtent| Ok::<_, std::convert::Infallible>(()))
++            .unwrap();
++        let mut output = [0.; 2];
++        numeric.evaluate(&[1., 2., 3.], &mut output);
++        assert_eq!(output, [7., 6.]);
++        numeric.evaluate(&[0., 2., 3.], &mut output);
++        assert_eq!(output, [5., 6.]);
++        let stopped = EvaluatorBuilder::try_new_aliases_with(
++            &expressions,
++            &parameters,
++            &definitions,
++            &mut |_: OperationExtent| Ok::<_, std::convert::Infallible>(()),
++        )
++        .unwrap()
++        .direct_translation(true)
++        .horner_iterations(1)
++        .try_build_with(&mut |extent: OperationExtent| {
++            if extent.stage == OperationStage::Optimization {
++                Err("original branch refusal")
++            } else {
++                Ok(())
++            }
++        });
++        assert_eq!(
++            stopped.unwrap_err(),
++            OperationError::Control("original branch refusal")
++        );
++    }
++
++    #[test]
++    fn checked_builder_counts_pi_e_constants_separately_from_exp_marker() {
++        let map = FunctionMap::new();
++        let pi = crate::atom::InlineVar::new(Symbol::PI).as_view().to_owned();
++        let e = crate::atom::InlineVar::new(Symbol::E).as_view().to_owned();
++        let parameters = [parse!("checked_builtin_x")];
++        let exponential = parse!("exp(checked_builtin_x)");
++        assert_eq!(
++            external_population::<std::convert::Infallible>(pi.as_view(), &[], &map).unwrap(),
++            1
++        );
++        assert_eq!(
++            external_population::<std::convert::Infallible>(e.as_view(), &[], &map).unwrap(),
++            1
++        );
++        assert_eq!(
++            external_population::<std::convert::Infallible>(
++                exponential.as_view(),
++                &parameters,
++                &map
++            )
++            .unwrap(),
++            0
++        );
++        let expressions = [pi, e];
++        let product = Atom::evaluator_multiple(&expressions, &[] as &[Atom])
++            .direct_translation(true)
++            .try_build_with(&mut |_: OperationExtent| Ok::<_, std::convert::Infallible>(()))
++            .unwrap();
++        assert_eq!(product.external_fns.len(), 2);
++        assert!(
++            product
++                .external_fns
++                .iter()
++                .all(|external| external.constant_index.is_some())
++        );
++        let mut numeric = product
++            .try_map_f64_with(&mut |_: OperationExtent| Ok::<_, std::convert::Infallible>(()))
++            .unwrap();
++        let mut output = [0.; 2];
++        numeric.evaluate(&[], &mut output);
++        assert_eq!(output, [std::f64::consts::PI, std::f64::consts::E]);
++    }
 +
 +    #[test]
 +    fn checked_builder_preserves_horner_products_and_reports_retained_backing() {
@@ -7159,7 +7904,7 @@ index 0000000000000000000000000000000000000000..99804cff1fcae0d0f54b0fe13467d232
 +        instructions, result_indices: results, external_fns, settings: OptimizationSettings::default() })
 +}
 diff --git a/src/evaluate/tree.rs b/src/evaluate/tree.rs
-index 02180c95399cea01594839c404e5787ea0e07e72..18b951f956df8ec9ba58296d37436b36f615a2fe 100644
+index 02180c95399cea01594839c404e5787ea0e07e72..d1a1a52c072beaa79485c14c9e571a023baa750e 100644
 --- a/src/evaluate/tree.rs
 +++ b/src/evaluate/tree.rs
 @@ -259,7 +259,8 @@ fn register_constant_external_container<T>(
@@ -7216,7 +7961,25 @@ index 02180c95399cea01594839c404e5787ea0e07e72..18b951f956df8ec9ba58296d37436b36
          }
  
          let v = match &settings.hot_start {
-@@ -347,14 +367,14 @@ impl<'a> AtomView<'a> {
+@@ -330,14 +350,9 @@ impl<'a> AtomView<'a> {
+             }
+             None => {
+                 // start with an occurence order Horner scheme
+-                let mut v = HashMap::default();
+-
+-                for t in expressions {
+-                    t.count_indeterminates(true, &mut v);
+-                }
+-
+-                let mut v: Vec<_> = v.into_iter().collect();
+-                v.retain(|(_, vv)| *vv > 1);
++                let mut v: Vec<_> = Self::horner_indeterminates(expressions)
++                    .into_iter()
++                    .collect();
+                 v.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+                 v.truncate(settings.max_horner_scheme_variables);
+                 v.into_iter()
+@@ -347,14 +362,14 @@ impl<'a> AtomView<'a> {
          };
  
          let scheme = if settings.horner_iterations > 1 {
@@ -7233,7 +7996,7 @@ index 02180c95399cea01594839c404e5787ea0e07e72..18b951f956df8ec9ba58296d37436b36
              .collect::<Vec<_>>();
  
          if settings.horner_iterations == 1 && settings.verbose {
-@@ -368,15 +388,24 @@ impl<'a> AtomView<'a> {
+@@ -368,15 +383,24 @@ impl<'a> AtomView<'a> {
  
          let mut f = fn_map.clone();
          for Expr { body, .. } in f.tagged_fn_map.values_mut() {
@@ -7255,32 +8018,47 @@ index 02180c95399cea01594839c404e5787ea0e07e72..18b951f956df8ec9ba58296d37436b36
  
          loop {
 +            if let Some(observer) = observer {
-+                observer.stage(OperationStage::Optimization);
++                observer.optimization(&e, false);
 +            }
              let r = e.remove_common_instructions();
  
              if r == 0 || e.settings.abort_level > 0 {
-@@ -391,6 +420,9 @@ impl<'a> AtomView<'a> {
+@@ -391,6 +415,9 @@ impl<'a> AtomView<'a> {
          }
  
          for _ in 0..e.settings.cpe_iterations.unwrap_or(usize::MAX) {
 +            if let Some(observer) = observer {
-+                observer.stage(OperationStage::Optimization);
++                observer.optimization(&e, true);
 +            }
              let r = e.remove_common_pairs();
              if r == 0 || e.settings.abort_level > 0 {
                  e.settings.abort_level = 0;
-@@ -403,6 +435,9 @@ impl<'a> AtomView<'a> {
+@@ -403,10 +430,24 @@ impl<'a> AtomView<'a> {
              }
          }
  
 +        if let Some(observer) = observer {
-+            observer.stage(OperationStage::Optimization);
++            observer.optimization(&e, false);
 +        }
          e.optimize_stack();
          Ok(e)
      }
-@@ -414,6 +449,15 @@ impl<'a> AtomView<'a> {
+ 
++    /// Native occurrence-order candidate discovery, shared with checked
++    /// allocation preflight; the returned keys borrow the immutable source.
++    pub(super) fn horner_indeterminates(expressions: &[Self]) -> HashMap<Self, usize> {
++        let mut variables = HashMap::default();
++        for expression in expressions {
++            expression.count_indeterminates(true, &mut variables);
++        }
++        variables.retain(|_, count| *count > 1);
++        variables
++    }
++
+     /// Search for a Horner variable order that reduces the combined operation
+     /// count of `expressions`. `vars` supplies the initial order; `settings`
+     /// controls the search budget and parallelism. Returns the best order found.
+@@ -414,6 +455,15 @@ impl<'a> AtomView<'a> {
          expressions: &[Self],
          vars: &[Indeterminate],
          settings: &OptimizationSettings,
@@ -7296,7 +8074,7 @@ index 02180c95399cea01594839c404e5787ea0e07e72..18b951f956df8ec9ba58296d37436b36
      ) -> Vec<Indeterminate> {
          if vars.is_empty() {
              return vars.to_vec();
-@@ -421,7 +465,7 @@ impl<'a> AtomView<'a> {
+@@ -421,7 +471,7 @@ impl<'a> AtomView<'a> {
  
          let horner: Vec<_> = expressions
              .iter()
@@ -7305,7 +8083,7 @@ index 02180c95399cea01594839c404e5787ea0e07e72..18b951f956df8ec9ba58296d37436b36
              .collect();
          let mut subexpr = HashSet::default();
          let mut best_ops = OperationCount::default();
-@@ -454,9 +498,13 @@ impl<'a> AtomView<'a> {
+@@ -454,9 +504,13 @@ impl<'a> AtomView<'a> {
  
          let n_cores = LicenseManager::max_threads(settings.n_cores).min(n_iterations);
          let inherited_unlock = crate::license::InheritedLibraryUnlock::capture();
@@ -7319,7 +8097,7 @@ index 02180c95399cea01594839c404e5787ea0e07e72..18b951f956df8ec9ba58296d37436b36
  
              for i in 0..n_cores {
                  let mut rng = MonteCarloRng::new(0, i);
-@@ -469,120 +517,138 @@ impl<'a> AtomView<'a> {
+@@ -469,120 +523,138 @@ impl<'a> AtomView<'a> {
                  let mut last_add = usize::MAX;
                  let abort = abort.clone();
  
@@ -7533,20 +8311,20 @@ index 02180c95399cea01594839c404e5787ea0e07e72..18b951f956df8ec9ba58296d37436b36
 +                    workers.push(s.spawn(op));
 +                } else if let Err(payload) = op() {
 +                    super::checked_build::preserve_panic(&mut failure, payload);
-                 }
-             }
++                }
++            }
 +            for worker in workers {
 +                if let Err(payload) = worker.join().unwrap_or_else(Err) {
 +                    super::checked_build::preserve_panic(&mut failure, payload);
-+                }
-+            }
+                 }
+             }
 +            if let Some(payload) = failure {
 +                panic::resume_unwind(payload);
 +            }
          });
  
          if settings.verbose {
-@@ -596,11 +662,12 @@ impl<'a> AtomView<'a> {
+@@ -596,11 +668,12 @@ impl<'a> AtomView<'a> {
          Arc::try_unwrap(best_scheme).unwrap().into_inner().unwrap()
      }
  
@@ -7560,7 +8338,7 @@ index 02180c95399cea01594839c404e5787ea0e07e72..18b951f956df8ec9ba58296d37436b36
      ) -> Result<ExpressionEvaluator<Complex<Rational>>, EvaluationError> {
          let expressions = expressions
              .iter()
-@@ -608,6 +675,7 @@ impl<'a> AtomView<'a> {
+@@ -608,6 +681,7 @@ impl<'a> AtomView<'a> {
              .collect::<Vec<_>>();
          let params = params.iter().map(|p| p.as_view()).collect::<Vec<_>>();
          let mut context = LinearizationContext {
@@ -7568,7 +8346,7 @@ index 02180c95399cea01594839c404e5787ea0e07e72..18b951f956df8ec9ba58296d37436b36
              external_functions: Vec::new(),
              functions: HashMap::default(),
              constants: Vec::new(),
-@@ -657,7 +725,7 @@ impl<'a> AtomView<'a> {
+@@ -657,7 +731,7 @@ impl<'a> AtomView<'a> {
          fn_map: &'a FunctionMap,
          params: &[AtomView<'a>],
          settings: &OptimizationSettings,
@@ -7577,7 +8355,7 @@ index 02180c95399cea01594839c404e5787ea0e07e72..18b951f956df8ec9ba58296d37436b36
      ) -> Result<(Vec<Instruction>, Vec<Slot>), EvaluationError> {
          let mut instr = Vec::new();
  
-@@ -690,7 +758,7 @@ impl<'a> AtomView<'a> {
+@@ -690,7 +764,7 @@ impl<'a> AtomView<'a> {
          results: Vec<Slot>,
          param_count: usize,
          reserved_indices: usize,
@@ -7586,7 +8364,7 @@ index 02180c95399cea01594839c404e5787ea0e07e72..18b951f956df8ec9ba58296d37436b36
      ) -> Result<(Vec<(Instr, ComplexPhase)>, Vec<usize>), EvaluationError> {
          macro_rules! slot_map {
              ($s: expr) => {
-@@ -807,7 +875,7 @@ impl<'a> AtomView<'a> {
+@@ -807,7 +881,7 @@ impl<'a> AtomView<'a> {
      #[allow(clippy::too_many_arguments)]
      fn linearize_function_call(
          fn_map: &'a FunctionMap,
@@ -7595,7 +8373,7 @@ index 02180c95399cea01594839c404e5787ea0e07e72..18b951f956df8ec9ba58296d37436b36
          settings: &OptimizationSettings,
          symbol: Symbol,
          tags: Vec<Atom>,
-@@ -942,7 +1010,7 @@ impl<'a> AtomView<'a> {
+@@ -942,7 +1016,7 @@ impl<'a> AtomView<'a> {
          function: &'a Expr,
          arg_slots: Vec<Slot>,
          fn_map: &'a FunctionMap,
@@ -7604,7 +8382,7 @@ index 02180c95399cea01594839c404e5787ea0e07e72..18b951f956df8ec9ba58296d37436b36
          params: &HashMap<AtomView<'a>, Slot>,
          settings: &OptimizationSettings,
          instr: &mut Vec<Instruction>,
-@@ -998,12 +1066,15 @@ impl<'a> AtomView<'a> {
+@@ -998,12 +1072,15 @@ impl<'a> AtomView<'a> {
      fn linearize_impl(
          &self,
          fn_map: &'a FunctionMap,
@@ -7621,7 +8399,7 @@ index 02180c95399cea01594839c404e5787ea0e07e72..18b951f956df8ec9ba58296d37436b36
          if matches!(*self, AtomView::Var(_) | AtomView::Fun(_)) {
              if let Some(slot) = params.get(self) {
                  return Ok(*slot);
-@@ -1023,7 +1094,16 @@ impl<'a> AtomView<'a> {
+@@ -1023,7 +1100,16 @@ impl<'a> AtomView<'a> {
                      CoefficientView::Large(l, i) => Complex::new(l.to_rat(), i.to_rat()),
                      CoefficientView::Float(r, i) => {
                          // TODO: converting back to rational is slow
@@ -7639,7 +8417,7 @@ index 02180c95399cea01594839c404e5787ea0e07e72..18b951f956df8ec9ba58296d37436b36
                      }
                      CoefficientView::Indeterminate => {
                          return Err(EvaluationError::UnsupportedCoefficient {
-@@ -3166,6 +3246,8 @@ impl Expression<Complex<Rational>> {
+@@ -3166,6 +3252,8 @@ impl Expression<Complex<Rational>> {
  
          let n_cores = LicenseManager::max_threads(settings.n_cores).min(n_iterations);
          let inherited_unlock = crate::license::InheritedLibraryUnlock::capture();
@@ -7648,7 +8426,7 @@ index 02180c95399cea01594839c404e5787ea0e07e72..18b951f956df8ec9ba58296d37436b36
  
          std::thread::scope(|s| {
              let abort = Arc::new(AtomicBool::new(false));
-@@ -3182,112 +3264,116 @@ impl Expression<Complex<Rational>> {
+@@ -3182,112 +3270,116 @@ impl Expression<Complex<Rational>> {
                  let abort = abort.clone();
  
                  let mut op = move || {
