@@ -8921,6 +8921,7 @@ dependencies = [
  "pse-model",
  "pse-relations",
  "pse-schema",
+ "pse-study-module",
  "reqwest",
  "rustix 1.1.5",
  "schemars",
@@ -9157,6 +9158,7 @@ name = "pse-study-module"
 version = "0.0.1"
 dependencies = [
  "miette",
+ "pse-contract",
  "pse-model",
  "serde_json",
  "surrealdb-types",

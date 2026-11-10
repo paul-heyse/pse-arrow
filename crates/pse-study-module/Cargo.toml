@@ -26,6 +26,7 @@ crate-type = ["cdylib", "rlib"]
 workspace = true
 
 [dependencies]
+pse-contract.workspace = true
 pse-model.workspace = true
 serde_json.workspace = true
 surrealdb-types.workspace = true
