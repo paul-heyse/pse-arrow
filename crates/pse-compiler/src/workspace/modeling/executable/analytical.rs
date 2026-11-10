@@ -166,6 +166,15 @@ impl CompiledAnalyticalResult {
             + pse_math::analytical::owned_projection_extent(&self.operation)
     }
 }
+/// The checked original selection and its retained mathematical/physical premises.
+struct OriginalAnalyticalRegion<'a> {
+    frontier: &'a ModelingPreparationFrontier,
+    member: SemanticId,
+    region: Arc<SelectedRegion>,
+    contract: pse_quantity::ResolvedPhysicalContract,
+    arithmetic_policy: ContentHash,
+    guards: Vec<GuardObservation>,
+}
 impl CompilerWorkspace {
     /// Admit exactly the selected original output and operation; none of this runs in
     /// a protected reader. The caller supplies the full original execution clock.
@@ -272,13 +281,14 @@ impl CompilerWorkspace {
         let source = body.math().analytical_expression(0, limits, scope)?;
         if matches!(operation, AnalyticalOperation::Indexed) {
             return self.analytical_contraction(
-                frontier,
-                member,
-                operation,
-                region,
-                original_contract,
-                body.spec.policy,
-                source.guard_context().to_vec(),
+                OriginalAnalyticalRegion {
+                    frontier,
+                    member,
+                    region,
+                    contract: original_contract,
+                    arithmetic_policy: body.spec.policy,
+                    guards: source.guard_context().to_vec(),
+                },
                 limits,
                 scope,
             );
@@ -570,19 +580,21 @@ impl CompilerWorkspace {
     }
     fn analytical_contraction(
         &self,
-        frontier: &ModelingPreparationFrontier,
-        member: SemanticId,
-        operation: AnalyticalOperation,
-        region: Arc<SelectedRegion>,
-        contract: pse_quantity::ResolvedPhysicalContract,
-        arithmetic_policy: ContentHash,
-        guards: Vec<GuardObservation>,
+        original: OriginalAnalyticalRegion<'_>,
         limits: EvaluationLimits,
         scope: &pse_kernels::ExecutionScope,
     ) -> Result<CompiledAnalyticalResult> {
         use pse_math::analytical::{
             IndexAlphabet, TensorAxis, TensorOccurrence, canonicalize_contraction,
         };
+        let OriginalAnalyticalRegion {
+            frontier,
+            member,
+            region,
+            contract,
+            arithmetic_policy,
+            guards,
+        } = original;
         // Follow only actual source aliases/control wrappers. Arithmetic outside
         // the reduction must never be mistaken for the whole contraction.
         let mut root = region.syntax.outputs[0];
@@ -704,7 +716,7 @@ impl CompilerWorkspace {
         };
         Ok(CompiledAnalyticalResult {
             source,
-            operation,
+            operation: AnalyticalOperation::Indexed,
             observation: native.observation.clone(),
             region,
             body: None,

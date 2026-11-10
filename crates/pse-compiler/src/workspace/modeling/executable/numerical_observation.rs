@@ -284,10 +284,6 @@ impl CompilerWorkspace {
     /// Seal selected original observation custody before mathematical body admission.
     /// `None` denotes unsupported providers or unqualified original source custody,
     /// selected before any persisted execution lookup; it never hides an invalid hit.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "early planning binds original frontier, ordered scientific demand, exact numerical policy and current cancellation"
-    )]
     pub fn numerical_observation_request(
         &mut self,
         frontier: &ModelingPreparationFrontier,

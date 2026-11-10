@@ -190,25 +190,25 @@ pub(super) fn definitions(relation: &RelationSpec) -> Result<String, SchemaError
 pub(super) fn support() -> TokenStream {
     quote! {
         /// Mutation of a required value; omission leaves the original unchanged.
-        #[derive(Clone, Debug)]
+        #[derive(Clone, Debug, Default)]
         pub enum NativeUpdate<T> {
             /// Preserve the original value.
+            #[default]
             Keep,
             /// Supply the new declared value.
             Set(T),
         }
-        impl<T> Default for NativeUpdate<T> { fn default() -> Self { Self::Keep } }
         /// Mutation of an optional value; removal is distinct from omission.
-        #[derive(Clone, Debug)]
+        #[derive(Clone, Debug, Default)]
         pub enum NativeMerge<T> {
             /// Preserve the original value.
+            #[default]
             Keep,
             /// Supply a present declared value.
             Set(T),
             /// Remove the optional field using native NONE.
             Remove,
         }
-        impl<T> Default for NativeMerge<T> { fn default() -> Self { Self::Keep } }
     }
 }
 

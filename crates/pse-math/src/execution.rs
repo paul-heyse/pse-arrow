@@ -5466,11 +5466,11 @@ struct RegionFrame<'a> {
     layout: &'a JetLayout,
     local: &'a JetLayout,
     components: &'a [usize],
+    outputs: &'a [usize],
 }
 impl SymbolicRegion {
     fn new(
         region: &PreparedArithmeticRegion,
-        outputs: &[usize],
         frame: RegionFrame<'_>,
         scope: &pse_kernels::ExecutionScope,
         limits: EvaluationLimits,
@@ -5482,6 +5482,7 @@ impl SymbolicRegion {
             layout,
             local,
             components,
+            outputs,
         } = frame;
         allowance.selected_partial_calls = allowance
             .selected_partial_calls
@@ -6352,11 +6353,11 @@ fn compile_stages(
                 let symbolic = if let RegionMode::Symbolic(plan) = &mode {
                     Some(SymbolicRegion::new(
                         region,
-                        outputs,
                         RegionFrame {
                             layout,
                             local: &local,
                             components: &components,
+                            outputs,
                         },
                         execution_scope,
                         limits,

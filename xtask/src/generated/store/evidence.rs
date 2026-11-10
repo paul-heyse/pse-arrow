@@ -4,36 +4,28 @@
 /// Independent tooling interpretation.
 pub const INTERPRETATION: &str = "pse-tooling-evidence-v3";
 /// Tooling-only schema and codec compatibility identity.
-pub const SCHEMA_DIGEST: &str = "7f32d4968facc116d7bb02b1f6740c0d217230a72d8a9397cc2f936e51053d6d";
+pub const SCHEMA_DIGEST: &str = "a952ce9f35025a0abc5dd5178472cff5d905f1878affda0f38c5f8a2743912e4";
 /// Tooling-only registry declarations.
 pub const SCHEMA: &str = include_str!("evidence.surql");
 /// Mutation of a required value; omission leaves the original unchanged.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum NativeUpdate<T> {
     /// Preserve the original value.
+    #[default]
     Keep,
     /// Supply the new declared value.
     Set(T),
 }
-impl<T> Default for NativeUpdate<T> {
-    fn default() -> Self {
-        Self::Keep
-    }
-}
 /// Mutation of an optional value; removal is distinct from omission.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum NativeMerge<T> {
     /// Preserve the original value.
+    #[default]
     Keep,
     /// Supply a present declared value.
     Set(T),
     /// Remove the optional field using native NONE.
     Remove,
-}
-impl<T> Default for NativeMerge<T> {
-    fn default() -> Self {
-        Self::Keep
-    }
 }
 /// Creation input, including immutable values admitted at initialization.
 #[derive(Clone, Debug)]

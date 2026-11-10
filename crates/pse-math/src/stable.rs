@@ -431,14 +431,13 @@ pub(crate) fn initialize() -> Result<(), String> {
                                     }
                                     if let Some(index) =
                                         OPERATIONS.iter().position(|value| *value == partial)
+                                        && let symbolica::atom::AtomView::Fun(function) = view
                                     {
-                                        if let symbolica::atom::AtomView::Fun(function) = view {
-                                            let mut call = FunctionBuilder::new(symbols[index]);
-                                            for arg in function {
-                                                call = call.add_arg(arg);
-                                            }
-                                            **out = call.finish();
+                                        let mut call = FunctionBuilder::new(symbols[index]);
+                                        for arg in function {
+                                            call = call.add_arg(arg);
                                         }
+                                        **out = call.finish();
                                     }
                                 }
                             })

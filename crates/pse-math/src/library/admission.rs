@@ -367,10 +367,7 @@ impl ScalarCache {
         let stop = stop.into();
         stop.check()?;
         let product = self.prepare(
-            expressions,
-            parameters,
-            definitions,
-            options,
+            ScalarProductQuery::new(expressions, parameters, options, definitions),
             stop,
             limits,
             0,
@@ -384,10 +381,7 @@ impl ScalarCache {
 
     fn prepare(
         &mut self,
-        expressions: &[Atom],
-        parameters: &[Atom],
-        definitions: &[(Atom, Atom)],
-        options: Optimization,
+        query: ScalarProductQuery<'_>,
         stop: ConstructionStop<'_>,
         limits: EvaluationLimits,
         occupied_entries: usize,
@@ -397,7 +391,12 @@ impl ScalarCache {
         stop.check()?;
         // Scalar optimization does not consume the later execution selector.
         // Share exact scalar preparation across interpreted/native Value routes.
-        let query = ScalarProductQuery::new(expressions, parameters, options, definitions);
+        let ScalarProductQuery {
+            expressions,
+            parameters,
+            definitions,
+            options,
+        } = query;
         if let Some(context) = pse_diagnostics::observation::current() {
             context.count("math.scalar_cache_lookups", "count", 1);
         }
@@ -526,10 +525,7 @@ pub(crate) fn bounded_defined_scalar_evaluator<'a>(
     let stop = stop.into();
     stop.check()?;
     let product = scalars.prepare(
-        expressions,
-        parameters,
-        definitions,
-        options,
+        ScalarProductQuery::new(expressions, parameters, options, definitions),
         stop,
         limits,
         0,
@@ -569,10 +565,7 @@ pub(crate) fn bounded_evaluator<'a>(
         ));
     }
     let product = scalars.prepare(
-        expressions,
-        parameters,
-        &[],
-        options,
+        ScalarProductQuery::new(expressions, parameters, options, &[]),
         stop,
         limits,
         occupied_entries,
@@ -641,6 +634,26 @@ pub(crate) fn bounded_evaluator<'a>(
         ));
     }
     FloatingEvaluator::from_exact(&evaluator, stop, limits, occupied_entries)
+}
+
+/// Retain the existing request-local exact scalar owner for diagnostic realizations.
+pub(crate) fn diagnostic_product(
+    expressions: &[Atom],
+    parameters: &[Atom],
+    options: Optimization,
+    scope: &pse_kernels::ExecutionScope,
+    limits: EvaluationLimits,
+) -> Result<Arc<ScalarProduct>, MathError> {
+    let mut cache = ScalarCache::default();
+    cache
+        .prepare(
+            ScalarProductQuery::new(expressions, parameters, options, &[]),
+            scope.into(),
+            limits,
+            0,
+            SourceOperationLimit::Scalar(limits.operations),
+        )
+        .cloned()
 }
 
 #[cfg(test)]
@@ -2036,27 +2049,4 @@ mod tests {
         compiled.evaluator.evaluate(&[2.0, 3.0, 4.0], &mut output);
         assert_eq!(output, [30.0]);
     }
-}
-
-/// Retain the existing request-local exact scalar owner for diagnostic realizations.
-pub(crate) fn diagnostic_product(
-    expressions: &[Atom],
-    parameters: &[Atom],
-    options: Optimization,
-    scope: &pse_kernels::ExecutionScope,
-    limits: EvaluationLimits,
-) -> Result<Arc<ScalarProduct>, MathError> {
-    let mut cache = ScalarCache::default();
-    cache
-        .prepare(
-            expressions,
-            parameters,
-            &[],
-            options,
-            scope.into(),
-            limits,
-            0,
-            SourceOperationLimit::Scalar(limits.operations),
-        )
-        .cloned()
 }

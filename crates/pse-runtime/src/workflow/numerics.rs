@@ -854,6 +854,9 @@ impl RunResult {
         }
         if request.wants(resolved::RELATION_ID) {
             let policy_count = match self.request() {
+                RunRequest::Expectation(_)
+                | RunRequest::Mathematical(_)
+                | RunRequest::SelectedObservation(_) => 0,
                 RunRequest::Modeling(p) => p.len(),
                 RunRequest::Initialization(_) => match self.report() {
                     Ok(RunReport::Initialization(report)) => report
@@ -877,7 +880,10 @@ impl RunResult {
                     #[cfg(feature = "solver-diffsol")]
                     RunRequest::Shooting { problem: p, .. } => p.numerics(),
                     RunRequest::Modeling(p) => p[step].solve.numerics(),
-                    RunRequest::Expectation(_) | RunRequest::Mathematical(_) | RunRequest::SelectedObservation(_) | RunRequest::Horizon(_) => return None,
+                    RunRequest::Expectation(_)
+                    | RunRequest::Mathematical(_)
+                    | RunRequest::SelectedObservation(_)
+                    | RunRequest::Horizon(_) => return None,
                 })
             };
             let mut resolved = crate::workflow::result_export::Rows::<resolved::Row>::new(

@@ -2,36 +2,28 @@
 /// Independent development knowledge interpretation.
 pub const INTERPRETATION: &str = "pse-development-knowledge-v3";
 /// Exact knowledge schema and codec identity.
-pub const SCHEMA_DIGEST: &str = "32bb557ee5e8ac1de74e86e4daa5eb6c07cfb469384276aba7d3f36110d2d4da";
+pub const SCHEMA_DIGEST: &str = "fca82929e685da79c2e773457b613603d7cd8ac61ade4f304b28c9f7c402d193";
 /// Registry-derived tooling-only knowledge schema.
 pub const SCHEMA: &str = include_str!("knowledge.surql");
 /// Mutation of a required value; omission leaves the original unchanged.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum NativeUpdate<T> {
     /// Preserve the original value.
+    #[default]
     Keep,
     /// Supply the new declared value.
     Set(T),
 }
-impl<T> Default for NativeUpdate<T> {
-    fn default() -> Self {
-        Self::Keep
-    }
-}
 /// Mutation of an optional value; removal is distinct from omission.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub enum NativeMerge<T> {
     /// Preserve the original value.
+    #[default]
     Keep,
     /// Supply a present declared value.
     Set(T),
     /// Remove the optional field using native NONE.
     Remove,
-}
-impl<T> Default for NativeMerge<T> {
-    fn default() -> Self {
-        Self::Keep
-    }
 }
 /// Creation input, including immutable values admitted at initialization.
 #[derive(Clone, Debug)]

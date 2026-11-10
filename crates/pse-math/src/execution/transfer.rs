@@ -365,9 +365,11 @@ impl<'a> Program<'a> {
                     checks,
                     checked_ends,
                 } => {
+                    #[cfg(not(feature = "compiled-evaluator"))]
+                    let BlockEvaluator::Interpreted(evaluator) = evaluator;
+                    #[cfg(feature = "compiled-evaluator")]
                     let evaluator = match evaluator {
                         BlockEvaluator::Interpreted(evaluator) => evaluator,
-                        #[cfg(feature = "compiled-evaluator")]
                         BlockEvaluator::Native(native) => &native.canonical,
                     };
                     StageView::Block(BlockView {

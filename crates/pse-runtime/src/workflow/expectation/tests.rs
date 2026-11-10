@@ -357,6 +357,9 @@ async fn fixed_expectation_signed_and_constant_outputs_keep_nominal_statistics()
 #[tokio::test]
 async fn expectation_missing_output_is_not_renormalized_and_operational_loss_is_not_failure() {
     let (runtime, package, request) = fixture(false, 4).await;
+    let mut finite_request=request.clone();
+    finite_request.controls.maximum_iterations=1;
+    finite_request.controls.maximum_samples=4;
     let admitted = package
         .admit_expectation(
             &runtime.preparation_services(),
@@ -378,7 +381,18 @@ async fn expectation_missing_output_is_not_renormalized_and_operational_loss_is_
     assert_eq!(report.outputs[0].issued, 4);
     assert!(report.outputs[0].estimate.is_none());
     assert!(report.outputs[0].standard_error.is_none());
-    assert_eq!(report.failure_probability.unwrap().estimate, 0.25);
+    assert!(!report.limit_reached);
+    assert!(!report.failure_probability_complete,"a scientific stop cannot complete the indicator over an unfulfilled requested budget");
+    assert!(report.failure_probability.is_none());
+    let finite=package.admit_expectation(&runtime.preparation_services(),finite_request,&crate::CancelSource::new()).await.unwrap();
+    let mut finite=ExpectationParent::new(finite,study(28),"qualified".into()).unwrap();
+    let iteration=finite.prepare_iteration(&runtime.preparation_services(),study(29)).unwrap();
+    let mut observed=observations(&iteration,|index,_|vec![(index!=1).then_some(2.)]);
+    observed[1].scientific_failure=Some(true);
+    let report=finite.commit_iteration(study(29),&observed).unwrap();
+    assert!(report.limit_reached);
+    assert!(report.failure_probability_complete);
+    assert_eq!(report.failure_probability.unwrap().estimate,0.25);
     let mut stopped = ExpectationParent::new(admitted, study(18), "qualified".into()).unwrap();
     let iteration = stopped
         .prepare_iteration(&runtime.preparation_services(), study(19))
@@ -814,4 +828,67 @@ async fn expectation_joint_authored_pushforward_keeps_input_dependence() {
         (actual - 5. / 6.).abs() < 0.12,
         "independent analytic integral of u+u^2"
     );
+}
+
+#[tokio::test]
+async fn adaptive_expectation_sixteen_level_filled_history_replays_and_seventeen_refuses() {
+    let runtime=super::super::tests::runtime();
+    let declarations=(0..16).map(|index|format!("var c{index}:Scalar;")).collect::<String>();
+    let expression=std::iter::once("u".to_owned()).chain((0..=16).map(|index|format!("c{index}"))).collect::<Vec<_>>().join("+");
+    let source=format!("package expectation_depth {{def Deep {{{declarations}param c16:Scalar=1;var u:Scalar;let value:Scalar={expression};}}}}");
+    let rows=pse_authoring::language::parse(&source,id(126),pse_authoring::language::IdentityPolicy::Named,Default::default()).unwrap();
+    let root=rows.iter().find(|row|row.name=="Deep").unwrap().declaration_id;
+    let package=runtime.modeling_package(rows,super::super::tests::physical()).await.unwrap();
+    let services=runtime.preparation_services();
+    let preparation=PreparationSettings{compiler:super::super::tests::compiler_profile(),..Default::default()};
+    let bindings=pse_modeling::Bindings{demand:std::iter::once("u".into()).chain(std::iter::once("value".into())).chain((0..=16).map(|index|format!("c{index}"))).collect(),..Default::default()};
+    let model=package.prepare(&services,root,pse_modeling::specialize::root_instance(root),bindings.clone(),preparation.limits,&crate::CancelSource::new()).await.unwrap();
+    let member=|name:&str|model.compiled().model.symbols.values().find(|symbol|symbol.lineage.path==format!("Deep.{name}")).unwrap().id;
+    let scalar=quantity(&package.quantities,"Scalar",1.,None);
+    let mut coordinates=vec![ExpectationCoordinate::Uniform{target:BindingTarget::Member(member("u")),lower:quantity(&package.quantities,"Scalar",0.,None),upper:scalar.clone()}];
+    for index in 0_u8..16 {
+        coordinates.push(ExpectationCoordinate::Categorical{target:BindingTarget::Member(member(&format!("c{index}"))),categories:vec![ExpectationCategory{category:id(index*2+1),value:scalar.clone(),probability:if index<8{0.25}else{1.}},ExpectationCategory{category:id(index*2+2),value:quantity(&package.quantities,"Scalar",2.,None),probability:if index<8{0.75}else{0.}}]});
+    }
+    let request=ExpectationRequest{
+        source:OperationSource::of(&package),preparation,
+        member:ExpectationMember::Observation(SelectedObservationOperation{root,instance:pse_modeling::specialize::root_instance(root),bindings,outputs:vec![SelectedObservationOutput{member:BindingTarget::Member(member("value")),quantity:scalar.quantity,unit:scalar.unit}]}),
+        coordinates,transform:None,outputs:vec![ExpectationOutput{output:member("value"),quantity:scalar.quantity,unit:scalar.unit,reference:None,scale:scalar.clone(),absolute_error:None,relative_error:None,train:true}],
+        estimator:ExpectationEstimator::Adaptive(ExpectationAdaptiveSettings{bins:2,minimum_training_samples:1000,bin_evolution:None,uniform_mixture:0.1,maximum_probability_ratio:4.,discrete_learning_rate:0.5,continuous_learning_rate:0.5}),
+        controls:ExpectationControls{seed:987,lanes:4,samples_per_iteration:64,maximum_iterations:3,maximum_samples:192,normalization_tolerance:1e-12},failure_probability:true,replay:ExpectationReplay::PopulationAndBoundary,
+    };
+    let admitted=package.admit_expectation(&services,request.clone(),&crate::CancelSource::new()).await.unwrap();
+    let mut parent=ExpectationParent::new(admitted.clone(),study(90),"qualified-depth".into()).unwrap();
+    let iteration=parent.prepare_iteration(&services,study(91)).unwrap();
+    let observed=observations(&iteration,|_,sample|vec![Some(sample.base[0]+1.+sample.categories.iter().zip(0_u8..16).map(|(category,index)|if *category==id(index*2+1){1.}else{2.}).sum::<f64>())]);
+    parent.commit_iteration(study(91),&observed).unwrap();
+    let bytes=serde_json::to_vec(&parent.checkpoint().unwrap()).unwrap();
+    let tree:serde_json::Value=serde_json::from_slice(&bytes).unwrap();
+    let mut pending=0;let mut extrema=0;let mut maximum_depth=0;
+    let mut stack=vec![(&tree,1)];
+    while let Some((value,depth))=stack.pop(){
+        maximum_depth=maximum_depth.max(depth);
+        match value {
+            serde_json::Value::Object(object)=>for (name,value) in object {
+                if name=="new_samples"&&value.as_u64().is_some_and(|count|count>0){pending+=1;}
+                if name=="max_eval_positive_xs"&&!value.is_null(){extrema+=1;}
+                stack.push((value,depth+1));
+            },
+            serde_json::Value::Array(values)=>stack.extend(values.iter().map(|value|(value,depth+1))),
+            _=>{},
+        }
+    }
+    assert!(pending>0,"the supported maximum includes unconsumed library bin history below its training threshold");
+    assert!(extrema>=16,"full nested sample extrema are populated, not an empty-grid-only roundtrip");
+    assert!(maximum_depth<=6*16+16,"source-derived default-codec container bound");
+    let checkpoint=ExpectationCheckpoint::decode_original(&admitted,1,&bytes).unwrap();
+    let mut restored=ExpectationParent::restore(admitted,study(90),"qualified-depth",checkpoint).unwrap();
+    let next=parent.prepare_iteration(&services,study(92)).unwrap();
+    let replayed=restored.prepare_iteration(&services,study(92)).unwrap();
+    assert_eq!(serde_json::to_vec(&next.samples).unwrap(),serde_json::to_vec(&replayed.samples).unwrap());
+    let mut deeper=request;
+    deeper.coordinates.push(ExpectationCoordinate::Categorical{target:BindingTarget::Member(member("c16")),categories:vec![ExpectationCategory{category:id(33),value:scalar,probability:1.}]});
+    let error=package.admit_expectation(&services,deeper.clone(),&crate::CancelSource::new()).await.unwrap_err();
+    assert!(error.to_string().contains("16 adaptive categorical levels"));
+    deeper.estimator=ExpectationEstimator::FixedMonteCarlo;
+    assert!(admission::validate_controls(&deeper).is_ok(),"fixed attribution has no nested native proposal snapshot");
 }

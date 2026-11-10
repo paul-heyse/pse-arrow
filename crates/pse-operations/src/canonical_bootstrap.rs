@@ -106,7 +106,7 @@ impl CanonicalStore {
                     ));
                 }
                 if let Some(original) = &original_custody {
-                    if original != &bootstrap {
+                    if original != bootstrap {
                         return Err(invalid("original bootstrap custody changed"));
                     }
                 } else {

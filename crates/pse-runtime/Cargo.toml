@@ -289,6 +289,17 @@ inputs = ["server", "study-module", "service-helper", "product-reader"]
 scope.modules = ["workflow::study_observation::reader_history_tests"]
 
 [[package.metadata.pse.test-fixtures]]
+id = "native-mathematical-original-result"
+target = "pse_runtime"
+kind = "lib"
+required-features = ["engineering-service"]
+ownership = "runner-borrowed"
+inputs = ["server", "study-module", "service-helper"]
+scope.tests = [
+  "host_operations::engineering::session::analytical::tests::native_analytical_original_run_retains_printer_and_refuses_rebound_submission",
+]
+
+[[package.metadata.pse.test-fixtures]]
 id = "library-borrowed-services"
 target = "pse_runtime"
 kind = "lib"
@@ -309,7 +320,6 @@ scope.modules = [
 ]
 scope.tests = [
   "math::portable::canonical_portable_body_tests::canonical_portable_body_candidate_reserves_before_protected_hydration",
-  "host_operations::engineering::session::analytical::tests::native_analytical_original_run_retains_printer_and_refuses_rebound_submission",
   "math::portable::numerical::tests::canonical_numerical_observation_survives_producer_exit_without_source_reconstruction",
   "workflow::modeling::symbolic_preparation::tests::authored_canonical_replay_continues_with_new_second_class_and_original_domain",
   "tooling::reader::canonical::tests::canonical_observer_cancellation_drains_original_protection_and_connection",

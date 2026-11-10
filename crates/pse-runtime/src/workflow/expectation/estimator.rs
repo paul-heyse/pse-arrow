@@ -707,13 +707,6 @@ impl ExpectationParent {
                 }
             })
             .collect();
-        let failure_complete = self.admitted.request.failure_probability
-            && self.state.failure_available == self.state.issued
-            && self.state.failure.processed_samples >= 2
-            && self.state.failure.avg.is_finite()
-            && self.state.failure.err.is_finite()
-            && !self.interrupted
-            && self.pending.is_none();
         let limit_reached = self.state.next_iteration
             >= self.admitted.request.controls.maximum_iterations
             || self
@@ -723,6 +716,14 @@ impl ExpectationParent {
                 .maximum_samples
                 .saturating_sub(self.state.issued)
                 < 2;
+        let failure_complete = self.admitted.request.failure_probability
+            && self.state.failure_available == self.state.issued
+            && self.state.failure.processed_samples >= 2
+            && self.state.failure.avg.is_finite()
+            && self.state.failure.err.is_finite()
+            && (!self.state.stopped || limit_reached)
+            && !self.interrupted
+            && self.pending.is_none();
         let admitted_categories = self
             .admitted
             .category_masses()

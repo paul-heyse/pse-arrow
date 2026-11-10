@@ -304,12 +304,22 @@ case or selected-observation members. Eligible pure populations and pushforwards
 compiled batch owner. The seed, stream assignment, original samples and sealed native
 boundaries define replay; a seed alone is insufficient. Repeating the same parent/request
 reads its original result. Changing that parent's request refuses.
+The maintained Numerica 3.0.1/default-serde replay profile admits at most 16 nested
+categorical levels for adaptive estimation. Its conservative grid/history/sample container
+bound is `6 * levels + 16`, below the default JSON depth 128. The overall coordinate cap
+remains 64 for fixed Monte Carlo and continuous dimensions. A deeper adaptive categorical
+law refuses before grid or child activation; supporting one requires qualifying a deeper
+codec profile or a flat supplier-state interface.
 
 Inspect each output's `complete`, `issued`, `available`, `unavailable` and `precision_met`,
 and the parent's `limit_reached`. Missing required output withholds that output's estimate and
-standard error; successful members never become a renormalized expectation. The separately
-requested failure probability classifies scientific member admission/domain/solve failures.
+standard error; successful members never become a renormalized expectation. Selected
+precision targets determine `precision_met`; when none was selected, a complete finite-budget
+estimate remains available without a precision claim. A separately requested failure probability
+classifies scientific member admission/domain/solve failures.
 Cancellation, infrastructure loss and unsupported interpretation leave it incomplete.
+Stopping on a missing physical output before the declared finite budget is reached also
+withholds indicator completion; counts and original classifications remain retained.
 An undefined pushforward instead refuses the declared law before downstream child activation,
 with original base-point and cause attribution. Statistical standard error is not an enclosure
 or evidence of empirical model accuracy.

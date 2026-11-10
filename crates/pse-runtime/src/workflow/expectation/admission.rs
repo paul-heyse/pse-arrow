@@ -267,6 +267,15 @@ pub(super) fn validate_controls(request: &ExpectationRequest) -> Result<(), Work
         ));
     }
     if let ExpectationEstimator::Adaptive(settings) = &request.estimator {
+        // Maintained Numerica 3.0.1 serde replay uses nested Grid/Bin values and
+        // may retain a full nested Sample inside deep accumulator history.
+        // At most 4 grid containers + 2 sample containers per categorical level,
+        // plus 16 envelope/continuous/history containers, stays at 112 for 16
+        // levels, below serde_json's default 128. Continuous dimensions and
+        // fixed Monte Carlo attribution are flat and keep the 64-coordinate cap.
+        if request.coordinates.iter().filter(|coordinate|matches!(coordinate,ExpectationCoordinate::Categorical{..})).count()>16 {
+            return Err(contract("expectation maintained Numerica 3.0.1 serde replay profile supports at most 16 adaptive categorical levels; deeper laws require a qualified deeper or flat supplier-state interface"));
+        }
         if settings.bins == 0
             || settings.bins > super::super::MAXIMUM_STUDY_POINTS
             || settings.minimum_training_samples == 0
