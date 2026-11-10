@@ -303,6 +303,23 @@ SPDX-FileCopyrightText = [
 ]
 SPDX-License-Identifier = "LicenseRef-Symbolica-Source-Available-1.0"
 
+[[annotations]]
+path = ["vendor/numerica/**", "vendor/deltas/numerica.patch"]
+precedence = "override"
+SPDX-FileCopyrightText = ["2025-present Ruijl Research", "2026 Paul Heyse (lexical allocation context)"]
+SPDX-License-Identifier = "MIT"
+
+# The embedded archive retains this complete upstream notice and license.
+[[annotations]]
+path = ["crates/pse-math/assets/xsimd-source.tar.gz"]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "2016 Johan Mabille, Sylvain Corlay, Wolf Vollprecht and Martin Renou",
+  "2016 QuantStack",
+  "2018 Serge Guelton",
+]
+SPDX-License-Identifier = "BSD-3-Clause"
+
 # This imported benchmark fixture explicitly retains its upstream MIT notice.
 [[annotations]]
 path = ["vendor/symbolica/benches/support/polybench_cases.rs"]

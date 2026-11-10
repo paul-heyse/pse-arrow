@@ -88,6 +88,10 @@ native frames remain the consumer's accounting responsibility. A tiny valid enco
 can request a large stack: successful passive inspection never grants that allocation.
 Every native scientific caller retains its own admission, context and permission checks.
 
+Current standalone reproduction adds the maintained Numerica source selector in
+[the allocation-context owner](numerica-allocation-context.md). The following results
+retain their original performing commands and source selection.
+
 **Tested, targeted, 2026-11-10:** `scripts/pse-env -- cargo test --manifest-path
 vendor/symbolica/Cargo.toml --locked --no-default-features --features
 integer-gmp,float-mpfr,native_code_generation --lib evaluate::f64_transfer::tests::`

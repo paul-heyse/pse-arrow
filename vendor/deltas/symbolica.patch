@@ -1,5 +1,18 @@
+diff --git a/Cargo.lock b/Cargo.lock
+index d66f3d8f37dc39967c14259006cf766d1a632217..6217325739394aac31d4690b286ba080ec4787b3 100644
+--- a/Cargo.lock
++++ b/Cargo.lock
+@@ -963,8 +963,6 @@ dependencies = [
+ [[package]]
+ name = "numerica"
+ version = "3.0.1"
+-source = "registry+https://github.com/rust-lang/crates.io-index"
+-checksum = "836accdb415b7667573bd12676e0b2eb4440e3f60b110038d96a9086f5651c15"
+ dependencies = [
+  "ahash",
+  "astro-float",
 diff --git a/Cargo.toml b/Cargo.toml
-index ed021999967265189ddf4c83192d1ec606259650..2e1a88a1131313311acbb788159c09053d45e6f2 100644
+index ed021999967265189ddf4c83192d1ec606259650..8a8b655451a3534083956f46caf88e4c1a515b93 100644
 --- a/Cargo.toml
 +++ b/Cargo.toml
 @@ -132,6 +132,10 @@ wasm = [
@@ -13,6 +26,16 @@ index ed021999967265189ddf4c83192d1ec606259650..2e1a88a1131313311acbb788159c0905
  [[example]]
  name = "algebraic_factor_expression"
  path = "examples/algebraic_factor_expression.rs"
+@@ -378,7 +382,8 @@ optional = true
+ package = "rustfs-mimalloc"
+ 
+ [dependencies.numerica]
+-version = "3.0.1"
++version = "=3.0.1"
++path = "../numerica"
+ default-features = false
+ 
+ [dependencies.numpy]
 diff --git a/build.rs b/build.rs
 index d7d5728a7d5c76685d571615fb8b4742823e7cc8..fc3eb20e6ccf7f6c592b26fd7b12426672b45cfc 100644
 --- a/build.rs

@@ -27,6 +27,7 @@ delta includes its native release replacement and maintained integration.
 | `faer` | `faer` | `0.24.4` | `5ab6df3dd147fe8d702a288b95bcd8fcc499ab572fc80da6828f60cd4d524d67` | `0539947ffb757a739d7e703a7d2fa0c792a909c1` | `faer` | https://github.com/sarah-quinones/faer-rs |
 | `faer-traits` | `faer-traits` | `0.24.0` | `b87d23ed7ab1f26c0cba0e5b9e061a796fbb7dc170fa8bee6970055a1308bb0f` | `8dfcceee8eb3d81231366acc9d3f157ac5e7057a` | `faer-traits` | https://github.com/sarah-quinones/faer-rs |
 | `symbolica` | `symbolica` | `3.0.1` | `0965398bbe5063c00b3a0d078d7d3dc57b61819b97e960b73e9a7e9602662795` | `e9a0d35490a834afb2fa40d97c8c0b1e58ef5a5e` | `.` | https://github.com/symbolica-dev/symbolica |
+| `numerica` | `numerica` | `3.0.1` | `836accdb415b7667573bd12676e0b2eb4440e3f60b110038d96a9086f5651c15` | `a8a8fcb8941752e265e3c4fa507c02a3f06bb70e` | `.` | https://github.com/symbolica-dev/numerica |
 
 ## Complete byte deltas
 
@@ -52,7 +53,8 @@ categories describe the diff and do not assert semantic equivalence.
 | `diffsol-nl` | 1 | 0 | 0 | 0 | [diffsol-nl.patch](diffsol-nl.patch) |
 | `faer` | 3 | 0 | 0 | 0 | [faer.patch](faer.patch) |
 | `faer-traits` | 1 | 0 | 0 | 0 | [faer-traits.patch](faer-traits.patch) |
-| `symbolica` | 12 | 0 | 7 | 0 | [symbolica.patch](symbolica.patch) |
+| `symbolica` | 13 | 0 | 7 | 0 | [symbolica.patch](symbolica.patch) |
+| `numerica` | 1 | 0 | 1 | 0 | [numerica.patch](numerica.patch) |
 
 SuiteSparse adds `.gitattributes` to retain its two published CRLF files. The SUNDIALS release
 replacement adds 138 and deletes 103 paths relative to the published wrapper, including the

@@ -1,6 +1,6 @@
 {
   "archive_sha256": "0965398bbe5063c00b3a0d078d7d3dc57b61819b97e960b73e9a7e9602662795",
-  "delta_sha256": "00ff0c410a5af649a112659c49be888b4ba36e83e0be37058d8758fdc3661e10",
+  "delta_sha256": "1267c1456af1c6eac1d096be69bf14a6b93dd2804ea45686dd5c5fda04b0ffdc",
   "files": {
     ".cargo_vcs_info.json": {
       "mode": "100644",
@@ -24,11 +24,11 @@
     },
     "Cargo.lock": {
       "mode": "100644",
-      "sha256": "e1f466c318a66b7b0359906ebf76aab36bf8ac63ae1fd51676bc6a21735ac798"
+      "sha256": "e739bf1dfd92b839209894ab3e55bd74bae4ddc94f721a4ca8676074509aaf77"
     },
     "Cargo.toml": {
       "mode": "100644",
-      "sha256": "77052f02d816a1914c7a9ab3197800096ee556d7053f406e567941eaef8ac85d"
+      "sha256": "f51b42f3eb2e66cfaa21e152f0b8bfcb021f22a304ede9b9ab0cc412a6ac297f"
     },
     "Cargo.toml.orig": {
       "mode": "100644",

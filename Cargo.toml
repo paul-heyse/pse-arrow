@@ -44,6 +44,7 @@ exclude = [
   "vendor/faer",
   "vendor/faer-traits",
   "vendor/symbolica",
+  "vendor/numerica",
   "vendor/salsa",
   "vendor/buffa",
   "vendor/buffa-codegen",
@@ -865,6 +866,7 @@ ra_ap_ide_db = { version = "=0.0.358", path = "vendor/ra_ap_ide_db" }
 faer = { version = "=0.24.4", path = "vendor/faer" }
 faer-traits = { version = "=0.24.0", path = "vendor/faer-traits" }
 symbolica = { version = "=3.0.1", path = "vendor/symbolica" }
+numerica = { version = "=3.0.1", path = "vendor/numerica" }
 paste = { version = "=1.0.15", path = "vendor/paste" }
 pest_derive = { version = "=2.9.2", path = "vendor/pest_derive" }
 py_literal = { version = "=0.4.0", path = "vendor/py_literal" }

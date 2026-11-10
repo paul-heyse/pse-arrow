@@ -1,0 +1,184 @@
+diff --git a/src/domains/backend/integer.rs b/src/domains/backend/integer.rs
+index 8c3309d228d05b5db24251eece58bbbc2957ee2c..8f836d035cd98f2d27de6c650258e5a9b3a6e497 100644
+--- a/src/domains/backend/integer.rs
++++ b/src/domains/backend/integer.rs
+@@ -1,4 +1,9 @@
++mod allocation;
++pub use allocation::IntegerAllocationContext;
++
+ mod implementation {
++    #[cfg(feature = "integer-gmp")]
++    use super::IntegerAllocationContext;
+     #[cfg(feature = "integer-gmp")]
+     use gmp_mpfr_sys::gmp;
+     #[cfg(all(feature = "integer-gmp", target_pointer_width = "64", not(windows)))]
+@@ -74,6 +79,9 @@ mod implementation {
+         fn default() -> Self {
+             #[cfg(feature = "integer-gmp")]
+             {
++                if IntegerAllocationContext::capture().is_fresh() {
++                    return Self(RawMultiPrecisionInteger::default());
++                }
+                 let value = LARGE_INTEGER_CACHE
+                     .try_with(|cache| cache.try_borrow_mut().ok()?.pop())
+                     .ok()
+@@ -92,6 +100,9 @@ mod implementation {
+     impl Drop for MultiPrecisionInteger {
+         #[inline]
+         fn drop(&mut self) {
++            if IntegerAllocationContext::capture().is_fresh() {
++                return;
++            }
+             let mut value = std::mem::take(&mut self.0);
+ 
+             let cacheable = value.capacity() > 0
+@@ -1590,6 +1601,59 @@ mod implementation {
+             }
+         }
+ 
++        #[cfg(feature = "integer-gmp")]
++        #[test]
++        fn integer_allocation_context_keeps_cached_backing_untouched() {
++            LARGE_INTEGER_CACHE.with(|cache| cache.borrow_mut().clear());
++            let values = (0..LARGE_INTEGER_CACHE_SIZE)
++                .map(|_| {
++                    MultiPrecisionInteger::from_raw(RawMultiPrecisionInteger::from(1) << 19_000)
++                })
++                .collect::<Vec<_>>();
++            drop(values);
++            let before = LARGE_INTEGER_CACHE.with(|cache| {
++                cache
++                    .borrow()
++                    .iter()
++                    .map(RawMultiPrecisionInteger::capacity)
++                    .collect::<Vec<_>>()
++            });
++            assert_eq!(before.len(), LARGE_INTEGER_CACHE_SIZE);
++            let smallest = *before.iter().min().unwrap();
++            IntegerAllocationContext::fresh().run(|| {
++                let x = MultiPrecisionInteger::from_raw(RawMultiPrecisionInteger::from(1) << 96);
++                let y = MultiPrecisionInteger::from_raw(RawMultiPrecisionInteger::from(3) << 96);
++                let copied = x.clone();
++                let sum = &x + &y;
++                let product = &x * &y;
++                let (quotient, remainder) = x.div_rem_ref(&y);
++                let primitive = MultiPrecisionInteger::from(7u64);
++                let empty = MultiPrecisionInteger::default();
++                for value in [
++                    &copied, &sum, &product, &quotient, &remainder, &primitive, &empty,
++                ] {
++                    assert!(value.as_raw().capacity() < smallest);
++                }
++                assert_eq!(sum.as_raw(), &(RawMultiPrecisionInteger::from(4) << 96));
++                assert_eq!(
++                    product.as_raw(),
++                    &(RawMultiPrecisionInteger::from(3) << 192)
++                );
++                assert_eq!(remainder, x);
++                assert_eq!(quotient, MultiPrecisionInteger::from(0));
++            });
++            let after = LARGE_INTEGER_CACHE.with(|cache| {
++                cache
++                    .borrow()
++                    .iter()
++                    .map(RawMultiPrecisionInteger::capacity)
++                    .collect::<Vec<_>>()
++            });
++            assert_eq!(before, after);
++            let ordinary = MultiPrecisionInteger::default();
++            assert!(ordinary.as_raw().capacity() >= smallest);
++        }
++
+         #[cfg(feature = "integer-gmp")]
+         #[test]
+         fn large_integer_cache_is_bounded_and_reused() {
+diff --git a/src/domains/backend/integer/allocation.rs b/src/domains/backend/integer/allocation.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..7356c543fa18e7c051085e6bc0466d5ebcf3d49e
+--- /dev/null
++++ b/src/domains/backend/integer/allocation.rs
+@@ -0,0 +1,84 @@
++//! Lexical allocation policy for exact-integer operations and their workers.
++use std::cell::Cell;
++
++thread_local! {
++    static FRESH: Cell<bool> = const { Cell::new(false) };
++}
++
++/// A captured per-thread allocation policy, containing no buffer, callback or
++/// caller control. Send the value to an explicitly owned worker and call
++/// [`Self::run`] there to inherit the policy for that worker's actual operation.
++/// Outside an explicit fresh scope, the native bounded integer cache is used.
++#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
++pub struct IntegerAllocationContext {
++    fresh: bool,
++}
++
++impl IntegerAllocationContext {
++    /// Construct exact integers without adopting old cleared-cache allocations.
++    /// Temporaries dropped inside the call also bypass cache insertion. Existing
++    /// cached values remain untouched; numerical algorithms are unchanged.
++    pub const fn fresh() -> Self {
++        Self { fresh: true }
++    }
++
++    /// Snapshot this thread's current allocation policy without allocating.
++    pub fn capture() -> Self {
++        Self { fresh: FRESH.get() }
++    }
++
++    /// Whether this policy requires backing independent of a previous operation.
++    pub const fn is_fresh(self) -> bool {
++        self.fresh
++    }
++
++    /// Apply this policy only for the current call. Nested calls and unwind
++    /// restore the exact prior policy. Returned integers retain no policy or
++    /// producer state; their eventual drop follows the then-current policy.
++    pub fn run<T>(self, work: impl FnOnce() -> T) -> T {
++        struct Restore(bool);
++        impl Drop for Restore {
++            fn drop(&mut self) {
++                FRESH.set(self.0);
++            }
++        }
++        let restore = Restore(FRESH.replace(self.fresh));
++        let result = work();
++        drop(restore);
++        result
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn integer_allocation_context_restores_nested_and_unwound_policy() {
++        assert!(!IntegerAllocationContext::capture().is_fresh());
++        IntegerAllocationContext::fresh().run(|| {
++            assert!(IntegerAllocationContext::capture().is_fresh());
++            IntegerAllocationContext::default().run(|| {
++                assert!(!IntegerAllocationContext::capture().is_fresh());
++            });
++            assert!(IntegerAllocationContext::capture().is_fresh());
++            let inherited = IntegerAllocationContext::capture();
++            std::thread::scope(|workers| {
++                workers
++                    .spawn(move || {
++                        inherited.run(|| {
++                            assert!(IntegerAllocationContext::capture().is_fresh());
++                        })
++                    })
++                    .join()
++                    .unwrap();
++            });
++        });
++        assert!(!IntegerAllocationContext::capture().is_fresh());
++        let result = std::panic::catch_unwind(|| {
++            IntegerAllocationContext::fresh().run(|| panic!("allocation-policy unwind"));
++        });
++        assert!(result.is_err());
++        assert!(!IntegerAllocationContext::capture().is_fresh());
++    }
++}

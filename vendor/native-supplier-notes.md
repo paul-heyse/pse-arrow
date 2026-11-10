@@ -18,6 +18,18 @@ packaged VCS revisions and complete byte-preserving deltas are recorded in
 [deltas/readme.md](deltas/readme.md). That record includes all added and removed files,
 not just the build-script changes described below.
 
+Numerica's maintained exact-integer backend adds a lexical allocation context for
+checked mathematical construction. Fresh calls bypass cleared-integer cache adoption
+and insertion; explicit workers inherit only a captured policy value. Nested calls
+and unwind restore the prior policy, existing cached buffers remain untouched, and
+returned integers retain no producer control. This changes allocation strategy rather
+than numerical operations. Symbolica's normalized manifest selects this same sibling
+source for standalone reproduction; the workspace patch carries other transitive edges.
+Symbolica workspace buffers and actual construction growth
+require their own checked admission; bypassing the integer cache does not establish
+that larger contract. [The allocation-context owner](numerica-allocation-context.md)
+records the exact lexical contract and current standalone source selection.
+
 Cargo cache markers and `.cargo-checksum.json` are omitted. The original package
 checksums in the linked archive table identify the imported sources; they do not authenticate patched
 files. VCS metadata and packaged lockfiles remain upstream snapshots. `Cargo.toml.orig`

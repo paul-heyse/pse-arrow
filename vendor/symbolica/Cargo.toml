@@ -382,7 +382,8 @@ optional = true
 package = "rustfs-mimalloc"
 
 [dependencies.numerica]
-version = "3.0.1"
+version = "=3.0.1"
+path = "../numerica"
 default-features = false
 
 [dependencies.numpy]
