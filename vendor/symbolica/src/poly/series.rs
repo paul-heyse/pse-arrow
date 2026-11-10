@@ -227,6 +227,21 @@ pub struct Series<F: Ring> {
     ramification: usize, // the factor that makes the exponents integer
 }
 
+/// Native series precision without interpreting the internal infinity sentinel as
+/// a finite rational. Exact source termination is a separate mathematical fact.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SeriesPrecision {
+    /// A finite remainder described in both coordinate conventions.
+    Finite {
+        /// Omitted order relative to the leading exponent.
+        relative: Rational,
+        /// Omitted absolute coordinate exponent.
+        absolute: Rational,
+    },
+    /// No finite omitted order is represented by the native series.
+    Infinite,
+}
+
 impl<F: Ring + std::fmt::Debug> std::fmt::Debug for Series<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         if self.order == 0 {
@@ -254,6 +269,17 @@ impl<F: Ring + std::fmt::Display> std::fmt::Display for Series<F> {
 }
 
 impl<F: Ring> Series<F> {
+    /// Inspect omitted-order metadata safely, including exact infinite precision.
+    pub fn precision(&self) -> SeriesPrecision {
+        if self.order == i64::MAX as usize {
+            SeriesPrecision::Infinite
+        } else {
+            SeriesPrecision::Finite {
+                relative: self.relative_order(),
+                absolute: self.absolute_order(),
+            }
+        }
+    }
     /// Constructs a zero series with fixed order. Instead of using this constructor,
     /// prefer to create new series from existing ones, so that the
     /// variable map and field are inherited.

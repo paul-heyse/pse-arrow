@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 
 //! Library-owned arithmetic with explicit physical and guarded evaluation boundaries.
+pub mod analytical;
 pub mod assembly;
 pub mod binding;
 mod class_evidence;
