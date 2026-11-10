@@ -1,6 +1,6 @@
 ---
 title: "Plan73b: Supplier controls and qualified receiving"
-status: draft
+status: in-progress
 date: 2026-11-09
 doc_role: plan
 doc_owner: docs/plans/73b-supplier-controls-and-qualified-receiving.md
@@ -65,7 +65,7 @@ Preserve [maintained bounded roots](../../vendor/symbolica-bounded-roots.md), pa
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| [B01](#B01) | open | A01/C01 design slices and existing callers | Checked operation extents, overflow/refusal, temporary overlap, safe points and per-call control settled through applicable decisions. |
+| [B01](#B01) | in-progress | A01/C01 design slices and existing callers | Checked operation extents, overflow/refusal, temporary overlap, safe points and per-call control settled through applicable decisions. |
 | [B02](#B02) | open | B01 implemented control interface | Checked construction/vectorization/optimization consumed; corresponding expansion mirrors/rebinding removed. |
 | [B03](#B03) | open | B01 interface; C01 supported-head descriptors | Checked scalar/x4 C++ export and native caller migration cover stable heads/source overlap; replaced exporter predictors removed. |
 | [B04](#B04) | open | A01 module scenario; B01 preservation contract | Composer backport/rebase versus no-adoption decision implemented with A04, preserving maintained source contracts/provenance. |
@@ -431,3 +431,7 @@ on an old plan or a benchmark promised solely to quantify an expected simplifica
 ## Verification
 
 **Proposed:** scoped supplier/math/runtime compilation and focused tests through supported `pse` routes, explicit Arrow validation where applicable. Construction checks include one-unit-short allowance, overflow, interrupted stages, truncation and no partial retention. Receiving checks include passive inspection, admitted restore, producer retirement, destination compatibility and actual symbolic continuation. H selects assembled native/compiler lifecycle and cold receiver journeys at scope end, including maintained root/conversion controls when supplier code changes. No tests, builds or performance measurements ran in authoring.
+
+## Execution checkpoint — 2026-11-10
+
+Execution of the integrated A/B/C scope began at `d2302f32a` with a clean checkout. The selected first assignments are shared transport consolidation, checked supplier construction and stable primitives. A01/B01/C01 are coordinated prerequisite contracts; A03 proceeds within existing binding semantics. Required new kernel/primitive decisions precede dependent implementation. All other scope remains open until its actual production cutover and targeted evidence; broader Plan73/Plan66 completion is not claimed.

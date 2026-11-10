@@ -1,6 +1,6 @@
 ---
 title: "Plan73: Symbolica ecosystem improvements"
-status: draft
+status: in-progress
 date: 2026-11-09
 doc_role: plan
 doc_owner: docs/plans/73-symbolica-ecosystem-improvements.md
@@ -148,3 +148,7 @@ H records delivered capabilities, source changes, tests and residual wider oblig
 **Proposed verification.** Each companion names targeted success/refusal/interruption scenarios and replaced machinery. Use scoped `pse check` and `pse test`, with explicit force-validation for Arrow-consuming correctness closures. Regenerate when declarations/generators change. Run relevant assembled integration, scientific/reference, docs and static qualification at scope end as selected in H; do not impose a full campaign per companion. No generic benefit benchmark is required. Expected simplification is qualitative until measured.
 
 Completion requires all selected behavior and consumers delivered, bounded decisions closed with their consequences integrated, replaced machinery deleted, required receiving and assembled qualification performed, and enduring contracts published through their decision routes. A passed local test, accepted ADR or new supplier API does not establish whole-series completion. H owns the factual Plan66 handback. No production test, build, health check or efficiency measurement was performed in authoring this draft.
+
+## Execution checkpoint — 2026-11-10
+
+Execution of the integrated A/B/C scope began at `d2302f32a` with a clean checkout. The selected first assignments are shared transport consolidation, checked supplier construction and stable primitives. A01/B01/C01 are coordinated prerequisite contracts; A03 proceeds within existing binding semantics. Required new kernel/primitive decisions precede dependent implementation. All other scope remains open until its actual production cutover and targeted evidence; broader Plan73/Plan66 completion is not claimed.

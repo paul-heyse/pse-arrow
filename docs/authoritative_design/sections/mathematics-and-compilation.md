@@ -112,6 +112,14 @@ A generic signature cannot authorize a physical operation absent from the admitt
 `workspace::modeling`, and `pse-math::{typed,guarded,execution}`. The authored function and
 realization contract is proposed [ADR-0100](../../adr/0100-modeling-functions-and-accounting.md).
 
+#### 7.2.1 Selected stable operations and checked construction
+
+> Decision: ADR-0263 (proposed; maintainer-authorized Plan73a/b/c implementation).
+
+The selected extension admits dimensionless `log1p` with original x > -1 and magnitude over compatible linear/difference physical quantities. Joint-zero magnitude is a value but not a differentiable point. A deterministic mathematical registration owner supplies known heads, local derivatives and qualified numerical implementations, separately from callback-free formal/provider-lift pool symbols. Symbolica retains chain/Taylor composition; original physical/source/domain and derivative-order obligations remain. The selected scalar interpreted and explicit conservative scalar/x4 native realizations require their actual function, ISA/ABI and worker contracts; a trait or exported head is not a numeric guarantee. Plan73 owns implementation and receiving evidence.
+
+For the new construction profile, supplier-owned checked builder, optimization, vectorization and export operations consume borrowed current-operation cancellation/admission. They report operation-specific work and input-live/temporary/output backing before charged growth, preserve original typed refusal and return no successful truncated product. Retained immutable products do not retain producer cancellation authority. Application source/physical eligibility, allocation ownership and independent realized reconciliation remain. Delete replaced algorithm mirrors and callback rebinding only with the equivalent consumed supplier path. This profile adds no workstation cap or application AD/optimizer framework and changes no canonical publication authority.
+
 ### 7.3 Operation contracts: physical admission and domain obligations
 
 > Decision: [ADR-0193](../../adr/0193-demand-products-and-compiled-derivatives.md) (proposed Plan46 amendment). Provider demand and invocation completion follow §14.3; physical admission remains owned here.

@@ -1,6 +1,6 @@
 ---
 title: "Plan73a: Shared mathematical preparation"
-status: draft
+status: in-progress
 date: 2026-11-09
 doc_role: plan
 doc_owner: docs/plans/73a-shared-mathematical-preparation.md
@@ -53,9 +53,9 @@ Definition-led mappings are selected first. For independently authored equivalen
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| [A01](#A01) | open | Coordinator scope and current source | Product/demand/binding contract and actual remaining consumer migrations/deletions identified; function/profile/receiving implications reconciled with B/C/D/E. |
+| [A01](#A01) | in-progress | Coordinator scope and current source | Product/demand/binding contract and actual remaining consumer migrations/deletions identified; function/profile/receiving implications reconciled with B/C/D/E. |
 | [A02](#A02) | open | A01 and working B controls where construction changes | Named definitions and selected products reach fitting/solver/exact consumers; replaced repeated construction removed. |
-| [A03](#A03) | open | A01/A02 binding/product contract | Definition-led repeated physical instances share preparation with complete axis/output transport and distinct original results. |
+| [A03](#A03) | in-progress | A01/A02 binding/product contract | Definition-led repeated physical instances share preparation with complete axis/output transport and distinct original results. |
 | [A04](#A04) | open | A01 module scenario and B04 compatibility outcome | Joint/host/composed route selected and implemented in actual independent consumers, with replaced preparation removed. |
 | [A05](#A05) | open | A03 and current structural/physical interpretation | Independent-motif graph matching decision closed and selected result integrated; no unused canonical-cache framework. |
 | [A06](#A06) | open | A02–A05 and relevant numerical/exact consumers | Actual consumers and retirement reconciled; independent actions, invalidation and interruption journeys ready for H. |
@@ -143,3 +143,7 @@ Exercise a repeated fitting/residual assembly through the runtime owner with ent
 ## Verification
 
 **Proposed:** scoped `pse check` and focused `pse test` for changed math/compiler/runtime consumers, with force-validation in Arrow closures. Use repeated chains/diamonds, reordered outputs, independently expected Jv/Jᵀw/Hv, changed values versus guard/layout/provider invalidation, distinct mapped-instance provenance and incompatible axes. Include finite weighted output with overflowing unused intermediate, cancellation and no partial retention. Supplier-vs-shared self-comparison alone is insufficient. H owns relevant assembled fitting/solver/native/receiver qualification after functional scope. No build, test or performance measurement was run in authoring; expected less repeated preparation remains qualitative.
+
+## Execution checkpoint — 2026-11-10
+
+Execution of the integrated A/B/C scope began at `d2302f32a` with a clean checkout. The selected first assignments are shared transport consolidation, checked supplier construction and stable primitives. A01/B01/C01 are coordinated prerequisite contracts; A03 proceeds within existing binding semantics. Required new kernel/primitive decisions precede dependent implementation. All other scope remains open until its actual production cutover and targeted evidence; broader Plan73/Plan66 completion is not claimed.

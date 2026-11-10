@@ -1,6 +1,6 @@
 ---
 title: "Plan73c: Stable operations and batch execution"
-status: draft
+status: in-progress
 date: 2026-11-09
 doc_role: plan
 doc_owner: docs/plans/73c-stable-operations-and-batch-execution.md
@@ -53,7 +53,7 @@ Use scalar realization explicitly for small/unsupported work, selected before ef
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| [C01](#C01) | open | Joint A01/B01 design slices | Stable primitive/signature/domain/derivative formulas, registration, scalar/x4 profiles and receiving identities settled; builtin alternative closed before representation freezes. |
+| [C01](#C01) | in-progress | Joint A01/B01 design slices | Stable primitive/signature/domain/derivative formulas, registration, scalar/x4 profiles and receiving identities settled; builtin alternative closed before representation freezes. |
 | [C02](#C02) | open | C01/A01 contracts; B02 checked known-head derivative slice | Scalar interpreted stable Value/First/Second and an actual authored scientific consumer implemented with original guards/source reporting. |
 | [C03](#C03) | open | C02; working B03 scalar export and B05 numerical receiving | Compiled scalar stable products and portable receiving delivered; replaced consumer numerical tricks removed. |
 | [C04](#C04) | open | A02 working demanded-product slice; C01 layout/profile contract | Ordered batch request/outcomes and private reusable worker scratch delivered, initially explicit scalar realization. |
@@ -416,3 +416,7 @@ for assembled qualification after functional implementation.
 ## Verification
 
 **Proposed:** scoped compilation and focused math/compiler/runtime tests through `pse`, with explicit Arrow validation as needed. Independent analytic/exact/high-precision expectations cover stable values/derivatives, extreme scales, original-domain failures, ordered numerical populations, power/profile behavior, scratch and cancellation. Scalar-vs-packed self-comparison alone cannot establish a shared transformation's correctness. H owns assembled property/fitting/study/native/receiver journeys after functional scope. No tests, compilation or performance measurement occurred in authoring; expected less repeated preparation/dispatch is qualitative.
+
+## Execution checkpoint — 2026-11-10
+
+Execution of the integrated A/B/C scope began at `d2302f32a` with a clean checkout. The selected first assignments are shared transport consolidation, checked supplier construction and stable primitives. A01/B01/C01 are coordinated prerequisite contracts; A03 proceeds within existing binding semantics. Required new kernel/primitive decisions precede dependent implementation. All other scope remains open until its actual production cutover and targeted evidence; broader Plan73/Plan66 completion is not claimed.
