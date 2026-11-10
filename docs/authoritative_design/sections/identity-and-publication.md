@@ -863,6 +863,17 @@ bytes and is not an exported database lease or another publication catalog.
 
 ### 20.5 Current contracts and schema evolution
 
+> Decision: [ADR-0267](../../adr/0267-owned-surreal-discovery-and-observation.md)
+> (proposed; authorized Plan72d-h execution).
+
+Selected native reads retain issuer, interpretation and cut. Follow owns a dedicated
+fixed-authentication gRPC generation and identified as-of snapshots; quiet notification
+streams do not establish continuing permission or currentness. Compact revalidation is
+bounded to 30 seconds and reports its next check, not an unsupported authority lease.
+Tentative query batches retain original allocation and physical custody through QueryEnd,
+EOF and trailers. Releasing a batch does not reset cumulative query admission. Original
+effect acknowledgements and protected payload release remain separate capabilities.
+
 > Decision: ADR-0264 (proposed; Plan73b B05 numerical execution product).
 
 The separately interpreted numerical execution description follows the existing protected

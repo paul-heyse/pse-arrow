@@ -1,8 +1,8 @@
 ---
 title: "Plan72e: Observation and derived state"
-status: draft
+status: active
 date: 2026-11-09
-adrs: []
+adrs: [ADR-0267]
 doc_role: plan
 doc_owner: docs/plans/72-surrealdb-functional-improvements.md
 doc_topics: [current-work, design, libraries, diagnostics, storage]
@@ -47,6 +47,16 @@ async events are repeatable derived work with visible freshness. Source/interpre
 travels with every retained projection. A display summary is never a capture concurrency fence.
 
 ## Packages
+
+### Execution checkpoint — 2026-11-10
+
+Execution is authorized under proposed ADR-0267. The selected server implements native gRPC
+Subscribe with at-most-once, nonresumable delivery. Use a dedicated fixed-Viewer generation,
+SubscribeBegin before snapshot, one pending refresh and explicit kill/drain. Permission and
+session skips can be silent: report as-of snapshots and next_revalidation_at within 30 seconds,
+not an unsupported validity lease. Native grouped summaries and explicit reconstruction are
+selected; maintained views/changefeed replay are not added. Plan73 scientific categories and
+original result authority remain their owners; capture SSI is not replaced by summaries.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |

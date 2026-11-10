@@ -1,8 +1,8 @@
 ---
 title: "Plan72g: Developer and operator workflows"
-status: draft
+status: active
 date: 2026-11-09
-adrs: []
+adrs: [ADR-0267]
 doc_role: plan
 doc_owner: docs/plans/72-surrealdb-functional-improvements.md
 doc_topics: [current-work, libraries, deployment, validation, diagnostics]
@@ -41,6 +41,16 @@ it changes neither Plan71's target nor Plan66 scientific acceptance. Recheck aff
 before editing shared fixture/host surfaces and integrate with their active owner.
 
 ## Packages
+
+### Execution checkpoint — 2026-11-10
+
+Execution is authorized under proposed ADR-0267. Extend the existing native-owned SurrealKit
+lane and compose one prebuilt connection-only independent consumer through test --exec.
+Native owners retain endpoint/credential/deadline and complete physical namespace/child cleanup;
+assertion, setup, consumer and cleanup outcomes stay distinct. Existing structured commands and
+Plan71 result references remain the operator route. Unrestricted MCP tools also mutate project
+files; Viewer credentials alone cannot make that surface read-only. No MCP/SQL-wire/GraphQL
+listener is added. Plan71 is complete and supplies infrastructure, not a new execution scope.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |

@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 379
+revision: 380
 date: 2026-11-10
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 380 | 2026-11-10 | Propose complete native discovery, owned gRPC follow/batch delivery, explicit Collector export and spill readiness (§20.5, §21.7). | Proposed ADR-0267; authorized Plan72d-h execution, receiving remains with the owning companions. |
 | 379 | 2026-11-10 | Clarify independent failure-indicator population completion and typed publication of existing registered sample selection/sort facets, with unchanged protected result authority (§19.3.1). | Proposed ADR-0266 native-binding clarification before dependent projection implementation. |
 | 378 | 2026-11-10 | Clarify exact dyadic source realization and diagnostic-only mathematical authority (§14.3.4), and typed expectation-parent reconstruction, ordinary manifest publication, protected original-child pages and centered precision meaning (§19.3.1). | Proposed ADR-0265/0266 implementation clarification; owning plans retain acceptance status. |
 | 377 | 2026-11-10 | Propose selected exact/analytical/assurance and typed observation products (§14.3.4), and explicit-measure expectation parents over original finite study children (§19.3.1). | Proposed ADR-0265/0266; authorized D–F implementation and qualification remain separate. |

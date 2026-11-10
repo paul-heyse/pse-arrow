@@ -1,8 +1,8 @@
 ---
 title: "Plan72f: Persistence and protected delivery"
-status: draft
+status: active
 date: 2026-11-09
-adrs: []
+adrs: [ADR-0267]
 doc_role: plan
 doc_owner: docs/plans/72-surrealdb-functional-improvements.md
 doc_topics: [current-work, design, libraries, storage, deployment, validation]
@@ -43,6 +43,16 @@ physical realization for protected artifacts, selected only after the few custod
 could cause loss or premature release are settled; do not keep two normal delivery paths.
 
 ## Packages
+
+### Execution checkpoint — 2026-11-10
+
+Execution is authorized under proposed ADR-0267. Retain integrated persistent MX and sealed
+files: selected local buckets lack fsynced atomic publication and recoverable reservation
+failure. Expose available incarnation-bound observations and truthful unsupported history/
+maintenance, without inventing integrated VERSION or snapshot RPCs. Incremental Proto batches
+remain inside original request/allocation/driver custody and tentative until terminal success.
+First migrate frozen capture/result-metadata export; ordinary bounded pages remain useful.
+Preserve Plan73 original formula/source/sample interpretation and protected reader lifetimes.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |

@@ -1,8 +1,8 @@
 ---
 title: "Plan72d: Query, graph and ranked discovery"
-status: draft
+status: active
 date: 2026-11-09
-adrs: []
+adrs: [ADR-0267]
 doc_role: plan
 doc_owner: docs/plans/72-surrealdb-functional-improvements.md
 doc_topics: [current-work, libraries, design, performance, diagnostics]
@@ -63,6 +63,15 @@ selected corpus; ANN is not a prerequisite. Numerical/scientific equivalence rem
 [Ranking](https://surrealdb.com/docs/learn/data-models/full-text-search/scoring-and-ranking).
 
 ## Packages
+
+### Execution checkpoint — 2026-11-10
+
+Execution is authorized against the current Plan73 result owners under proposed ADR-0267.
+Select complete-population native queries, best-excerpt BM25 with stable ties and an atomic
+ranking-population epoch, and bounded evidence-preserving SurrealQL paths. The maintainer
+selected lexical/graph retrieval; no embedding-model lifecycle is added. GQL and materialized
+inverse collections remain unselected. Native relation occurrence/evidence identity survives.
+Shared generated publication has one integrator; current package tables retain acceptance.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |

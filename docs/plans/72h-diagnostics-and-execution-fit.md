@@ -1,8 +1,8 @@
 ---
 title: "Plan72h: Diagnostics and execution fit"
-status: draft
+status: active
 date: 2026-11-09
-adrs: []
+adrs: [ADR-0267]
 doc_role: plan
 doc_owner: docs/plans/72-surrealdb-functional-improvements.md
 doc_topics: [current-work, diagnostics, performance, storage, deployment]
@@ -35,6 +35,16 @@ not missing infrastructure. Join SurrealDB facts there and preserve their live s
 No historical plan supplies scope or acceptance obligations for this companion.
 
 ## Packages
+
+### Execution checkpoint — 2026-11-10
+
+Execution is authorized under proposed ADR-0267. Share checked native query descriptions,
+version-qualified plans and actual original outcomes. Explicitly wire the owned server's
+cleared environment to the existing Collector gRPC endpoint and verify real native metric
+delivery before claiming availability. Harden explicit scratch setup against the supplier's
+warning-and-disable path. Native sort/group spill retains original cleanup ownership; defaults
+for scheduling and workstation placement remain. The older large-capture timeouts alone do not
+establish scheduler contention or justify a tuning programme.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |

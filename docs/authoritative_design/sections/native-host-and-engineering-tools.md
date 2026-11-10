@@ -7,6 +7,17 @@ status: current
 
 ### 21.7 Independent host and engineering tools
 
+> Decision: [ADR-0267](../../adr/0267-owned-surreal-discovery-and-observation.md)
+> (proposed; authorized Plan72d-h execution).
+
+Discovery filters the complete selected population before paging. Ranked continuation
+also binds ranking population epoch and interpretation. Native query descriptions supply
+both execution and nonexecuting inspection; analyzed reads require explicit admission.
+Owned SurrealDB telemetry receives explicit Collector gRPC configuration under the original
+service incarnation. Configuration alone does not establish delivered observations.
+Explicit scratch setup establishes the actual native temporary store before readiness;
+failed setup cannot silently disable the selected spill behavior.
+
 The independent `pse-host` owns native commands, environment selection, managed processes
 and engineering investigations. Scientific preparation, execution and result interpretation
 remain with product owners. Source-only reads need no analyzer; native analysis, acquired APIs
