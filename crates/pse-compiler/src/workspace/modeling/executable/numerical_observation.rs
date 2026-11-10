@@ -173,7 +173,11 @@ fn request_bytes(
     profile: Profile,
 ) -> Result<Vec<u8>> {
     let mut bytes = Vec::new();
-    bytes.put_len_prefixed(b"numerical-observation-v1;selected-partials;binary64-rne;checked-f64-stage-v3;original-ordered-guards;canonical-coefficients");
+    // Preserve the pinned supplier conversion: fixed-width rational terms use
+    // native conversion/division, while large terms use MPFR53. This does not
+    // claim general correctly rounded rational-to-binary64 conversion.
+    bytes.put_len_prefixed(b"numerical-observation-v1;selected-partials;pinned-rational-f64-and-fixed-args-mpfr53;checked-f64-stage;original-ordered-guards;canonical-coefficients");
+    bytes.put_u64_le(pse_math::transfer::EXECUTION_SNAPSHOT_VERSION.into());
     for hash in [deployment, consumed, environment] {
         bytes.put_fixed(hash.as_bytes());
     }

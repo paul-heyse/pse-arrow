@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 375
+revision: 376
 date: 2026-11-10
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 376 | 2026-11-10 | Record shared selected products/instance transport and ordered scalar/x4 populations, checked supplier alias/build/Taylor/map cutover, fresh native coefficient-copy policy, actual floating auxiliary backing and qualified warm numerical reuse with distinct strict symbolic replay (§14.3.1–§14.3.3). | Proposed ADR-0263/0264 implementation clarification; Plan73a/b/c own scoped acceptance and H owns assembled qualification. |
 | 375 | 2026-11-10 | Refine the stable primitive target with positive original-argument log-ratio semantics and the actual named physical ratio/logarithm kind (§7.2.1). | Proposed ADR-0263 refinement before the actual caloric correction; Plan73c C02 owns near/far Value/First/Second evidence. |
 | 374 | 2026-11-10 | Propose compiler-sealed numerical execution descriptions with independent symbolic and numerical receiving capabilities (§14.3.3, §20.5). | Proposed ADR-0264; Plan73b B05 and Plan73c C03 own actual publication/acquisition and caller cutover. |
 | 373 | 2026-11-10 | Propose checked supplier mathematical construction and selected stable primitive products (§7.2, §14.3). | Proposed ADR-0263; authorized Plan73a/b/c implementation and qualification remain separate. |

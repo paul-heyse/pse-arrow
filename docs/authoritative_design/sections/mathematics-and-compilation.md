@@ -1016,6 +1016,27 @@ advances semantic clear generations nor cancels flights or invalidates live prod
 Synchronous construction retains its synchronous refusal contract; hard workspace bounds
 and genuine live saturation remain refusals.
 
+> Decision: [ADR-0263](../../adr/0263-checked-mathematical-products.md) (proposed; authorized selected-product and ordered-population integration).
+
+Named local partials remain in the existing scalar-product family rather than a second
+derivative cache. One immutable instance projection supplies formal-to-case destinations,
+scales and contribution interpretation to ordinary selected entries and direct actions.
+Different original instances keep their own guards, effects and attribution. Direct,
+regional and reverse realization remain distinct where their selected-product validity
+differs; a finite weighted product need not construct an overflowing unused local Second.
+
+Ordered populations reuse an immutable demanded program and independently admitted private
+numerical worker. Point IDs may repeat; each original ordinal receives its own result or
+scientific failure, and canceled unexecuted points cannot appear successful. Pure scalar
+programs supply the baseline. Explicit AVX2 x4 execution uses supplier packing/scattering
+for full groups and the same module's scalar entry for tails. Original domain/applicability
+predicates execute scalar before lane grouping; effect-only lazy predicates are allowed,
+while numeric output branches and providers retain distinct capabilities. Runtime seeds
+and weights are ordinary inputs to selected direct actions rather than preparation identity.
+Repeated pure fitting instances share cross-case frontier waves through this same worker;
+original value guards precede First derivatives and a failed instance stops later instances
+of its experiment. Existing assigned lanes and outer study policy remain authoritative.
+
 Relational operations follow the analogous completion contract in `pse-engine::operation`:
 one invocation owns execution, typed finite output ports, and a shared completion; partial
 streams or failed work are never promoted to a complete result, and a dropped last waiter
@@ -1042,9 +1063,34 @@ source attribution, exact read sets and finite query retention remain explicit.
 Mathematical constructor admission distinguishes actual library AST populations, encoded source,
 arbitrary-precision literal payload, demanded Taylor width and exported program storage. Sparse
 stage descriptions charge reached formal occurrences plus one temporary formal inventory.
-Actual exported excess is reserved before floating conversion. These known charges retain their
-original finite constructor allowance and do not replace opaque foreign/compiler envelopes;
-source byte counts and cumulative admissions are not live heap or process RSS measurements.
+The maintained supplier reports actual operation growth under borrowed current-operation
+control, including the post-normalization coefficient payload before floating conversion.
+These known charges retain their original finite constructor allowance and do not replace
+opaque foreign/compiler envelopes; source byte counts and cumulative admissions are not live
+heap or process RSS measurements.
+
+> Decision: [ADR-0263](../../adr/0263-checked-mathematical-products.md) (proposed; authorized checked-construction cutover).
+
+The checked profile uses the native alias map and direct translator through
+`EvaluatorBuilder::try_new_aliases_with` and `try_build_known_with`. Selected Taylor metadata
+and convolution are admitted through `try_vectorize_shape_known_with`; exact-to-binary64
+conversion uses `try_map_f64_known_with`, and public instruction/native source export has its
+own checked operation. The application retains authored source limits, selected scientific
+operation/component/scratch limits and actual public-product reconciliation. Supplier stage
+work is operation-specific: a Taylor metadata pair scan is not an emitted scalar operation.
+An original `ExecutionScope` crosses preparation phases without renewing its deadline or
+retaining its controls inside a returned evaluator. Checked native workers preserve typed
+caller refusal through actual worker join; unrelated panics are not converted into admission.
+
+Numerica's lexical fresh-allocation policy prevents newly admitted mathematical copies from
+adopting unrelated cleared GMP capacity. Checked construction propagates that policy into
+actual supplier workers, and ordinary private numerical-frame clone/reset applies it to
+retained exact constant-call arguments as well. Floating evaluators therefore still have
+non-scalar backing: their auxiliary census includes instruction capacity, fixed exact
+arguments and call metadata separately from logical scalar slots. Integer/MPFR capacities
+and visible intermediate storage are controlled; private GMP/MPFR algorithm scratch remains
+within the separately admitted opaque foreign allowance through actual drain and retained
+ownership. Neither that allowance nor fresh allocation proves an allocator-wide or RSS bound.
 
 **Candidate and retained compiler ownership (accepted Plan45 RC02).** Candidate phase construction and retained compiler products have separate lifetimes. A candidate allowance bounds temporary work; publication transfers a conservative charge for genuinely retained owners rather than accumulating every historical construction allowance. Equality/backdating does not retain an identical candidate twice. Live old outputs, hidden shared nodes and unreported foreign allocations remain covered; failed/cancelled candidates release temporary grants. Reserved defaults, opaque allowances and conservative pressure rotation remain unchanged. A lifetime-bound census accounts for the actual current input roots, deduplicates shared input owners within that census and conservatively covers distinct persistent prefixes; tracked output allocations retain their own accounting. Historical candidate-construction allowances do not accumulate as current retained inputs.
 
@@ -1093,9 +1139,9 @@ original contributions, even when numerical evaluation selects only one objectiv
 Mandatory derived-extremum and declared event guard/reset inputs remain in the executable
 projection alongside requested outputs; unrelated observations remain undemanded.
 
-Derivative admission bounds the pinned Numerica Taylor convolution and primitive expansion
-from the source operation counts before vectorization, then reconciles the actual built
-operations. Support admission checks the actual selected first/second cardinalities and
+Derivative admission consumes the pinned supplier's checked Taylor metadata, convolution and
+primitive expansion extents before growth, then reconciles the actual built operations.
+Support admission checks the actual selected first/second cardinalities and
 remaining construction allowance before allocation, including dense opaque/provider support;
 there is no fixed 256-coordinate support cutoff. Shared bindings count once, and local
 obligation/branch scopes retain inherited facts while copying only their assigned facts. `ModelingLimits.body_occurrences` and
@@ -1163,8 +1209,13 @@ backing. It reconstructs no `AdmittedBody`, source preparation or exact scalar f
 execute a hit. A genuine miss may complete the admitted source frontier; a present incompatible
 or corrupt product refuses. New symbolic demand uses the distinct source/custody route.
 Receiver-local native compilation may consume qualified numerical stages without transferring
-native binaries or inheriting producer module paths. Plan73b/C03 own actual cutover and evidence;
-math transfer prerequisites alone do not establish production receiving.
+native binaries or inheriting producer module paths. An authenticated identical warm payload
+may reuse the existing profile-qualified artifact; the protected present candidate is still
+read and qualified, so warm residency cannot hide corruption. New source-bearing demand uses
+strict typed replay through the existing compiler/body owners. Packed symbolic atom bytes
+alone do not establish normalized source, proof/guard or physical correspondence and have no
+production symbolic receiving authority. Plan73b/C03 own actual cutover and evidence; math
+transfer prerequisites alone do not establish production receiving.
 
 ### 14.4 Incrementality
 

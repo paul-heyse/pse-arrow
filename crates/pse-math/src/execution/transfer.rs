@@ -22,6 +22,9 @@ mod native;
 /// Native control nesting supported by this transfer profile. A wire codec must
 /// separately admit the generated message nesting; this is not a codec allowance.
 pub const MAX_STAGE_DEPTH: usize = 512;
+/// Canonical numerical instruction/layout profile shared by capture, inspection
+/// and compiler-issued durable execution requests.
+pub const EXECUTION_SNAPSHOT_VERSION: u32 = 3;
 
 macro_rules! passive_record {
     ($(#[$attr:meta])* $name:ident, $projection:literal, { $($(#[$field_attr:meta])* $field:ident: $ty:ty => $tag:literal $({ $($rule:expr),* $(,)? })?),* $(,)? }) => {
@@ -42,7 +45,7 @@ passive_record! {
     /// Every field is passive data; no serialized capacity or permission is accepted.
     ExecutionSnapshot, "MathExecutionSnapshot", {
         /// Fixed numerical execution profile; this is not a wire allowance.
-        version: u32 => 1 { pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 3, max: 3 } },
+        version: u32 => 1 { pse_contract::boundary_projection::LocalRule::UnsignedRange { min: EXECUTION_SNAPSHOT_VERSION as u64, max: EXECUTION_SNAPSHOT_VERSION as u64 } },
         /// Compact input population, separate from authored formal IDs.
         inputs: usize => 2,
         /// Authored formal input IDs in their compact numerical order.
@@ -1244,7 +1247,7 @@ pub(crate) fn capture_frame<E: std::fmt::Debug + std::fmt::Display>(
             first_rows.push(root.rows.at(i));
         }
         Ok(ExecutionSnapshot {
-            version: 3,
+            version: EXECUTION_SNAPSHOT_VERSION,
             inputs: root.inputs,
             input_formals: copied(root.formals)?,
             coordinate_offsets: copied(root.coordinates)?,
@@ -1532,7 +1535,7 @@ impl<'a> RootView<'a> {
         })
     }
     fn passive(snapshot: &'a ExecutionSnapshot) -> Result<Self> {
-        if snapshot.version != 3 {
+        if snapshot.version != EXECUTION_SNAPSHOT_VERSION {
             return Err(TransferError::Unsupported("snapshot version"));
         }
         Ok(Self {
