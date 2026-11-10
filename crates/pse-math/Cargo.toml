@@ -20,12 +20,18 @@ compiled-evaluator = [
   "symbolica/native_code_generation",
   "dep:tempfile",
   "dep:rustix",
+  "dep:tar",
+  "dep:flate2",
+  "dep:toml",
+  "dep:sha2",
 ]
 
 [dependencies]
 pse-contract.workspace = true
 tempfile = { workspace = true, optional = true }
 rustix = { workspace = true, optional = true }
+tar = { workspace = true, optional = true }
+flate2 = { workspace = true, optional = true }
 rayon.workspace = true
 rustc-hash.workspace = true
 hashbrown.workspace = true
@@ -49,6 +55,12 @@ enum-map.workspace = true
 thiserror.workspace = true
 miette.workspace = true
 tracing.workspace = true
+
+[build-dependencies]
+tar = { workspace = true, optional = true }
+flate2 = { workspace = true, optional = true }
+toml = { workspace = true, optional = true }
+sha2 = { workspace = true, optional = true }
 
 [dev-dependencies]
 proptest.workspace = true

@@ -354,7 +354,13 @@ fn compile_pullbacks(
                     cost.outputs += results;
                     let bytes = arguments
                         .checked_add(results)
-                        .and_then(|n| n.checked_add(storage.numeric_entries))
+                        .and_then(|n| {
+                            n.checked_add(
+                                storage
+                                    .numeric_entries
+                                    .checked_mul(options.evaluator.numeric_stack_factor())?,
+                            )
+                        })
                         .and_then(|n| n.checked_mul(size_of::<f64>()))
                         .and_then(|n| n.checked_add(storage.instruction_bytes))
                         .and_then(|n| {
@@ -368,7 +374,8 @@ fn compile_pullbacks(
                         library::Evaluator::Interpreted => {
                             BlockEvaluator::Interpreted(inspected.evaluator)
                         }
-                        library::Evaluator::CompiledScalar { module_bytes } => {
+                        library::Evaluator::CompiledScalar { module_bytes }
+                        | library::Evaluator::CompiledX4 { module_bytes } => {
                             #[cfg(feature = "compiled-evaluator")]
                             {
                                 crate::construction::additional(module_bytes)?;
@@ -376,12 +383,20 @@ fn compile_pullbacks(
                                     .modules
                                     .checked_add(module_bytes)
                                     .ok_or(MathError::Limit("local pullback modules"))?;
-                                BlockEvaluator::Native(native_modules.push(
+                                let executable = native_modules.push(
                                     &inspected.evaluator,
                                     &storage,
                                     module_bytes,
                                     scope,
-                                )?)
+                                )?;
+                                let shell =
+                                    size_of::<ExpressionEvaluator<f64>>() + 2 * size_of::<usize>();
+                                crate::construction::additional(shell)?;
+                                cost.add_bytes(shell, limits)?;
+                                BlockEvaluator::Native(NativeBlock {
+                                    canonical: Arc::new(inspected.evaluator),
+                                    executable,
+                                })
                             }
                             #[cfg(not(feature = "compiled-evaluator"))]
                             {
@@ -567,7 +582,7 @@ impl PreparedSupport {
             .checked_add(1)
             .ok_or(MathError::Limit("pullback temporary formals"))?;
         #[cfg(feature = "compiled-evaluator")]
-        let mut native_modules = crate::native_compiled::Batch::default();
+        let mut native_modules = crate::native_compiled::Batch::for_evaluator(options.evaluator)?;
         let stages = compile_pullbacks(
             &self.program,
             template.programs[DerivativeOrder::First]
@@ -667,7 +682,7 @@ impl PreparedSupport {
         census.arithmetic_input_entries += cost.inputs;
         census.arithmetic_output_entries += cost.outputs;
         census.native_arithmetic_blocks +=
-            if matches!(options.evaluator, library::Evaluator::CompiledScalar { .. }) {
+            if !matches!(options.evaluator, library::Evaluator::Interpreted) {
                 cost.blocks
             } else {
                 0

@@ -369,22 +369,35 @@ impl PreparedSupport {
             )?
         };
         let storage = inspected.facts.storage;
+        #[cfg(feature = "compiled-evaluator")]
+        let mut storage = storage;
         let operations = operation_count(inspected.facts.operations);
         let export = inspected.export;
         let evaluator = inspected.evaluator;
         let modules = options.evaluator.module_bytes();
         let evaluator = match options.evaluator {
             library::Evaluator::Interpreted => BlockEvaluator::Interpreted(evaluator),
-            library::Evaluator::CompiledScalar { module_bytes } => {
+            library::Evaluator::CompiledScalar { module_bytes }
+            | library::Evaluator::CompiledX4 { module_bytes } => {
                 #[cfg(feature = "compiled-evaluator")]
                 {
                     crate::construction::additional(module_bytes)?;
-                    BlockEvaluator::Native(crate::native_compiled::compile(
+                    let executable = crate::native_compiled::compile_profile(
                         &evaluator,
                         &storage,
-                        module_bytes,
+                        options.evaluator,
                         scope,
-                    )?)
+                    )?;
+                    let shell = size_of::<ExpressionEvaluator<f64>>() + 2 * size_of::<usize>();
+                    crate::construction::additional(shell)?;
+                    storage.instruction_bytes = storage
+                        .instruction_bytes
+                        .checked_add(shell)
+                        .ok_or(MathError::Limit("native product canonical owner"))?;
+                    BlockEvaluator::Native(NativeBlock {
+                        canonical: Arc::new(evaluator),
+                        executable,
+                    })
                 }
                 #[cfg(not(feature = "compiled-evaluator"))]
                 {
@@ -398,12 +411,14 @@ impl PreparedSupport {
         drop(export);
         let numeric = storage
             .numeric_entries
-            .checked_add(
-                parameters
-                    .len()
-                    .checked_mul(if directional_gradient { 2 } else { 1 })
-                    .ok_or(MathError::Limit("weighted product arguments"))?,
-            )
+            .checked_mul(options.evaluator.numeric_stack_factor())
+            .and_then(|n| {
+                n.checked_add(parameters.len().checked_mul(if directional_gradient {
+                    2
+                } else {
+                    1
+                })?)
+            })
             .and_then(|n| {
                 n.checked_add(expressions.len() * if directional_gradient { 2 } else { 1 })
             })

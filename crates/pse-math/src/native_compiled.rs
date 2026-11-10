@@ -7,9 +7,13 @@ use std::{
     process::{Command, Stdio},
     sync::{Arc, Mutex, OnceLock},
 };
-use symbolica::evaluate::{CompiledRealEvaluator, ExportSettings, ExpressionEvaluator, InlineASM};
+use symbolica::evaluate::{
+    CompiledRealEvaluator, CompiledSimdRealEvaluator, ExportSettings, ExpressionEvaluator,
+    InlineASM,
+};
 
 mod cache;
+mod headers;
 #[cfg(test)]
 use std::time::Instant;
 
@@ -32,12 +36,14 @@ pub(crate) struct Template {
     // Drop the loaded template before its source/executable directory. Workers
     // retain this owner as well as their library-owned executable reference.
     evaluator: Mutex<CompiledRealEvaluator>,
+    packed: Option<Mutex<CompiledSimdRealEvaluator>>,
     _directory: tempfile::TempDir,
 }
 pub(crate) struct Evaluator {
     // Mutex supplies Sync for immutable program containers; evaluation obtains
     // exclusive mutable access, never a shared serialization lock across workers.
     worker: Option<Mutex<CompiledRealEvaluator>>,
+    packed_worker: Option<Mutex<CompiledSimdRealEvaluator>>,
     // Rust drops fields in declaration order: unload private native scratch
     // before the last template can remove its directory and shared ownership.
     template: Arc<OnceLock<Arc<Template>>>,
@@ -49,10 +55,16 @@ impl Clone for Evaluator {
             template: self.template.clone(),
             function: self.function,
             worker: None,
+            packed_worker: None,
         }
     }
 }
 impl Evaluator {
+    pub(crate) fn is_packed(&self) -> bool {
+        self.template
+            .get()
+            .is_some_and(|template| template.packed.is_some())
+    }
     #[cfg(test)]
     pub(crate) fn probe_module(&self) -> Result<(std::path::PathBuf, &'static str), MathError> {
         let template = self
@@ -74,10 +86,101 @@ impl Evaluator {
                 .map_err(MathError::Library)?;
             self.worker = Some(Mutex::new(evaluator));
         }
+        if self.packed_worker.is_none() {
+            if let Some(packed) = &self
+                .template
+                .get()
+                .ok_or_else(|| MathError::Contract("compiled module not finalized".into()))?
+                .packed
+            {
+                self.packed_worker = Some(Mutex::new(
+                    packed
+                        .lock()
+                        .map_err(|_| MathError::Library("packed template lock poisoned".into()))?
+                        .load_new_function(self.function)
+                        .map_err(MathError::Library)?,
+                ));
+            }
+        }
         Ok(())
     }
     pub(crate) fn reset(&mut self) {
         self.worker = None;
+        self.packed_worker = None;
+    }
+    /// Complete groups use supplier packing/scattering; one to three final rows
+    /// use the compatible scalar entry without executing inactive packed lanes.
+    pub(crate) fn evaluate_batch(
+        &mut self,
+        rows: usize,
+        arguments: &[f64],
+        values: &mut [f64],
+        scope: &pse_kernels::ExecutionScope,
+        allowance: usize,
+    ) -> Result<(), MathError> {
+        scope.check().map_err(crate::error::scope_error)?;
+        let scalar = self
+            .worker
+            .as_mut()
+            .ok_or_else(|| MathError::Contract("compiled worker not instantiated".into()))?
+            .get_mut()
+            .map_err(|_| MathError::Library("compiled worker lock poisoned".into()))?;
+        let inputs = scalar.get_input_len();
+        let outputs = scalar.get_output_len();
+        if rows.checked_mul(inputs) != Some(arguments.len())
+            || rows.checked_mul(outputs) != Some(values.len())
+        {
+            return Err(MathError::Contract(
+                "compiled batch input/output extent".into(),
+            ));
+        }
+        let full = if self.packed_worker.is_some() {
+            rows / 4 * 4
+        } else {
+            0
+        };
+        if let Some(packed) = &mut self.packed_worker {
+            let packed = packed
+                .get_mut()
+                .map_err(|_| MathError::Library("packed worker lock poisoned".into()))?;
+            // Native calls poll at most 64 independent lane groups apart.
+            for start in (0..full).step_by(256) {
+                let end = (start + 256).min(full);
+                packed
+                    .try_evaluate_batch_with(
+                        end - start,
+                        &arguments[start * inputs..end * inputs],
+                        &mut values[start * outputs..end * outputs],
+                        &mut |extent: symbolica::evaluate::OperationExtent| {
+                            scope.check().map_err(crate::error::scope_error)?;
+                            if extent.output_bytes > allowance {
+                                return Err(MathError::Limit("prepaid packed lane buffers"));
+                            }
+                            Ok(())
+                        },
+                    )
+                    .map_err(operation_error)?;
+                scope.check().map_err(crate::error::scope_error)?;
+            }
+        }
+        for row in full..rows {
+            scope.check().map_err(crate::error::scope_error)?;
+            scalar.evaluate(
+                &arguments[row * inputs..(row + 1) * inputs],
+                &mut values[row * outputs..(row + 1) * outputs],
+            );
+        }
+        if self.packed_worker.is_some()
+            && let Some(context) = pse_diagnostics::observation::current()
+        {
+            context.count("math.native_x4_packed_rows", "count", full as u64);
+            context.count(
+                "math.native_x4_scalar_tail_rows",
+                "count",
+                (rows - full) as u64,
+            );
+        }
+        Ok(())
     }
     pub(crate) fn evaluate(&mut self, arguments: &[f64], values: &mut [f64]) -> Result<(), String> {
         let evaluator = self
@@ -101,6 +204,23 @@ impl Evaluator {
 
 const CAPTURE: usize = 4096;
 const READER_STACK: usize = 64 << 10;
+
+fn operation_error(error: symbolica::evaluate::OperationError<MathError>) -> MathError {
+    match error {
+        symbolica::evaluate::OperationError::Control(error) => error,
+        symbolica::evaluate::OperationError::Overflow => {
+            MathError::Limit("native operation extent")
+        }
+        symbolica::evaluate::OperationError::Allocation => {
+            MathError::Limit("native operation allocation")
+        }
+        symbolica::evaluate::OperationError::Unsupported(profile) => {
+            MathError::Contract(format!("unsupported checked native profile: {profile}"))
+        }
+        symbolica::evaluate::OperationError::InvalidProgram(message) => MathError::Library(message),
+        symbolica::evaluate::OperationError::Interrupted => MathError::Cancelled,
+    }
+}
 
 fn run_compiler(
     mut command: Command,
@@ -148,13 +268,16 @@ fn compiler_command(path: &str, limit: usize, directory: &std::path::Path) -> Co
     command
 }
 
-pub(crate) fn compile(
+pub(crate) fn compile_profile(
     evaluator: &ExpressionEvaluator<f64>,
     storage: &library::Storage,
-    module_bytes: usize,
+    profile: library::Evaluator,
     scope: &pse_kernels::ExecutionScope,
 ) -> Result<Evaluator, MathError> {
-    compile_prepared_with(evaluator, storage, module_bytes, scope, COMPILER)
+    let mut batch = Batch::for_evaluator(profile)?;
+    let evaluator = batch.push(evaluator, storage, profile.module_bytes(), scope)?;
+    batch.finish(scope)?;
+    Ok(evaluator)
 }
 /// Packing is a physical preparation bound, not an evaluation or arithmetic fusion.
 /// Every member retains its individual preflight allowance and private worker scratch.
@@ -194,6 +317,7 @@ const FUNCTIONS: [&str; 32] = [
 ];
 const FUNCTIONS_PER_MODULE: usize = FUNCTIONS.len();
 pub(crate) struct Batch {
+    packed: bool,
     pending: Vec<Pending>,
     template: Arc<OnceLock<Arc<Template>>>,
     cache: Option<cache::Cache>,
@@ -202,6 +326,7 @@ pub(crate) struct Batch {
 impl Default for Batch {
     fn default() -> Self {
         Self {
+            packed: false,
             pending: Vec::new(),
             template: Arc::default(),
             // Unit controls explicitly choose private cache state. Production
@@ -232,12 +357,36 @@ impl Default for Batch {
 }
 struct Pending {
     source: String,
+    packed_source: Option<String>,
     function: &'static str,
     inputs: usize,
     outputs: usize,
     output_capacity: usize,
 }
 impl Batch {
+    pub(crate) fn for_evaluator(profile: library::Evaluator) -> Result<Self, MathError> {
+        match profile {
+            library::Evaluator::Interpreted | library::Evaluator::CompiledScalar { .. } => {
+                Ok(Self::default())
+            }
+            library::Evaluator::CompiledX4 { .. } => Self::packed(),
+        }
+    }
+    pub(crate) fn packed() -> Result<Self, MathError> {
+        #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+        let supported = std::is_x86_feature_detected!("avx2");
+        #[cfg(not(all(target_os = "linux", target_arch = "x86_64")))]
+        let supported = false;
+        if !supported {
+            return Err(MathError::Contract(
+                "compiled x4 profile requires AVX2".into(),
+            ));
+        }
+        Ok(Self {
+            packed: true,
+            ..Self::default()
+        })
+    }
     pub(crate) fn push(
         &mut self,
         evaluator: &ExpressionEvaluator<f64>,
@@ -256,7 +405,11 @@ impl Batch {
         scope.check().map_err(crate::error::scope_error)?;
         let scratch = storage
             .numeric_entries
-            .checked_mul(size_of::<f64>())
+            .checked_mul(if self.packed {
+                10 * size_of::<f64>()
+            } else {
+                2 * size_of::<f64>()
+            })
             .ok_or(MathError::Limit("compiled template scratch"))?;
         let fixed = scratch
             .checked_add(size_of::<Template>() + size_of::<Evaluator>() + (64 << 10))
@@ -307,8 +460,41 @@ impl Batch {
                 symbolica::evaluate::OperationError::Interrupted => MathError::Cancelled,
             })?
             .source;
+        let packed_source = if self.packed {
+            Some(
+                evaluator
+                    .try_export_cpp_with(
+                        function,
+                        ExportSettings::new()
+                            .inline_asm(InlineASM::None)
+                            .include_header(false),
+                        symbolica::evaluate::CppProfile::X4F64Avx2,
+                        crate::stable::cpp_heads()?,
+                        &mut |extent: symbolica::evaluate::OperationExtent| {
+                            scope.check().map_err(crate::error::scope_error)?;
+                            let peak = extent
+                                .peak_bytes()
+                                .ok_or(MathError::Limit("compiled packed source extent"))?;
+                            output_capacity = module_bytes
+                                .checked_sub(fixed)
+                                .and_then(|n| n.checked_sub(source.capacity()))
+                                .and_then(|n| n.checked_sub(peak))
+                                .filter(|n| *n >= 4)
+                                .ok_or(MathError::Limit(
+                                    "compiled packed source/output preflight allowance",
+                                ))?;
+                            Ok(())
+                        },
+                    )
+                    .map_err(operation_error)?
+                    .source,
+            )
+        } else {
+            None
+        };
         self.pending.push(Pending {
             source,
+            packed_source,
             function,
             inputs: evaluator.get_input_len(),
             outputs: evaluator.get_output_len(),
@@ -318,6 +504,7 @@ impl Batch {
             template: self.template.clone(),
             function,
             worker: None,
+            packed_worker: None,
         })
     }
     pub(crate) fn finish(&mut self, scope: &pse_kernels::ExecutionScope) -> Result<(), MathError> {
@@ -341,12 +528,21 @@ impl Batch {
         // Object, shared file, loaded image and atomic cache publication may
         // coexist. A cache hit retains the same conservative admission. Member
         // preflights also cover sources, export and bounded cache metadata.
-        let object_limit = output_capacity / 4;
-        let code_limit = output_capacity / 4;
         let directory = tempfile::Builder::new()
             .prefix("pse-math-native-")
             .tempdir()
             .map_err(|e| MathError::Library(e.to_string()))?;
+        let header_bytes = if self.packed {
+            headers::required_backing_bytes(directory.path())?
+        } else {
+            0
+        };
+        let output_capacity = output_capacity
+            .checked_sub(header_bytes)
+            .filter(|n| *n >= 4)
+            .ok_or(MathError::Limit("compiled packed header/output allowance"))?;
+        let object_limit = output_capacity / 4;
+        let code_limit = output_capacity / 4;
         let source_path = directory.path().join("value.cpp");
         let library_path = directory.path().join("value.so");
         let object_path = directory.path().join("value.o");
@@ -374,6 +570,11 @@ impl Batch {
                 source
                     .write_all(item.source.as_bytes())
                     .map_err(|e| MathError::Library(e.to_string()))?;
+                if let Some(packed) = &item.packed_source {
+                    source
+                        .write_all(packed.as_bytes())
+                        .map_err(|e| MathError::Library(e.to_string()))?;
+                }
             }
             drop(source);
             let mut compile = compiler_command(compiler_path, object_limit, directory.path());
@@ -383,6 +584,10 @@ impl Batch {
                 .arg(&source_path)
                 .arg("-o")
                 .arg(&object_path);
+            if self.packed {
+                let include = headers::prepare(directory.path(), scope, header_bytes)?;
+                compile.args(["-mavx2", "-mno-fma"]).arg("-I").arg(include);
+            }
             run_compiler(compile, scope)?;
             let mut link = compiler_command(compiler_path, code_limit, directory.path());
             link.arg("-shared")
@@ -410,19 +615,39 @@ impl Batch {
             cache.publish(&key, &library_path, scope);
         }
         scope.check().map_err(crate::error::scope_error)?;
+        let packed = if self.packed {
+            let loaded = CompiledSimdRealEvaluator::load(&library_path, self.pending[0].function)
+                .map_err(MathError::Library)?;
+            for item in &self.pending {
+                scope.check().map_err(crate::error::scope_error)?;
+                let member = loaded
+                    .load_new_function(item.function)
+                    .map_err(MathError::Library)?;
+                if member.get_input_len() != item.inputs || member.get_output_len() != item.outputs
+                {
+                    return Err(MathError::Contract(
+                        "compiled packed library dimensions".into(),
+                    ));
+                }
+            }
+            Some(Mutex::new(loaded))
+        } else {
+            None
+        };
         self.template
             .set(Arc::new(Template {
                 evaluator: Mutex::new(loaded),
+                packed,
                 _directory: directory,
             }))
             .map_err(|_| MathError::Contract("compiled module already finalized".into()))?;
         if let Some(producer) = &self.detail {
             use pse_diagnostics::observation::{RecordAvailability, RecordField, Value};
             let count = |value: usize| u64::try_from(value).map_or(Value::Overflow, Value::Count);
-            let source_bytes = self
-                .pending
-                .iter()
-                .try_fold(0usize, |sum, item| sum.checked_add(item.source.len()));
+            let source_bytes = self.pending.iter().try_fold(0usize, |sum, item| {
+                sum.checked_add(item.source.len())?
+                    .checked_add(item.packed_source.as_ref().map_or(0, String::len))
+            });
             let object_bytes = if hit {
                 None
             } else {
@@ -523,10 +748,29 @@ impl Batch {
                 ));
             }
         }
+        // Qualify every packed export on cache receiving as well. A scalar-only
+        // or dimension-mismatched image is an ordinary disposable cache miss.
+        if self.packed {
+            let packed = CompiledSimdRealEvaluator::load(path, self.pending[0].function)
+                .map_err(MathError::Library)?;
+            for item in &self.pending {
+                scope.check().map_err(crate::error::scope_error)?;
+                let member = packed
+                    .load_new_function(item.function)
+                    .map_err(MathError::Library)?;
+                if member.get_input_len() != item.inputs || member.get_output_len() != item.outputs
+                {
+                    return Err(MathError::Contract(
+                        "compiled packed library dimensions".into(),
+                    ));
+                }
+            }
+        }
         scope.check().map_err(crate::error::scope_error)?;
         Ok(loaded)
     }
 }
+#[cfg(test)]
 fn compile_prepared_with(
     evaluator: &ExpressionEvaluator<f64>,
     storage: &library::Storage,
@@ -597,6 +841,142 @@ mod tests {
         .build()
         .unwrap()
         .map_coeff(&|coefficient| coefficient.to_real().unwrap().to_f64())
+    }
+
+    #[test]
+    fn checked_native_x4_uses_owned_headers_full_groups_and_scalar_tails() {
+        crate::initialize().unwrap();
+        let hub = pse_diagnostics::observation::ObservationHub::new(Default::default());
+        let operation = hub.start("packed rows and scalar tails");
+        let context = operation.context();
+        let _entered = context.enter();
+        let x = parse!("pse_native_packed::x");
+        let y = parse!("pse_native_packed::y");
+        let logratio = crate::stable::call(crate::stable::Operation::LogRatio, &[&x, &y]).unwrap();
+        let log1p = crate::stable::call(crate::stable::Operation::Log1p, &[&x]).unwrap();
+        let evaluator = Atom::evaluator_multiple(&[x.log(), logratio, log1p, x.pow(3)], &[x, y])
+            .horner_iterations(0)
+            .cpe_iterations(Some(0))
+            .build()
+            .unwrap()
+            .map_coeff(&|coefficient| coefficient.to_real().unwrap().to_f64());
+        let storage = library::EvaluatorFacts::inspect(
+            &evaluator.export_instructions(),
+            evaluator.count_operations(),
+            "test.packed_inspection",
+        )
+        .unwrap()
+        .storage;
+        let scope = pse_kernels::ExecutionScope::new(Default::default(), None);
+        let mut batch = Batch::packed().unwrap();
+        let mut compiled = batch.push(&evaluator, &storage, 16 << 20, &scope).unwrap();
+        batch.finish(&scope).unwrap();
+        compiled.instantiate().unwrap();
+        let directory = compiled
+            .template
+            .get()
+            .unwrap()
+            ._directory
+            .path()
+            .to_owned();
+        #[derive(Debug)]
+        struct OriginalRefusal;
+        let packed = compiled.packed_worker.as_mut().unwrap().get_mut().unwrap();
+        let mut untouched = [-991.; 16];
+        let refusal = packed.try_evaluate_batch_with(
+            4,
+            &[1., 2., 1., 2., 1., 2., 1., 2.],
+            &mut untouched,
+            &mut |extent: symbolica::evaluate::OperationExtent| {
+                if extent.output_bytes > 0 {
+                    Err(OriginalRefusal)
+                } else {
+                    Ok(())
+                }
+            },
+        );
+        assert!(matches!(
+            refusal,
+            Err(symbolica::evaluate::OperationError::Control(
+                OriginalRefusal
+            ))
+        ));
+        assert_eq!(untouched, [-991.; 16]);
+        assert!(matches!(
+            packed.try_evaluate_batch_with(
+                3,
+                &[1., 2., 1., 2., 1., 2.],
+                &mut untouched[..12],
+                &mut |_| Ok::<_, OriginalRefusal>(())
+            ),
+            Err(symbolica::evaluate::OperationError::Unsupported(
+                "packed batch requires complete groups of four"
+            ))
+        ));
+        assert_eq!(untouched, [-991.; 16]);
+        assert!(std::fs::read_dir(&directory).unwrap().any(|entry| {
+            entry
+                .unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with("xsimd-")
+        }));
+        let samples = [
+            f64::from_bits(1),
+            1e-320,
+            1e-308,
+            1.0 + f64::EPSILON,
+            2.,
+            0.25,
+            3.,
+            5.,
+            7.,
+            11.,
+            0.5,
+            13.,
+        ];
+        for rows in [0, 1, 3, 4, 5, 12] {
+            let input: Vec<_> = samples[..rows].iter().flat_map(|&x| [x, 2.]).collect();
+            let mut result = vec![f64::NAN; rows * 4];
+            compiled
+                .evaluate_batch(rows, &input, &mut result, &scope, 16 << 20)
+                .unwrap();
+            for (row, &x) in samples[..rows].iter().enumerate() {
+                for (actual, expected) in result[row * 4..(row + 1) * 4].iter().zip([
+                    x.ln(),
+                    x.ln() - 2_f64.ln(),
+                    x.ln_1p(),
+                    x.powi(3),
+                ]) {
+                    assert!(
+                        actual.is_finite()
+                            && (actual - expected).abs()
+                                <= 8. * f64::EPSILON * expected.abs().max(1.),
+                        "rows={rows} x={x} {actual} != {expected}"
+                    );
+                }
+            }
+        }
+        let snapshot = context.reader().snapshot(Duration::from_secs(60));
+        for (name, expected) in [
+            ("math.native_x4_packed_rows", 20),
+            ("math.native_x4_scalar_tail_rows", 5),
+        ] {
+            assert!(snapshot.metrics.iter().any(|metric| metric.name == name
+                && metric.cumulative == pse_diagnostics::observation::Value::Count(expected)));
+        }
+        let mut second = compiled.clone();
+        second.instantiate().unwrap();
+        drop(batch);
+        drop(compiled);
+        assert!(directory.exists());
+        let mut result = [0.; 4];
+        second
+            .evaluate_batch(1, &[2., 2.], &mut result, &scope, 16 << 20)
+            .unwrap();
+        assert_eq!(result[1], 0.);
+        drop(second);
+        assert!(!directory.exists());
     }
 
     #[test]
@@ -1071,6 +1451,7 @@ extern "C" void pse_integer_probe_realf64(double* p, double*, double* out) {
         let mut batch = Batch::default();
         batch.pending.push(Pending {
             source,
+            packed_source: None,
             function: "pse_integer_probe",
             inputs: 1,
             outputs: 6,
@@ -1078,6 +1459,7 @@ extern "C" void pse_integer_probe_realf64(double* p, double*, double* out) {
         });
         let mut evaluator = Evaluator {
             worker: None,
+            packed_worker: None,
             template: batch.template.clone(),
             function: "pse_integer_probe",
         };

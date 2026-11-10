@@ -187,6 +187,7 @@ pub(super) struct FitOracle {
     prepared: Arc<FitProblem>,
     math: Arc<MathService>,
     workers: Vec<Option<CaseWorker>>,
+    population: Option<population::SteadyPopulationWorker>,
     #[cfg(feature = "solver-diffsol")]
     transient_workers: Vec<Option<crate::workflow::dynamics::DynamicWorker>>,
     execution: Execution,
@@ -326,6 +327,14 @@ impl FitOracle {
             for (index, e) in p.experiments.iter().enumerate() {
                 let worker = match e {
                     Experiment::Steady(s)
+                        if p.steady_population.contains(index)
+                            && (p.layout.hessian.is_none()
+                                || (p.profile.solver.controls.hessian != HessianMode::Exact
+                                    && s.constraints.is_empty())) =>
+                    {
+                        Ok(None)
+                    }
+                    Experiment::Steady(s)
                         if team.is_some()
                             && (p.layout.hessian.is_none()
                                 || (p.profile.solver.controls.hessian != HessianMode::Exact
@@ -384,6 +393,11 @@ impl FitOracle {
                 };
                 transient_workers.push(worker?);
             }
+            let population = if team.is_none() {
+                Some(p.steady_population.worker(&p, None, execution.scope()?)?)
+            } else {
+                None
+            };
             let hessian = p.layout.hessian.clone();
             let gram = p
                 .layout
@@ -391,10 +405,10 @@ impl FitOracle {
                 .as_ref()
                 .map(|g| sparse::GramWorker::new(g.clone(), &p.layout.responses, p.bytes))
                 .transpose()?;
-            Ok::<_, ProblemError>((transient_execution, hessian, gram))
+            Ok::<_, ProblemError>((transient_execution, hessian, gram, population))
         }))
         .unwrap_or_else(|payload| Err(retirement_panic(payload)));
-        let (transient_execution, hessian, gram) = match prepared {
+        let (transient_execution, hessian, gram, population) = match prepared {
             Ok(value) => value,
             Err(error) => {
                 return ProblemError::with_retirement(
@@ -421,6 +435,7 @@ impl FitOracle {
             prepared: p,
             math,
             workers,
+            population,
             #[cfg(feature = "solver-diffsol")]
             transient_workers,
             execution,
@@ -603,6 +618,9 @@ impl FitOracle {
                     usize::from(demand.adjoint && !p.layout.mappings[ei].free_bindings.is_empty());
             }
         }
+        if let Some(population) = &mut self.population {
+            population.evaluate(p, x, demand)?;
+        }
         let products = if let Some(team) = &mut self.team {
             team.evaluate(x, demand, previous.as_ref(), &validity)
         } else {
@@ -617,6 +635,10 @@ impl FitOracle {
                         demand,
                         &self.transient_execution[ei],
                         ExperimentWorkers {
+                            population: self
+                                .population
+                                .as_mut()
+                                .and_then(|population| population.result(ei)),
                             steady: &mut self.workers[ei],
                             #[cfg(feature = "solver-diffsol")]
                             transient: &mut self.transient_workers[ei],
@@ -2013,6 +2035,8 @@ impl FitOracle {
     }
 }
 pub(super) struct ExperimentWorkers<'a> {
+    pub(super) population:
+        Option<Result<&'a pse_math::assembly::CasePopulationEvaluation, pse_math::MathError>>,
     pub(super) steady: &'a mut Option<CaseWorker>,
     #[cfg(feature = "solver-diffsol")]
     pub(super) transient: &'a mut Option<crate::workflow::dynamics::DynamicWorker>,
@@ -2097,6 +2121,7 @@ pub(super) fn evaluate_experiment(
             );
         }
         let steady = workers.steady;
+        let population = workers.population;
         #[cfg(feature = "solver-diffsol")]
         let transient = workers.transient;
         execution.check()?;
@@ -2111,30 +2136,48 @@ pub(super) fn evaluate_experiment(
                     context.text("fit.experiment_kind", "steady");
                     context.count("fit.experiment_worker_reuses", "count", 1);
                 }
-                if steady.is_none() {
-                    return Err(ProblemError::internal(
-                        "steady experiment owner unavailable; construct a new fit attempt",
-                    ));
-                }
-                let worker = steady
-                    .as_mut()
-                    .ok_or_else(|| ProblemError::internal("missing steady worker"))?;
-                let mut values = s.values.clone();
-                for &(id, col) in &s.coordinates {
-                    values.scalars.insert(id, x[col.get()]);
-                }
-                let outputs = worker.constraints(&values)?;
-                for &(row, global) in &s.constraints {
-                    result.constraints.push((global.get(), outputs[row.get()]));
-                }
-                for &i in &mapping.observations {
-                    let o = &p.measurements[i];
-                    result.predictions.push((i, outputs[o.row]));
-                }
-                let j = if demand.jacobian || demand.responses || demand.adjoint {
-                    Some(worker.jacobian(&values)?.to_owned())
+                let mut apply_values = |outputs: &[f64]| {
+                    for &(row, global) in &s.constraints {
+                        result.constraints.push((global.get(), outputs[row.get()]));
+                    }
+                    for &i in &mapping.observations {
+                        result.predictions.push((i, outputs[p.measurements[i].row]));
+                    }
+                };
+                let first = demand.jacobian || demand.responses || demand.adjoint;
+                let j = if let Some(population) = population {
+                    let observed = population?;
+                    apply_values(observed.values());
+                    if first {
+                        Some(
+                            observed
+                                .jacobian()
+                                .ok_or_else(|| {
+                                    ProblemError::internal("fit population First result absent")
+                                })?
+                                .to_owned(),
+                        )
+                    } else {
+                        None
+                    }
                 } else {
-                    None
+                    let worker = steady.as_mut().ok_or_else(|| {
+                        ProblemError::internal(
+                            "steady experiment owner unavailable; construct a new fit attempt",
+                        )
+                    })?;
+                    let mut values = s.values.clone();
+                    for &(id, col) in &s.coordinates {
+                        values.scalars.insert(id, x[col.get()]);
+                    }
+                    // Retained dispatch is only for excluded source capabilities
+                    // such as providers or lazy branches; preserve Value first.
+                    apply_values(worker.constraints(&values)?);
+                    if first {
+                        Some(worker.jacobian(&values)?.to_owned())
+                    } else {
+                        None
+                    }
                 };
                 if let Some(j) = &j {
                     if demand.jacobian {
@@ -2359,6 +2402,59 @@ pub(super) fn evaluate_experiment(
     result
 }
 
+/// Derivative-only observations use the fit's production job owner too: actual
+/// threads, prepared extent, task clock and foreign allowance remain admitted
+/// until the evaluator and native thread have been destroyed and joined.
+#[cfg(test)]
+pub(super) async fn with_admitted_fit_oracle(
+    problem: Arc<FitProblem>,
+    math: Arc<MathService>,
+    check: impl FnOnce(&mut FitOracle) + Send + 'static,
+) {
+    with_admitted_fit_oracle_outcome(problem, math, check)
+        .await
+        .unwrap();
+}
+#[cfg(test)]
+async fn with_admitted_fit_oracle_outcome(
+    problem: Arc<FitProblem>,
+    math: Arc<MathService>,
+    check: impl FnOnce(&mut FitOracle) + Send + 'static,
+) -> Result<(), crate::math::MathRuntimeError> {
+    let service = math.clone();
+    let controls = problem.profile.solver.controls.clone();
+    let deadline = std::time::Instant::now()
+        .checked_add(controls.time_limit)
+        .unwrap();
+    service
+        .job_scoped(
+            controls.threads,
+            problem.bytes,
+            Default::default(),
+            Some(deadline),
+            move |flag| {
+                let scope = pse_kernels::ExecutionScope::new(flag.clone(), Some(deadline));
+                let mut execution = Execution::within(flag, &controls, scope)?;
+                execution.memory = Some(math.policy().foreign_allowance(&controls));
+                let mut oracle = FitOracle::new(problem, math.clone(), execution)?;
+                let checked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                    check(&mut oracle);
+                }))
+                .map_err(|payload| {
+                    crate::math::MathRuntimeError::Panic(pse_diagnostics::panic::settle_payload(
+                        payload,
+                        "fit fixture callback panic with opaque payload",
+                    ))
+                });
+                crate::math::MathRuntimeError::settle(
+                    checked,
+                    Box::new(oracle).finish().map_err(Into::into),
+                )
+            },
+        )
+        .await
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2461,6 +2557,102 @@ mod tests {
             experiment_workers: pse_model::scalar!(PositiveCount(1)),
             uncertainty: None,
         }
+    }
+    async fn steady_population_control(evaluator: pse_math::library::Evaluator) {
+        use pse_diagnostics::observation::{ObservationHub, Policy, Value};
+        let runtime = runtime();
+        let services = runtime.execution_services();
+        let package = regression::population_package(&runtime).await;
+        let hub = ObservationHub::new(Policy {
+            max_operations: 256,
+            ..Default::default()
+        });
+        let operation = hub.start("steady fit population numerical projection");
+        for width in [1, 2] {
+            let mut profile = profile(false);
+            profile.solver.controls.hessian = HessianMode::GaussNewton;
+            profile.experiment_workers = PositiveCount::try_new(width).unwrap();
+            let mut compiler = compiler_profile();
+            compiler.optimization.evaluator = evaluator;
+            let (problem, _) = package
+                .prepare_fit_problem(
+                    services.preparation(),
+                    id(32).into(),
+                    profile,
+                    compiler,
+                    Default::default(),
+                    &crate::CancelSource::new(),
+                )
+                .await
+                .unwrap();
+            assert!((0..4).all(|index| problem.steady_population.contains(index)));
+            let outcome = pse_diagnostics::observation::scope(
+                Some(operation.context()),
+                with_admitted_fit_oracle_outcome(
+                    problem.into(),
+                    services.preparation().math().clone(),
+                    move |oracle| {
+                        assert!(
+                            oracle.workers.iter().all(Option::is_none),
+                            "pure Value/First experiments retain no superseded per-case worker"
+                        );
+                        assert_eq!(oracle.team.is_some(), width > 1);
+                        assert_eq!(oracle.objective(&[2.]).unwrap(), 3.);
+                        let mut gradient = [0.];
+                        oracle.gradient(&[2.], &mut gradient).unwrap();
+                        assert_eq!(gradient, [-8.]);
+                        assert_eq!(oracle.point.as_ref().unwrap().predictions, [4.; 4]);
+                        assert_eq!(oracle.objective(&[3.]).unwrap(), 43.);
+                        oracle.gradient(&[3.], &mut gradient).unwrap();
+                        assert_eq!(gradient, [108.]);
+                        assert_eq!(oracle.point.as_ref().unwrap().predictions, [9.; 4]);
+                        oracle.execution.cancellation_control().cancel();
+                        assert!(oracle.objective(&[1.]).is_err());
+                    },
+                ),
+            )
+            .await;
+            assert!(
+                matches!(outcome, Err(crate::math::MathRuntimeError::Cancelled)),
+                "{outcome:?}"
+            );
+        }
+        let mut shared = false;
+        let mut packed = false;
+        for entry in hub.list(0, 256).operations {
+            let snapshot = hub
+                .reader(entry.id)
+                .unwrap()
+                .snapshot(std::time::Duration::from_secs(30));
+            for metric in snapshot.metrics {
+                if matches!(metric.cumulative,Value::Count(count) if count>0) {
+                    shared |= metric.name == "math.case_population_shared_rows";
+                    packed |= metric.name == "math.native_x4_packed_rows";
+                }
+            }
+        }
+        assert!(
+            shared,
+            "the actual fitting caller shares numerical rows across independent original experiments"
+        );
+        if matches!(evaluator, pse_math::library::Evaluator::CompiledX4 { .. }) {
+            assert!(
+                packed,
+                "fitting population reaches supplier packed arithmetic"
+            );
+        }
+    }
+    #[tokio::test]
+    async fn steady_fit_population_preserves_value_first_and_existing_parallel_lanes() {
+        steady_population_control(pse_math::library::Evaluator::Interpreted).await;
+    }
+    #[cfg(feature = "compiled-evaluator")]
+    #[tokio::test]
+    async fn steady_fit_population_reaches_native_x4_in_serial_and_parallel_lanes() {
+        steady_population_control(pse_math::library::Evaluator::CompiledX4 {
+            module_bytes: 64 << 20,
+        })
+        .await;
     }
     #[tokio::test]
     async fn fit_finish_retires_later_workers_after_an_independent_finisher_panics() {
@@ -3378,7 +3570,7 @@ mod tests {
             )
             .await
             .unwrap();
-        p09_tests::with_admitted_fit_oracle(
+        with_admitted_fit_oracle(
             problem.into(),
             services.preparation().math().clone(),
             |oracle| {

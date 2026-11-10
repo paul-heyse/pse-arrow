@@ -21,7 +21,7 @@ fn source(text: &str) -> Vec<Declaration> {
     )
     .unwrap()
 }
-fn setup(
+pub(super) fn setup(
     text: &str,
 ) -> (
     CompilerWorkspace,

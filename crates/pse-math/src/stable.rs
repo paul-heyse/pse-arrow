@@ -196,6 +196,75 @@ impl Operation {
             ),
         }
     }
+    #[cfg(feature = "compiled-evaluator")]
+    fn packed_body(self) -> &'static str {
+        macro_rules! exponents { () => {
+            "using I=xsimd::batch<xsimd::as_integer_t<double>,xsimd::avx2>; auto frexp_full=[](B v,I& e) { auto sub=(xsimd::abs(v)<B(std::numeric_limits<double>::min()))&&(v!=B(0.0)); B scaled=xsimd::select(sub,v,B(0.0))*B(18014398509481984.0); B m=xsimd::frexp(xsimd::select(sub,scaled,v),e); e=e-xsimd::select(xsimd::batch_bool_cast<xsimd::as_integer_t<double>>(sub),I(54),I(0)); return m; }; auto scale_full=[&](B v,I e) { I shift; B m=frexp_full(v,shift); e+=shift; I normal=xsimd::min(xsimd::max(e,I(-1021)),I(1023)); B n=xsimd::ldexp(m,normal)*xsimd::select(xsimd::batch_bool_cast<double>(e==I(1024)),B(2.0),B(1.0)); I sub=xsimd::min(xsimd::max(e,I(-1074)),I(-1022)); B s=xsimd::ldexp(m,sub+I(1074))*B(std::numeric_limits<double>::denorm_min()); B result=xsimd::select(xsimd::batch_bool_cast<double>(e<I(-1021)),s,n); result=xsimd::select(xsimd::batch_bool_cast<double>(e>I(1024)),xsimd::copysign(B(std::numeric_limits<double>::infinity()),v),result); return xsimd::select((v==B(0.0))||xsimd::batch_bool_cast<double>(e<I(-1074)),xsimd::copysign(B(0.0),v),result); }; "
+        }; }
+        macro_rules! magnitude { () => {
+            "B m=xsimd::max(xsimd::abs(x),xsimd::abs(y)); B safe_m=xsimd::select(m>B(0.0),m,B(1.0)); B a=x/safe_m,b=y/safe_m; B r=xsimd::sqrt(a*a+b*b); B safe_r=xsimd::select(r>B(0.0),r,B(1.0)); "
+        }; }
+        macro_rules! emit {
+            (unary, $($body:expr),+) => {concat!("using B=simd; auto valid=xsimd::isfinite(x)&&(x>B(-1.0)); x=xsimd::select(valid,x,B(0.0)); ", $($body),+, "return xsimd::select(valid,result,B(std::numeric_limits<double>::quiet_NaN()));")};
+            (binary, $($body:expr),+) => {concat!("using B=simd; auto valid=xsimd::isfinite(x)&&xsimd::isfinite(y); x=xsimd::select(valid,x,B(0.0)); y=xsimd::select(valid,y,B(0.0)); ", $($body),+, "return xsimd::select(valid,result,B(std::numeric_limits<double>::quiet_NaN()));")};
+            (partial, $($body:expr),+) => {concat!("using B=simd; auto valid=xsimd::isfinite(x)&&xsimd::isfinite(y)&&((x!=B(0.0))||(y!=B(0.0))); x=xsimd::select(valid,x,B(0.0)); y=xsimd::select(valid,y,B(0.0)); ", $($body),+, "return xsimd::select(valid,result,B(std::numeric_limits<double>::quiet_NaN()));")};
+            (ratio, $($body:expr),+) => {concat!("using B=simd; auto valid=xsimd::isfinite(x)&&xsimd::isfinite(y)&&(x>B(0.0))&&(y>B(0.0)); x=xsimd::select(valid,x,B(1.0)); y=xsimd::select(valid,y,B(1.0)); ", $($body),+, "return xsimd::select(valid,result,B(std::numeric_limits<double>::quiet_NaN()));")};
+        }
+        match self {
+            Self::Log1p => emit!(
+                unary,
+                "B result=xsimd::select(x==B(0.0),x,xsimd::log1p(x)); "
+            ),
+            Self::Log1pFirst => emit!(unary, "B result=B(1.0)/(B(1.0)+x); "),
+            Self::Log1pSecond => emit!(
+                unary,
+                exponents!(),
+                "I e; B m=frexp_full(B(1.0)+x,e); B result=scale_full(-B(1.0)/(m*m),I(0)-e-e); "
+            ),
+            Self::Magnitude => emit!(binary, magnitude!(), "B result=m*r; "),
+            Self::MagnitudeDomain => emit!(
+                binary,
+                "B result=xsimd::select((x==B(0.0))&&(y==B(0.0)),B(0.0),B(1.0)); "
+            ),
+            Self::MagnitudeX => emit!(partial, magnitude!(), "B result=a/safe_r; "),
+            Self::MagnitudeY => emit!(partial, magnitude!(), "B result=b/safe_r; "),
+            Self::MagnitudeXX => emit!(
+                partial,
+                magnitude!(),
+                exponents!(),
+                "I ey,em; B my=frexp_full(y,ey),mm=frexp_full(safe_m,em); B result=scale_full((my*my)/(mm*mm*mm*safe_r*safe_r*safe_r),ey+ey-(em+em+em)); "
+            ),
+            Self::MagnitudeXY => emit!(
+                partial,
+                magnitude!(),
+                exponents!(),
+                "I ex,ey,em; B mx=frexp_full(x,ex),my=frexp_full(y,ey),mm=frexp_full(safe_m,em); B result=scale_full(-(mx*my)/(mm*mm*mm*safe_r*safe_r*safe_r),ex+ey-(em+em+em)); "
+            ),
+            Self::MagnitudeYY => emit!(
+                partial,
+                magnitude!(),
+                exponents!(),
+                "I ex,em; B mx=frexp_full(x,ex),mm=frexp_full(safe_m,em); B result=scale_full((mx*mx)/(mm*mm*mm*safe_r*safe_r*safe_r),ex+ex-(em+em+em)); "
+            ),
+            Self::LogRatio => emit!(
+                ratio,
+                "auto near=xsimd::max(x,y)*B(0.5)<=xsimd::min(x,y); B q=x/y; auto ordinary=xsimd::isfinite(q)&&(q>B(0.0)); B far=xsimd::select(ordinary,symbolica_packed_log(q),symbolica_packed_log(x)-symbolica_packed_log(y)); B result=xsimd::select(near,xsimd::log1p((x-y)/y),far); "
+            ),
+            Self::LogRatioX => emit!(ratio, "B result=B(1.0)/x; "),
+            Self::LogRatioReference => emit!(ratio, "B result=-B(1.0)/y; "),
+            Self::LogRatioXX => emit!(
+                ratio,
+                exponents!(),
+                "I e; B m=frexp_full(x,e); B result=scale_full(-B(1.0)/(m*m),I(0)-e-e); "
+            ),
+            Self::LogRatioXReference => emit!(ratio, "B result(0.0); "),
+            Self::LogRatioReferenceReference => emit!(
+                ratio,
+                exponents!(),
+                "I e; B m=frexp_full(y,e); B result=scale_full(B(1.0)/(m*m),I(0)-e-e); "
+            ),
+        }
+    }
     fn cpp(self, name: &str) -> String {
         let arguments = if self.arity() == 1 {
             "double x"
@@ -462,7 +531,7 @@ pub(crate) fn cpp_heads() -> Result<&'static [symbolica::evaluate::CppKnownHead]
                     symbol: symbols[index],
                     arity: operation.arity(),
                     body: operation.cpp_body(),
-                    packed_body: None,
+                    packed_body: Some(operation.packed_body()),
                 }
             })
         })

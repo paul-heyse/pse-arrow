@@ -1475,6 +1475,108 @@ async fn durable_origin_local_fit_keeps_original_regression_without_recording() 
     assert!(runtime.canonical_store().unwrap().admit_activity().is_err());
 }
 
+#[cfg(feature = "solver-ipopt")]
+#[tokio::test]
+async fn ordered_study_fitting_population_keeps_original_points_failures_and_cancellation() {
+    use super::super::{RunReport, StudyInputs, StudyOutputDemand, fitting::regression};
+    use pse_backend_native::solve::{Backend, HessianMode, SolveIntent};
+    use pse_model::generated::enums::StudyPointState;
+    use pse_model::study::Dependency;
+    let runtime = super::super::tests::runtime();
+    let services = runtime.execution_services();
+    let package = regression::population_package(&runtime).await;
+    let request = |fit| {
+        OperationRequest::Fit(FitOperation {
+            fit: super::super::tests::id(fit).into(),
+            settings: super::super::PhysicalFitRequest::new(FitPreparationDocument {
+                optimizer: super::super::FitOptimizer::NativeNlp,
+                solver: SolveSettings {
+                    intent: SolveIntent::Optimize,
+                    backend: Some(Backend::Ipopt),
+                    controls: pse_backend_native::solve::Controls {
+                        hessian: HessianMode::GaussNewton,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                simulations: BTreeMap::new(),
+                rank_tolerance: 1e-8,
+                max_cells: 100_000,
+                derivatives: FitDerivatives::Responses,
+                experiment_workers: pse_model::scalar!(PositiveCount(1)),
+                uncertainty: None,
+            }),
+        })
+    };
+    let mut first = point(request(32));
+    first.policy.key = OccurrenceKey(90);
+    let mut failed = point(request(35));
+    failed.policy.key = OccurrenceKey(10);
+    let mut last = point(request(32));
+    last.policy.key = OccurrenceKey(70);
+    last.policy.dependencies = vec![Dependency::Ordering(OccurrenceKey(10))];
+    let definition = package
+        .admit_study(
+            &services,
+            &StudyInputs::Explicit(vec![first, failed, last]),
+            &StudyOutputDemand::Full {},
+            &CancelSource::new(),
+        )
+        .await
+        .unwrap();
+    let report = definition
+        .execute(&services, 3, &CancelSource::new())
+        .await
+        .unwrap();
+    assert_eq!(
+        report
+            .outcomes
+            .iter()
+            .map(|outcome| outcome.key)
+            .collect::<Vec<_>>(),
+        [OccurrenceKey(90), OccurrenceKey(10), OccurrenceKey(70)]
+    );
+    assert!(!report.outcomes[1].scientific.usable);
+    assert!(report.outcomes[1].diagnostic.is_some());
+    assert_eq!(report.outcomes[1].attempts.len(), 1);
+    for index in [0, 2] {
+        let result = original_local_result(&report, index);
+        let RunReport::Fit(fit) = result.report().unwrap() else {
+            panic!("original nonlinear fitting result");
+        };
+        assert!((fit.candidate.as_ref().unwrap()[0] - 4.5_f64.sqrt()).abs() < 1e-6);
+        assert!(
+            fit.predictions
+                .iter()
+                .all(|value| value.is_some_and(|value| (value - 4.5).abs() < 1e-6))
+        );
+    }
+    assert_ne!(
+        original_local_result(&report, 0).run_id(),
+        original_local_result(&report, 2).run_id()
+    );
+    let cancel = CancelSource::new();
+    cancel.cancel();
+    let canceled = definition.execute(&services, 3, &cancel).await.unwrap();
+    assert_eq!(
+        canceled
+            .outcomes
+            .iter()
+            .map(|outcome| outcome.key)
+            .collect::<Vec<_>>(),
+        [OccurrenceKey(90), OccurrenceKey(10), OccurrenceKey(70)]
+    );
+    assert!(
+        canceled
+            .outcomes
+            .iter()
+            .all(|outcome| outcome.lifecycle == StudyPointState::Cancelled
+                && outcome.attempts.is_empty()
+                && !outcome.scientific.usable)
+    );
+    assert!(canceled.results.iter().all(Option::is_none));
+}
+
 #[cfg(feature = "solver-diffsol")]
 #[tokio::test]
 async fn durable_origin_local_horizon_keeps_original_two_step_plant_without_recording() {

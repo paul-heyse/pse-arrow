@@ -80,7 +80,7 @@ pub enum AttributionTransferError {
     #[error("original attribution lacks Closure member {0}")]
     MissingMember(SemanticId),
     /// An unambiguous emitted Closure source token has no original target.
-    #[error("original attribution lacks Closure source {0}")]
+    #[error("original attribution lacks source {0}")]
     MissingSource(SemanticId),
 }
 fn attribution_shape(
@@ -128,7 +128,7 @@ fn attribution_frame(
 fn attribution_add(a: usize, b: usize) -> Result<usize, AttributionTransferError> {
     a.checked_add(b).ok_or(AttributionTransferError::Extent)
 }
-fn attribution_tree<K, V>(entries: usize) -> Result<usize, AttributionTransferError> {
+pub(crate) fn attribution_tree<K, V>(entries: usize) -> Result<usize, AttributionTransferError> {
     // Pinned Rust alloc/collections/btree/node.rs: B=6, capacity=11,
     // LeafNode has parent pointer + two u16 fields, keys/values; InternalNode
     // adds 12 child pointers. Every populated non-root has >=5 entries.
@@ -250,6 +250,16 @@ impl ExecutionAttributionSnapshot {
     }
 }
 impl ExecutionAttribution {
+    /// Reuse maps already admitted by the authoritative case construction.
+    /// This numerical projection issues no new scientific source capability.
+    pub(crate) fn from_case_instance(binding: &crate::binding::InstanceBinding) -> Self {
+        Self {
+            instance: binding.instance,
+            checked_members: Arc::clone(&binding.checked_members),
+            checked_sources: Arc::clone(&binding.checked_sources),
+            occurrences: Arc::clone(&binding.occurrences),
+        }
+    }
     pub(crate) fn snapshot_extents(&self) -> Result<AttributionExtents, AttributionTransferError> {
         if !attribution_shape(
             self.instance,

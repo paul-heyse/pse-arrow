@@ -16,6 +16,10 @@ use pse_operations::{
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex, atomic::AtomicBool};
 
+mod numerical;
+pub use numerical::AcquiredExecution;
+pub(crate) use numerical::{capture_execution, publish_execution_current, reuse_execution_current};
+
 const INTERPRETATION: &str = "pse.runtime.admitted-body-product.v5";
 const OBSERVATION_WORK_BYTES: usize = pse_buildinfo::identity::OBSERVATION_WORK_BYTES;
 /// Refusals preserve scientific reconstruction and storage failures distinctly.
@@ -94,6 +98,12 @@ impl ExpectedProducerTarget {
 #[derive(Clone, Debug)]
 pub struct QualifiedProducer {
     identity: ContentHash,
+}
+/// Controlled fixture identity for consumer-mechanics tests only. This supplies
+/// no evidence about an actual deployed worker's complete producer inputs.
+#[cfg(test)]
+pub(crate) fn fixture_producer(identity: ContentHash) -> ReplayAdmission {
+    QualifiedProducer { identity }.into()
 }
 impl QualifiedProducer {
     /// Read the output of the production-unit identity tool at the deployment boundary.
@@ -1057,9 +1067,22 @@ async fn native_receiving<T: Send + 'static>(
     bytes: usize,
     operation: impl FnOnce(Arc<AtomicBool>) -> Result<T, PortableError> + Send + 'static,
 ) -> Result<T, PortableError> {
+    native_receiving_scoped(service, cancelled, deadline, bytes, move |control| {
+        operation(control.flag())
+    })
+    .await
+}
+
+async fn native_receiving_scoped<T: Send + 'static>(
+    service: &Arc<super::MathService>,
+    cancelled: &Arc<AtomicBool>,
+    deadline: Option<std::time::Instant>,
+    bytes: usize,
+    operation: impl FnOnce(pse_diagnostics::Cancellation) -> Result<T, PortableError> + Send + 'static,
+) -> Result<T, PortableError> {
     let control = pse_diagnostics::Cancellation::default();
     let work = service.job_scoped(1, bytes, control.clone(), deadline, move |flag| {
-        operation(flag.flag()).map_err(runtime_error)
+        operation(flag).map_err(runtime_error)
     });
     let stop = async {
         loop {

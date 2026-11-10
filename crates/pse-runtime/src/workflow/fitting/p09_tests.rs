@@ -32,57 +32,6 @@ fn objective_scale(problem: &FitProblem) -> f64 {
     .coordinate_scale
 }
 
-/// Derivative-only observations use the fit's production job owner too: actual
-/// threads, prepared extent, task clock and foreign allowance remain admitted
-/// until the evaluator and native thread have been destroyed and joined.
-pub(super) async fn with_admitted_fit_oracle(
-    problem: Arc<FitProblem>,
-    math: Arc<MathService>,
-    check: impl FnOnce(&mut FitOracle) + Send + 'static,
-) {
-    with_admitted_fit_oracle_outcome(problem, math, check)
-        .await
-        .unwrap();
-}
-async fn with_admitted_fit_oracle_outcome(
-    problem: Arc<FitProblem>,
-    math: Arc<MathService>,
-    check: impl FnOnce(&mut FitOracle) + Send + 'static,
-) -> Result<(), crate::math::MathRuntimeError> {
-    let service = math.clone();
-    let controls = problem.profile.solver.controls.clone();
-    let deadline = std::time::Instant::now()
-        .checked_add(controls.time_limit)
-        .unwrap();
-    service
-        .job_scoped(
-            controls.threads,
-            problem.bytes,
-            Default::default(),
-            Some(deadline),
-            move |flag| {
-                let scope = pse_kernels::ExecutionScope::new(flag.clone(), Some(deadline));
-                let mut execution = Execution::within(flag, &controls, scope)?;
-                execution.memory = Some(math.policy().foreign_allowance(&controls));
-                let mut oracle = FitOracle::new(problem, math.clone(), execution)?;
-                let checked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    check(&mut oracle);
-                }))
-                .map_err(|payload| {
-                    crate::math::MathRuntimeError::Panic(pse_diagnostics::panic::settle_payload(
-                        payload,
-                        "fit fixture callback panic with opaque payload",
-                    ))
-                });
-                crate::math::MathRuntimeError::settle(
-                    checked,
-                    Box::new(oracle).finish().map_err(Into::into),
-                )
-            },
-        )
-        .await
-}
-
 /// The fixture's affine y has unit physical gain from x. The retained production
 /// assessment supplies x's quantity allowance; the explicit steady y=p is exact.
 fn affine_output_allowances(

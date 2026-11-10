@@ -12,6 +12,11 @@ mod dependencies;
 mod derived;
 mod factorable;
 mod grouped;
+mod numerical_observation;
+pub use numerical_observation::{
+    NumericalObservationArtifact, NumericalObservationBuildRecipe,
+    NumericalObservationInstanceRequest, NumericalObservationRequest,
+};
 mod implicit;
 mod policy;
 pub use policy::{
@@ -24,6 +29,9 @@ pub use policy::{
 #[path = "executable/projection_tests.rs"]
 mod projection_tests;
 mod solve;
+#[cfg(test)]
+#[path = "executable/symbolic-replay-tests.rs"]
+mod symbolic_replay_tests;
 pub use conformance::{ModelingExpectationResult, ModelingPointChecks, ModelingValidityResult};
 pub use derived::{Derivation, Derived};
 pub use implicit::{
@@ -1392,6 +1400,19 @@ fn repeated_projection_bytes(seen: &mut SourceAllocations, projection: &Projecti
         }))
 }
 impl ModelingPreparationFrontier {
+    /// Original typed specialized model, available before mathematical admission.
+    pub fn model(&self) -> &SpecializedModel {
+        &self.model
+    }
+    /// Original planned observations with their existing semantic row identities.
+    pub fn outputs(&self) -> &[ModelingOutput] {
+        self.primary.outputs()
+    }
+    /// Resolve original authored scalar defaults and explicit current overrides
+    /// without materializing mathematics or evaluating annotation starts.
+    pub fn case_values(&self, case: &ModelingCaseBindings) -> Result<CaseValues> {
+        solve::model_case_values(&self.model, self.primary.inputs(), case)
+    }
     /// Every compiler-issued portable body dependency, including the original view.
     /// Repeated consumer uses of the same complete identity issue one request.
     pub fn body_requests(&self) -> impl Iterator<Item = pse_ids::roles::SemanticBodyHash> {

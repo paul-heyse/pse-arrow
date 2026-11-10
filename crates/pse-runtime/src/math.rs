@@ -9,7 +9,9 @@ pub mod initialization;
 mod jobs;
 mod joined_pool;
 pub mod modeling;
+mod numerical;
 pub(crate) mod numerics;
+pub use numerical::NumericalArtifact;
 pub mod portable;
 pub mod prediction;
 mod preparation;
@@ -486,6 +488,7 @@ pub struct MathService {
     native_drain: tokio::sync::Mutex<()>,
     flights: Flights<Key, Artifact, MathRuntimeError>,
     scalar_flights: Flights<Key, pse_math::library::ScalarProducts, MathRuntimeError>,
+    numerical_flights: Flights<Key, NumericalArtifact, MathRuntimeError>,
     pub(crate) selected_flights: Flights<
         (
             Arc<crate::workflow::modeling::SelectedRequest>,
@@ -989,6 +992,7 @@ impl MathService {
             native_drain: tokio::sync::Mutex::new(()),
             flights: Flights::new(policy.flights),
             scalar_flights: Flights::new(policy.flights),
+            numerical_flights: Flights::new(policy.flights),
             selected_flights: Flights::new(policy.flights),
             frontier_flights: Flights::new(policy.flights),
             basis_flights: Flights::new(policy.flights),

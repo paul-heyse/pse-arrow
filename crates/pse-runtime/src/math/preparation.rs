@@ -137,8 +137,84 @@ pub(crate) struct OwnedModelingFrontier {
     generation: u64,
 }
 impl OwnedModelingFrontier {
+    pub(crate) fn body_requests(
+        &self,
+    ) -> impl Iterator<Item = pse_ids::roles::SemanticBodyHash> + '_ {
+        self.product.body_requests()
+    }
     pub(crate) fn retained_bytes(&self) -> usize {
         size_of::<Self>() + self.product.retained_bytes()
+    }
+}
+
+impl MathService {
+    /// Retain a qualified replay through the same owned pure body attachment as source admission.
+    pub(crate) fn retain_replayed_body(
+        self: &Arc<Self>,
+        generation: u64,
+        body: pse_compiler::typed_math::AdmittedBody,
+    ) -> Result<(), MathRuntimeError> {
+        use pse_compiler::workspace::ModelingBodyRetention;
+        let identity = body.semantic_identity().ok_or_else(|| {
+            pse_math::MathError::Contract("replayed body lacks original semantic identity".into())
+        })?;
+        let retention = super::retention::BodyRetention(Arc::downgrade(self));
+        retention.retain(generation, identity, Arc::new(body))?;
+        Ok(())
+    }
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the early compiler frontier and ordered observation demand retain their distinct source, derivative and execution owners"
+    )]
+    pub(crate) async fn numerical_observation_request_for(
+        self: &Arc<Self>,
+        workspace: Workspace,
+        frontier: Arc<OwnedModelingFrontier>,
+        rows: Vec<pse_ids::SemanticId>,
+        coordinates: Vec<pse_ids::SemanticId>,
+        order: pse_kernels::DerivativeOrder,
+        profile: pse_compiler::workspace::Profile,
+        driver: &crate::CancelSource,
+    ) -> Result<
+        (
+            Option<(
+                Arc<pse_compiler::workspace::NumericalObservationRequest>,
+                pse_compiler::workspace::NumericalObservationBuildRecipe,
+            )>,
+            Arc<AllocationLease>,
+        ),
+        MathRuntimeError,
+    > {
+        let driver = self.preparation_driver(driver)?;
+        let control = Cancellation::default();
+        let work = self.compiler_job_retained(
+            workspace,
+            super::ConstructionEstimate::Known(0),
+            control.clone(),
+            driver.deadline(),
+            move |authority, flag| {
+                let mut compiler = authority.lock()?;
+                let request = compiler.numerical_observation_request(
+                    &frontier.product,
+                    rows,
+                    coordinates,
+                    order,
+                    profile,
+                    flag.flag(),
+                )?;
+                let bytes = request.as_ref().map_or(0, |(request, recipe)| {
+                    request
+                        .retained_bytes()
+                        .saturating_add(recipe.retained_bytes())
+                });
+                Ok((request, bytes))
+            },
+        );
+        tokio::pin!(work);
+        tokio::select! {
+            result = &mut work => result,
+            () = driver.cancelled() => { control.cancel(); let _ = work.await; Err(MathRuntimeError::Cancelled) }
+        }
     }
 }
 

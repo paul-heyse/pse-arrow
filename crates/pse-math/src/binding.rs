@@ -224,10 +224,21 @@ impl BindingTransport {
         columns: &BTreeMap<SemanticId, GlobalCol>,
         rows: &BTreeMap<SemanticId, GlobalRow>,
     ) -> Self {
+        Self::from_parts(
+            Arc::clone(&binding.slots),
+            &binding.contributions,
+            columns,
+            rows,
+        )
+    }
+    pub(crate) fn from_parts(
+        slots: Arc<Vec<SlotBinding>>,
+        contributions: &[Contribution],
+        columns: &BTreeMap<SemanticId, GlobalCol>,
+        rows: &BTreeMap<SemanticId, GlobalRow>,
+    ) -> Self {
         Self {
-            slots: Arc::clone(&binding.slots),
-            axes: binding
-                .slots
+            axes: slots
                 .iter()
                 .enumerate()
                 .filter_map(|(formal, slot)| {
@@ -240,8 +251,7 @@ impl BindingTransport {
                         })
                 })
                 .collect(),
-            outputs: binding
-                .contributions
+            outputs: contributions
                 .iter()
                 .map(|contribution| TransportOutput {
                     output: contribution.output,
@@ -253,6 +263,7 @@ impl BindingTransport {
                     scale: contribution.scale,
                 })
                 .collect(),
+            slots,
         }
     }
     pub(crate) fn retained_bytes(&self) -> usize {
@@ -339,6 +350,13 @@ impl EvalBindings {
     }
     pub(crate) fn len(&self) -> usize {
         self.order.len()
+    }
+    pub(crate) fn retained_bytes(&self) -> usize {
+        size_of::<Self>()
+            + self.selected.capacity() * size_of::<(usize, EvalOffset)>()
+            + self.order.capacity() * size_of::<usize>()
+            + 2 * size_of::<usize>()
+            + size_of::<Vec<(usize, EvalOffset)>>()
     }
     pub(crate) fn fill(
         &self,
@@ -435,6 +453,10 @@ impl SlotBinding {
     pub const fn source(&self) -> SemanticId {
         self.source
     }
+    /// Complete original source port whose representation was physically admitted.
+    pub fn source_port(&self) -> &Port {
+        &self.port
+    }
 }
 
 /// One semantic instance of a reusable local body.
@@ -501,16 +523,212 @@ impl InstanceBinding {
 
 /// Immutable declarations in original case coordinates, shared by every block.
 #[derive(Debug, PartialEq)]
-struct CoordinateUniverse {
+pub struct ScalarInputInventory {
     variables: Vec<Variable>,
     fixed: Vec<Variable>,
     parameters: Vec<Port>,
 }
 
+/// Original scalar input declarations shared by symbolic and execution-only cases.
+impl ScalarInputInventory {
+    /// Admit one exact variable/parameter inventory with the existing domain rules.
+    pub fn new(
+        mut variables: Vec<Variable>,
+        mut parameters: Vec<Port>,
+        limit: usize,
+    ) -> Result<Self, MathError> {
+        if limit == 0
+            || variables
+                .len()
+                .checked_add(parameters.len())
+                .is_none_or(|n| n > limit)
+        {
+            return Err(MathError::Limit("case scalars"));
+        }
+        variables.sort_by_key(|v| v.port.id);
+        parameters.sort_by_key(|p| p.id);
+        if variables.windows(2).any(|w| w[0].port.id == w[1].port.id)
+            || parameters.windows(2).any(|w| w[0].id == w[1].id)
+            || parameters
+                .iter()
+                .any(|p| variables.binary_search_by_key(&p.id, |v| v.port.id).is_ok())
+        {
+            return Err(MathError::Contract(
+                "duplicate variable or parameter identity".into(),
+            ));
+        }
+        for variable in &variables {
+            let l = variable.lower.unwrap_or(f64::NEG_INFINITY);
+            let u = variable.upper.unwrap_or(f64::INFINITY);
+            // A declared structure may leave the active interval to case bounds (ADR-0103);
+            // any declared endpoint keeps it positive and nonempty. Native admission
+            // requires both endpoints finite.
+            if variable.domain.is_semi()
+                && (variable.lower.is_some() && l <= 0.0
+                    || l > u
+                    || variable.domain.is_integer() && l.ceil() > u.floor())
+            {
+                return Err(MathError::Contract(
+                    "semi-domain needs a nonempty positive interval".into(),
+                ));
+            }
+            if variable.domain == ModelingVariableDomain::Binary
+                && (l > 1.0 || u < 0.0 || l.max(0.0).ceil() > u.min(1.0).floor())
+                || variable.domain == ModelingVariableDomain::Integer && l.ceil() > u.floor()
+            {
+                return Err(MathError::Contract("empty declared integer domain".into()));
+            }
+            if variable
+                .lower
+                .iter()
+                .chain(&variable.upper)
+                .any(|v| !v.is_finite())
+                || variable
+                    .lower
+                    .zip(variable.upper)
+                    .is_some_and(|(l, u)| l > u)
+            {
+                return Err(MathError::Contract("invalid variable bounds".into()));
+            }
+        }
+        let fixed = variables
+            .iter()
+            .cloned()
+            .map(|mut variable| {
+                variable.fixed = true;
+                variable
+            })
+            .collect();
+        Ok(Self {
+            variables,
+            fixed,
+            parameters,
+        })
+    }
+    /// Original variable declarations in semantic order.
+    pub fn variables(&self) -> VariableView<'_> {
+        VariableView {
+            universe: self,
+            free: None,
+        }
+    }
+    /// Original parameter declarations in semantic order.
+    pub fn parameters(&self) -> &[Port] {
+        &self.parameters
+    }
+    /// Whether the original input inventory contains this coordinate.
+    pub fn contains(&self, id: SemanticId) -> bool {
+        self.variables
+            .binary_search_by_key(&id, |v| v.port.id)
+            .is_ok()
+            || self.parameters.binary_search_by_key(&id, |p| p.id).is_ok()
+    }
+    /// Conservative original declarations and fixed-overlay backing extent.
+    pub fn retained_bytes(&self) -> usize {
+        size_of::<Self>()
+            + (self.variables.capacity() + self.fixed.capacity()) * size_of::<Variable>()
+            + self.parameters.capacity() * size_of::<Port>()
+    }
+    pub(crate) fn validate_slots(&self, slots: &[SlotBinding]) -> Result<(), MathError> {
+        for slot in slots {
+            let port = self
+                .variables
+                .binary_search_by_key(&slot.source, |v| v.port.id)
+                .ok()
+                .map(|i| &self.variables[i].port)
+                .or_else(|| {
+                    self.parameters
+                        .binary_search_by_key(&slot.source, |p| p.id)
+                        .ok()
+                        .map(|i| &self.parameters[i])
+                });
+            if port != Some(&slot.port) {
+                return Err(MathError::Contract(
+                    "slot source has no matching declared physical port".into(),
+                ));
+            }
+        }
+        Ok(())
+    }
+    /// Validate one current value without granting a new coordinate.
+    pub fn validate_scalar(&self, id: SemanticId, value: f64) -> Result<(), MathError> {
+        self.validate_scalar_in(self.variables(), id, value)
+    }
+    fn validate_scalar_in(
+        &self,
+        variables: VariableView<'_>,
+        id: SemanticId,
+        value: f64,
+    ) -> Result<(), MathError> {
+        if !value.is_finite() {
+            return Err(MathError::Contract("nonfinite case value".into()));
+        }
+        if let Ok(index) = self.variables.binary_search_by_key(&id, |v| v.port.id) {
+            let variable = variables
+                .get(index)
+                .ok_or_else(|| MathError::Contract("unknown case variable".into()))?;
+            if variable.fixed
+                && !variable.domain.contains(
+                    value,
+                    variable.lower.unwrap_or(f64::NEG_INFINITY),
+                    variable.upper.unwrap_or(f64::INFINITY),
+                )
+            {
+                return Err(MathError::Contract(
+                    "fixed value outside declared integer domain".into(),
+                ));
+            }
+            if !(variable.domain.is_semi() && value == 0.)
+                && (variable.lower.is_some_and(|lower| value < lower)
+                    || variable.upper.is_some_and(|upper| value > upper))
+            {
+                return Err(MathError::Contract(
+                    "case value outside declared bounds".into(),
+                ));
+            }
+            Ok(())
+        } else if self.parameters.binary_search_by_key(&id, |p| p.id).is_ok() {
+            Ok(())
+        } else {
+            Err(MathError::Contract("undeclared case value".into()))
+        }
+    }
+    /// Validate complete finite values with original bounds and fixed-domain rules.
+    pub fn validate_values(&self, values: &CaseValues) -> Result<(), MathError> {
+        self.validate_values_in(self.variables(), values)
+    }
+    fn validate_values_in(
+        &self,
+        variables: VariableView<'_>,
+        values: &CaseValues,
+    ) -> Result<(), MathError> {
+        if values.scalars.len() != self.variables.len() + self.parameters.len() {
+            return Err(MathError::Contract(
+                "case values differ from declared scalar inventory".into(),
+            ));
+        }
+        for port in variables.iter().map(|v| &v.port).chain(&self.parameters) {
+            if values
+                .scalars
+                .get(&port.id)
+                .is_none_or(|value| !value.is_finite())
+            {
+                return Err(MathError::Contract(
+                    "missing or nonfinite case value".into(),
+                ));
+            }
+        }
+        for (&id, &value) in &values.scalars {
+            self.validate_scalar_in(variables, id, value)?;
+        }
+        Ok(())
+    }
+}
+
 /// Borrowed original-coordinate declarations with a conditional fixed/free overlay.
 #[derive(Clone, Copy, Debug)]
 pub struct VariableView<'a> {
-    universe: &'a CoordinateUniverse,
+    universe: &'a ScalarInputInventory,
     free: Option<&'a [usize]>,
 }
 impl<'a> VariableView<'a> {
@@ -600,7 +818,7 @@ impl std::ops::Index<usize> for VariableView<'_> {
 #[derive(Clone, Debug)]
 pub struct CaseStructure {
     /// Canonical global variable declarations, including fixed values.
-    coordinates: Arc<CoordinateUniverse>,
+    coordinates: Arc<ScalarInputInventory>,
     free: Option<Box<[usize]>>,
     /// Canonical semantic instance order.
     instances: Vec<InstanceBinding>,
@@ -811,8 +1029,8 @@ impl CaseStructure {
         )
     }
     fn build(
-        mut variables: Vec<Variable>,
-        mut parameters: Vec<Port>,
+        variables: Vec<Variable>,
+        parameters: Vec<Port>,
         mut instances: Vec<InstanceBinding>,
         mut rows: Vec<Row>,
         objectives: Vec<Objective>,
@@ -832,58 +1050,14 @@ impl CaseStructure {
         {
             return Err(MathError::Limit("case instances"));
         }
-        variables.sort_by_key(|v| v.port.id);
-        parameters.sort_by_key(|p| p.id);
-        let mut ports = variables
-            .iter()
-            .map(|v| (v.port.id, &v.port))
-            .collect::<BTreeMap<_, _>>();
-        for parameter in &parameters {
-            if ports.insert(parameter.id, parameter).is_some() {
-                return Err(MathError::Contract(
-                    "duplicate variable or parameter identity".into(),
-                ));
-            }
-        }
+        let coordinates = Arc::new(ScalarInputInventory::new(
+            variables,
+            parameters,
+            limits.scalars,
+        )?);
         instances.sort_by_key(|v| v.instance);
-        if variables.windows(2).any(|w| w[0].port.id == w[1].port.id)
-            || instances.windows(2).any(|w| w[0].instance == w[1].instance)
-        {
+        if instances.windows(2).any(|w| w[0].instance == w[1].instance) {
             return Err(MathError::Contract("duplicate case identity".into()));
-        }
-        for variable in &variables {
-            let l = variable.lower.unwrap_or(f64::NEG_INFINITY);
-            let u = variable.upper.unwrap_or(f64::INFINITY);
-            // A declared structure may leave the active interval to case bounds (ADR-0103);
-            // any declared endpoint keeps it positive and nonempty. Native admission
-            // requires both endpoints finite.
-            if variable.domain.is_semi()
-                && (variable.lower.is_some() && l <= 0.0
-                    || l > u
-                    || variable.domain.is_integer() && l.ceil() > u.floor())
-            {
-                return Err(MathError::Contract(
-                    "semi-domain needs a nonempty positive interval".into(),
-                ));
-            }
-            if variable.domain == ModelingVariableDomain::Binary
-                && (l > 1.0 || u < 0.0 || l.max(0.0).ceil() > u.min(1.0).floor())
-                || variable.domain == ModelingVariableDomain::Integer && l.ceil() > u.floor()
-            {
-                return Err(MathError::Contract("empty declared integer domain".into()));
-            }
-            if variable
-                .lower
-                .iter()
-                .chain(&variable.upper)
-                .any(|v| !v.is_finite())
-                || variable
-                    .lower
-                    .zip(variable.upper)
-                    .is_some_and(|(l, u)| l > u)
-            {
-                return Err(MathError::Contract("invalid variable bounds".into()));
-            }
         }
         rows.sort_by_key(|r| r.id);
         if rows.len() > limits.rows
@@ -911,13 +1085,7 @@ impl CaseStructure {
             if slot_count > limits.slots || instance.contributions.is_empty() {
                 return Err(MathError::Limit("case slots or empty output layout"));
             }
-            for slot in instance.slots.iter() {
-                if ports.get(&slot.source).is_none_or(|p| **p != slot.port) {
-                    return Err(MathError::Contract(
-                        "slot source has no matching declared physical port".into(),
-                    ));
-                }
-            }
+            coordinates.validate_slots(&instance.slots)?;
             bodies.insert(instance.body);
             for contribution in &instance.contributions {
                 if !contribution.scale.is_finite()
@@ -934,20 +1102,8 @@ impl CaseStructure {
                 return Err(MathError::Limit("case specializations"));
             }
         }
-        let fixed = variables
-            .iter()
-            .cloned()
-            .map(|mut variable| {
-                variable.fixed = true;
-                variable
-            })
-            .collect();
         Ok(Self {
-            coordinates: Arc::new(CoordinateUniverse {
-                variables,
-                fixed,
-                parameters,
-            }),
+            coordinates,
             free: None,
             instances,
             rows,
@@ -1132,54 +1288,14 @@ impl CaseStructure {
     /// Validate one declared scalar without requiring a complete semantic value map.
     /// The effective conditional fixed flag retains the same domain and bound rules.
     pub fn validate_scalar(&self, id: SemanticId, value: f64) -> Result<(), MathError> {
-        if !value.is_finite() {
-            return Err(MathError::Contract("nonfinite case value".into()));
-        }
-        if let Ok(index) = self
-            .coordinates
-            .variables
-            .binary_search_by_key(&id, |v| v.port.id)
-        {
-            let variable = self
-                .variables()
-                .get(index)
-                .ok_or_else(|| MathError::Contract("unknown case variable".into()))?;
-            if variable.fixed
-                && !variable.domain.contains(
-                    value,
-                    variable.lower.unwrap_or(f64::NEG_INFINITY),
-                    variable.upper.unwrap_or(f64::INFINITY),
-                )
-            {
-                return Err(MathError::Contract(
-                    "fixed value outside declared integer domain".into(),
-                ));
-            }
-            if !(variable.domain.is_semi() && value == 0.)
-                && (variable.lower.is_some_and(|lower| value < lower)
-                    || variable.upper.is_some_and(|upper| value > upper))
-            {
-                return Err(MathError::Contract(
-                    "case value outside declared bounds".into(),
-                ));
-            }
-            Ok(())
-        } else if self
-            .coordinates
-            .parameters
-            .binary_search_by_key(&id, |p| p.id)
-            .is_ok()
-        {
-            Ok(())
-        } else {
-            Err(MathError::Contract("undeclared case value".into()))
-        }
+        self.coordinates
+            .validate_scalar_in(self.variables(), id, value)
     }
     /// Shared original-coordinate payload identity and retained extent.
     pub fn coordinate_allocation(&self) -> (usize, usize) {
         (
             Arc::as_ptr(&self.coordinates) as usize,
-            size_of::<CoordinateUniverse>()
+            size_of::<ScalarInputInventory>()
                 + 2 * size_of::<usize>()
                 + (self.coordinates.variables.capacity() + self.coordinates.fixed.capacity())
                     * size_of::<Variable>()
@@ -1230,27 +1346,8 @@ impl CaseStructure {
     }
     /// Admit a complete trial value vector; supplied values cannot add structure.
     pub fn validate_values(&self, values: &CaseValues) -> Result<(), MathError> {
-        if values.scalars.len() != self.variables().len() + self.parameters().len() {
-            return Err(MathError::Contract(
-                "case values differ from declared scalar inventory".into(),
-            ));
-        }
-        for port in self
-            .variables()
-            .iter()
-            .map(|v| &v.port)
-            .chain(self.parameters())
-        {
-            if values.scalars.get(&port.id).is_none_or(|v| !v.is_finite()) {
-                return Err(MathError::Contract(
-                    "missing or nonfinite case value".into(),
-                ));
-            }
-        }
-        for (id, value) in &values.scalars {
-            self.validate_scalar(*id, *value)?;
-        }
-        Ok(())
+        self.coordinates
+            .validate_values_in(self.variables(), values)
     }
     /// Admit only the values frozen into compilation: parameters and fixed variables.
     /// Free coordinates may be absent or outside bounds for structural diagnostics;
@@ -1409,6 +1506,14 @@ impl PartialEq for CaseValues {
     }
 }
 impl CaseValues {
+    /// Source-backed native BTree allocation allowance for one retained clone.
+    /// This grants no allocation capacity and does not inspect scientific values.
+    pub fn clone_allocation_bytes(&self) -> Result<usize, MathError> {
+        crate::execution::btree_allocation_bytes::<SemanticId, f64>(self.scalars.len())
+            .map_err(|_| MathError::Limit("case values clone allocation"))?
+            .checked_add(size_of::<Self>())
+            .ok_or(MathError::Limit("case values clone allocation"))
+    }
     /// Value binding identity, separate from structure and prepared arithmetic.
     pub fn identity(&self) -> ContentHash {
         let mut h = FramedHasher::new(pse_ids::Frame::MathCaseValuesV1);

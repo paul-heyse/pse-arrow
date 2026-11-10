@@ -274,6 +274,13 @@ fn admission_identity(
     row.frame(&mut hash);
     Ok(hash.finish_hash())
 }
+/// Complete observations can use durable numerical custody. Annotation starts
+/// are an explicit source capability while their target is still unbound.
+#[derive(Clone, Copy)]
+enum ObservationCapability {
+    Complete,
+    PartialAnnotation,
+}
 impl ModelingPackage {
     /// Evaluate exactly the selected source observations through shared compiler artifacts.
     pub async fn observe(
@@ -285,30 +292,38 @@ impl ModelingPackage {
         profile: Profile,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingObservations, WorkflowError> {
-        self.check_service_bindings(services)?;
-        let preparation_driver = services.math().preparation_driver(cancel)?;
-        let cancel = &preparation_driver;
-        let activity = services.admit_activity()?;
-        activity
-            .scope(async {
-                let providers = self
-                    .inner_registrations(
-                        services,
-                        model.clone(),
-                        &ModelingCaseBindings::default(),
-                        &NumericalInputs::default(),
-                        &pse_model::numerics::NumericalPolicy::default(),
-                        &pse_backend_native::solve::Controls::default(),
-                        DerivativeOrder::Value,
-                        profile,
-                        cancel,
-                        implicit::ProviderDemand::Observations(Some(&rows)),
-                    )
-                    .await?;
-                self.observe_registered(services, model, rows, values, profile, providers, cancel)
-                    .await
-            })
-            .await
+        self.observe_capability(
+            services,
+            model,
+            rows,
+            values,
+            profile,
+            None,
+            ObservationCapability::Complete,
+            cancel,
+        )
+        .await
+    }
+    async fn observe_annotations(
+        &self,
+        services: &crate::workflow::PreparationServices,
+        model: ModelingPreparation,
+        rows: BTreeSet<SemanticId>,
+        values: CaseValues,
+        profile: Profile,
+        cancel: &crate::CancelSource,
+    ) -> Result<ModelingObservations, WorkflowError> {
+        self.observe_capability(
+            services,
+            model,
+            rows,
+            values,
+            profile,
+            None,
+            ObservationCapability::PartialAnnotation,
+            cancel,
+        )
+        .await
     }
     #[allow(
         clippy::too_many_arguments,
@@ -324,6 +339,33 @@ impl ModelingPackage {
         providers: BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>,
         cancel: &crate::CancelSource,
     ) -> Result<ModelingObservations, WorkflowError> {
+        self.observe_capability(
+            services,
+            model,
+            rows,
+            values,
+            profile,
+            Some(providers),
+            ObservationCapability::Complete,
+            cancel,
+        )
+        .await
+    }
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "source annotation capability and optional admitted registrations qualify the same observation evaluator"
+    )]
+    async fn observe_capability(
+        &self,
+        services: &crate::workflow::PreparationServices,
+        model: ModelingPreparation,
+        rows: BTreeSet<SemanticId>,
+        values: CaseValues,
+        profile: Profile,
+        providers: Option<BTreeMap<pse_kernels::ProviderKey, pse_kernels::Registration>>,
+        capability: ObservationCapability,
+        cancel: &crate::CancelSource,
+    ) -> Result<ModelingObservations, WorkflowError> {
         self.check_service_bindings(services)?;
         let preparation_driver = services.math().preparation_driver(cancel)?;
         let cancel = &preparation_driver;
@@ -334,6 +376,24 @@ impl ModelingPackage {
         let activity = services.admit_activity()?;
         activity
             .scope(async {
+                let providers = match providers {
+                    Some(providers) => providers,
+                    None => {
+                        self.inner_registrations(
+                            services,
+                            model.clone(),
+                            &ModelingCaseBindings::default(),
+                            &NumericalInputs::default(),
+                            &pse_model::numerics::NumericalPolicy::default(),
+                            &pse_backend_native::solve::Controls::default(),
+                            DerivativeOrder::Value,
+                            profile,
+                            cancel,
+                            implicit::ProviderDemand::Observations(Some(&rows)),
+                        )
+                        .await?
+                    }
+                };
                 let service = services.math();
                 let bytes = rows
                     .len()
@@ -344,6 +404,53 @@ impl ModelingPackage {
                     return Ok(ModelingObservations {
                         values: BTreeMap::new(),
                         applicability: Vec::new(),
+                        _owner: owner,
+                    });
+                }
+                if matches!(capability, ObservationCapability::Complete)
+                    && providers.is_empty()
+                    && let Some(original) = &model.original
+                    && let Some(program) = self
+                        .numerical_observation_program(
+                            services,
+                            None,
+                            original.root,
+                            original.instance,
+                            original.bindings.clone(),
+                            original.limits,
+                            rows.iter().copied().collect(),
+                            Vec::new(),
+                            DerivativeOrder::Value,
+                            profile,
+                            cancel,
+                        )
+                        .await?
+                {
+                    let ids = program
+                        .request()
+                        .binding()
+                        .rows()
+                        .iter()
+                        .map(|row| row.id)
+                        .collect::<Vec<_>>();
+                    let observed = service
+                        .evaluate_numerical_observation(program, values, cancel)
+                        .await?;
+                    let evidence = observed.applicability.len()
+                        * size_of::<pse_model::applicability::Observation>()
+                        + observed
+                            .applicability
+                            .iter()
+                            .map(pse_model::applicability::Observation::retained_bytes)
+                            .sum::<usize>();
+                    let owner =
+                        service.reserve("modeling:observations", bytes.saturating_add(evidence))?;
+                    return Ok(ModelingObservations {
+                        values: ids
+                            .into_iter()
+                            .zip(observed.values.iter().copied())
+                            .collect(),
+                        applicability: observed.applicability.clone(),
                         _owner: owner,
                     });
                 }
@@ -560,7 +667,7 @@ impl ModelingPackage {
                         )));
                     }
                     let observed = self
-                        .observe(
+                        .observe_annotations(
                             services,
                             model.clone(),
                             ready

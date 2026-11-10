@@ -16,6 +16,9 @@ use std::{collections::TryReserveError, convert::Infallible};
 pub use symbolica::evaluate::F64TransferError;
 use symbolica::evaluate::{F64ProgramExtents, F64ProgramView, F64RestoreError};
 
+#[cfg(feature = "compiled-evaluator")]
+mod native;
+
 /// Native control nesting supported by this transfer profile. A wire codec must
 /// separately admit the generated message nesting; this is not a codec allowance.
 pub const MAX_STAGE_DEPTH: usize = 512;
@@ -39,7 +42,7 @@ passive_record! {
     /// Every field is passive data; no serialized capacity or permission is accepted.
     ExecutionSnapshot, "MathExecutionSnapshot", {
         /// Fixed numerical execution profile; this is not a wire allowance.
-        version: u32 => 1 { pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 2, max: 2 } },
+        version: u32 => 1 { pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 3, max: 3 } },
         /// Compact input population, separate from authored formal IDs.
         inputs: usize => 2,
         /// Authored formal input IDs in their compact numerical order.
@@ -55,7 +58,7 @@ passive_record! {
         /// Complete original Value coefficient and sparse slot layout.
         value_layout: JetLayoutSnapshot => 8 { pse_contract::boundary_projection::LocalRule::Required },
         /// Complete original First coefficient and sparse slot layout.
-        first_layout: JetLayoutSnapshot => 9 { pse_contract::boundary_projection::LocalRule::Required },
+        first_layout: Option<JetLayoutSnapshot> => 9,
         /// Contiguous half-open ranges into first_axes, one per selected output.
         first_rows: Vec<(usize, usize)> => 10,
         /// Sorted derivative-axis ordinals within each output's first_rows range.
@@ -358,8 +361,13 @@ impl<'a> Program<'a> {
                     source,
                     checks,
                     checked_ends,
-                } => match evaluator {
-                    BlockEvaluator::Interpreted(evaluator) => StageView::Block(BlockView {
+                } => {
+                    let evaluator = match evaluator {
+                        BlockEvaluator::Interpreted(evaluator) => evaluator,
+                        #[cfg(feature = "compiled-evaluator")]
+                        BlockEvaluator::Native(native) => &native.canonical,
+                    };
+                    StageView::Block(BlockView {
                         program: Arithmetic::Native(evaluator),
                         resettable: *resettable,
                         components,
@@ -372,12 +380,8 @@ impl<'a> Program<'a> {
                         source: *source,
                         checks: Checks::Native(checks),
                         checked_ends,
-                    }),
-                    #[cfg(feature = "compiled-evaluator")]
-                    BlockEvaluator::Native(_) => {
-                        return Err(TransferError::Unsupported("native/JIT evaluator"));
-                    }
-                },
+                    })
+                }
                 CompiledStage::Require {
                     argument,
                     condition,
@@ -1240,19 +1244,28 @@ pub(crate) fn capture_frame<E: std::fmt::Debug + std::fmt::Display>(
             first_rows.push(root.rows.at(i));
         }
         Ok(ExecutionSnapshot {
-            version: 2,
+            version: 3,
             inputs: root.inputs,
             input_formals: copied(root.formals)?,
             coordinate_offsets: copied(root.coordinates)?,
             slots: root.slots,
             outputs: copied(root.outputs)?,
             limits: root.limits,
-            value_layout: capture_layout(&root.layouts[0])?,
-            first_layout: capture_layout(&root.layouts[1])?,
+            value_layout: capture_layout(&root.value.0)?,
+            first_layout: root
+                .first
+                .as_ref()
+                .map(|(layout, _)| capture_layout(layout))
+                .transpose()?,
             first_rows,
             first_axes: copied(root.axes)?,
-            value: capture_program(root.programs[0])?,
-            first: capture_program(root.programs[1])?,
+            value: capture_program(root.value.1)?,
+            first: root
+                .first
+                .as_ref()
+                .map(|(_, program)| capture_program(*program))
+                .transpose()?
+                .unwrap_or_default(),
             second: root
                 .second
                 .as_ref()
@@ -1450,10 +1463,10 @@ struct RootView<'a> {
     slots: usize,
     outputs: &'a [usize],
     limits: EvaluationLimits,
-    layouts: [JetLayoutView<'a>; 2],
+    value: (JetLayoutView<'a>, Program<'a>),
+    first: Option<(JetLayoutView<'a>, Program<'a>)>,
     rows: Rows<'a>,
     axes: &'a [usize],
-    programs: [Program<'a>; 2],
     second: Option<(JetLayoutView<'a>, Program<'a>)>,
 }
 impl<'a> RootView<'a> {
@@ -1473,9 +1486,14 @@ impl<'a> RootView<'a> {
         let value = t.layouts[DerivativeOrder::Value]
             .as_ref()
             .ok_or(TransferError::Unsupported("missing Value layout"))?;
-        let first = t.layouts[DerivativeOrder::First]
-            .as_ref()
-            .ok_or(TransferError::Unsupported("missing First layout"))?;
+        let first = match (
+            &t.layouts[DerivativeOrder::First],
+            &t.programs[DerivativeOrder::First],
+        ) {
+            (Some(layout), Some(stages)) => Some((layout.transfer_view(), Program::Native(stages))),
+            (None, None) => None,
+            _ => return Err(TransferError::Invalid("incomplete First profile")),
+        };
         let second = match (
             &t.layouts[DerivativeOrder::Second],
             &t.programs[DerivativeOrder::Second],
@@ -1491,26 +1509,30 @@ impl<'a> RootView<'a> {
             slots: t.slots,
             outputs: &t.outputs,
             limits: t.limits,
-            layouts: [value.transfer_view(), first.transfer_view()],
-            rows: Rows::Native(&t.first_layout.rows),
-            axes: &t.first_layout.axes,
-            programs: [
+            value: (
+                value.transfer_view(),
                 Program::Native(
                     t.programs[DerivativeOrder::Value]
                         .as_deref()
                         .ok_or(TransferError::Unsupported("missing Value program"))?,
                 ),
-                Program::Native(
-                    t.programs[DerivativeOrder::First]
-                        .as_deref()
-                        .ok_or(TransferError::Unsupported("missing First program"))?,
-                ),
-            ],
+            ),
+            rows: if first.is_some() {
+                Rows::Native(&t.first_layout.rows)
+            } else {
+                Rows::Passive(&[])
+            },
+            axes: if first.is_some() {
+                &t.first_layout.axes
+            } else {
+                &[]
+            },
+            first,
             second,
         })
     }
     fn passive(snapshot: &'a ExecutionSnapshot) -> Result<Self> {
-        if snapshot.version != 2 {
+        if snapshot.version != 3 {
             return Err(TransferError::Unsupported("snapshot version"));
         }
         Ok(Self {
@@ -1520,13 +1542,16 @@ impl<'a> RootView<'a> {
             slots: snapshot.slots,
             outputs: &snapshot.outputs,
             limits: snapshot.limits,
-            layouts: [snapshot.value_layout.view(), snapshot.first_layout.view()],
+            value: (
+                snapshot.value_layout.view(),
+                Program::Passive(&snapshot.value),
+            ),
+            first: snapshot
+                .first_layout
+                .as_ref()
+                .map(|layout| (layout.view(), Program::Passive(&snapshot.first))),
             rows: Rows::Passive(&snapshot.first_rows),
             axes: &snapshot.first_axes,
-            programs: [
-                Program::Passive(&snapshot.value),
-                Program::Passive(&snapshot.first),
-            ],
             second: snapshot
                 .second
                 .as_ref()
@@ -1537,18 +1562,24 @@ impl<'a> RootView<'a> {
         self.limits.check()?;
         if self.inputs != self.formals.len()
             || self.inputs > self.slots
-            || self.rows.len() != self.outputs.len()
+            || (self.first.is_some() && self.rows.len() != self.outputs.len())
         {
             return Err(TransferError::Invalid("template signature extent"));
         }
         indices(self.outputs, self.slots)?;
         indices(self.coordinates, self.inputs)?;
-        validate_first_rows(
-            self.rows,
-            self.axes,
-            self.outputs.len(),
-            self.coordinates.len(),
-        )?;
+        if self.first.is_some() {
+            validate_first_rows(
+                self.rows,
+                self.axes,
+                self.outputs.len(),
+                self.coordinates.len(),
+            )?;
+        } else if self.rows.len() != 0 || !self.axes.is_empty() {
+            return Err(TransferError::Invalid(
+                "First selection without First profile",
+            ));
+        }
         let signature = plus(
             bytes::<usize>(plus(
                 plus(self.formals.len(), self.coordinates.len())?,
@@ -1583,16 +1614,20 @@ impl<'a> RootView<'a> {
             arc_bytes::<(Arc<dyn AllocationOwner>, Arc<dyn AllocationOwner>)>()?,
         )?;
         counts.facts.template_bytes = plus(signature, shells)?;
-        let orders = [
-            (DerivativeOrder::Value, &self.layouts[0], self.programs[0]),
-            (DerivativeOrder::First, &self.layouts[1], self.programs[1]),
-        ]
-        .into_iter()
-        .chain(
-            self.second
-                .as_ref()
-                .map(|(layout, program)| (DerivativeOrder::Second, layout, *program)),
-        );
+        if self.first.is_none() && self.second.is_some() {
+            return Err(TransferError::Invalid("Second without First profile"));
+        }
+        let orders = std::iter::once((DerivativeOrder::Value, &self.value.0, self.value.1))
+            .chain(
+                self.first
+                    .as_ref()
+                    .map(|(layout, program)| (DerivativeOrder::First, layout, *program)),
+            )
+            .chain(
+                self.second
+                    .as_ref()
+                    .map(|(layout, program)| (DerivativeOrder::Second, layout, *program)),
+            );
         for (order, layout, program) in orders {
             let i = order as usize;
             if layout.order != order || layout.coordinates != self.coordinates {
@@ -1800,11 +1835,71 @@ fn retained_excess(stages: &[StageSnapshot]) -> Result<usize> {
     Ok(n)
 }
 impl ExecutionSnapshot {
+    /// Validate emitted source occurrences against the separately compiler-sealed
+    /// original custody before constructing any receiving evaluator. This does
+    /// not turn those passive maps into source or derivative authority.
+    pub fn check_source_attribution(
+        &self,
+        attribution: &ExecutionAttribution,
+    ) -> std::result::Result<(), AttributionTransferError> {
+        fn source(
+            id: SemanticId,
+            attribution: &ExecutionAttribution,
+        ) -> std::result::Result<(), AttributionTransferError> {
+            if attribution.occurrences().contains_key(&id)
+                || attribution
+                    .occurrences()
+                    .values()
+                    .any(|location| location.source == id)
+                || attribution.checked_sources().contains_key(&id)
+            {
+                Ok(())
+            } else {
+                Err(AttributionTransferError::MissingSource(id))
+            }
+        }
+        fn stages(
+            program: &[StageSnapshot],
+            attribution: &ExecutionAttribution,
+        ) -> std::result::Result<(), AttributionTransferError> {
+            for stage in program {
+                match stage {
+                    StageSnapshot::Block(block) => {
+                        source(block.source, attribution)?;
+                        for check in &block.checks {
+                            source(check.source, attribution)?;
+                        }
+                    }
+                    StageSnapshot::Require { source: id, .. } => source(*id, attribution)?,
+                    StageSnapshot::Domain(domain) => stages(&domain.stages, attribution)?,
+                    StageSnapshot::Applicability(applicability) => {
+                        stages(&applicability.stages, attribution)?
+                    }
+                    StageSnapshot::Branch {
+                        then, otherwise, ..
+                    } => {
+                        stages(then, attribution)?;
+                        stages(otherwise, attribution)?;
+                    }
+                }
+            }
+            Ok(())
+        }
+        stages(&self.value, attribution)?;
+        stages(&self.first, attribution)?;
+        if let Some(second) = &self.second {
+            stages(&second.stages, attribution)?;
+        }
+        Ok(())
+    }
     /// Inspect borrowed data without allocating; this grants no execution authority.
     pub fn inspect(&self) -> Result<TransferExtents> {
         Ok(self.checked_counts()?.facts)
     }
     fn checked_counts(&self) -> Result<Counts> {
+        if self.first_layout.is_none() && !self.first.is_empty() {
+            return Err(TransferError::Invalid("First stages without First layout"));
+        }
         let mut counts = RootView::passive(self)?.inspect()?;
         // Owned decoded metadata moves into the immutable template. Preserve its
         // actual capacities; only new lazy clones request their source lengths.
@@ -1817,7 +1912,11 @@ impl ExecutionSnapshot {
         )?;
         let layouts = plus(
             layout_excess(&self.value_layout)?,
-            layout_excess(&self.first_layout)?,
+            self.first_layout
+                .as_ref()
+                .map(layout_excess)
+                .transpose()?
+                .unwrap_or(0),
         )?;
         let mut retained = plus(
             plus(signature, layouts)?,
@@ -1856,7 +1955,11 @@ impl ExecutionSnapshot {
             plus(
                 plus(
                     owned_layout(&self.value_layout)?,
-                    owned_layout(&self.first_layout)?,
+                    self.first_layout
+                        .as_ref()
+                        .map(owned_layout)
+                        .transpose()?
+                        .unwrap_or(0),
                 )?,
                 plus(owned_program(&self.value)?, owned_program(&self.first)?)?,
             )?,
@@ -1956,8 +2059,10 @@ impl CheckedExecution {
     pub fn order(&self) -> DerivativeOrder {
         if self.frame.template.layouts[DerivativeOrder::Second].is_some() {
             DerivativeOrder::Second
-        } else {
+        } else if self.frame.template.layouts[DerivativeOrder::First].is_some() {
             DerivativeOrder::First
+        } else {
+            DerivativeOrder::Value
         }
     }
     /// Mathematical product guaranteed by this fixed profile.
@@ -2007,6 +2112,49 @@ impl std::fmt::Debug for RestoredExecutionTemplate {
 }
 
 impl RestoredExecutionTemplate {
+    /// Complete current-worker, ordered-population and callback-result backing.
+    pub fn batch_backing_bytes(
+        &self,
+        rows: usize,
+        order: DerivativeOrder,
+    ) -> std::result::Result<usize, MathError> {
+        batch::numerical_batch_backing(&self.template, rows, order)
+    }
+    /// Exact maximum derivative order retained by this numerical product.
+    pub fn order(&self) -> DerivativeOrder {
+        if self.template.layouts[DerivativeOrder::Second].is_some() {
+            DerivativeOrder::Second
+        } else if self.template.layouts[DerivativeOrder::First].is_some() {
+            DerivativeOrder::First
+        } else {
+            DerivativeOrder::Value
+        }
+    }
+
+    /// Check emitted closure tokens against the original sealed attribution,
+    /// without allocating a worker or claiming that the maps supply source authority.
+    pub fn check_closure_attribution(
+        &self,
+        attribution: &ExecutionAttributionSnapshot,
+    ) -> std::result::Result<(), AttributionTransferError> {
+        check_template_closure_attribution(
+            &self.template,
+            &attribution.checked_members,
+            &attribution.checked_sources,
+        )
+    }
+
+    /// Check borrowed original attribution without copying its custody maps.
+    pub fn check_closure_attribution_bindings(
+        &self,
+        attribution: &ExecutionAttribution,
+    ) -> std::result::Result<(), AttributionTransferError> {
+        check_template_closure_attribution(
+            &self.template,
+            attribution.checked_members(),
+            attribution.checked_sources(),
+        )
+    }
     /// Original checked populations, not a reusable allocation grant.
     pub fn extents(&self) -> &TransferExtents {
         &self.facts
@@ -2061,6 +2209,14 @@ pub(crate) fn check_closure_attribution(
     members: &BTreeMap<SemanticId, SemanticId>,
     sources: &BTreeMap<SemanticId, SemanticId>,
 ) -> std::result::Result<(), AttributionTransferError> {
+    check_template_closure_attribution(&frame.template, members, sources)
+}
+
+fn check_template_closure_attribution(
+    template: &ExecutionTemplate,
+    members: &BTreeMap<SemanticId, SemanticId>,
+    sources: &BTreeMap<SemanticId, SemanticId>,
+) -> std::result::Result<(), AttributionTransferError> {
     fn lineage(
         lineage: &pse_model::diagnostic::ValidityLineage,
         members: &BTreeMap<SemanticId, SemanticId>,
@@ -2109,7 +2265,7 @@ pub(crate) fn check_closure_attribution(
         }
         Ok(())
     }
-    for program in frame.template.programs.values().flatten() {
+    for program in template.programs.values().flatten() {
         visit(program, members, sources)?;
     }
     Ok(())
@@ -2168,8 +2324,10 @@ pub fn restore<E: std::fmt::Debug + std::fmt::Display>(
         let mut layouts = EnumMap::default();
         layouts[DerivativeOrder::Value] =
             Some(value_layout.restore(slots, inputs, limits, &mut index_scratch)?);
-        layouts[DerivativeOrder::First] =
-            Some(first_layout.restore(slots, inputs, limits, &mut index_scratch)?);
+        if let Some(first_layout) = first_layout {
+            layouts[DerivativeOrder::First] =
+                Some(first_layout.restore(slots, inputs, limits, &mut index_scratch)?);
+        }
         let mut programs = EnumMap::default();
         programs[DerivativeOrder::Value] = Some(restore_program(
             value,
@@ -2177,12 +2335,16 @@ pub fn restore<E: std::fmt::Debug + std::fmt::Display>(
             &mut index_scratch,
             &mut identity_scratch,
         )?);
-        programs[DerivativeOrder::First] = Some(restore_program(
-            first,
-            limits,
-            &mut index_scratch,
-            &mut identity_scratch,
-        )?);
+        if layouts[DerivativeOrder::First].is_some() {
+            programs[DerivativeOrder::First] = Some(restore_program(
+                first,
+                limits,
+                &mut index_scratch,
+                &mut identity_scratch,
+            )?);
+        } else if !first.is_empty() {
+            return Err(TransferError::Invalid("First stages without First layout"));
+        }
         if let Some(second) = second {
             layouts[DerivativeOrder::Second] = Some(second.layout.restore(
                 slots,
@@ -2197,12 +2359,16 @@ pub fn restore<E: std::fmt::Debug + std::fmt::Display>(
                 &mut identity_scratch,
             )?);
         }
-        let first_layout = FirstLayout::checked_restore(
-            first_rows,
-            first_axes,
-            outputs.len(),
-            coordinate_offsets.len(),
-        )?;
+        let first_layout = if layouts[DerivativeOrder::First].is_some() {
+            FirstLayout::checked_restore(
+                first_rows,
+                first_axes,
+                outputs.len(),
+                coordinate_offsets.len(),
+            )?
+        } else {
+            FirstLayout::default()
+        };
         let mut order_worker_bytes = EnumMap::default();
         let mut census = EnumMap::default();
         for (i, order) in [

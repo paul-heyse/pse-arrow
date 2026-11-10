@@ -5,6 +5,7 @@
 #[path = "source_bindings.rs"]
 mod source_bindings;
 pub(crate) use source_bindings::SourceWorker;
+pub(crate) use source_bindings::attribution_tree as btree_allocation_bytes;
 pub use source_bindings::{
     AttributionExtents, AttributionTransferError, ExecutionAttribution,
     ExecutionAttributionSnapshot, SourceBindings, SourceBody,
@@ -2519,7 +2520,7 @@ impl PreparedBody {
             planned.push((requested, layout, profile, regions));
         }
         #[cfg(feature = "compiled-evaluator")]
-        let mut native_modules = crate::native_compiled::Batch::default();
+        let mut native_modules = crate::native_compiled::Batch::for_evaluator(options.evaluator)?;
         for (requested, layout, profile, regions) in planned {
             let _order_phase = pse_diagnostics::observation::current().map(|context| {
                 context.count("math.compiled_order_constructions", "count", 1);
@@ -2839,14 +2840,23 @@ impl PreparedBody {
 enum BlockEvaluator {
     Interpreted(ExpressionEvaluator<f64>),
     #[cfg(feature = "compiled-evaluator")]
-    Native(crate::native_compiled::Evaluator),
+    Native(NativeBlock),
+}
+/// Native code realizes the same immutable portable numerical instructions.
+/// Retain those instructions for qualified capture and receiver-local compilation;
+/// only the executable has mutable, independently instantiated worker state.
+#[cfg(feature = "compiled-evaluator")]
+#[derive(Clone)]
+struct NativeBlock {
+    canonical: Arc<ExpressionEvaluator<f64>>,
+    executable: crate::native_compiled::Evaluator,
 }
 impl BlockEvaluator {
     fn instantiate(&mut self) -> Result<(), MathError> {
         match self {
             Self::Interpreted(_) => Ok(()),
             #[cfg(feature = "compiled-evaluator")]
-            Self::Native(evaluator) => evaluator.instantiate(),
+            Self::Native(evaluator) => evaluator.executable.instantiate(),
         }
     }
     fn evaluate(&mut self, arguments: &[f64], values: &mut [f64]) -> Result<(), String> {
@@ -2855,7 +2865,7 @@ impl BlockEvaluator {
                 .try_evaluate(arguments, values)
                 .map_err(|e| e.to_string()),
             #[cfg(feature = "compiled-evaluator")]
-            Self::Native(evaluator) => evaluator.evaluate(arguments, values),
+            Self::Native(evaluator) => evaluator.executable.evaluate(arguments, values),
         }
     }
     fn reset(self) -> Result<Self, MathError> {
@@ -2878,7 +2888,7 @@ impl BlockEvaluator {
             }
             #[cfg(feature = "compiled-evaluator")]
             Self::Native(mut evaluator) => {
-                evaluator.reset();
+                evaluator.executable.reset();
                 Ok(Self::Native(evaluator))
             }
         }
@@ -3169,6 +3179,29 @@ impl std::fmt::Debug for CompiledBody {
     }
 }
 impl CompiledBody {
+    /// Eligible immutable numerical vocabulary for a grouped pure population.
+    /// Ordered scientific guards remain per point; opaque calls, providers and
+    /// host branches require their existing distinct execution capability.
+    pub(crate) fn pure_branch_free(&self, order: DerivativeOrder) -> bool {
+        fn stages(program: &[CompiledStage]) -> bool {
+            program.iter().all(|stage| match stage {
+                CompiledStage::Block { resettable, .. } => *resettable,
+                CompiledStage::Require { .. } => true,
+                CompiledStage::Domain {
+                    stages: program, ..
+                }
+                | CompiledStage::Applicability {
+                    stages: program, ..
+                } => stages(program),
+                CompiledStage::Branch { .. } | CompiledStage::Provider { .. } => false,
+            })
+        }
+        self.template.product == ProductKind::SelectedPartials
+            && !self.template.directional
+            && self.template.required_provider_keys.is_empty()
+            && self.template.programs[order].as_deref().is_some_and(stages)
+    }
+
     /// Original preparation policy for additional demands from this same source.
     pub(crate) fn optimization(&self) -> Optimization {
         self.optimization
@@ -3776,32 +3809,94 @@ impl TrialEvaluation {
                 (i, j, self.second[row * self.second_pairs.len() + offset])
             })
     }
+    fn write_first_dense(&self, dense: &mut [f64]) {
+        let n = self.coordinates;
+        for row in 0..self.values.len() {
+            for (axis, value) in self.first_entries(row) {
+                dense[row * n + axis] = value;
+            }
+        }
+    }
+    fn write_second_dense(&self, dense: &mut [f64]) {
+        let n = self.coordinates;
+        for row in 0..self.values.len() {
+            for i in 0..n {
+                for j in 0..n {
+                    dense[(row * n + i) * n + j] = self.second(row, i, j);
+                }
+            }
+        }
+    }
+    pub(crate) fn write_evaluation(&self, target: &mut Evaluation) -> Result<(), MathError> {
+        let first = if self.first_requested {
+            self.values
+                .len()
+                .checked_mul(self.coordinates)
+                .ok_or(MathError::Limit("dense first callback"))?
+        } else {
+            0
+        };
+        let second = if self.second_requested {
+            self.values
+                .len()
+                .checked_mul(self.coordinates)
+                .and_then(|n| n.checked_mul(self.coordinates))
+                .ok_or(MathError::Limit("dense second callback"))?
+        } else {
+            0
+        };
+        target.values.clear();
+        target
+            .values
+            .try_reserve_exact(self.values.len())
+            .map_err(|_| MathError::Limit("reusable value callback"))?;
+        target.values.extend_from_slice(&self.values);
+        target
+            .jacobian
+            .try_reserve_exact(first.saturating_sub(target.jacobian.len()))
+            .map_err(|_| MathError::Limit("reusable first callback"))?;
+        target.jacobian.resize(first, 0.);
+        target.jacobian.fill(0.);
+        if self.first_requested {
+            self.write_first_dense(&mut target.jacobian);
+        }
+        target
+            .hessians
+            .try_reserve_exact(second.saturating_sub(target.hessians.len()))
+            .map_err(|_| MathError::Limit("reusable second callback"))?;
+        target.hessians.resize(second, 0.);
+        if self.second_requested {
+            self.write_second_dense(&mut target.hessians);
+        }
+        target.applicability.clear();
+        for witness in &self.applicability {
+            let observations = witness.hydrate();
+            target
+                .applicability
+                .try_reserve_exact(observations.len())
+                .map_err(|_| MathError::Limit("reusable applicability callback"))?;
+            target.applicability.extend(observations);
+        }
+        Ok(())
+    }
     pub(crate) fn into_evaluation(self) -> Evaluation {
         let n = self.coordinates;
-        let jacobian = if !self.first_requested {
-            Vec::new()
+        let mut jacobian = if self.first_requested {
+            vec![0.; self.values.len() * n]
         } else {
-            let mut dense = vec![0.0; self.values.len() * n];
-            for row in 0..self.values.len() {
-                for (axis, value) in self.first_entries(row) {
-                    dense[row * n + axis] = value;
-                }
-            }
-            dense
-        };
-        let hessians = if !self.second_requested {
             Vec::new()
-        } else {
-            let mut dense = vec![0.0; self.values.len() * n * n];
-            for row in 0..self.values.len() {
-                for i in 0..n {
-                    for j in 0..n {
-                        dense[(row * n + i) * n + j] = self.second(row, i, j);
-                    }
-                }
-            }
-            dense
         };
+        if self.first_requested {
+            self.write_first_dense(&mut jacobian);
+        }
+        let mut hessians = if self.second_requested {
+            vec![0.; self.values.len() * n * n]
+        } else {
+            Vec::new()
+        };
+        if self.second_requested {
+            self.write_second_dense(&mut hessians);
+        }
         Evaluation {
             applicability: self
                 .applicability
@@ -4255,29 +4350,7 @@ impl NumericFrame {
             return Err(MathError::Contract("uncompiled derivative order".into()));
         };
         let frame = &mut self.frame[..layout.frame_entries(self.template.slots)?];
-        let n = layout.coordinates.len();
-        for (slot, &value) in inputs.iter().enumerate() {
-            layout.clear_frame_slot(frame, slot);
-            layout.set_frame_value(frame, slot, 0, value);
-        }
-        if order >= DerivativeOrder::First {
-            if let Some(direction) = direction {
-                for (axis, &slot) in self.template.coordinate_offsets.iter().enumerate() {
-                    if self.template.product == ProductKind::WeightedHessianAction
-                        && self.template.reverse_product.is_none()
-                    {
-                        layout.set_frame_value(frame, slot, 1 + axis, 1.0);
-                        layout.set_frame_value(frame, slot, n, direction[axis]);
-                    } else {
-                        layout.set_frame_value(frame, slot, 1, direction[axis]);
-                    }
-                }
-            } else {
-                for (i, &slot) in layout.coordinates.iter().enumerate() {
-                    layout.set_frame_value(frame, slot, 1 + i, 1.0);
-                }
-            }
-        }
+        seed_frame(&self.template, frame, layout, inputs, direction);
         let context = EvaluationContext {
             cancelled,
             max_result_bytes: self.template.limits.scratch_bytes,
@@ -4302,54 +4375,7 @@ impl NumericFrame {
             provider: SemanticId::NIL,
             cause,
         })?;
-        result.coordinates = n;
-        result.second_pairs = layout.pairs.clone();
-        result.second_requested = order >= DerivativeOrder::Second;
-        result.first_requested = order >= DerivativeOrder::First;
-        result.first_layout = if order >= DerivativeOrder::First {
-            self.template.first_layout.clone()
-        } else {
-            Arc::default()
-        };
-        // Complete result extent belongs to the admitted operation cache; grow only
-        // the actually demanded order, and retain it for the next trial.
-        result
-            .values
-            .try_reserve_exact(self.template.outputs.len())
-            .map_err(|_| MathError::Limit("trial value storage"))?;
-        if order >= DerivativeOrder::First {
-            result
-                .first
-                .try_reserve_exact(self.template.first_layout.axes.len())
-                .map_err(|_| MathError::Limit("trial first storage"))?;
-        }
-        if order >= DerivativeOrder::Second {
-            result
-                .second
-                .try_reserve_exact(self.template.outputs.len() * layout.pairs.len())
-                .map_err(|_| MathError::Limit("trial second storage"))?;
-        }
-        for (row, &slot) in self.template.outputs.iter().enumerate() {
-            let jet = &frame[layout.frame_slot_range(slot)];
-            if jet.iter().any(|v| !v.is_finite()) {
-                return Err(MathError::Contract(
-                    "nonfinite or unassigned result jet".into(),
-                ));
-            }
-            result.values.push(layout.frame_value(frame, slot, 0));
-            if order >= DerivativeOrder::First {
-                for (axis, _) in self.template.first_layout.entries(row) {
-                    result.first.push(layout.frame_value(frame, slot, 1 + axis));
-                }
-            }
-            if order >= DerivativeOrder::Second {
-                for k in 0..layout.pairs.len() {
-                    let value =
-                        layout.frame_value(frame, slot, 1 + n + k) * layout.raw_factor(1 + n + k);
-                    result.second.push(value);
-                }
-            }
-        }
+        publish_trial(&self.template, frame, layout, result)?;
         self.check_scope()?;
         Ok(())
     }
@@ -6438,7 +6464,13 @@ fn compile_stages(
                 allowance.entries = allowance
                     .entries
                     .checked_add(
-                        input_len + output_len + components.len() + storage.numeric_entries,
+                        input_len
+                            + output_len
+                            + components.len()
+                            + storage
+                                .numeric_entries
+                                .checked_mul(options.evaluator.numeric_stack_factor())
+                                .ok_or(MathError::Limit("native evaluator scratch"))?,
                     )
                     .ok_or(MathError::Limit("evaluator scratch"))?;
                 limits.allocation(allowance.entries)?;
@@ -6455,7 +6487,8 @@ fn compile_stages(
                 let evaluator = {
                     match options.evaluator {
                         library::Evaluator::Interpreted => BlockEvaluator::Interpreted(evaluator),
-                        library::Evaluator::CompiledScalar { module_bytes } => {
+                        library::Evaluator::CompiledScalar { module_bytes }
+                        | library::Evaluator::CompiledX4 { module_bytes } => {
                             #[cfg(feature = "compiled-evaluator")]
                             {
                                 if module_bytes == 0 {
@@ -6468,12 +6501,23 @@ fn compile_stages(
                                 if !allowance.native_prepaid {
                                     crate::construction::additional(module_bytes)?;
                                 }
-                                BlockEvaluator::Native(native_modules.push(
+                                let canonical_shell =
+                                    size_of::<ExpressionEvaluator<f64>>() + 2 * size_of::<usize>();
+                                crate::construction::additional(canonical_shell)?;
+                                allowance.instructions =
+                                    allowance.instructions.checked_add(canonical_shell).ok_or(
+                                        MathError::Limit("canonical native instruction owner"),
+                                    )?;
+                                let executable = native_modules.push(
                                     &evaluator,
                                     &storage,
                                     module_bytes,
                                     execution_scope,
-                                )?)
+                                )?;
+                                BlockEvaluator::Native(NativeBlock {
+                                    canonical: Arc::new(evaluator),
+                                    executable,
+                                })
                             }
                             #[cfg(not(feature = "compiled-evaluator"))]
                             {
@@ -6796,6 +6840,120 @@ fn collect_provider_keys(stages: &[CompiledStage], keys: &mut Vec<ProviderKey>) 
         }
     }
 }
+fn seed_frame(
+    template: &ExecutionTemplate,
+    frame: &mut [f64],
+    layout: &JetLayout,
+    inputs: &[f64],
+    direction: Option<&[f64]>,
+) {
+    let n = layout.coordinates.len();
+    let order = layout.order;
+    for (slot, &value) in inputs.iter().enumerate() {
+        layout.clear_frame_slot(frame, slot);
+        layout.set_frame_value(frame, slot, 0, value);
+    }
+    if order >= DerivativeOrder::First {
+        if let Some(direction) = direction {
+            for (axis, &slot) in template.coordinate_offsets.iter().enumerate() {
+                if template.product == ProductKind::WeightedHessianAction
+                    && template.reverse_product.is_none()
+                {
+                    layout.set_frame_value(frame, slot, 1 + axis, 1.0);
+                    layout.set_frame_value(frame, slot, n, direction[axis]);
+                } else {
+                    layout.set_frame_value(frame, slot, 1, direction[axis]);
+                }
+            }
+        } else {
+            for (i, &slot) in layout.coordinates.iter().enumerate() {
+                layout.set_frame_value(frame, slot, 1 + i, 1.0);
+            }
+        }
+    }
+}
+fn publish_trial(
+    template: &ExecutionTemplate,
+    frame: &[f64],
+    layout: &JetLayout,
+    result: &mut TrialEvaluation,
+) -> Result<(), MathError> {
+    let n = layout.coordinates.len();
+    let order = layout.order;
+    result.coordinates = n;
+    result.second_pairs = layout.pairs.clone();
+    result.second_requested = order >= DerivativeOrder::Second;
+    result.first_requested = order >= DerivativeOrder::First;
+    result.first_layout = if order >= DerivativeOrder::First {
+        template.first_layout.clone()
+    } else {
+        Arc::default()
+    };
+    // Complete result extent belongs to the admitted operation cache; grow only
+    // the actually demanded order, and retain it for the next trial.
+    result
+        .values
+        .try_reserve_exact(template.outputs.len())
+        .map_err(|_| MathError::Limit("trial value storage"))?;
+    if order >= DerivativeOrder::First {
+        result
+            .first
+            .try_reserve_exact(template.first_layout.axes.len())
+            .map_err(|_| MathError::Limit("trial first storage"))?;
+    }
+    if order >= DerivativeOrder::Second {
+        result
+            .second
+            .try_reserve_exact(template.outputs.len() * layout.pairs.len())
+            .map_err(|_| MathError::Limit("trial second storage"))?;
+    }
+    for (row, &slot) in template.outputs.iter().enumerate() {
+        let jet = &frame[layout.frame_slot_range(slot)];
+        if jet.iter().any(|v| !v.is_finite()) {
+            return Err(MathError::Contract(
+                "nonfinite or unassigned result jet".into(),
+            ));
+        }
+        result.values.push(layout.frame_value(frame, slot, 0));
+        if order >= DerivativeOrder::First {
+            for (axis, _) in template.first_layout.entries(row) {
+                result.first.push(layout.frame_value(frame, slot, 1 + axis));
+            }
+        }
+        if order >= DerivativeOrder::Second {
+            for k in 0..layout.pairs.len() {
+                let value =
+                    layout.frame_value(frame, slot, 1 + n + k) * layout.raw_factor(1 + n + k);
+                result.second.push(value);
+            }
+        }
+    }
+    Ok(())
+}
+
+fn publish_block(
+    frame: &mut [f64],
+    scatter: &[(usize, Option<usize>)],
+    values: &[f64],
+    checks: &[SourceCheck],
+    checked_ends: &[usize],
+) -> Result<(), MathError> {
+    let mut first = 0;
+    for (check, &end) in checks.iter().zip(checked_ends.iter()) {
+        if values[first..end].iter().any(|v| !v.is_finite()) {
+            return Err(MathError::Domain {
+                source_id: check.source,
+                requirement: "finite arithmetic jet",
+            });
+        }
+        first = end;
+    }
+    for &(destination, source) in scatter.iter() {
+        frame[destination] = source.map_or(0.0, |offset| values[offset]);
+    }
+    Ok(())
+}
+
 #[allow(
     clippy::too_many_arguments,
     reason = "stage evaluation borrows independent frames, layouts, providers, scope and completed visit storage"
@@ -6944,19 +7102,7 @@ fn evaluate_stages(
                         order: layout.order,
                         detail: e.to_string(),
                     })?;
-                let mut first = 0;
-                for (check, &end) in checks.iter().zip(checked_ends.iter()) {
-                    if values[first..end].iter().any(|v| !v.is_finite()) {
-                        return Err(MathError::Domain {
-                            source_id: check.source,
-                            requirement: "finite arithmetic jet",
-                        });
-                    }
-                    first = end;
-                }
-                for &(destination, source) in scatter.iter() {
-                    frame[destination] = source.map_or(0.0, |offset| values[offset]);
-                }
+                publish_block(frame, scatter, values, checks, checked_ends)?;
             }
             CompiledStage::Require {
                 argument,

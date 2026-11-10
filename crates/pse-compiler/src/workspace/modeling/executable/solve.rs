@@ -52,6 +52,43 @@ impl From<&pse_modeling::specialize::Fixture> for ModelingCaseBindings {
         }
     }
 }
+pub(super) fn model_case_values(
+    model: &SpecializedModel,
+    inputs: &[SemanticId],
+    case: &ModelingCaseBindings,
+) -> Result<CaseValues> {
+    let mut values = CaseValues {
+        scalars: BTreeMap::new(),
+    };
+    for id in inputs {
+        if let Some(pse_modeling::specialize::Value::Number { bits, .. }) =
+            model.symbols[id].initial
+        {
+            values.scalars.insert(*id, f64::from_bits(bits));
+        }
+    }
+    for (path, value) in &case.values {
+        let id = model.paths.get(path).ok_or_else(|| {
+            CompileError::Missing(format!("case path {path} is not a scalar symbol"))
+        })?;
+        if !inputs.contains(id) {
+            return Err(CompileError::Missing(format!(
+                "case path {path} is computed, not an independent coordinate"
+            )));
+        }
+        values.scalars.insert(*id, *value);
+    }
+    for (member, value) in &case.members {
+        if !inputs.contains(member) || !value.is_finite() {
+            return Err(CompileError::Missing(format!(
+                "admitted member {member} is not a finite independent coordinate"
+            )));
+        }
+        values.scalars.insert(*member, *value);
+    }
+    Ok(values)
+}
+
 impl CompilerWorkspace {
     /// Prepare an immutable solver view, excluding observation rows and retaining all original model products.
     /// Physical inputs are canonical values. Parameters and fixed variables are required;
@@ -135,36 +172,7 @@ impl PreparedModeling {
     }
     /// Resolve authored defaults and canonical fixture overrides without a runtime.
     pub fn case_values(&self, case: &ModelingCaseBindings) -> Result<CaseValues> {
-        let mut values = CaseValues {
-            scalars: BTreeMap::new(),
-        };
-        for id in &self.admitted.inputs {
-            if let Some(pse_modeling::specialize::Value::Number { bits, .. }) =
-                self.model.symbols[id].initial
-            {
-                values.scalars.insert(*id, f64::from_bits(bits));
-            }
-        }
-        for (path, value) in &case.values {
-            let id = self.model.paths.get(path).ok_or_else(|| {
-                CompileError::Missing(format!("case path {path} is not a scalar symbol"))
-            })?;
-            if !self.admitted.inputs.contains(id) {
-                return Err(CompileError::Missing(format!(
-                    "case path {path} is computed, not an independent coordinate"
-                )));
-            }
-            values.scalars.insert(*id, *value);
-        }
-        for (member, value) in &case.members {
-            if !self.admitted.inputs.contains(member) || !value.is_finite() {
-                return Err(CompileError::Missing(format!(
-                    "admitted member {member} is not a finite independent coordinate"
-                )));
-            }
-            values.scalars.insert(*member, *value);
-        }
-        Ok(values)
+        model_case_values(&self.model, &self.admitted.inputs, case)
     }
     /// A minimal value-only observation view. Unselected expressions and absent inputs
     /// are not evaluated and cannot poison a start or check.

@@ -148,8 +148,11 @@ pub use providers::{
     ProviderInspectionEntry, ProviderInspectionOutput, ProviderInspectionPage,
     ProviderInspectionRequest,
 };
+mod numerical_observation;
 mod observation_batch;
+mod portable_preparation;
 pub(super) mod results;
+mod symbolic_preparation;
 mod views;
 use super::{
     PhysicalContext, Runtime, SourceDelta, WorkflowError, contract, modeling_error, relation,

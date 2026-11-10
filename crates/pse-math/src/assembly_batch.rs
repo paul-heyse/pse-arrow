@@ -23,6 +23,30 @@ pub struct CaseBatchOutcome {
     canceled: bool,
 }
 impl CaseBatchOutcome {
+    pub(crate) fn from_parts(
+        rows: Vec<SemanticId>,
+        points: Vec<PointResult>,
+        values: Vec<f64>,
+        canceled: bool,
+    ) -> Result<Self, MathError> {
+        if rows.len().checked_mul(points.len()) != Some(values.len()) {
+            return Err(MathError::Contract("case batch result extent".into()));
+        }
+        let mut outcome = Self {
+            rows,
+            points,
+            values,
+            canceled,
+        };
+        for (index, point) in outcome.points.iter_mut().enumerate() {
+            if !matches!(point.outcome, PointOutcome::Succeeded) {
+                outcome.values[index * outcome.rows.len()..(index + 1) * outcome.rows.len()]
+                    .fill(f64::NAN);
+                point.applicability.clear();
+            }
+        }
+        Ok(outcome)
+    }
     /// Actual owned result storage, including original failure and scientific evidence payloads.
     pub fn retained_bytes(&self) -> usize {
         size_of::<Self>()
@@ -366,15 +390,14 @@ impl CaseBatchWorker {
             }
         }
         outcome.canceled |= self.scope.cancellation().load(Ordering::Acquire);
-        for (index, point) in outcome.points.iter_mut().enumerate() {
-            if !matches!(point.outcome, PointOutcome::Succeeded) {
-                outcome.values[index * rows..(index + 1) * rows].fill(f64::NAN);
-                point.applicability.clear();
-            }
-        }
         self.inputs.fill(f64::NAN);
         self.row.fill(f64::NAN);
-        Ok(outcome)
+        CaseBatchOutcome::from_parts(
+            outcome.rows,
+            outcome.points,
+            outcome.values,
+            outcome.canceled,
+        )
     }
 }
 

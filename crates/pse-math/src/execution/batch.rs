@@ -2,6 +2,13 @@
 // Copyright (c) 2026 Paul Heyse
 //! Ordered independent points over one immutable product and private reusable scratch.
 use super::*;
+#[path = "batch/checked.rs"]
+mod checked;
+#[cfg(feature = "compiled-evaluator")]
+#[path = "batch/packed.rs"]
+mod packed;
+pub use checked::CheckedBatchExecution;
+pub(crate) use checked::numerical_batch_backing;
 
 /// Exact compiled program and output/coordinate/product qualification.
 #[derive(Clone)]
@@ -59,11 +66,15 @@ impl BatchLayout {
     }
     /// Checked owned result/witness extent, admitted before allocation by the host.
     pub fn backing_bytes(&self, points: usize) -> Result<usize, MathError> {
+        let diagnostics = self.body.template.programs[self.order]
+            .as_ref()
+            .map_or(Ok(0), |stages| checked::diagnostic_backing(stages))?;
         let per_point = self
             .cells
             .checked_mul(size_of::<f64>())
             .and_then(|n| n.checked_add(size_of::<PointResult>()))
             .and_then(|n| n.checked_add(self.body.template.evaluation_cache_bytes))
+            .and_then(|n| n.checked_add(diagnostics))
             .ok_or(MathError::Limit("batch backing extent"))?;
         points
             .checked_mul(per_point)
@@ -141,6 +152,8 @@ impl PreparedBatch {
             layout: self.layout.clone(),
             trial: TrialEvaluation::default(),
             row: vec![f64::NAN; self.layout.cells],
+            #[cfg(feature = "compiled-evaluator")]
+            packed: packed::Scratch::default(),
         }
     }
     /// Preserve the original enclosing deadline/cancellation owner in each private evaluator.
@@ -150,7 +163,37 @@ impl PreparedBatch {
             layout: self.layout.clone(),
             trial: TrialEvaluation::default(),
             row: vec![f64::NAN; self.layout.cells],
+            #[cfg(feature = "compiled-evaluator")]
+            packed: packed::Scratch::default(),
         }
+    }
+    /// Complete backing of a reusable selected-partials population worker.
+    /// Admission precedes materialization; the returned rows remain callback borrows.
+    pub fn reusable_backing_bytes(&self, max_rows: usize) -> Result<usize, MathError> {
+        if self.layout.product() != ProductKind::SelectedPartials {
+            return Err(MathError::Contract(
+                "reusable batch requires selected partials".into(),
+            ));
+        }
+        numerical_batch_backing(&self.layout.body.template, max_rows, self.layout.order)
+    }
+    /// Reuse this exact prepared mathematical product with current scoped scratch.
+    /// The enclosing owner retains the complete allowance for the worker's lifetime.
+    pub fn reusable_worker_scoped(
+        &self,
+        scope: pse_kernels::ExecutionScope,
+        max_rows: usize,
+        backing_bytes: usize,
+    ) -> Result<CheckedBatchExecution, MathError> {
+        if self.reusable_backing_bytes(max_rows)? > backing_bytes {
+            return Err(MathError::Limit("prepaid numerical batch backing"));
+        }
+        CheckedBatchExecution::from_frame(
+            self.layout.body.numeric_frame_scoped(scope),
+            max_rows,
+            self.layout.order,
+            backing_bytes,
+        )
     }
 }
 
@@ -277,6 +320,8 @@ pub struct BatchWorker {
     layout: BatchLayout,
     trial: TrialEvaluation,
     row: Vec<f64>,
+    #[cfg(feature = "compiled-evaluator")]
+    packed: packed::Scratch,
 }
 impl BatchWorker {
     /// Evaluate each independent row in order. Request shape errors fail before any
@@ -349,6 +394,10 @@ impl BatchWorker {
             .try_reserve_exact(cells)
             .map_err(|_| MathError::Limit("batch result cells"))?;
         output.cells.resize(cells, f64::NAN);
+        #[cfg(feature = "compiled-evaluator")]
+        if self.uses_packed() {
+            return self.evaluate_packed(request, cancel, output, completed);
+        }
         let mut providers = ProviderBindings::new();
         for (row, &id) in request.points.iter().enumerate() {
             self.row.fill(f64::NAN);
@@ -401,26 +450,7 @@ impl BatchWorker {
                         &mut self.trial,
                     )
                     .and_then(|()| {
-                        let mut cell = 0;
-                        for (row, &value) in self.trial.values.iter().enumerate() {
-                            self.row[cell] = value;
-                            cell += 1;
-                            if self.layout.order >= DerivativeOrder::First {
-                                for axis in 0..self.layout.coordinates().len() {
-                                    self.row[cell] = self.trial.first(row, axis);
-                                    cell += 1;
-                                }
-                            }
-                            if self.layout.order >= DerivativeOrder::Second {
-                                for &(i, j) in self.layout.pairs() {
-                                    self.row[cell] = self.trial.second(row, i, j);
-                                    cell += 1;
-                                }
-                            }
-                        }
-                        if cell != self.layout.cells {
-                            return Err(MathError::Contract("batch numerical cell layout".into()));
-                        }
+                        copy_trial(&self.trial, &self.layout, &mut self.row)?;
                         Ok(())
                     })
             } else {
@@ -470,6 +500,34 @@ impl BatchWorker {
     }
 }
 
+fn copy_trial(
+    trial: &TrialEvaluation,
+    layout: &BatchLayout,
+    destination: &mut [f64],
+) -> Result<(), MathError> {
+    let mut cell = 0;
+    for (row, &value) in trial.values.iter().enumerate() {
+        destination[cell] = value;
+        cell += 1;
+        if layout.order >= DerivativeOrder::First {
+            for axis in 0..layout.coordinates().len() {
+                destination[cell] = trial.first(row, axis);
+                cell += 1;
+            }
+        }
+        if layout.order >= DerivativeOrder::Second {
+            for &(i, j) in layout.pairs() {
+                destination[cell] = trial.second(row, i, j);
+                cell += 1;
+            }
+        }
+    }
+    if cell != layout.cells {
+        return Err(MathError::Contract("batch numerical cell layout".into()));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -499,6 +557,201 @@ mod tests {
             source: source(),
         });
         PreparedBody::new(2, 4, vec![2, 3], stages, DerivativeOrder::Second).unwrap()
+    }
+    #[test]
+    fn ordered_reusable_source_workers_admit_once_and_reuse_numeric_rows() {
+        #[derive(Debug, Default)]
+        struct Recorder(std::sync::atomic::AtomicUsize);
+        impl crate::construction::ConstructionAdmission for Recorder {
+            fn try_grow(&self, bytes: usize) -> Result<(), MathError> {
+                self.0.fetch_add(bytes, Ordering::Relaxed);
+                Ok(())
+            }
+        }
+        let profiles = [
+            library::Evaluator::Interpreted,
+            #[cfg(feature = "compiled-evaluator")]
+            library::Evaluator::CompiledX4 {
+                module_bytes: 16 << 20,
+            },
+        ];
+        for profile in profiles {
+            let compiled = Arc::new(
+                body(true)
+                    .compile(
+                        &[1, 0],
+                        &[1, 0],
+                        DerivativeOrder::Second,
+                        Optimization {
+                            evaluator: profile,
+                            ..Default::default()
+                        },
+                        EvaluationLimits::default(),
+                        &scope(),
+                    )
+                    .unwrap(),
+            );
+            let prepared = PreparedBatch::new(compiled, DerivativeOrder::Second).unwrap();
+            let backing = prepared.reusable_backing_bytes(6).unwrap();
+            assert!(matches!(
+                prepared.reusable_worker_scoped(scope(), 6, backing - 1),
+                Err(MathError::Limit("prepaid numerical batch backing"))
+            ));
+            let mut worker = prepared
+                .reusable_worker_scoped(scope(), 6, backing)
+                .unwrap();
+            let recorder = Arc::new(Recorder::default());
+            let mut pointers = None;
+            for rows in [6, 3, 0, 6] {
+                let inputs: Vec<_> = (0..rows)
+                    .flat_map(|row| [if row == 2 { -1. } else { 2. + row as f64 }, 5.])
+                    .collect();
+                let mut observed = Vec::new();
+                crate::construction::scoped(recorder.clone(), || {
+                    worker.evaluate_observing(rows, &inputs, |row, result| {
+                        observed.push(row);
+                        if row == 2 {
+                            assert!(matches!(result, Err(MathError::Domain { .. })));
+                            return;
+                        }
+                        let value = result.unwrap();
+                        let x = 2. + row as f64;
+                        assert_eq!(value.values, [5. * x, x * x + 15.]);
+                        assert_eq!(value.jacobian, [x, 5., 3., 2. * x]);
+                        assert_eq!(value.hessians, [0., 1., 1., 0., 0., 0., 0., 2.]);
+                        let current = (
+                            value.values.as_ptr(),
+                            value.jacobian.as_ptr(),
+                            value.hessians.as_ptr(),
+                        );
+                        if let Some(previous) = pointers {
+                            assert_eq!(previous, current);
+                        } else {
+                            pointers = Some(current);
+                        }
+                    })
+                })
+                .unwrap();
+                assert_eq!(observed, (0..rows).collect::<Vec<_>>());
+                assert_eq!(
+                    recorder.0.load(Ordering::Relaxed),
+                    0,
+                    "complete worker backing is admitted once before trials"
+                );
+            }
+        }
+    }
+    #[cfg(feature = "compiled-evaluator")]
+    #[test]
+    fn ordered_x4_batch_preserves_failed_rows_second_axes_and_segment_cancellation() {
+        let body = body(true);
+        let compiled = Arc::new(
+            body.compile(
+                &[1, 0],
+                &[1, 0],
+                DerivativeOrder::Second,
+                Optimization {
+                    evaluator: library::Evaluator::CompiledX4 {
+                        module_bytes: 16 << 20,
+                    },
+                    ..Default::default()
+                },
+                EvaluationLimits::default(),
+                &scope(),
+            )
+            .unwrap(),
+        );
+        let prepared = PreparedBatch::new(compiled, DerivativeOrder::Second).unwrap();
+        let mut worker = prepared.worker();
+        for count in [0, 1, 3, 4, 5, 260] {
+            let ids = vec![source(); count];
+            let inputs: Vec<_> = (0..count)
+                .flat_map(|row| [if row == 2 { -1. } else { 2. + row as f64 }, 5.])
+                .collect();
+            let result = worker
+                .evaluate(
+                    BatchRequest {
+                        layout: prepared.layout(),
+                        points: &ids,
+                        inputs: &inputs,
+                        bindings: BatchBindings::SelectedPartials,
+                    },
+                    &Arc::new(AtomicBool::new(false)),
+                )
+                .unwrap();
+            for row in 0..count {
+                if row == 2 {
+                    assert!(matches!(
+                        result.points()[row].outcome,
+                        PointOutcome::Failed(MathError::Domain { .. })
+                    ));
+                    assert!(result.row(row).is_none());
+                    continue;
+                }
+                let x = 2. + row as f64;
+                let mut expected = Vec::new();
+                for &output in prepared.layout().outputs() {
+                    expected.push(if output == 1 { x * 5. } else { x * x + 15. });
+                    for &axis in prepared.layout().coordinates() {
+                        expected.push(if output == 1 {
+                            if axis == 0 { 5. } else { x }
+                        } else if axis == 0 {
+                            2. * x
+                        } else {
+                            3.
+                        });
+                    }
+                    for &(i, j) in prepared.layout().pairs() {
+                        let (i, j) = (
+                            prepared.layout().coordinates()[i],
+                            prepared.layout().coordinates()[j],
+                        );
+                        expected.push(if output == 1 && i != j {
+                            1.
+                        } else if output == 0 && i == 0 && j == 0 {
+                            2.
+                        } else {
+                            0.
+                        });
+                    }
+                }
+                assert_eq!(
+                    result.row(row).unwrap(),
+                    expected,
+                    "original row {row} of {count}"
+                );
+            }
+        }
+        let cancel = Arc::new(AtomicBool::new(false));
+        let ids = vec![source(); 260];
+        let inputs = vec![2.; 520];
+        let result = worker
+            .evaluate_observing(
+                BatchRequest {
+                    layout: prepared.layout(),
+                    points: &ids,
+                    inputs: &inputs,
+                    bindings: BatchBindings::SelectedPartials,
+                },
+                &cancel,
+                |row| {
+                    if row == 255 {
+                        cancel.store(true, Ordering::Release);
+                    }
+                },
+            )
+            .unwrap();
+        assert!(result.canceled());
+        assert!(
+            result.points()[..256]
+                .iter()
+                .all(|row| matches!(row.outcome, PointOutcome::Succeeded))
+        );
+        assert!(
+            result.points()[256..]
+                .iter()
+                .all(|row| matches!(row.outcome, PointOutcome::NotExecuted))
+        );
     }
     #[test]
     fn ordered_batch_preserves_reordered_partial_cells_and_independent_workers() {

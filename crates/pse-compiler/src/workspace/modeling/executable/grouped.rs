@@ -400,7 +400,143 @@ struct PlannedInstance {
     slots: Vec<SlotBinding>,
     contributions: Vec<Contribution>,
 }
+/// Optional source-bearing build input, kept outside the passive execution request.
+#[derive(Clone, Debug)]
+pub(super) struct ObservationBodyRecipe(Arc<BodyInput>);
+impl ObservationBodyRecipe {
+    pub(super) fn identity(&self) -> pse_ids::roles::SemanticBodyHash {
+        self.0.identity
+    }
+    pub(super) fn retained_bytes(&self) -> usize {
+        body_key_heap(&(Arc::clone(&self.0),))
+    }
+    pub(super) fn observe(
+        &self,
+        quantities: &QuantityRegistry,
+        facts: &PhysicalPreconditions,
+    ) -> Result<bool> {
+        Ok(self.0.support.observe(quantities, facts)?
+            && self.0.providers.observe(quantities, facts)?)
+    }
+    pub(super) fn materialize(&self, db: &dyn CompilerDb) -> Result<Arc<AdmittedBody>> {
+        let body = pse_quantity::premises::without_recording(|| {
+            semantic_body(db, BodyKey::new(db, Arc::clone(&self.0)))
+        })?;
+        if body.semantic_identity() != Some(self.0.identity) {
+            return Err(MathError::Contract(
+                "numerical warm recipe lost its original semantic seal".into(),
+            )
+            .into());
+        }
+        Ok(body)
+    }
+}
+pub(super) struct PlannedObservation {
+    pub(super) variables: Vec<Variable>,
+    pub(super) parameters: Vec<Port>,
+    pub(super) rows: Vec<Row>,
+    pub(super) instances: Vec<pse_math::numerical_observation::NumericalObservationInstance>,
+    pub(super) recipes: Vec<ObservationBodyRecipe>,
+}
 impl PlannedModeling {
+    pub(super) fn inputs(&self) -> &[SemanticId] {
+        &self.inputs
+    }
+    pub(super) fn outputs(&self) -> &[ModelingOutput] {
+        &self.outputs
+    }
+    /// Select physical observations before constructing any normalized math body.
+    pub(super) fn numerical_observation(
+        &self,
+        rows: &[SemanticId],
+        coordinates: &[SemanticId],
+    ) -> Result<Option<PlannedObservation>> {
+        if rows.iter().collect::<BTreeSet<_>>().len() != rows.len()
+            || rows
+                .iter()
+                .any(|id| !self.rows.iter().any(|row| row.id == *id))
+            || coordinates.iter().collect::<BTreeSet<_>>().len() != coordinates.len()
+            || coordinates.iter().any(|id| {
+                !self.variables.iter().any(|v| v.port.id == *id)
+                    && !self.parameters.iter().any(|p| p.id == *id)
+            })
+        {
+            return Err(MathError::Contract(
+                "unknown or duplicate numerical observation selection".into(),
+            )
+            .into());
+        }
+        let selected = rows.iter().copied().collect::<BTreeSet<_>>();
+        let mut instances = Vec::new();
+        let mut recipes = Vec::new();
+        for instance in &self.instances {
+            let contributions = instance
+                .contributions
+                .iter()
+                .filter(|part| matches!(part.target,Target::Row(id) if selected.contains(&id)))
+                .cloned()
+                .collect::<Vec<_>>();
+            if contributions.is_empty() {
+                continue;
+            }
+            if instance.input.providers.descriptors().next().is_some() {
+                return Ok(None);
+            }
+            let outputs = contributions
+                .iter()
+                .map(|part| part.output)
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect();
+            let axes = coordinates
+                .iter()
+                .flat_map(|id| {
+                    instance
+                        .slots
+                        .iter()
+                        .enumerate()
+                        .filter_map(move |(formal, slot)| (slot.source() == *id).then_some(formal))
+                })
+                .collect();
+            let attribution = pse_math::ExecutionAttributionSnapshot {
+                instance: instance.instance,
+                checked_members: instance.checked_members.clone(),
+                checked_sources: instance.checked_sources.clone(),
+                occurrences: instance.occurrences.clone(),
+            };
+            // Anonymous local sources remain usable through source-bearing
+            // capabilities, but cannot issue qualified original execution custody.
+            if attribution.validate_shape().is_err() {
+                return Ok(None);
+            }
+            instances.push(
+                pse_math::numerical_observation::NumericalObservationInstance::new(
+                    attribution,
+                    instance.slots.clone(),
+                    contributions,
+                    outputs,
+                    axes,
+                )?,
+            );
+            recipes.push(ObservationBodyRecipe(Arc::clone(&instance.input)));
+        }
+        Ok(Some(PlannedObservation {
+            variables: self.variables.clone(),
+            parameters: self.parameters.clone(),
+            rows: rows
+                .iter()
+                .map(|id| {
+                    self.rows
+                        .iter()
+                        .find(|row| row.id == *id)
+                        .cloned()
+                        .ok_or_else(|| CompileError::Missing("numerical observation row".into()))
+                })
+                .collect::<Result<_>>()?,
+            instances,
+            recipes,
+        }))
+    }
     pub(super) fn repeated_shared_bytes(&self, seen: &mut SourceAllocations) -> usize {
         self.instances
             .iter()

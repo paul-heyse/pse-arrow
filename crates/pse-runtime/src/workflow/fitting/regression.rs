@@ -209,3 +209,51 @@ pub(in crate::workflow) fn report(result: &RunResult) -> &FitReport {
 pub(in crate::workflow) fn validity(result: &RunResult) -> Vec<local_validity::Row> {
     local_validity::Row::rows(&result.table("runtime.local_validity").unwrap()).unwrap()
 }
+
+/// Four independent experiments share one nonlinear parameter. Their targets
+/// 3,4,5,6 give p²=4.5 independently of the numerical implementation. A separate
+/// negative-input logarithm fit supplies an original typed science refusal.
+pub(in crate::workflow) async fn population_package(
+    runtime: &crate::workflow::Runtime,
+) -> crate::workflow::ModelingPackage {
+    let mut physical = physical();
+    physical.preconditions = Arc::new(
+        pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
+            .unwrap(),
+    );
+    let mut rows=pse_authoring::language::parse("package p {def Root {param p:Scalar=2;let y:Scalar=p*p;} def Failed {param p:Scalar=-2;let y:Scalar=ln(p);}}",id(20),pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
+    let root = rows
+        .iter()
+        .find(|row| row.name == "Root")
+        .unwrap()
+        .declaration_id;
+    rows.extend(measured_rows(
+        &(0_u8..4)
+            .map(|index| {
+                (
+                    id(40 + index),
+                    "Scalar",
+                    Some(3. + f64::from(index)),
+                    Some(1.),
+                )
+            })
+            .collect::<Vec<_>>(),
+    ));
+    let experiments=(0_u8..4).map(|index|serde_json::json!({"experiment_id":id(50+index),"case_id":root,"route":"steady","bindings":[{"parameter_id":id(1),"path":"p"}]})).collect::<Vec<_>>();
+    let observations=(0_u8..4).map(|index|serde_json::json!({"value_attribute":"value","standard_deviation_attribute":"sigma","observation_id":id(40+index),"experiment_id":id(50+index),"output_path":"y","time":null,"included":true,"importance":1.0})).collect::<Vec<_>>();
+    let mut data = FitDeclarations::default();
+    data.fits.push(serde_json::from_value(serde_json::json!({"fit_id":id(32),"parameters":[{"symbol_id":id(1),"fixed":false,"value":2.,"lower":0.1,"upper":10.,"scale":1.}],"experiments":experiments,"observations":observations})).unwrap());
+    let failed = rows
+        .iter()
+        .find(|row| row.name == "Failed")
+        .unwrap()
+        .declaration_id;
+    data.fits.push(serde_json::from_value(serde_json::json!({"fit_id":id(35),"parameters":[{"symbol_id":id(2),"fixed":false,"value":-2.,"lower":-10.,"upper":-0.1,"scale":1.}],"experiments":[{"experiment_id":id(80),"case_id":failed,"route":"steady","bindings":[{"parameter_id":id(2),"path":"p"}]}],"observations":[{"value_attribute":"value","standard_deviation_attribute":"sigma","observation_id":id(40),"experiment_id":id(80),"output_path":"y","time":null,"included":true,"importance":1.}]})).unwrap());
+    runtime
+        .modeling_package(rows, physical)
+        .await
+        .unwrap()
+        .with_fit_declarations(&runtime.source_services(), data)
+        .await
+        .unwrap()
+}

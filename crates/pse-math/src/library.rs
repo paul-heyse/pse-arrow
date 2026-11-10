@@ -177,9 +177,22 @@ pub enum Evaluator {
         /// Prepaid complete native preparation/module capacity for each arithmetic block.
         module_bytes: usize => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     } => 2;
+    /// Explicit branch-free AVX2 x4 profile with an independently callable
+    /// compatible scalar tail in the same owned native module.
+    CompiledX4 {
+        /// Complete native module, pinned headers and preparation allowance.
+        module_bytes: usize => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    } => 3;
 }
 }
 impl Evaluator {
+    pub(crate) fn numeric_stack_factor(self) -> usize {
+        if matches!(self, Self::CompiledX4 { .. }) {
+            5
+        } else {
+            1
+        }
+    }
     /// Stable compilation choices, included in artifact identities. This is a
     /// supported profile identity, not environment/provenance attestation.
     pub fn identity(self) -> &'static str {
@@ -188,13 +201,18 @@ impl Evaluator {
             Self::CompiledScalar { .. } => {
                 "symbolica-3.0.1-cpp-scalar-value-v3;named-modules-32;g++;/usr/bin/g++;O2;c++17;pipe;two-phase;page-4096;noasm;no-fast-math;no-unsafe-math;fp-contract-off;x86-64-generic"
             }
+            Self::CompiledX4 { .. } => {
+                "symbolica-3.0.1-cpp-x4-f64-v1;authenticated-pinned-xsimd;avx2;no-fma;scalar-tail;named-modules-32;g++;/usr/bin/g++;O2;c++17;noasm;no-fast-math;no-unsafe-math;fp-contract-off"
+            }
         }
     }
     /// Per-module physical capacity carried by the compilation owner.
     pub fn module_bytes(self) -> usize {
         match self {
             Self::Interpreted => 0,
-            Self::CompiledScalar { module_bytes } => module_bytes,
+            Self::CompiledScalar { module_bytes } | Self::CompiledX4 { module_bytes } => {
+                module_bytes
+            }
         }
     }
 }
@@ -458,9 +476,9 @@ fn instruction_description<T>(export: &ExportedInstructions<T>) -> Option<Instru
                 let known = crate::stable::identify(*symbol).is_some_and(|operation| {
                     tags.is_empty() && arguments.len() == operation.arity()
                 });
-                result.resettable &= known;
-                result.taylor_supported &= known
-                    || [
+                let pure_builtin = tags.is_empty()
+                    && arguments.len() == 1
+                    && [
                         Symbol::SQRT,
                         Symbol::EXP,
                         Symbol::LOG,
@@ -470,6 +488,8 @@ fn instruction_description<T>(export: &ExportedInstructions<T>) -> Option<Instru
                         Symbol::CONJ,
                     ]
                     .contains(symbol);
+                result.resettable &= known || pure_builtin;
+                result.taylor_supported &= known || pure_builtin;
                 size_of_val(call.as_ref())
                     + size_of_val(tags.as_slice())
                     + tags.iter().map(String::len).sum::<usize>()

@@ -21,9 +21,9 @@ The implementer's scope is:
 - **Bounded integration decision:** [B04](#B04) settles composer backport/rebase versus joint/host composition for A's named independently reused module. A no-adoption result does not remove A's required module-consumer outcome.
 - **Required preservation and retirement:** [B07](#B07) closes adversarial control/receiving acceptance and removes replaced production machinery. Existing bounded roots, proof conversion, original guards and compiler/module settlement remain preservation obligations throughout.
 
-All package states below are open. This document specifies the target and its permitted
-bounded choices; the packages do not begin by rediscovering whether the required capabilities
-should exist. No old-plan package is a readiness gate.
+The package table below owns current progress. This document specifies the target and its
+permitted bounded choices; the packages do not begin by rediscovering whether the required
+capabilities should exist. No old-plan package is a readiness gate.
 
 **Interface-checked.** Baseline `baadc7e32`, maintained Symbolica3.0.1. [bounded_evaluator](../../crates/pse-math/src/library/admission.rs) predicts Taylor expansion/storage then reconciles realized facts; [native_compiled](../../crates/pse-math/src/native_compiled.rs) predicts supported scalar C++ export. [AbortBinding](../../crates/pse-math/src/library.rs) handles producer callbacks, per-call rebinding and successful optimizer truncation after stop. These controls fill real gaps; remove them only with equivalent consumed replacements.
 
@@ -70,8 +70,8 @@ Preserve [maintained bounded roots](../../vendor/symbolica-bounded-roots.md), pa
 | [B03](#B03) | in-progress | B01 interface; C01 supported-head descriptors | Checked scalar/x4 C++ export and native caller migration cover stable heads/source overlap; replaced exporter predictors removed. |
 | [B04](#B04) | complete | A01 module scenario; B01 preservation contract | Composer backport/rebase versus no-adoption decision implemented with A04, preserving maintained source contracts/provenance. |
 | [B05](#B05) | in-progress | A01 binding/custody slice; working C02 interpreted products; C01 identities | Numerical-only production receiver includes stable Value/First/Second cold after producer retirement; replaced consumer encoding/replay retired. |
-| [B06](#B06) | open | A01 source/guard contract; B05 early custody conventions | Guarded symbolic production continuation or justified single typed-replay branch delivered with actual later-symbolic consumer and retired replaced path. |
-| [B07](#B07) | open | B02–B06 actual caller deliveries | Adversarial receiving/control integration and source-level retirement complete; evidence handed to H. |
+| [B06](#B06) | in-progress | A01 source/guard contract; B05 early custody conventions | Guarded symbolic production continuation or justified single typed-replay branch delivered with actual later-symbolic consumer and retired replaced path. |
+| [B07](#B07) | in-progress | B02–B06 actual caller deliveries | Adversarial receiving/control integration and source-level retirement complete; evidence handed to H. |
 
 <a id="B01"></a>
 
@@ -484,3 +484,67 @@ B04 is complete with A04's documented joint-alias decision. No unused composer a
 supplier upgrade is retained. ADR-0264 records the new numerical interpretation and early
 source seal before production code; normalized body keys and process-local artifact keys are
 not durable source authority.
+
+## Execution-only binding and symbolic continuation checkpoint — 2026-11-10
+
+**Implemented — B05.** The compiler now issues `NumericalObservationRequest` from the original
+frontier before body admission or normalized grouping. It binds the complete original input
+inventory, consumed physical/source interpretation, ordered rows/coordinates, selected order,
+and original closure/source attribution. A separate miss recipe holds authored mathematical
+inputs; an execution-only hit does not acquire that recipe as an admitted body. Anonymous
+source/instance identities are explicitly ineligible before lookup. Their ordinary local
+source capability remains available; invalid portable custody is never repaired by dropping
+identity checks.
+
+Runtime `math/portable/numerical.rs` uses a distinct numerical interpretation, the existing
+protected canonical selection/publication owner, and exact compiler-issued request bytes.
+Its content key binds the payload and qualified producer namespace. `math/numerical.rs`
+integrates the acquired templates into the existing artifact flights, cache pressure and
+epoch rather than introducing another cache. `NumericalObservationAssembly` validates the
+same original variable/parameter inventory and uses the shared sparse instance transport.
+Value has a genuine Value-only snapshot; First and selected Second retain their own exact
+layouts. A fresh receiving operation admits its own backing and cancellation/deadline before
+binding a private worker. Passive decode scratch is separated from retained snapshot backing;
+the JSON publisher also enforces its wire nesting ceiling before emitting a durable product.
+
+`ModelingPackage::observe_authored` selects this capability before symbolic preparation.
+Existing selected observation and ordered property-table callers also consume the same
+execution-only assembly when eligible. Native realization is local to the receiver and is
+excluded from the durable mathematical request: an interpreted canonical program can be
+compiled into the selected scalar or x4 module while retaining its canonical f64 program
+for capture. Neither instructions nor numerical observations confer class or proof authority.
+
+**Tested.** The compiler early-request/source-free binding selection passed 5/5 in the default
+profile; the math source-free x4/mapped-input selection passed 3/3 with `compiled-evaluator`;
+and the transfer suite passed 24/24 with that feature. Commands were respectively
+`scripts/pse test pse-compiler --lib -E 'test(numerical_request_) | test(numerical_only_observations_) | test(numerical_batch_guard_)'`,
+`scripts/pse test pse-math --lib --features compiled-evaluator -E 'test(source_free_x4_observation_population_) | test(execution_only_transport_) | test(symbolic_and_execution_only_inputs_)'`,
+and `scripts/pse test pse-math --lib --features compiled-evaluator -E 'test(execution::transfer::tests)'`.
+All had zero failures against baseline zero. Independent answers cover reordered axes,
+multiple physical instances, affine alias cross terms, original failed-point attribution and
+released producer controls. Production cold canonical acquisition across process exit is
+under test and is not established by these lower-level results.
+
+**Implemented, Interface-checked — B06 selected realization.** Retain strict typed replay as
+the single source-bearing continuation. Supplier packed-atom inspection does not establish
+canonical term order, reduced coefficients, proof/guard authority or source correspondence.
+The previous small sealed fixture supplied none of the actual guarded caloric/large-coefficient
+consumer evidence needed to replace replay. A new sealed capability would therefore add a
+second production trust boundary without eliminating those obligations. Reopen that choice
+only for a measured consequential replay cost and a complete normalized guarded capability
+covering coefficients, dependencies, stage/proof and destination correspondence before copy.
+
+`ModelingPackage::prepare_authored` now uses the same protected-source selection helper as
+numerical receiving, restores qualified recipes through the existing body-retention owner,
+and continues through ordinary selected basis preparation. Present corrupt candidates refuse
+even when the basis is warm. It publishes only actual compiler-sealed descriptions after
+successful complete preparation. The source-only `PreparationServices` route retains its
+distinct capability; it does not manufacture canonical origin or publication authority.
+No parallel symbolic cache, sealed decoder or numerical-to-symbolic promotion is added.
+
+**Tested.** The fresh-process compiler caloric continuation passed 1/1, and four existing
+receipt/domain/proof controls passed 4/4, baseline zero. The actual DIPPR heat/entropy producer
+exits before a receiver requests previously absent class and Second evidence, retaining the
+original temperature domain and independent heat-capacity derivatives. The runtime canonical
+continuation is still under test. B01/B02 checked exact construction and B07 final cutover
+remain open; these checkpoints do not close A/B/C or H qualification.

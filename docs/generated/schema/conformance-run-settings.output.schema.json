@@ -112,6 +112,27 @@
             "module_bytes"
           ],
           "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Explicit branch-free AVX2 x4 profile with an independently callable\ncompatible scalar tail in the same owned native module.",
+          "properties": {
+            "kind": {
+              "const": "compiled_x4",
+              "type": "string"
+            },
+            "module_bytes": {
+              "description": "Complete native module, pinned headers and preparation allowance.",
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind",
+            "module_bytes"
+          ],
+          "type": "object"
         }
       ]
     },

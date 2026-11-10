@@ -308,6 +308,8 @@ scope.modules = [
 ]
 scope.tests = [
   "math::portable::canonical_portable_body_tests::canonical_portable_body_candidate_reserves_before_protected_hydration",
+  "math::portable::numerical::tests::canonical_numerical_observation_survives_producer_exit_without_source_reconstruction",
+  "workflow::modeling::symbolic_preparation::tests::authored_canonical_replay_continues_with_new_second_class_and_original_domain",
   "tooling::reader::canonical::tests::canonical_observer_cancellation_drains_original_protection_and_connection",
   "tooling::reader::tests::canonical::project_study_workbench_reads_the_selected_store_and_refuses_foreign_cursor",
   "workflow::operation_preparation::initialization_tests::canonical_initialization_operation_reopens_complete_success_and_failure_history",

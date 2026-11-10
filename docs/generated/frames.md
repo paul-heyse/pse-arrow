@@ -33,6 +33,8 @@ Derived in: pse-ids, pse-schema, pse-columnar, pse-model.
 | `DerivedBindingV1` | `pse:derived-binding:v1` | Numerical family values, anchors, mass and step binding. |
 | `DerivedBindingV2` | `pse:derived-binding:v2` | Composite admitted reconstruction suppliers and their original-space binding. |
 | `ExecutionAttributionV1` | `pse:execution-attribution:v1` | Full original execution-attribution transfer checksum; never source or attempt authority. |
+| `NumericalObservationRequestV1` | `pse:numerical-observation-request:v1` | Compiler-issued passive numerical observation demand and complete original custody. |
+| `NumericalObservationProductV1` | `pse:numerical-observation-product:v1` | Qualified numerical observation request, producer class and exact passive execution payload. |
 | `AccuracyProductV1` | `pse:accuracy-product:v1` | Consumed numerical action/output accuracy, order, source and normalization. |
 | `ImplicitNumericalProductV1` | `pse:implicit-numerical-product:v1` | Selected-root numerical proposals/jets with their consumed accuracy binding. |
 | `SelectedRootSheetV1` | `pse:selected-root-sheet:v1` | Verified selected-root sheet lineage, distinct from a regime identifier. |

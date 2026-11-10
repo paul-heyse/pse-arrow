@@ -285,11 +285,14 @@ impl ExperimentTeam {
                         let mut transient: Vec<
                             Option<crate::workflow::dynamics::DynamicWorker>,
                         > = (0..assigned.len()).map(|_| None).collect();
+                        let mut population = None;
                         // Prepare only this lane's finite assigned experiment set on its
                         // actual owner, before the enclosing native fit can attach callbacks.
                         let mut prepare = || -> Result<(), ProblemError> {
                             for (local, &ei) in assigned.iter().enumerate() {
                                 match &problem.experiments[ei] {
+                                    Experiment::Steady(_)
+                                        if problem.steady_population.contains(ei) => {}
                                     Experiment::Steady(s) => {
                                         steady[local] =
                                             Some(oracle::prepare_steady_worker(s, &execution)?)
@@ -306,6 +309,11 @@ impl ExperimentTeam {
                                 observed_constructions
                                     .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                             }
+                            population = Some(problem.steady_population.worker(
+                                &problem,
+                                Some(&assigned),
+                                execution.scope()?,
+                            )?);
                             Ok(())
                         };
                         let prepared = catch_unwind(AssertUnwindSafe(|| {
@@ -369,10 +377,20 @@ impl ExperimentTeam {
                             }
                             #[cfg(all(test, feature = "solver-diffsol"))]
                             let started = std::time::Instant::now();
+                            let population_result = population
+                                .as_mut()
+                                .ok_or_else(|| ProblemError::internal("fit lane population owner"))
+                                .and_then(|population| {
+                                    population.evaluate(&problem, &request.x, request.demand)
+                                });
+                            let mut population_failure = population_result.err();
                             for (local, (&ei, previous)) in
                                 assigned.iter().zip(request.previous).enumerate()
                             {
                                 let mut work = || {
+                                    if let Some(error) = population_failure.take() {
+                                        return Err(error);
+                                    }
                                     evaluate_experiment(
                                         &problem,
                                         ei,
@@ -380,6 +398,9 @@ impl ExperimentTeam {
                                         request.demand,
                                         &transient_executions[local],
                                         ExperimentWorkers {
+                                            population: population
+                                                .as_mut()
+                                                .and_then(|population| population.result(ei)),
                                             steady: &mut steady[local],
                                             #[cfg(feature = "solver-diffsol")]
                                             transient: &mut transient[local],

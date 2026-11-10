@@ -13,6 +13,7 @@ use crate::math::MathService;
 pub use documents::{FitExecutionDocument, FitPreparationDocument, FitProfileDocument};
 mod modeling;
 mod oracle;
+mod population;
 mod preparation;
 mod residual_policy;
 pub use residual_policy::{ResidualLmCriteria, ResidualLmStopping};
@@ -359,6 +360,7 @@ pub(crate) struct FitProblem {
     /// The fit column of each shared parameter; `None` when it is fixed.
     parameter_columns: Vec<Option<OriginalCol>>,
     experiments: Vec<Experiment>,
+    steady_population: population::PreparedSteadyPopulation,
     measurements: Vec<Measurement>,
     _owner: Arc<pse_columnar::AllocationLease>,
 }

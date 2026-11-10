@@ -269,8 +269,30 @@ impl PreparedExperiments {
             cancel,
         )
         .map_err(crate::math::MathRuntimeError::from)?;
+        let candidates = population::PreparedSteadyPopulation::candidates(&experiments, order);
+        let population_cases = candidates
+            .iter()
+            .map(|(_, case)| Arc::clone(case))
+            .collect::<Vec<_>>();
+        let population_extent =
+            pse_math::assembly::CrossCasePopulation::construction_bytes(&population_cases)
+                .map_err(crate::math::MathRuntimeError::from)?;
+        reservation
+            .try_grow(population_extent)
+            .map_err(crate::math::MathRuntimeError::from)?;
+        let steady_population = population::PreparedSteadyPopulation::new(candidates, order)
+            .map_err(crate::math::MathRuntimeError::from)?;
+        drop(population_cases);
+        bytes = bytes
+            .checked_add(
+                steady_population
+                    .worker_bytes(&experiments)
+                    .map_err(crate::math::MathRuntimeError::from)?,
+            )
+            .ok_or_else(|| super::contract("fit steady population backing"))?;
         let retained = metadata_bytes
-            .checked_add(layout.retained_bytes())
+            .checked_add(steady_population.retained_bytes())
+            .and_then(|bytes| bytes.checked_add(layout.retained_bytes()))
             .and_then(|bytes| bytes.checked_add(native::structural::retained_bytes(&structure)))
             .filter(|n| *n <= reservation.size())
             .ok_or_else(|| super::contract("fit preparation retained allowance"))?;
@@ -301,6 +323,7 @@ impl PreparedExperiments {
             parameter_ports,
             parameter_columns,
             experiments,
+            steady_population,
             measurements,
             _owner: owner,
         })

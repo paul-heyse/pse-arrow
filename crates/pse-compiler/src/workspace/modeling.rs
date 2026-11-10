@@ -1289,10 +1289,12 @@ pub use executable::{
     ModelingCaseBindings, ModelingExpectationResult, ModelingHint, ModelingOccurrenceIdentity,
     ModelingOutput, ModelingPointChecks, ModelingPreparationFrontier, ModelingTestValue,
     ModelingValidityResult, ModelingVariableState, NumericalAdmission, NumericalAnnotation,
-    NumericalAnnotationMode, NumericalAnnotations, NumericalLocation, NumericalScale,
-    NumericalStartSource, NumericalStartValues, NumericalTargetFact, NumericalTargetRole,
-    ObjectiveBound, PreparedModeling, ScalingObservations, SelectionEquivalence,
-    SelectionNeighborhood, ViewChoice, ViewPolicy, ViewReason, ViewRoles,
+    NumericalAnnotationMode, NumericalAnnotations, NumericalLocation, NumericalObservationArtifact,
+    NumericalObservationBuildRecipe, NumericalObservationInstanceRequest,
+    NumericalObservationRequest, NumericalScale, NumericalStartSource, NumericalStartValues,
+    NumericalTargetFact, NumericalTargetRole, ObjectiveBound, PreparedModeling,
+    ScalingObservations, SelectionEquivalence, SelectionNeighborhood, ViewChoice, ViewPolicy,
+    ViewReason, ViewRoles,
 };
 pub use flow::{
     FlowConnectionDocument, FlowSelectionDocument, ModelingFlowSelection, SemanticModeling,

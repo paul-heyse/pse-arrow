@@ -28,6 +28,29 @@ impl ModelingPackage {
         let activity = services.admit_activity()?;
         activity
             .scope(async {
+                if let Some(original) = &model.original
+                    && let Some(program) = self
+                        .numerical_observation_program(
+                            services,
+                            None,
+                            original.root,
+                            original.instance,
+                            original.bindings.clone(),
+                            original.limits,
+                            rows.iter().copied().collect(),
+                            Vec::new(),
+                            pse_kernels::DerivativeOrder::Value,
+                            profile,
+                            &driver,
+                        )
+                        .await?
+                {
+                    return services
+                        .math()
+                        .evaluate_numerical_observation_batch(program, points, &driver)
+                        .await
+                        .map_err(Into::into);
+                }
                 let program = self
                     .observation_program(services, &model, &rows, profile, &driver)
                     .await?;
@@ -45,6 +68,179 @@ impl ModelingPackage {
 mod tests {
     use super::*;
     use pse_modeling::{Bindings, Limits};
+    #[cfg(feature = "solver-ipopt")]
+    #[tokio::test]
+    async fn ordered_authored_caloric_table_uses_shared_population_and_original_temperature_domain()
+    {
+        let runtime = crate::workflow::tests::runtime();
+        let text = format!(
+            r#"{}
+package caloric_population {{ use correlations @"1.0.0";
+def Root {{var T:Temperature;var reference:Temperature;var h:DeltaH;var s:DeltaS;
+eq heat:correlations.dippr100_dh_value(reference,T,75.3{{J/(mol*K)}},0{{J/(mol*K^2)}},0{{J/(mol*K^3)}},0{{J/(mol*K^4)}},0{{J/(mol*K^5)}})==h;
+eq entropy:correlations.dippr100_ds_value(reference,T,75.3{{J/(mol*K)}},0{{J/(mol*K^2)}},0{{J/(mol*K^3)}},0{{J/(mol*K^4)}},0{{J/(mol*K^5)}})==s;
+}} }}"#,
+            crate::reference_source_fixture::reference_family_sources("bounded-reference")
+        );
+        let declarations = crate::reference_source_fixture::rows(&text);
+        let root = declarations
+            .iter()
+            .find(|row| row.name == "Root")
+            .unwrap()
+            .declaration_id;
+        let package = runtime
+            .modeling_package(declarations, crate::workflow::tests::physical())
+            .await
+            .unwrap();
+        let driver = crate::CancelSource::new();
+        let services = runtime.preparation_services();
+        let model = package
+            .prepare(
+                &services,
+                root,
+                pse_modeling::specialize::root_instance(root),
+                Bindings {
+                    demand: vec!["T".into(), "reference".into(), "h".into(), "s".into()],
+                    ..Default::default()
+                },
+                Limits::default(),
+                &driver,
+            )
+            .await
+            .unwrap();
+        let symbol = |name: &str| {
+            model
+                .compiled()
+                .model
+                .symbols
+                .values()
+                .find(|symbol| symbol.lineage.path == format!("Root.{name}"))
+                .unwrap()
+                .id
+        };
+        let t = symbol("T");
+        let reference = symbol("reference");
+        let h = symbol("h");
+        let s = symbol("s");
+        let rows = model
+            .compiled()
+            .model
+            .equations
+            .iter()
+            .map(|row| row.id)
+            .collect::<BTreeSet<_>>();
+        let heat = model
+            .compiled()
+            .model
+            .equations
+            .iter()
+            .find(|row| row.lineage.path == "Root.heat")
+            .unwrap()
+            .id;
+        let entropy = model
+            .compiled()
+            .model
+            .equations
+            .iter()
+            .find(|row| row.lineage.path == "Root.entropy")
+            .unwrap()
+            .id;
+        let heat = rows.iter().position(|id| *id == heat).unwrap();
+        let entropy = rows.iter().position(|id| *id == entropy).unwrap();
+        let temperatures = [
+            300_f64.next_up(),
+            320.,
+            250.,
+            0.,
+            300.,
+            350.,
+            280.,
+            300_f64.next_down(),
+        ];
+        let points = || {
+            temperatures
+                .into_iter()
+                .enumerate()
+                .map(|(i, value)| {
+                    (
+                        SemanticId::from_bytes([(i % 3 + 1) as u8; 16]),
+                        CaseValues {
+                            scalars: BTreeMap::from([
+                                (t, value),
+                                (reference, 300.),
+                                (h, 0.),
+                                (s, 0.),
+                            ]),
+                        },
+                    )
+                })
+                .collect()
+        };
+        #[cfg(feature = "compiled-evaluator")]
+        let evaluators = [
+            pse_math::library::Evaluator::Interpreted,
+            pse_math::library::Evaluator::CompiledX4 {
+                module_bytes: 16 << 20,
+            },
+        ];
+        #[cfg(not(feature = "compiled-evaluator"))]
+        let evaluators = [pse_math::library::Evaluator::Interpreted];
+        for evaluator in evaluators {
+            let mut profile = crate::workflow::tests::compiler_profile();
+            profile.optimization.evaluator = evaluator;
+            for repeat in 0..2 {
+                let before = services.math().preparation_effects();
+                let table = package
+                    .observe_batch(
+                        &services,
+                        model.clone(),
+                        rows.clone(),
+                        points(),
+                        profile,
+                        &driver,
+                    )
+                    .await
+                    .unwrap();
+                assert_eq!(table.points().len(), temperatures.len());
+                for (i, temperature) in temperatures.into_iter().enumerate() {
+                    assert_eq!(
+                        table.points()[i].id,
+                        SemanticId::from_bytes([(i % 3 + 1) as u8; 16])
+                    );
+                    if temperature == 0. {
+                        assert!(table.row(i).is_none());
+                        assert!(matches!(
+                            table.points()[i].outcome,
+                            pse_math::batch::PointOutcome::Failed(
+                                pse_math::MathError::Instance { .. }
+                            )
+                        ));
+                    } else {
+                        let values = table.row(i).unwrap();
+                        let dh = 75.3 * (temperature - 300.);
+                        let ds = 75.3 * ((temperature - 300.) / 300.).ln_1p();
+                        assert!(
+                            (values[heat] - dh).abs() <= dh.abs() * 4e-14 + 1e-29,
+                            "heat at {temperature}: {} vs {dh}",
+                            values[heat]
+                        );
+                        assert!(
+                            (values[entropy] - ds).abs() <= ds.abs() * 4e-14 + 1e-29,
+                            "entropy at {temperature}: {} vs {ds}",
+                            values[entropy]
+                        );
+                    }
+                }
+                if repeat != 0 {
+                    assert_eq!(
+                        services.math().preparation_effects().completions,
+                        before.completions,
+                        "compatible table reuses mathematical preparation"
+                    );
+                }
+            }
+        }
+    }
     #[tokio::test]
     async fn ordered_property_batch_admits_multiinstance_population_on_original_runtime_job() {
         let runtime = crate::workflow::tests::runtime();

@@ -912,7 +912,7 @@ mod tests {
         let runtime = crate::workflow::tests::runtime();
         let declarations = pse_authoring::language::parse(
             "package p { def Root { var x:Scalar; eq e:x==2; } }",
-            SemanticId::NIL,
+            SemanticId::from_bytes([146; 16]),
             pse_authoring::language::IdentityPolicy::Named,
             Default::default(),
         )

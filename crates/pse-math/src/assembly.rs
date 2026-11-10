@@ -15,6 +15,9 @@ use crate::{
 #[path = "assembly_batch.rs"]
 mod batch;
 pub use batch::{CaseBatchOutcome, CaseBatchPoint, CaseBatchWorker};
+#[path = "assembly_population.rs"]
+mod population;
+pub use population::{CasePopulationEvaluation, CrossCasePopulation, CrossCasePopulationWorker};
 #[path = "assembly_entries.rs"]
 mod entries;
 #[path = "assembly_projection.rs"]

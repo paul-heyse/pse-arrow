@@ -183,7 +183,14 @@ fn real_sparse_asymmetric_root_and_nested_both_arms_value_first_roundtrip() {
         let mut original = body.numeric_frame_scoped(scope());
         let passive = snapshot(&body);
         assert_eq!(passive.input_formals, [31, 127, 255]);
-        assert!(passive.first_layout.slot_offsets.is_some());
+        assert!(
+            passive
+                .first_layout
+                .as_ref()
+                .unwrap()
+                .slot_offsets
+                .is_some()
+        );
         let facts = passive.inspect().unwrap();
         assert!(facts.library_instructions > 0 && facts.library_operations > 0);
         let mut checked = restored(passive.clone());
@@ -468,6 +475,151 @@ fn stable_second_transfer_executes_closed_heads_after_producer_retirement() {
 }
 
 #[test]
+fn value_only_transfer_preserves_order_ceiling_without_derivative_construction() {
+    crate::initialize().unwrap();
+    let x = library::formal(0).unwrap();
+    let body = PreparedBody::new(
+        1,
+        2,
+        vec![1],
+        vec![
+            Stage::Require {
+                argument: 0,
+                condition: Condition::Positive,
+                order: DerivativeOrder::Value,
+                source: id(88),
+                lineage: None,
+            },
+            block(
+                crate::stable::call(crate::stable::Operation::Log1p, &[&x]).unwrap(),
+                1,
+                89,
+            ),
+        ],
+        DerivativeOrder::Second,
+    )
+    .unwrap()
+    .compile(
+        &[0],
+        &[0],
+        DerivativeOrder::Value,
+        Optimization::default(),
+        EvaluationLimits::default(),
+        &scope(),
+    )
+    .unwrap();
+    let passive = snapshot(&body);
+    assert!(passive.first_layout.is_none());
+    assert!(passive.first.is_empty() && passive.second.is_none());
+    drop(body);
+    let template = restored(passive).into_template();
+    assert_eq!(template.order(), DerivativeOrder::Value);
+    let mut worker = template
+        .worker_scoped(scope(), |_| Ok::<_, Infallible>(Arc::new(())))
+        .unwrap();
+    assert_eq!(worker.order(), DerivativeOrder::Value);
+    assert_eq!(
+        worker
+            .evaluate(&[1e-30], DerivativeOrder::Value)
+            .unwrap()
+            .values,
+        [1e-30]
+    );
+    assert!(worker.evaluate(&[1.], DerivativeOrder::First).is_err());
+    assert!(worker.evaluate(&[-0.5], DerivativeOrder::Value).is_err());
+
+    let mut orphan = snapshot(&fixture(false));
+    orphan.first_layout = None;
+    assert!(
+        orphan.inspect().is_err(),
+        "orphan stages refuse before admission"
+    );
+}
+
+#[cfg(feature = "compiled-evaluator")]
+#[test]
+fn restored_scalar_native_compiles_numerical_stages_and_recaptures_canonical_instructions() {
+    crate::initialize().unwrap();
+    let x = library::formal(0).unwrap();
+    let y = library::formal(1).unwrap();
+    let body = PreparedBody::new(
+        2,
+        4,
+        vec![2, 3],
+        vec![
+            block(
+                crate::stable::call(crate::stable::Operation::Log1p, &[&x]).unwrap(),
+                2,
+                90,
+            ),
+            block(
+                crate::stable::call(crate::stable::Operation::Magnitude, &[&x, &y]).unwrap(),
+                3,
+                91,
+            ),
+        ],
+        DerivativeOrder::Second,
+    )
+    .unwrap()
+    .compile(
+        &[1, 0],
+        &[1, 0],
+        DerivativeOrder::Second,
+        Optimization::default(),
+        EvaluationLimits::default(),
+        &scope(),
+    )
+    .unwrap();
+    let passive = snapshot(&body);
+    drop(body);
+    let template = restored(passive.clone()).into_template();
+    let requested = Cell::new(0);
+    let native = template
+        .compile_scalar(8 << 20, &scope(), |bytes| {
+            requested.set(bytes);
+            Ok::<_, Infallible>(Arc::new(()))
+        })
+        .unwrap();
+    assert_eq!(
+        requested.get(),
+        template.scalar_compilation_bytes(8 << 20).unwrap()
+    );
+    drop(template);
+    let mut first = native
+        .worker_scoped(scope(), |_| Ok::<_, Infallible>(Arc::new(())))
+        .unwrap();
+    let mut second = native
+        .worker_scoped(scope(), |_| Ok::<_, Infallible>(Arc::new(())))
+        .unwrap();
+    drop(native);
+    let point = first.evaluate(&[3., 4.], DerivativeOrder::Second).unwrap();
+    assert_eq!(point.values[0], 5.);
+    assert!((point.values[1] - 4_f64.ln()).abs() < 2e-15);
+    let close = |a: &[f64], b: &[f64]| {
+        assert_eq!(a.len(), b.len());
+        assert!(a.iter().zip(b).all(|(a, b)| (a - b).abs() < 2e-15));
+    };
+    close(&point.jacobian, &[0.8, 0.6, 0., 0.25]);
+    close(
+        &point.hessians,
+        &[0.072, -0.096, -0.096, 0.128, 0., 0., 0., -0.0625],
+    );
+    let tiny = second
+        .evaluate(&[1e-30, 1.], DerivativeOrder::Value)
+        .unwrap();
+    assert_eq!(tiny.values[1], 1e-30);
+    let recaptured = capture_frame(&first.frame, &scope(), |_| {
+        Ok::<_, Infallible>(Arc::new(()))
+    })
+    .unwrap();
+    assert_eq!(
+        recaptured.snapshot(),
+        &passive,
+        "native code never replaces portable instruction authority"
+    );
+}
+
+#[test]
 fn input_constant_outputs_allow_empty_arithmetic_programs() {
     crate::initialize().unwrap();
     let body = PreparedBody::new(1, 1, vec![0], vec![], DerivativeOrder::First).unwrap();
@@ -487,7 +639,12 @@ fn input_constant_outputs_allow_empty_arithmetic_programs() {
     assert_eq!(passive.first_rows, [(0, 1)]);
     assert_eq!(passive.first_axes, [0]);
     assert_eq!(
-        passive.first_layout.slot_components.as_deref(),
+        passive
+            .first_layout
+            .as_ref()
+            .unwrap()
+            .slot_components
+            .as_deref(),
         Some([0, 1].as_slice())
     );
     let mut original = body.numeric_frame_scoped(scope());
@@ -650,20 +807,33 @@ fn malformed_signature_layout_and_every_block_index_refuse_before_native_admissi
         ("first row start", |s| s.first_rows[0].0 = 1),
         ("first row end", |s| s.first_rows[0].1 = usize::MAX),
         ("first axis", |s| s.first_axes[0] = usize::MAX),
-        ("shape extent", |s| s.first_layout.shape[0].push(0)),
-        ("shape value", |s| s.first_layout.shape[0][0] = 1),
+        ("shape extent", |s| {
+            s.first_layout.as_mut().unwrap().shape[0].push(0)
+        }),
+        ("shape value", |s| {
+            s.first_layout.as_mut().unwrap().shape[0][0] = 1
+        }),
         ("layout coordinates", |s| {
-            s.first_layout.coordinates[0] = usize::MAX
+            s.first_layout.as_mut().unwrap().coordinates[0] = usize::MAX
         }),
         ("layout order", |s| {
-            s.first_layout.order = DerivativeOrder::Second
+            s.first_layout.as_mut().unwrap().order = DerivativeOrder::Second
         }),
-        ("layout pair", |s| s.first_layout.pairs.push((0, 0))),
+        ("layout pair", |s| {
+            s.first_layout.as_mut().unwrap().pairs.push((0, 0))
+        }),
         ("sparse offset", |s| {
-            s.first_layout.slot_offsets.as_mut().unwrap()[0] = 1
+            s.first_layout
+                .as_mut()
+                .unwrap()
+                .slot_offsets
+                .as_mut()
+                .unwrap()[0] = 1
         }),
         ("sparse end", |s| {
             *s.first_layout
+                .as_mut()
+                .unwrap()
                 .slot_offsets
                 .as_mut()
                 .unwrap()
@@ -671,10 +841,15 @@ fn malformed_signature_layout_and_every_block_index_refuse_before_native_admissi
                 .unwrap() = usize::MAX
         }),
         ("sparse component", |s| {
-            s.first_layout.slot_components.as_mut().unwrap()[0] = usize::MAX
+            s.first_layout
+                .as_mut()
+                .unwrap()
+                .slot_components
+                .as_mut()
+                .unwrap()[0] = usize::MAX
         }),
         ("missing sparse half", |s| {
-            s.first_layout.slot_components = None
+            s.first_layout.as_mut().unwrap().slot_components = None
         }),
         ("argument extent", |s| first_block(s).arguments = usize::MAX),
         ("value extent", |s| first_block(s).values = usize::MAX),
@@ -910,7 +1085,7 @@ fn native_allocation_failure_and_supplier_dataflow_keep_typed_causes() {
 }
 
 #[test]
-fn actual_provider_directional_and_unavailable_order_profiles_refuse_before_capture_admission() {
+fn actual_provider_and_directional_profiles_refuse_while_value_keeps_its_ceiling() {
     use pse_kernels::{DerivativeSource, Port, ProviderShapes};
     crate::initialize().unwrap();
     let registry = pse_quantity::standard::standard_registry().unwrap();
@@ -994,7 +1169,21 @@ fn actual_provider_directional_and_unavailable_order_profiles_refuse_before_capt
     assert_eq!(result.values, [3.]);
     assert_eq!(result.jacobian, [1.]);
     assert_eq!(result.hessians, [0.]);
-    for body in [&provider, &directional, &value] {
+    let mut received_value = restored(snapshot(&value));
+    assert_eq!(received_value.order(), DerivativeOrder::Value);
+    assert_eq!(
+        received_value
+            .evaluate(&[3.], DerivativeOrder::Value)
+            .unwrap()
+            .values,
+        [3.]
+    );
+    assert!(
+        received_value
+            .evaluate(&[3.], DerivativeOrder::First)
+            .is_err()
+    );
+    for body in [&provider, &directional] {
         ALLOCATIONS.with(|n| n.set(0));
         let called = Cell::new(false);
         assert!(matches!(
@@ -1011,7 +1200,7 @@ fn actual_provider_directional_and_unavailable_order_profiles_refuse_before_capt
 
 #[cfg(feature = "compiled-evaluator")]
 #[test]
-fn actual_native_jit_profile_refuses_without_interpreted_recompilation() {
+fn actual_native_capture_uses_retained_canonical_instructions_without_recompilation() {
     let body = fixture(false);
     let native = body
         .prepared_support()
@@ -1029,15 +1218,23 @@ fn actual_native_jit_profile_refuses_without_interpreted_recompilation() {
     assert!(native.census().any(|c| c.native_arithmetic_blocks > 0));
     let called = Cell::new(false);
     ALLOCATIONS.with(|n| n.set(0));
-    assert!(matches!(
-        capture(&native, &scope(), |_| {
-            called.set(true);
-            Ok::<_, Infallible>(Arc::new(()))
-        }),
-        Err(TransferError::Unsupported("native/JIT evaluator"))
-    ));
-    assert!(!called.get());
-    assert_eq!(ALLOCATIONS.with(Cell::get), 0);
+    let captured = capture(&native, &scope(), |_| {
+        called.set(true);
+        Ok::<_, Infallible>(Arc::new(()))
+    })
+    .unwrap();
+    assert!(called.get());
+    assert_eq!(captured.snapshot(), &snapshot(&body));
+    drop(native);
+    let mut received = super::restore(captured, scope(), Arc::new(Construction), |_| {
+        Ok::<_, Infallible>(Arc::new(()))
+    })
+    .unwrap();
+    let observed = received
+        .evaluate(&[2., 3., 1.], DerivativeOrder::First)
+        .unwrap();
+    assert_eq!(observed.values, [9., 10.]);
+    assert_eq!(observed.jacobian, [0., 6., 7., 2.]);
 }
 
 #[test]
@@ -1246,9 +1443,9 @@ fn passive_projection_and_json_do_not_construct_execution_or_duplicate_existing_
     };
     assert_eq!(
         fields.iter().find(|f| f.name == "version").unwrap().rules,
-        [LocalRule::UnsignedRange { min: 2, max: 2 }]
+        [LocalRule::UnsignedRange { min: 3, max: 3 }]
     );
-    for name in ["limits", "value_layout", "first_layout"] {
+    for name in ["limits", "value_layout"] {
         assert_eq!(
             fields.iter().find(|f| f.name == name).unwrap().rules,
             [LocalRule::Required]

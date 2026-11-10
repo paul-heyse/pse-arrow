@@ -128,6 +128,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `Interpreted` | 1 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
 | `CompiledScalar (alternative tag 2).module_bytes` | 1 | `Scalar(U64)` | `Both` | `[]` | `{}` |
+| `CompiledX4 (alternative tag 3).module_bytes` | 1 | `Scalar(U64)` | `Both` | `[]` | `{}` |
 
 ## `MathOptimization`
 

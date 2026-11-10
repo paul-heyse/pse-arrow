@@ -34,10 +34,18 @@ pub(super) fn key(pending: &[Pending], compiler: &str) -> EncodingChecksum {
         part(flag.as_bytes());
     }
     for item in pending {
+        if item.packed_source.is_some() {
+            part(b"x4-avx2-no-fma");
+            part(headers::version().as_bytes());
+            part(headers::fingerprint());
+        }
         part(item.function.as_bytes());
         part(&item.inputs.to_le_bytes());
         part(&item.outputs.to_le_bytes());
         part(item.source.as_bytes());
+        if let Some(source) = &item.packed_source {
+            part(source.as_bytes());
+        }
     }
     hash.finish()
 }
@@ -269,6 +277,7 @@ mod tests {
     fn pending() -> Vec<Pending> {
         vec![Pending {
             source: "complete source".into(),
+            packed_source: None,
             function: "pse_value0",
             inputs: 1,
             outputs: 1,

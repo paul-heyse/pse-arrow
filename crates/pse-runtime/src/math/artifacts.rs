@@ -16,6 +16,7 @@ use std::sync::{Arc, atomic::Ordering};
 pub(super) enum Key {
     Artifact(ContentHash),
     Scalars(ContentHash),
+    Numerical(ContentHash, pse_math::library::Evaluator),
 }
 impl CacheKey for Key {
     fn size(&self) -> usize {
@@ -50,6 +51,7 @@ impl Drop for ProgramOwner {
 pub(super) enum Value {
     Artifact(Arc<Artifact>),
     Scalars(Arc<pse_math::library::ScalarProducts>),
+    Numerical(Arc<super::NumericalArtifact>),
 }
 impl CacheValue for Value {
     fn size(&self) -> usize {
@@ -59,6 +61,7 @@ impl CacheValue for Value {
                 .size()
                 .saturating_add(artifact.program.scalar_products().retained_bytes()),
             Self::Scalars(products) => products.retained_bytes(),
+            Self::Numerical(artifact) => artifact.retained_bytes(),
         }
     }
 }
@@ -500,7 +503,11 @@ impl CacheComponent for MathService {
                 live_bytes: Some(self.live.load(Ordering::Acquire)),
                 pinned_bytes: None,
                 inflight_bytes: None,
-                active_loads: Some(self.flights.active() + self.scalar_flights.active()),
+                active_loads: Some(
+                    self.flights.active()
+                        + self.scalar_flights.active()
+                        + self.numerical_flights.active(),
+                ),
                 evictions: None,
                 entries: self.entries.len(),
                 hits: self.hits.load(Ordering::Relaxed),
@@ -532,6 +539,7 @@ impl CacheComponent for MathService {
                 key: match key {
                     Key::Artifact(hash) => hash.to_string(),
                     Key::Scalars(hash) => format!("scalar:{hash}"),
+                    Key::Numerical(hash, profile) => format!("numerical:{hash}:{profile:?}"),
                 },
                 bytes: e.size_bytes,
                 hits: e.hits,

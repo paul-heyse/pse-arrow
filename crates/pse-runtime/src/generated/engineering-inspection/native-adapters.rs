@@ -3186,6 +3186,40 @@ impl NativeInto<
             }
             Err(value) => value,
         };
+        layout(
+            <pse_math::library::Evaluator as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::VERSION,
+            <pse_math::library::Evaluator as pse_contract::boundary_projection::ProjectionAlternative<
+                3,
+            >>::FIELD_LAYOUT,
+            1,
+            &[(1, "module_bytes")],
+            path,
+        )?;
+        let value = match <pse_math::library::Evaluator as pse_contract::boundary_projection::ProjectionAlternative<
+            3,
+        >>::into_projection_alternative(value) {
+            Ok((field_0,)) => {
+                let alternative_path = child_path(path, "CompiledX4");
+                let path = alternative_path.as_str();
+                return Ok(crate::host_operations::engineering::inspection::types::MathEvaluator {
+                    kind: Some(
+                        crate::host_operations::engineering::inspection::types::__buffa::oneof::math_evaluator::Kind::CompiledX4(
+                            Box::new(crate::host_operations::engineering::inspection::types::math_evaluator::Alternative3 {
+                                module_bytes: native_into::<
+                                    _,
+                                    u64,
+                                >(field_0, &child_path(path, "module_bytes"))?,
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
         let _ = value;
         Err(
             refused(
@@ -3265,6 +3299,36 @@ impl NativeFrom<
                 Ok(
                     <pse_math::library::Evaluator as pse_contract::boundary_projection::ProjectionAlternative<
                         2,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::host_operations::engineering::inspection::types::__buffa::oneof::math_evaluator::Kind::CompiledX4(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "CompiledX4");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_math::library::Evaluator as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::VERSION,
+                    <pse_math::library::Evaluator as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[(1, "module_bytes")],
+                    path,
+                )?;
+                let fields = (
+                    native_from::<
+                        _,
+                        u64,
+                    >(wire.module_bytes, &child_path(path, "module_bytes"))?,
+                );
+                Ok(
+                    <pse_math::library::Evaluator as pse_contract::boundary_projection::ProjectionAlternative<
+                        3,
                     >>::from_projection_alternative(fields),
                 )
             }

@@ -141,6 +141,10 @@ frames! {
         DerivedBindingV2 => "pse:derived-binding:v2",
         /// Full original execution-attribution transfer checksum; never source or attempt authority.
         ExecutionAttributionV1 => "pse:execution-attribution:v1",
+        /// Compiler-issued passive numerical observation demand and complete original custody.
+        NumericalObservationRequestV1 => "pse:numerical-observation-request:v1",
+        /// Qualified numerical observation request, producer class and exact passive execution payload.
+        NumericalObservationProductV1 => "pse:numerical-observation-product:v1",
         /// Consumed numerical action/output accuracy, order, source and normalization.
         AccuracyProductV1 => "pse:accuracy-product:v1",
         /// Selected-root numerical proposals/jets with their consumed accuracy binding.

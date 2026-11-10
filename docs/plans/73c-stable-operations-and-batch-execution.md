@@ -53,13 +53,13 @@ Use scalar realization explicitly for small/unsupported work, selected before ef
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| [C01](#C01) | in-progress | Joint A01/B01 design slices | Stable primitive/signature/domain/derivative formulas, registration, scalar/x4 profiles and receiving identities settled; builtin alternative closed before representation freezes. |
-| [C02](#C02) | in-progress | C01/A01 contracts; B02 checked known-head derivative slice | Scalar interpreted stable Value/First/Second and an actual authored scientific consumer implemented with original guards/source reporting. |
-| [C03](#C03) | open | C02; working B03 scalar export and B05 numerical receiving | Compiled scalar stable products and portable receiving delivered; replaced consumer numerical tricks removed. |
-| [C04](#C04) | in-progress | A02 working demanded-product slice; C01 layout/profile contract | Ordered batch request/outcomes and private reusable worker scratch delivered, initially explicit scalar realization. |
-| [C05](#C05) | open | C03/C04; working B02/B03 checked x4 operations | x4 C++ batches use supplier packing/scattering, stable realizations and scalar tails. |
+| [C01](#C01) | complete | Joint A01/B01 design slices | Stable primitive/signature/domain/derivative formulas, registration, scalar/x4 profiles and receiving identities settled; builtin alternative closed before representation freezes. |
+| [C02](#C02) | complete | C01/A01 contracts; B02 checked known-head derivative slice | Scalar interpreted stable Value/First/Second and an actual authored scientific consumer implemented with original guards/source reporting. |
+| [C03](#C03) | in-progress | C02; working B03 scalar export and B05 numerical receiving | Compiled scalar stable products and portable receiving delivered; replaced consumer numerical tricks removed. |
+| [C04](#C04) | complete | A02 working demanded-product slice; C01 layout/profile contract | Ordered batch request/outcomes and private reusable worker scratch delivered, initially explicit scalar realization. |
+| [C05](#C05) | in-progress | C03/C04; working B02/B03 checked x4 operations | x4 C++ batches use supplier packing/scattering, stable realizations and scalar tails. |
 | [C06](#C06) | in-progress | C02–C05 capabilities; actual repeated property/residual/fitting/study callers | Consumers migrated, compatible preparation reused and duplicate per-point/output preparation or packing removed. |
-| [C07](#C07) | open | C04/C05 named workload; H01 dependency/build observations | Packed interpreter/JIT/device/fixed-shape decisions closed, selected implementations integrated or reasoned no-adoption outcomes recorded. |
+| [C07](#C07) | complete | C04/C05 named workload; H01 dependency/build observations | Packed interpreter/JIT/device/fixed-shape decisions closed, selected implementations integrated or reasoned no-adoption outcomes recorded. |
 
 <a id="C01"></a>
 
@@ -472,3 +472,114 @@ The native Ipopt Study-summary retry remains to be run after host preparation.
 C01/C03/C05 remain open for complete compiled/receiving/x4 profile delivery. C06 requires its
 remaining actual fitting/study integrations; C07's bounded additional-backend decisions remain
 open. This checkpoint does not close the integrated A/B/C scope or H qualification.
+
+
+## Additional backend decisions — 2026-11-10
+
+**Interface-checked — C07 complete, no additional backend adopted.** Retain the existing
+scalar interpreter for low-startup requests and the required explicit scalar/x4 C++ profiles
+for repeated pure populations. These are bounded choices for the current property, residual
+and fitting/study responsibilities, not claims that another backend could never be faster.
+No timing measurement or new benchmark obligation is attached to them.
+
+- **Packed interpretation.** `ExpressionEvaluator::map_coeff` and Numerica's x4/x8 numeric
+  domains supply useful arithmetic building blocks, but the current stable registrations are
+  binary64 callbacks. The packed `EvaluationDomain` fallback calls those scalar callbacks per
+  lane. The interpreter also tests whole-vector zero for its branch instructions, and the
+  installed packed integer `Pow` route uses `powf_simd`. A complete alternative would need
+  genuine packed head implementations, qualified powers and branch restrictions, checked
+  coefficient conversion and a maintained row/lane/tail adapter. The default interpreter
+  already serves small tables without compilation; required C++ x4 supplies prepared repeated
+  execution. Reopen for a named startup-sensitive repeated pure population whose useful SIMD
+  vocabulary and maintained adapter justify that extra realization.
+- **JIT.** The current Symbolica x4 multi-output adapter copies one four-lane result into a
+  `4*n_out` destination chunk. The actual joint caloric/property vocabulary has multiple
+  outputs, so this fails the required scatter contract; empty and zero-input populations have
+  separate division/chunk hazards. Symjit's default configuration additionally consults
+  `SYMJIT_TOML` or `symjit.toml` and otherwise enables native/fast-math behavior. The existing
+  application does not qualify that ambient configuration, checked construction, stable-head
+  vocabulary or module lifetime for this route. Symjit is already in the dependency closure;
+  dependency cost is not the deciding objection. Reopen after the shared adapter handles
+  multiple outputs, empty/constants and scalar tails, with explicit conservative configuration,
+  true packed heads and admitted lifetime, for a named cold-compilation need.
+- **CUDA.** Prepared execution capability and a useful resident workload are the missing
+  premises. Hardware is present: the local query observed an RTX5090 with compute capability
+  12.0 and about32GiB, and nvcc13.5. The current application capability preparations have no
+  qualified CUDA execution profile, checked device-head exporter or resident-buffer/transfer/
+  cancellation receiving owner. The small property and native controls establish numerical
+  semantics, not large-population suitability. Reopen for an actual large repeated resident
+  property/study population with those explicit device and custody contracts. GPU availability
+  alone is insufficient to select this route.
+- **Fixed generated duals.** `JetLayout` coordinates, shapes and symmetric pairs are runtime
+  selections. Current `HyperDual(shape)` construction generates ordinary scalar numerical
+  instructions, which are then mapped to binary64; fixed dual types would primarily change
+  preparation, rather than directly accelerate the row worker. Retained products already
+  remove repeated compatible preparation. Reopen for an authoritative repeatedly cold-prepared
+  fixed kernel shape, with H's monomorphization/dependency assessment, without multiplying
+  concrete types over arbitrary fitting/property axes.
+
+The maintained implementation sources are
+[packed domains](../../vendor/symbolica/src/evaluate/domain.rs),
+[interpreter](../../vendor/symbolica/src/evaluate/evaluator.rs),
+[backend adapters](../../vendor/symbolica/src/evaluate/backend.rs), and
+[current derivative layouts](../../crates/pse-math/src/jets.rs). The source-backed investigation
+also inspected the installed Numerica and Symjit implementation, plus the actual local hardware
+and preparation inventory. No JIT, packed-interpreter or GPU execution/performance claim is
+made. Required C03/C05 receiving and CPU delivery, and C06's consumer migration, retain their
+own acceptance obligations.
+
+## Compiled population and consumer checkpoint — 2026-11-10
+
+**Implemented — C03/C05 prerequisites.** The existing native module owner now supports an
+explicit conservative AVX2 x4 profile with a scalar entry in the same module. Supplier
+`try_evaluate_batch_with` owns actual row/lane packing, scatter and retained lane buffers;
+application scheduling removes scientifically refused rows, preserves their identities and
+issues only full groups of four. The compatible scalar entry executes tails of one to three
+eligible rows. Long populations have cancellation safe points every 256 rows, preserving the
+original operation rather than renewing it per segment. Native batch errors retain their
+typed causes. The shared `CheckedBatchExecution` owns the ordinary `NumericFrame` directly,
+so restored numerical programs and admitted source programs use one reusable worker mechanism.
+
+One Cargo metadata declaration pins the xsimd14.3.0 archive and digest. The mathematical
+build owner authenticates its source extent; the module owner installs and retains the
+verified headers through compiler/library drain. Native execution requires no source checkout
+or network lookup. Stable operations have actual packed implementations, including scaled
+derivatives, ratio endpoints and subnormal logarithm normalization. Generic packed `log` uses
+the same corrected subnormal contract. This is a maintained source profile, without modifying
+the pinned xsimd archive. Scalar and packed exports are authenticated independently before a
+module can publish success.
+
+**Tested.** The true packed/source batch selection passed 7/7 with `compiled-evaluator` and
+zero failures against baseline zero. It includes populations0/1/3/4/5/260, reordered multi-output
+Second cells, scalar tails, failed-point exclusion and cancellation after a full segment.
+The source-backed reusable-worker selection separately passed 7/7: one-byte-short admission
+refuses before worker construction; repeated6/3/0/6 calls retain result backing and require
+no further construction growth after preclaim. A compiled C++ control of all16 stable heads
+plus generic packed logarithm passed 1/1 against independent long-double/high-precision
+expectations. These results cover the named CPU realizations, not a timing speedup or every
+action profile. True packed direct-action/point-varying-seed coverage remains open in C05.
+
+**Implemented — C06 integration.** Pure fitting residual/response instances now share ordered
+cross-case frontier waves through `CrossCasePopulation`. Grouping requires identical actual
+program Arcs, demanded order/layout and pure supported stages. A guard failure stops later
+instances for that experiment; independent experiments retain their own order, failure and
+result. `PreparedExperiments::finish`, serial fitting oracles and the existing assigned
+parallel lanes consume this population. Eligible per-case constraint/Jacobian workers are
+removed. Provider/branch and distinct weighted-curvature work retain their separate scientific
+capabilities. Team placement and CPU width remain authoritative.
+
+**Tested.** The focused math population/source-free/batch selection passed 6/6 in the default
+profile, zero failures against baseline zero. It covers five distinct original cases sharing
+programs, reordered aliases, two frontier waves, independent values/Jacobians and first-versus-
+second-instance failures with no accessible partial successful row. Runtime fitting integration,
+an ordered declared fitting Study, the actual authored DIPPR property table and production
+canonical/native receiving are under test. Partial start annotations use an explicit internal
+source-observation capability because their target variables do not yet have values; public
+complete observations retain full input validation. C03/C05/C06 remain in progress until
+their remaining actual consumer/receiving and action checks pass. H qualification remains
+separate, and no repo-wide health checks are requested by this checkpoint.
+
+**Implemented.** Full `just codegen` completed successfully for all16 targets after the x4
+profile/frame changes. Generated engineering crossings, native projections and schemas are
+published together with their declarations. This establishes current generated products;
+the active numerical/consumer tests retain their own verdicts.

@@ -34,6 +34,7 @@ pub mod library;
 #[cfg(feature = "compiled-evaluator")]
 mod native_compiled;
 pub mod normalization;
+pub mod numerical_observation;
 pub mod numerics;
 pub mod presolve;
 mod rational_binary64;
