@@ -3,6 +3,7 @@
 
 //! Semantic body identity and instance binding are independent of library handles.
 use crate::MathError;
+use crate::index::{GlobalCol, GlobalRow, Slot};
 use pse_ids::{ContentHash, FramedHasher, SemanticId};
 use pse_kernels::Port;
 use pse_model::generated::enums::ModelingVariableDomain;
@@ -192,12 +193,83 @@ pub struct CaseValues {
     pub scalars: BTreeMap<SemanticId, f64>,
 }
 
+/// Admitted sparse `z = P*x + b`, `y = R*f` transport for one physical instance.
+/// Formal aliases and repeated contributions remain separate addends. Source/member
+/// attribution stays on the original binding, independently of shared arithmetic.
+#[derive(Clone, Debug)]
+pub(crate) struct BindingTransport {
+    slots: Arc<Vec<SlotBinding>>,
+    pub(crate) axes: Vec<TransportAxis>,
+    pub(crate) outputs: Vec<TransportOutput>,
+}
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct TransportAxis {
+    pub(crate) formal: Slot,
+    pub(crate) destination: GlobalCol,
+    pub(crate) scale: f64,
+}
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct TransportOutput {
+    pub(crate) output: usize,
+    pub(crate) target: Target,
+    pub(crate) destination: Option<GlobalRow>,
+    pub(crate) scale: f64,
+}
+impl BindingTransport {
+    pub(crate) fn source(&self, formal: usize) -> SemanticId {
+        self.slots[formal].source()
+    }
+    pub(crate) fn new(
+        binding: &InstanceBinding,
+        columns: &BTreeMap<SemanticId, GlobalCol>,
+        rows: &BTreeMap<SemanticId, GlobalRow>,
+    ) -> Self {
+        Self {
+            slots: Arc::clone(&binding.slots),
+            axes: binding
+                .slots
+                .iter()
+                .enumerate()
+                .filter_map(|(formal, slot)| {
+                    columns
+                        .get(&slot.source())
+                        .map(|&destination| TransportAxis {
+                            formal: Slot::new(formal),
+                            destination,
+                            scale: slot.scale(),
+                        })
+                })
+                .collect(),
+            outputs: binding
+                .contributions
+                .iter()
+                .map(|contribution| TransportOutput {
+                    output: contribution.output,
+                    target: contribution.target,
+                    destination: match contribution.target {
+                        Target::Row(row) => Some(rows[&row]),
+                        Target::Objective(_) => None,
+                    },
+                    scale: contribution.scale,
+                })
+                .collect(),
+        }
+    }
+    pub(crate) fn retained_bytes(&self) -> usize {
+        size_of::<Self>()
+            + self.axes.capacity() * size_of::<TransportAxis>()
+            + self.outputs.capacity() * size_of::<TransportOutput>()
+    }
+}
+
 /// Immutable gather for one admitted numerical operation. Formal order and aliases
 /// are retained; semantic lookup and duplicate checks belong to construction.
 #[derive(Clone, Debug)]
 pub(crate) struct EvalBindings {
     slots: Arc<Vec<SlotBinding>>,
-    selected: Vec<(usize, EvalOffset)>,
+    // All operation reads share admitted addresses; a demand retains only ordinals.
+    selected: Arc<Vec<(usize, EvalOffset)>>,
+    order: Vec<usize>,
 }
 #[derive(Clone, Copy, Debug)]
 enum EvalOffset {
@@ -206,7 +278,7 @@ enum EvalOffset {
 }
 impl EvalBindings {
     pub(crate) fn new(
-        binding: &InstanceBinding,
+        transport: &BindingTransport,
         formals: &[usize],
         coordinates: &BTreeMap<SemanticId, usize>,
         fixed: &BTreeMap<SemanticId, usize>,
@@ -214,10 +286,10 @@ impl EvalBindings {
         if formals.iter().collect::<BTreeSet<_>>().len() != formals.len() {
             return Err(MathError::Contract("duplicate selected formal".into()));
         }
-        let selected = formals
+        let mut selected = formals
             .iter()
             .map(|formal| {
-                let slot = binding
+                let slot = transport
                     .slots
                     .get(*formal)
                     .ok_or_else(|| MathError::Contract("unknown selected formal".into()))?;
@@ -232,19 +304,41 @@ impl EvalBindings {
                 };
                 Ok((*formal, offset))
             })
-            .collect::<Result<_, MathError>>()?;
+            .collect::<Result<Vec<_>, MathError>>()?;
+        selected.sort_unstable_by_key(|(formal, _)| *formal);
+        Self {
+            slots: Arc::clone(&transport.slots),
+            selected: Arc::new(selected),
+            order: Vec::new(),
+        }
+        .select(formals)
+    }
+    /// Compact demand view over already admitted operation gather addresses.
+    pub(crate) fn select(&self, formals: &[usize]) -> Result<Self, MathError> {
+        if formals.iter().collect::<BTreeSet<_>>().len() != formals.len() {
+            return Err(MathError::Contract("duplicate selected formal".into()));
+        }
+        let order = formals
+            .iter()
+            .map(|formal| {
+                self.selected
+                    .binary_search_by_key(formal, |(selected, _)| *selected)
+                    .map_err(|_| MathError::Contract("unknown selected formal".into()))
+            })
+            .collect::<Result<_, _>>()?;
         Ok(Self {
-            slots: Arc::clone(&binding.slots),
-            selected,
+            slots: Arc::clone(&self.slots),
+            selected: Arc::clone(&self.selected),
+            order,
         })
     }
     pub(crate) fn allocation_bound(inputs: usize) -> Option<usize> {
         inputs
-            .checked_mul(2 * size_of::<(usize, EvalOffset)>())
+            .checked_mul(2 * (size_of::<(usize, EvalOffset)>() + size_of::<usize>()))
             .and_then(|bytes| bytes.checked_add(size_of::<Self>()))
     }
     pub(crate) fn len(&self) -> usize {
-        self.selected.len()
+        self.order.len()
     }
     pub(crate) fn fill(
         &self,
@@ -253,10 +347,11 @@ impl EvalBindings {
         fixed: &[f64],
         output: &mut [f64],
     ) -> Result<(), MathError> {
-        if output.len() != self.selected.len() {
+        if output.len() != self.order.len() {
             return Err(MathError::Contract("selected input extent".into()));
         }
-        for ((formal, offset), output) in self.selected.iter().zip(output) {
+        for (&selected, output) in self.order.iter().zip(output) {
+            let (formal, offset) = &self.selected[selected];
             let slot = &self.slots[*formal];
             let value = match values {
                 Some(values) => *values

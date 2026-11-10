@@ -2648,9 +2648,308 @@ fn compiled_gathers_refuse_duplicate_and_unknown_formals_before_evaluation() {
     let (assembly, _) = fixture(true, false);
     let binding = &assembly.structure().instances()[0];
     let columns = BTreeMap::from([(id(1), 0), (id(2), 1)]);
-    assert!(EvalBindings::new(binding, &[0, 0], &columns, &BTreeMap::new()).is_err());
-    assert!(EvalBindings::new(binding, &[2], &columns, &BTreeMap::new()).is_err());
-    assert!(EvalBindings::new(binding, &[0], &BTreeMap::new(), &BTreeMap::new()).is_err());
+    let transport = BindingTransport::new(
+        binding,
+        &BTreeMap::new(),
+        &BTreeMap::from([(id(10), GlobalRow::new(0))]),
+    );
+    assert!(EvalBindings::new(&transport, &[0, 0], &columns, &BTreeMap::new()).is_err());
+    assert!(EvalBindings::new(&transport, &[2], &columns, &BTreeMap::new()).is_err());
+    assert!(EvalBindings::new(&transport, &[0], &BTreeMap::new(), &BTreeMap::new()).is_err());
+}
+
+#[test]
+fn shared_transport_preserves_affine_aliases_reordered_entries_and_all_actions() {
+    let standard = standard_registry().unwrap();
+    let temperature = ids::quantity("temperature.point");
+    let difference = ids::quantity("temperature.difference");
+    let neutral = ids::quantity("neutral");
+    let canonical = standard.quantity_type(temperature).unwrap().canonical_unit;
+    let mut declarations = standard.to_builder();
+    let mut units = Vec::new();
+    for (n, scale, offset) in [(220, 2., 10.), (221, 3., -7.)] {
+        let mut unit = standard.unit(canonical).unwrap().clone();
+        unit.id = pse_quantity::UnitId::from_id(id(n));
+        unit.symbol = format!("transport-temperature-{n}");
+        unit.scale_to_canonical = scale;
+        unit.offset_to_canonical = offset;
+        unit.is_affine = true;
+        unit.definition = None;
+        units.push(unit.id);
+        declarations.unit(unit);
+    }
+    let registry = declarations.build().unwrap();
+    let port = |n, unit| Port {
+        id: id(n),
+        quantity: temperature,
+        unit,
+    };
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        3,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let a = builder
+        .input(0, temperature, IndexSet::new(), id(30))
+        .unwrap();
+    let b = builder
+        .input(1, temperature, IndexSet::new(), id(31))
+        .unwrap();
+    let c = builder
+        .input(2, temperature, IndexSet::new(), id(32))
+        .unwrap();
+    let ac = builder
+        .binary(Binary::Sub, a, c.clone(), None, id(33))
+        .unwrap();
+    let bc = builder.binary(Binary::Sub, b, c, None, id(34)).unwrap();
+    let unit_difference = builder
+        .literal(
+            1.,
+            registry.unit(canonical).unwrap(),
+            pse_quantity::literal::LiteralContext::Explicit {
+                quantity_type: difference,
+            },
+            id(35),
+        )
+        .unwrap();
+    let ac = builder
+        .binary(Binary::Div, ac, unit_difference.clone(), None, id(36))
+        .unwrap();
+    let bc = builder
+        .binary(Binary::Div, bc, unit_difference, None, id(37))
+        .unwrap();
+    let product = builder
+        .binary(Binary::Mul, ac.clone(), bc.clone(), None, id(38))
+        .unwrap();
+    let sum = builder.binary(Binary::Add, ac, bc, None, id(39)).unwrap();
+    let body = Arc::new(builder.prepare(&[product, sum]).unwrap());
+    let key = ContentHash::from_bytes([93; 32]);
+    let sources = [port(1, units[0]), port(2, canonical), port(3, units[1])];
+    let bindings = [
+        (9, [0, 0, 1], 1., [2., -0.5], 3.),
+        (10, [1, 1, 2], 2., [-1., 0.25], -2.),
+    ]
+    .into_iter()
+    .map(
+        |(n, source_indices, objective, rows, linear)| InstanceBinding {
+            instance: id(n),
+            body: key,
+            occurrences: Default::default(),
+            checked_sources: Default::default(),
+            checked_members: Default::default(),
+            slots: source_indices
+                .into_iter()
+                .map(|source| {
+                    SlotBinding::new(&sources[source], &port(40, canonical), &registry).unwrap()
+                })
+                .collect::<Vec<_>>()
+                .into(),
+            contributions: vec![
+                Contribution {
+                    output: 0,
+                    target: Target::PRIMARY,
+                    scale: objective,
+                },
+                Contribution {
+                    output: 0,
+                    target: Target::Row(id(20)),
+                    scale: rows[0],
+                },
+                Contribution {
+                    output: 0,
+                    target: Target::Row(id(20)),
+                    scale: rows[1],
+                },
+                Contribution {
+                    output: 1,
+                    target: Target::Row(id(21)),
+                    scale: linear,
+                },
+            ],
+        },
+    )
+    .collect();
+    let structure = Arc::new(
+        CaseStructure::new(
+            sources
+                .iter()
+                .cloned()
+                .map(|port| Variable {
+                    port,
+                    fixed: false,
+                    domain: ModelingVariableDomain::Continuous,
+                    lower: None,
+                    upper: None,
+                })
+                .collect(),
+            vec![],
+            bindings,
+            [20, 21]
+                .into_iter()
+                .map(|n| Row {
+                    id: id(n),
+                    quantity: neutral,
+                    lower: 0.,
+                    upper: 0.,
+                })
+                .collect(),
+            Some(Objective {
+                quantity: neutral,
+                sense: ObjectiveSense::Minimize,
+            }),
+            CaseLimits::default(),
+        )
+        .unwrap(),
+    );
+    let control = pse_diagnostics::Cancellation::default();
+    let scope = pse_kernels::ExecutionScope::new(control.clone(), None);
+    let plan = CasePlan::prepare_with_coordinates(
+        structure,
+        BTreeMap::from([(key, body)]),
+        &registry,
+        DerivativeOrder::Second,
+        AssemblyLimits::default(),
+        &control.flag(),
+        vec![id(3), id(2), id(1)],
+    )
+    .unwrap()
+    .with_directional_actions(&control.flag())
+    .unwrap()
+    .with_transpose_actions(&control.flag())
+    .unwrap()
+    .with_hessian_actions(&control.flag())
+    .unwrap();
+    let compile = |plan: CasePlan| {
+        Arc::new(
+            Arc::new(plan)
+                .compile(Optimization::default(), EvaluationLimits::default(), &scope)
+                .unwrap(),
+        )
+    };
+    let assembly = compile(plan.clone());
+    let values = CaseValues {
+        scalars: BTreeMap::from([(id(1), 1.), (id(2), 4.), (id(3), 2.)]),
+    };
+    let worker = || assembly.worker(Default::default(), control.clone());
+    // In solver order (z,y,x), d1=2x+10-y=8 and d2=y-3z+7=5.
+    // Objective=d1²+2d2²; rows=(1.5d1²-.75d2², 6d1-4d2).
+    assert_eq!(worker().objective(&values).unwrap(), 114.);
+    assert_eq!(worker().constraints(&values).unwrap(), [77.25, 28.]);
+    assert_eq!(worker().gradient(&values).unwrap(), [-60., 4., 32.]);
+    let matrix = worker().jacobian(&values).unwrap().to_dense();
+    for (row, expected) in [[22.5, -31.5, 48.], [12., -10., 12.]].iter().enumerate() {
+        for (column, expected) in expected.iter().enumerate() {
+            assert_eq!(matrix[(row, column)], *expected);
+        }
+    }
+    // Fresh workers force direct actions rather than a previously completed matrix.
+    let mut jv = [0.; 2];
+    worker()
+        .jacobian_product(&values, &[1., 2., 3.], &mut jv)
+        .unwrap();
+    assert_eq!(jv, [103.5, 28.]);
+    let mut jtw = [0.; 3];
+    worker()
+        .jacobian_transpose_product(&values, &[2., -1.], &mut jtw)
+        .unwrap();
+    assert_eq!(jtw, [33., -53., 84.]);
+    let mut hv = [0.; 3];
+    worker()
+        .hessian_product(&values, 0.5, &[2., -1.], &[1., 2., 3.], &mut hv)
+        .unwrap();
+    assert_eq!(hv, [-3., -27., 56.]);
+    let hessian = worker()
+        .hessian(&values, 0.5, &[2., -1.])
+        .unwrap()
+        .to_dense();
+    for (row, expected) in [[-9., 3., 0.], [3., 6., -14.], [0., -14., 28.]]
+        .iter()
+        .enumerate()
+    {
+        for (column, expected) in expected.iter().enumerate().take(row + 1) {
+            assert_eq!(hessian[(row, column)], *expected);
+        }
+    }
+    // Local off-diagonal a/b pairs collapse onto the same global diagonal twice.
+    assert_eq!(hessian[(2, 2)], 28.);
+    let selected = CasePlan::prepare_with_coordinates(
+        Arc::new(plan.structure().clone()),
+        plan.bodies().clone(),
+        &registry,
+        DerivativeOrder::First,
+        AssemblyLimits::default(),
+        &control.flag(),
+        vec![id(3), id(2), id(1)],
+    )
+    .unwrap()
+    .with_jacobian_entries(
+        &[
+            (id(21), id(1)),
+            (id(20), id(3)),
+            (id(20), id(2)),
+            (id(20), id(3)),
+        ],
+        &control.flag(),
+    )
+    .unwrap();
+    let selected = compile(selected);
+    let mut exact = [0.; 4];
+    selected
+        .worker(Default::default(), control.clone())
+        .jacobian_entries(&values, &mut exact)
+        .unwrap();
+    assert_eq!(exact, [12., 22.5, -31.5, 22.5]);
+    let bound = assembly.bind_values(&values).unwrap();
+    assert_eq!(
+        worker()
+            .constraints(bound.trial(&[2., 4., 1.]).unwrap())
+            .unwrap(),
+        [77.25, 28.]
+    );
+    let mut invalid = values.clone();
+    invalid.scalars.insert(id(3), f64::INFINITY);
+    assert!(
+        matches!(worker().constraints(&invalid), Err(crate::MathError::Instance { instance, .. }) if instance == id(10))
+    );
+    let mut changed = plan.structure().instances().to_vec();
+    Arc::make_mut(&mut changed[1].slots)[2] =
+        SlotBinding::new(&sources[0], &port(40, canonical), &registry).unwrap();
+    let changed = Arc::new(
+        CaseStructure::like(
+            plan.structure(),
+            plan.structure().variables().to_vec(),
+            vec![],
+            changed,
+            plan.structure().rows().to_vec(),
+            CaseLimits::default(),
+        )
+        .unwrap(),
+    );
+    assert!(
+        plan.receive_source_context(&changed).is_err(),
+        "changed physical support cannot reuse the admitted transport"
+    );
+    let changed = CasePlan::prepare_with_coordinates(
+        changed,
+        plan.bodies().clone(),
+        &registry,
+        DerivativeOrder::First,
+        AssemblyLimits::default(),
+        &control.flag(),
+        vec![id(3), id(2), id(1)],
+    )
+    .unwrap();
+    assert_eq!(
+        compile(changed)
+            .worker(Default::default(), control.clone())
+            .constraints(&values)
+            .unwrap(),
+        [48., 80.]
+    );
+    assert_eq!(worker().constraints(&values).unwrap(), [77.25, 28.]);
 }
 
 #[test]

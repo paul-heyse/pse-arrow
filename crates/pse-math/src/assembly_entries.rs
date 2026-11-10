@@ -159,14 +159,15 @@ impl CasePlan {
         let mut pending = Vec::new();
         for (destination, &(row, column)) in pairs.iter().enumerate() {
             for &(instance, ordinal) in self.row_contributions(row) {
-                let binding = &self.structure.instances()[instance];
-                let contribution = &binding.contributions[ordinal];
+                let transport = &self.instances[instance].transport;
+                let contribution = &transport.outputs[ordinal];
                 let support = self
                     .incidence_for(instance, contribution.output)
                     .ok_or_else(|| MathError::Contract("missing complete entry support".into()))?;
                 let mut bound = false;
-                for (formal, slot) in binding.slots.iter().enumerate() {
-                    if slot.source() == column {
+                for axis in &transport.axes {
+                    if self.columns[axis.destination.get()] == column {
+                        let formal = axis.formal.get();
                         bound = true;
                         selected
                             .entry((instance, Some(formal)))
@@ -180,7 +181,7 @@ impl CasePlan {
                             formal,
                             contribution.output,
                             destination,
-                            contribution.scale * slot.scale(),
+                            contribution.scale * axis.scale,
                         ));
                     }
                 }

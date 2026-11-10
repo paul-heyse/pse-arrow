@@ -4,10 +4,10 @@
 //! Physical local gathers, explicit row contributions and library-owned sparse products.
 use crate::{
     MathError,
-    binding::{CaseStructure, CaseValues, EvalBindings, Target},
+    binding::{BindingTransport, CaseStructure, CaseValues, EvalBindings, Target},
     execution::{SelectionObserver, TrialEvaluation},
     guarded::{CompiledBody, PreparedBody, PreparedSupport, ProductKind, ProductValues, Worker},
-    index::{Addend, Entry, GlobalCol, GlobalRow, Slot},
+    index::{Addend, Entry, GlobalCol, GlobalRow},
     jets::EvaluationLimits,
     library::Optimization,
     sparse::AssemblyMatrix,
@@ -112,16 +112,13 @@ struct Group {
     outputs: Vec<usize>,
     request: usize,
 }
-/// One binding's compiled demands and its derivative coordinates: `coordinates[k]` is the
-/// formal slot of local coordinate `k`, and `columns[k]` its case-global column.
+/// One binding's compiled demands and shared admitted sparse physical transport.
 #[derive(Clone, Debug)]
 struct Instance {
     groups: EnumMap<EvaluationDemand, Option<Group>>,
-    coordinates: Vec<Slot>,
-    columns: Vec<GlobalCol>,
+    transport: Arc<BindingTransport>,
     objective_terms: Vec<OutputTerm>,
     constraint_terms: Vec<ConstraintTerm>,
-    gradient_coordinates: Vec<GradientCoordinate>,
 }
 /// Immutable output/derivative addresses in original contribution order.
 #[derive(Clone, Debug)]
@@ -132,11 +129,6 @@ struct OutputTerm {
 #[derive(Clone, Debug)]
 struct ConstraintTerm {
     result_row: usize,
-    destination: usize,
-    scale: f64,
-}
-#[derive(Clone, Debug)]
-struct GradientCoordinate {
     destination: usize,
     scale: f64,
 }
@@ -688,9 +680,7 @@ impl CasePlan {
                 .map(|i| {
                     i.objective_terms.capacity() * size_of::<OutputTerm>()
                         + i.constraint_terms.capacity() * size_of::<ConstraintTerm>()
-                        + i.gradient_coordinates.capacity() * size_of::<GradientCoordinate>()
-                        + i.coordinates.capacity() * size_of::<Slot>()
-                        + i.columns.capacity() * size_of::<GlobalCol>()
+                        + i.transport.retained_bytes()
                         + i.groups
                             .values()
                             .flatten()
@@ -1027,20 +1017,15 @@ impl CasePlan {
             let body = bodies
                 .get(&binding.body)
                 .ok_or_else(|| MathError::Contract("missing prepared body".into()))?;
-            let coordinates: Vec<Slot> = binding
-                .slots
-                .iter()
-                .enumerate()
-                .filter_map(|(i, s)| column_map.contains_key(&s.source()).then_some(Slot::new(i)))
-                .collect();
-            let local_columns: Vec<GlobalCol> = coordinates
-                .iter()
-                .map(|&i| column_map[&binding.slots[i.get()].source()])
-                .collect();
+            let transport = Arc::new(BindingTransport::new(binding, &column_map, &rows));
             // The library compiles over formal slot positions.
-            let formal: Vec<usize> = coordinates.iter().map(|s| s.get()).collect();
-            let all_outputs: Vec<_> = binding
-                .contributions
+            let formal: Vec<usize> = transport
+                .axes
+                .iter()
+                .map(|axis| axis.formal.get())
+                .collect();
+            let all_outputs: Vec<_> = transport
+                .outputs
                 .iter()
                 .map(|c| c.output)
                 .collect::<BTreeSet<_>>()
@@ -1086,8 +1071,8 @@ impl CasePlan {
             }
             let mut groups = EnumMap::<EvaluationDemand, Option<Group>>::default();
             for (demand, group) in &mut groups {
-                let outputs: Vec<_> = binding
-                    .contributions
+                let outputs: Vec<_> = transport
+                    .outputs
                     .iter()
                     .filter(|c| selected(c.target, demand))
                     .map(|c| c.output)
@@ -1155,7 +1140,7 @@ impl CasePlan {
             }
             let mut objective_terms = Vec::new();
             let mut constraint_terms = Vec::new();
-            for contribution in &binding.contributions {
+            for contribution in &transport.outputs {
                 let demand = match contribution.target {
                     Target::PRIMARY => EvaluationDemand::Objective,
                     Target::Row(_) => EvaluationDemand::Constraints,
@@ -1172,44 +1157,25 @@ impl CasePlan {
                         result_row,
                         scale: contribution.scale,
                     }),
-                    Target::Row(row) => constraint_terms.push(ConstraintTerm {
+                    Target::Row(_) => constraint_terms.push(ConstraintTerm {
                         result_row,
-                        destination: rows[&row].get(),
+                        destination: contribution
+                            .destination
+                            .ok_or_else(|| MathError::Contract("missing transported row".into()))?
+                            .get(),
                         scale: contribution.scale,
                     }),
                     _ => {}
                 }
             }
-            let gradient_coordinates = if !objective_terms.is_empty() {
-                coordinates
-                    .iter()
-                    .enumerate()
-                    .map(|(offset, formal)| GradientCoordinate {
-                        destination: local_columns[offset].get(),
-                        scale: binding.slots[formal.get()].scale(),
-                    })
-                    .collect()
-            } else {
-                Vec::new()
-            };
             instances.push(Instance {
                 groups,
-                coordinates,
-                columns: local_columns,
+                transport,
                 objective_terms,
                 constraint_terms,
-                gradient_coordinates,
             });
         }
-        let patterns = case_patterns(
-            &structure,
-            &rows,
-            &instances,
-            &supports,
-            order,
-            columns.len(),
-            limits,
-        )?;
+        let patterns = case_patterns(&rows, &instances, &supports, order, columns.len(), limits)?;
         let mut row_contributions = BTreeMap::<_, Vec<(usize, usize)>>::new();
         for (index, binding) in structure.instances().iter().enumerate() {
             for (output, contribution) in binding.contributions.iter().enumerate() {
@@ -1229,7 +1195,7 @@ impl CasePlan {
                 row_contributions.values().map(Vec::len).sum::<usize>() as u64,
             );
         }
-        let product_weights = Arc::new(prepare_product_weights(&instances, &structure, &rows));
+        let product_weights = Arc::new(prepare_product_weights(&instances));
         let ownership = Arc::new(PlanOwnership::new(&structure, &instances, requests.len())?);
         Ok(Self {
             projection: Arc::new(crate::factorable::ProjectionTopology::new(
@@ -1641,11 +1607,7 @@ impl CasePlan {
             ProductKind::TransposeJacobianAction => result.actions.transpose = true,
             _ => return Err(MathError::Contract("first action preparation kind".into())),
         }
-        result.product_weights = Arc::new(prepare_product_weights(
-            &instances,
-            &self.structure,
-            &self.rows,
-        ));
+        result.product_weights = Arc::new(prepare_product_weights(&instances));
         result.ownership = Arc::new(PlanOwnership::new(
             &self.structure,
             &instances,
@@ -1693,11 +1655,7 @@ impl CasePlan {
                 request,
             });
         }
-        result.product_weights = Arc::new(prepare_product_weights(
-            &instances,
-            &self.structure,
-            &self.rows,
-        ));
+        result.product_weights = Arc::new(prepare_product_weights(&instances));
         result.ownership = Arc::new(PlanOwnership::new(
             &self.structure,
             &instances,
@@ -1756,10 +1714,9 @@ impl CasePlan {
         let mut copies = 0;
         let mut contributions = 0;
         for (instance, binding) in self.instances.iter().zip(self.structure.instances()) {
-            let n = instance.coordinates.len();
+            let n = instance.transport.axes.len();
             dimensions = add(dimensions, n)?;
-            copies = add(copies, mul(n, size_of::<Slot>() + size_of::<GlobalCol>())?)?;
-            copies = add(copies, mul(n, 2 * size_of::<GradientCoordinate>())?)?;
+            copies = add(copies, instance.transport.retained_bytes())?;
             copies = add(
                 copies,
                 mul(
@@ -1928,7 +1885,6 @@ impl CasePlan {
             }
         }
         let patterns = case_patterns(
-            &self.structure,
             &self.rows,
             &instances,
             &supports,
@@ -1938,11 +1894,7 @@ impl CasePlan {
         )?;
         let mut result = self.clone();
         result.order = order;
-        result.product_weights = Arc::new(prepare_product_weights(
-            &instances,
-            &self.structure,
-            &self.rows,
-        ));
+        result.product_weights = Arc::new(prepare_product_weights(&instances));
         result.ownership = Arc::new(PlanOwnership::new(
             &self.structure,
             &instances,
@@ -2190,12 +2142,12 @@ impl CasePlan {
         {
             for c in &b.contributions {
                 if c.target == Target::PRIMARY {
-                    for (&slot, &col) in i.coordinates.iter().zip(&i.columns) {
+                    for axis in &i.transport.axes {
                         if self
                             .incidence_for(instance, c.output)
-                            .is_some_and(|s| s.contains(&slot.get()))
+                            .is_some_and(|s| s.contains(&axis.formal.get()))
                         {
-                            support.insert(col);
+                            support.insert(axis.destination);
                         }
                     }
                 }
@@ -2230,7 +2182,8 @@ impl CasePlan {
             })
             .ok_or_else(overflow)?;
         for (instance, binding) in self.instances.iter().zip(self.structure.instances()) {
-            for _ in instance.groups.values().flatten() {
+            // One union gather is admitted before compact demand views are made.
+            for _ in 0..=instance.groups.values().flatten().count() {
                 bytes = bytes
                     .checked_add(
                         EvalBindings::allocation_bound(binding.slots.len()).ok_or_else(overflow)?,
@@ -2298,61 +2251,66 @@ impl CasePlan {
             .enumerate()
             .map(|(index, id)| (id, index))
             .collect();
-        // Only actual compiled formal reads occupy the fixed frame. The complete source
-        // universe remains immutable authority for independent original assessment.
-        let bound_programs = &programs;
-        let mut fixed: Vec<_> = self
+        // Admit the union of actual reads once, including exact-entry-only reads.
+        // Complete source inventories remain with the original physical instances.
+        let mut demanded_formals = self
             .instances
             .iter()
-            .zip(self.structure.instances())
-            .flat_map(|(instance, binding)| {
-                instance.groups.values().flatten().flat_map(move |group| {
-                    bound_programs[group.request]
-                        .input_formals()
-                        .iter()
-                        .map(move |formal| binding.slots[*formal].source())
-                })
+            .map(|instance| {
+                instance
+                    .groups
+                    .values()
+                    .flatten()
+                    .flat_map(|group| programs[group.request].input_formals().iter().copied())
+                    .collect::<BTreeSet<_>>()
+            })
+            .collect::<Vec<_>>();
+        for group in self.entries.iter().flat_map(|entries| &entries.groups) {
+            demanded_formals[group.instance].extend(programs[group.request].input_formals());
+        }
+        let fixed = self
+            .instances
+            .iter()
+            .zip(&demanded_formals)
+            .flat_map(|(instance, formals)| {
+                formals
+                    .iter()
+                    .map(|&formal| instance.transport.source(formal))
             })
             .filter(|id| !coordinates.contains_key(id))
             .collect::<BTreeSet<_>>()
             .into_iter()
-            .collect();
-        for group in self
-            .entries
-            .iter()
-            .flat_map(|entries| entries.groups.iter())
-        {
-            let binding = &self.structure.instances()[group.instance];
-            fixed.extend(
-                programs[group.request]
-                    .input_formals()
-                    .iter()
-                    .map(|formal| binding.slots[*formal].source())
-                    .filter(|id| !coordinates.contains_key(id)),
-            );
-        }
-        fixed.sort_unstable();
-        fixed.dedup();
+            .collect::<Vec<_>>();
         let fixed_offsets = fixed
             .iter()
             .copied()
             .enumerate()
             .map(|(index, id)| (id, index))
             .collect();
+        // Each numerical demand retains only a compact view of these addresses.
+        let gathers = self
+            .instances
+            .iter()
+            .zip(demanded_formals)
+            .map(|(instance, formals)| {
+                EvalBindings::new(
+                    &instance.transport,
+                    &formals.into_iter().collect::<Vec<_>>(),
+                    &coordinates,
+                    &fixed_offsets,
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         let bindings = self
             .instances
             .iter()
-            .zip(self.structure.instances())
-            .map(|(instance, binding)| {
+            .zip(&gathers)
+            .map(|(instance, gather)| {
                 let mut groups = EnumMap::default();
                 for (demand, group) in &instance.groups {
                     if let Some(group) = group {
-                        groups[demand] = Some(EvalBindings::new(
-                            binding,
-                            programs[group.request].input_formals(),
-                            &coordinates,
-                            &fixed_offsets,
-                        )?);
+                        groups[demand] =
+                            Some(gather.select(programs[group.request].input_formals())?);
                     }
                 }
                 Ok(groups)
@@ -2362,14 +2320,7 @@ impl CasePlan {
             .entries
             .iter()
             .flat_map(|entries| entries.groups.iter())
-            .map(|group| {
-                EvalBindings::new(
-                    &self.structure.instances()[group.instance],
-                    programs[group.request].input_formals(),
-                    &coordinates,
-                    &fixed_offsets,
-                )
-            })
+            .map(|group| gathers[group.instance].select(programs[group.request].input_formals()))
             .collect::<Result<Vec<_>, MathError>>()?;
         let repeated_entry_providers = CaseAssembly::repeated_entry_providers(self, &programs);
         let entry_bytes = self
@@ -2416,7 +2367,8 @@ impl CasePlan {
                     if instance.groups[EvaluationDemand::Directional].is_some() {
                         bytes.checked_add(
                             instance
-                                .coordinates
+                                .transport
+                                .axes
                                 .len()
                                 .checked_mul(size_of::<f64>() + size_of::<u64>())?,
                         )
@@ -2514,7 +2466,6 @@ struct CasePatterns {
     hessian_terms: Vec<HessianTerm>,
 }
 fn case_patterns(
-    structure: &CaseStructure,
     rows: &BTreeMap<SemanticId, GlobalRow>,
     instances: &[Instance],
     supports: &[Arc<PreparedSupport>],
@@ -2527,22 +2478,23 @@ fn case_patterns(
     let mut jt = vec![];
     let mut ht = vec![];
     let mut support_visits = 0u64;
-    for (index, (binding, instance)) in structure.instances().iter().zip(instances).enumerate() {
+    for (index, instance) in instances.iter().enumerate() {
         let support = instance.groups[EvaluationDemand::All]
             .as_ref()
             .map(|g| &supports[g.request]);
         let offsets = instance
-            .coordinates
+            .transport
+            .axes
             .iter()
             .enumerate()
-            .map(|(i, formal)| (formal.get(), i))
+            .map(|(i, axis)| (axis.formal.get(), i))
             .collect::<BTreeMap<_, _>>();
         let first_layout = instance.groups[EvaluationDemand::Constraints]
             .as_ref()
             .map(|group| crate::execution::FirstLayout::from_support(&supports[group.request]));
-        for contribution in &binding.contributions {
+        for contribution in &instance.transport.outputs {
             if order >= DerivativeOrder::First
-                && let Target::Row(row) = contribution.target
+                && let Some(row) = contribution.destination
             {
                 let first = support
                     .and_then(|s| s.first_for_output(contribution.output))
@@ -2563,7 +2515,8 @@ fn case_patterns(
                         continue;
                     };
                     contribution_allowance(jp.len(), hp.len(), limits)?;
-                    jp.push(Entry::new(rows[&row], instance.columns[i]));
+                    let axis = &instance.transport.axes[i];
+                    jp.push(Entry::new(row, axis.destination));
                     jt.push(Term {
                         instance: index,
                         output: contribution.output,
@@ -2575,7 +2528,7 @@ fn case_patterns(
                             })?,
                         i,
                         j: 0,
-                        scale: contribution.scale * binding.slots[*formal].scale(),
+                        scale: contribution.scale * axis.scale,
                         target: contribution.target,
                     });
                 }
@@ -2596,24 +2549,30 @@ fn case_patterns(
             }
             let mut ordered = Vec::new();
             for (component, &(i, j)) in union.iter().enumerate() {
-                if instance.columns[i] >= instance.columns[j] {
+                if instance.transport.axes[i].destination >= instance.transport.axes[j].destination
+                {
                     ordered.push((i, j, component));
                 }
-                if i != j && instance.columns[j] >= instance.columns[i] {
+                if i != j
+                    && instance.transport.axes[j].destination
+                        >= instance.transport.axes[i].destination
+                {
                     ordered.push((j, i, component));
                 }
             }
             ordered.sort_unstable();
             for (i, j, component) in ordered {
                 contribution_allowance(jp.len(), hp.len(), limits)?;
-                hp.push(Entry::new(instance.columns[i], instance.columns[j]));
+                hp.push(Entry::new(
+                    instance.transport.axes[i].destination,
+                    instance.transport.axes[j].destination,
+                ));
                 ht.push(HessianTerm {
                     instance: index,
                     component,
                     i,
                     j,
-                    scale: binding.slots[instance.coordinates[i].get()].scale()
-                        * binding.slots[instance.coordinates[j].get()].scale(),
+                    scale: instance.transport.axes[i].scale * instance.transport.axes[j].scale,
                 });
             }
         }
@@ -3048,7 +3007,7 @@ impl CaseAssembly {
                             ProductKind::JacobianAction | ProductKind::WeightedHessianAction
                         );
                         let weights = if weighted { group.outputs.len() } else { 0 };
-                        let directions = if directed { i.coordinates.len() } else { 0 };
+                        let directions = if directed { i.transport.axes.len() } else { 0 };
                         GroupCache {
                             inputs: vec![f64::NAN; inputs],
                             bits: vec![0; inputs + weights + directions],
@@ -4026,9 +3985,9 @@ impl CaseWorker {
                         .ok_or_else(|| MathError::Contract("unevaluated gradient demand".into()))?
                         .result;
                     for (axis, value) in result.first_entries(term.result_row) {
-                        let coordinate = &instance.gradient_coordinates[axis];
+                        let coordinate = &instance.transport.axes[axis];
                         let addend = sign * term.scale * coordinate.scale * value;
-                        self.gradient_values[coordinate.destination] += addend;
+                        self.gradient_values[coordinate.destination.get()] += addend;
                     }
                 }
             }
@@ -4254,24 +4213,14 @@ impl CaseWorker {
             self.completion.begin(AssembledProduct::HessianAction);
             let assembled = (|| {
                 self.action_values[..output.len()].fill(0.0);
-                for (index, (local, binding)) in self
-                    .assembly
-                    .instances
-                    .iter()
-                    .zip(self.assembly.structure.instances())
-                    .enumerate()
-                {
+                for (index, local) in self.assembly.instances.iter().enumerate() {
                     let Some(cache) = &self.groups[index][EvaluationDemand::HessianAction] else {
                         continue;
                     };
-                    for (axis, (&formal, &column)) in
-                        local.coordinates.iter().zip(&local.columns).enumerate()
-                    {
-                        let destination = &mut self.action_values[column.get()];
-                        *destination = finite(
-                            *destination
-                                + binding.slots[formal.get()].scale() * cache.product[axis],
-                        )?;
+                    for (axis, coordinate) in local.transport.axes.iter().enumerate() {
+                        let destination = &mut self.action_values[coordinate.destination.get()];
+                        *destination =
+                            finite(*destination + coordinate.scale * cache.product[axis])?;
                     }
                 }
                 self.scope.check().map_err(crate::error::scope_error)?;
@@ -4439,24 +4388,14 @@ impl CaseWorker {
                     .transpose_product(weights, &mut self.action_values[..output.len()])?;
             } else {
                 self.action_values[..output.len()].fill(0.);
-                for (index, (local, binding)) in self
-                    .assembly
-                    .instances
-                    .iter()
-                    .zip(self.assembly.structure.instances())
-                    .enumerate()
-                {
+                for (index, local) in self.assembly.instances.iter().enumerate() {
                     let Some(cache) = &self.groups[index][demand] else {
                         continue;
                     };
-                    for (axis, (&formal, &column)) in
-                        local.coordinates.iter().zip(&local.columns).enumerate()
-                    {
-                        let destination = &mut self.action_values[column.get()];
-                        *destination = finite(
-                            *destination
-                                + binding.slots[formal.get()].scale() * cache.product[axis],
-                        )?;
+                    for (axis, coordinate) in local.transport.axes.iter().enumerate() {
+                        let destination = &mut self.action_values[coordinate.destination.get()];
+                        *destination =
+                            finite(*destination + coordinate.scale * cache.product[axis])?;
                     }
                 }
             }
@@ -4619,11 +4558,9 @@ impl CaseWorker {
                     }
                 }
                 if let Some(direction) = direction {
-                    for (axis, (&formal, &column)) in
-                        local.coordinates.iter().zip(&local.columns).enumerate()
-                    {
+                    for (axis, coordinate) in local.transport.axes.iter().enumerate() {
                         cache.direction[axis] =
-                            finite(binding.slots[formal.get()].scale() * direction[column.get()])?;
+                            finite(coordinate.scale * direction[coordinate.destination.get()])?;
                     }
                 }
                 let same = cache
@@ -4735,13 +4672,10 @@ impl CaseWorker {
 }
 fn prepare_product_weights(
     instances: &[Instance],
-    structure: &CaseStructure,
-    rows: &BTreeMap<SemanticId, GlobalRow>,
 ) -> Vec<EnumMap<EvaluationDemand, Vec<ProductWeight>>> {
     instances
         .iter()
-        .zip(structure.instances())
-        .map(|(instance, binding)| {
+        .map(|instance| {
             EnumMap::from_fn(|demand| {
                 let Some(group) = &instance.groups[demand] else {
                     return Vec::new();
@@ -4755,8 +4689,9 @@ fn prepare_product_weights(
                 ) {
                     return Vec::new();
                 }
-                binding
-                    .contributions
+                instance
+                    .transport
+                    .outputs
                     .iter()
                     .filter_map(|contribution| {
                         let output = group.outputs.binary_search(&contribution.output).ok()?;
@@ -4771,7 +4706,7 @@ fn prepare_product_weights(
                             {
                                 ProductTarget::Objective
                             }
-                            Target::Row(row) => ProductTarget::Row(rows[&row].get()),
+                            Target::Row(_) => ProductTarget::Row(contribution.destination?.get()),
                             _ => return None,
                         };
                         Some(ProductWeight {
@@ -5570,5 +5505,19 @@ mod instance_reuse_tests {
             worker.completion.evaluations[EvaluationDemand::Constraints],
             3
         );
+    }
+    #[test]
+    fn shared_body_guard_refusal_retains_the_actual_receiver_instance() {
+        let (assembly, mut values, control) = fixture(true);
+        let mut worker = assembly.worker(Default::default(), control);
+        assert!(worker.constraints(&values).is_ok());
+        values.scalars.insert(id(2), -1.);
+        assert!(matches!(worker.constraints(&values),
+            Err(MathError::Instance { instance, .. }) if instance == id(11)));
+        values.scalars.insert(id(2), 3.);
+        assert!(worker.constraints(&values).is_ok());
+        values.scalars.insert(id(1), -1.);
+        assert!(matches!(worker.constraints(&values),
+            Err(MathError::Instance { instance, .. }) if instance == id(10)));
     }
 }
