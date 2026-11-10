@@ -36,7 +36,7 @@ pub enum MathematicalRequest {
     /// Original authored exact analytical selection.
     Analytical(AnalyticalOperationRequest) => 1;
     /// Original authored exact/numerical assurance selection.
-    Diagnostic(modeling::MathematicalDiagnosticOperation) => 2;
+    Diagnostic(MathematicalDiagnosticOperation) => 2;
 }
 }
 impl MathematicalRequest {

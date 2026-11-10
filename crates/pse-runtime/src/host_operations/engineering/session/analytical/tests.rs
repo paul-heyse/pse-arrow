@@ -3,6 +3,7 @@
 //! Actual native selected mathematics and original protected readback across service retirement.
 use super::*;
 use crate::workflow::{AnalyticalOperationRequest, MathematicalRequest, RunOutcome};
+use pse_ids::SemanticId;
 #[tokio::test]
 async fn native_analytical_original_run_retains_printer_and_refuses_rebound_submission() {
     let store = pse_operations::native_fixture::canonical_fixture_store().unwrap();
