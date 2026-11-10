@@ -1145,6 +1145,27 @@ collocation retains its separate unbounded isolation route and identity.
 `crates/pse-math/src/library/admission.rs`, `crates/pse-compiler/src/workspace.rs`,
 `crates/pse-runtime/src/math.rs`.
 
+#### 14.3.3 Qualified numerical execution products
+
+> Decision: ADR-0264 (proposed; maintainer-authorized Plan73b B05 target).
+
+A numerical-only product has its own versioned interpretation, compiler-sealed request and
+protected scientific custody. The compiler establishes semantic body, physical/formal and
+original guard/source/instance correspondence before symbolic materialization. Successful
+selected preparation binds actual output/axis/pair layouts, coefficient and known-head
+semantics, supplier profile and exact numerical payload. Process-local artifact signatures and
+decoded instruction bytes grant no durable scientific authority. Existing canonical producer,
+dependency-selection and publication owners protect this separate description.
+
+An execution-only receiver acquires immutable checked numerical instructions with original
+scientific binding and gives each worker fresh current scope and independently admitted
+backing. It reconstructs no `AdmittedBody`, source preparation or exact scalar family merely to
+execute a hit. A genuine miss may complete the admitted source frontier; a present incompatible
+or corrupt product refuses. New symbolic demand uses the distinct source/custody route.
+Receiver-local native compilation may consume qualified numerical stages without transferring
+native binaries or inheriting producer module paths. Plan73b/C03 own actual cutover and evidence;
+math transfer prerequisites alone do not establish production receiving.
+
 ### 14.4 Incrementality
 
 > Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) (proposed) — resolved product identity and incremental reuse.

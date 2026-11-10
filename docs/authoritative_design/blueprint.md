@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 373
+revision: 374
 date: 2026-11-10
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 374 | 2026-11-10 | Propose compiler-sealed numerical execution descriptions with independent symbolic and numerical receiving capabilities (§14.3.3, §20.5). | Proposed ADR-0264; Plan73b B05 and Plan73c C03 own actual publication/acquisition and caller cutover. |
 | 373 | 2026-11-10 | Propose checked supplier mathematical construction and selected stable primitive products (§7.2, §14.3). | Proposed ADR-0263; authorized Plan73a/b/c implementation and qualification remain separate. |
 | 372 | 2026-11-09 | Propose typed explicit-isolation canonical operations, shared native readiness projections and physically owned schema transitions; select clean v12 reconstruction, concurrent bootstrap indexes with closed admission until exact readiness, and native SSI replacing the concurrency-only capture witness (§4.7, §20.5, §20.6.3, §20.6.11). | Proposed ADR-0262; authorized Plan72b/72c execution and maintainer clarification that scientific results need not survive, implementation and receiving evidence remain separate. |
 | 371 | 2026-11-09 | Declare owner-derived native vocabulary, operation inputs and exact numeric interpretation (§4.1, §20.5). | Proposed ADR-0261; Plan72a owns implementation and targeted evidence. |

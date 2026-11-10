@@ -863,6 +863,14 @@ bytes and is not an exported database lease or another publication catalog.
 
 ### 20.5 Current contracts and schema evolution
 
+> Decision: ADR-0264 (proposed; Plan73b B05 numerical execution product).
+
+The separately interpreted numerical execution description follows the existing protected
+canonical producer, dependency selection and publication contracts. Compiler-sealed execution
+request/custody, exact numerical payload and numerical/head profile are bound under distinct
+versioned framed meanings; a process-local accelerator key supplies no durable authority.
+The capability split and receiving obligations are owned by §14.3.3.
+
 > Decision: [ADR-0262](../../adr/0262-canonical-operations-and-owned-transitions.md)
 > (proposed), maintainer-authorized Plan72b/72c target.
 
