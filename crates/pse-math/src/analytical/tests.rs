@@ -132,6 +132,62 @@ fn analytical_indexed_common_alphabet_preserves_fixed_axes_and_binder_provenance
         renamed.original_to_input[0].binder
     );
     assert_eq!(first.external_indices.len(), 1);
+    let repeated = |external| {
+        vec![
+            TensorOccurrence {
+                family: id(10),
+                axes: vec![
+                    TensorAxis::External {
+                        identity: external,
+                        group: id(1),
+                    },
+                    TensorAxis::Dummy {
+                        binder: id(2),
+                        group: id(1),
+                    },
+                ],
+            },
+            TensorOccurrence {
+                family: id(11),
+                axes: vec![
+                    TensorAxis::External {
+                        identity: external,
+                        group: id(1),
+                    },
+                    TensorAxis::Dummy {
+                        binder: id(2),
+                        group: id(1),
+                    },
+                ],
+            },
+        ]
+    };
+    let first = canonicalize_contraction(
+        &repeated(id(3)),
+        &[IndexAlphabet {
+            group: id(1),
+            labels: 2,
+        }],
+        EvaluationLimits::default(),
+        &scope(),
+    )
+    .unwrap();
+    let changed = canonicalize_contraction(
+        &repeated(id(5)),
+        &[IndexAlphabet {
+            group: id(1),
+            labels: 2,
+        }],
+        EvaluationLimits::default(),
+        &scope(),
+    )
+    .unwrap();
+    assert_ne!(first.expression(), changed.expression());
+    let AnalyticalObservation::Indexed(first) = first.observation else {
+        panic!("indexed")
+    };
+    assert_eq!(first.external_indices.len(), 1);
+    assert_eq!(first.dummy_indices.len(), 1);
 }
 
 #[test]
@@ -207,12 +263,7 @@ fn analytical_native_relation_keeps_hypothesis_stopping_and_exact_algebraic_proo
     assert_eq!(observation.meaning, RelationMeaning::ExactAlgebraicZero);
     assert_eq!(observation.algebraic_normal_form.unwrap().symbolica, "0");
     assert_eq!(observation.candidate.unwrap().len(), 3);
-    let rounded = |value| {
-        selected(
-            0,
-            Atom::num(symbolica::domains::float::Float::with_val(128, value)),
-        )
-    };
+    let rounded = |value| selected(0, Atom::num(Float::with_val(128, value)));
     let [a, b, c] = [-32.0177, 3.1416, 2.7183].map(rounded);
     let request = RelationRequest {
         precision: 128,
@@ -356,7 +407,9 @@ fn analytical_stable_log_ratio_has_higher_series_without_changing_numerical_head
             .all(|requirement| requirement.source == source_id)
     );
     assert_eq!(source.original_body(), &original);
-    assert!(matches!(source.series(0,&Atom::Zero,SeriesDepth::absolute(4),EvaluationLimits::default(),&scope()),Err(MathError::Domain{source_id:actual,..}) if actual==source_id));
+    assert!(
+        matches!(source.series(0,&Atom::Zero,SeriesDepth::absolute(4),EvaluationLimits::default(),&scope()),Err(MathError::Domain{source_id:actual,..}) if actual==source_id)
+    );
     let result = source
         .series(
             0,
@@ -462,4 +515,54 @@ fn analytical_printer_preserves_namespace_collisions() {
     );
     assert!(view.latex.contains("analytical_a") && view.latex.contains("analytical_b"));
     assert!(view.typst.contains("analytical_a") && view.typst.contains("analytical_b"));
+}
+
+#[test]
+fn analytical_printer_refuses_the_complete_view_before_returning_partial_text() {
+    crate::initialize().unwrap();
+    let atom = named_atom("long_native_namespace::long_original_physical_axis".into()).unwrap();
+    let limits = EvaluationLimits {
+        scratch_bytes: atom.as_view().get_byte_size() + 1,
+        ..Default::default()
+    };
+    assert!(matches!(
+        mathematical_view(&atom, limits, &scope()),
+        Err(MathError::Limit("analytical presentation bytes"))
+    ));
+}
+
+#[test]
+fn analytical_float_residual_is_inconclusive_without_exact_normalization_panic() {
+    crate::initialize().unwrap();
+    let left = selected(0, Atom::num(0.1));
+    let right = selected(0, Atom::num(0.1 + f64::EPSILON));
+    let result = left
+        .identity(&right, EvaluationLimits::default(), &scope())
+        .unwrap();
+    assert!(matches!(
+        result.observation,
+        AnalyticalObservation::Identity {
+            meaning: IdentityMeaning::Inconclusive,
+            ..
+        }
+    ));
+}
+
+#[test]
+fn analytical_identity_refuses_explosive_polynomial_expansion_before_native_normalization() {
+    crate::initialize().unwrap();
+    let x = crate::library::formal(0).unwrap();
+    let original = selected(1, (&x + Atom::num(1)).pow(1024));
+    let zero = selected(1, Atom::Zero);
+    assert!(matches!(
+        original.identity(
+            &zero,
+            EvaluationLimits {
+                operations: 10_000,
+                ..Default::default()
+            },
+            &scope()
+        ),
+        Err(MathError::Limit("analytical normalization terms"))
+    ));
 }

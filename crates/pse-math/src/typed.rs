@@ -69,13 +69,18 @@ impl TypedValue {
     fn atom(&self) -> Result<&Atom, MathError> {
         self.atom.as_ref().ok_or_else(plan::unsupported)
     }
-    fn scale(&mut self, scale: f64) {
+    fn scale(&mut self, scale: f64, control: Option<&ExactSourceControl>) -> Result<(), MathError> {
         if scale != 1.0 {
             if let Some(atom) = &mut self.atom {
-                *atom *= Atom::num(scale);
+                let coefficient = canonical_coefficient(scale, control.is_some())?;
+                if let Some(control) = control {
+                    control.reserve(&[atom, &coefficient], 1)?;
+                }
+                *atom *= coefficient;
             }
             self.shape = self.shape.scaled(scale);
         }
+        Ok(())
     }
     /// Physical type established by admission; callers cannot retag an existing value.
     pub fn quantity(&self) -> Result<QuantityTypeId, MathError> {
@@ -169,6 +174,8 @@ pub struct BodyBuilder<'a> {
     stages: Vec<Stage>,
     provider_order: DerivativeOrder,
     physical_only: bool,
+    exact_source_arithmetic: bool,
+    exact_source_control: Option<Arc<ExactSourceControl>>,
     planning: bool,
     admissions: Vec<ResolvedInference>,
     output_authorizations: Vec<pse_quantity::AdmittedOutputBoundary>,
@@ -230,9 +237,42 @@ impl<'a> BodyBuilder<'a> {
             stages: vec![],
             provider_order: DerivativeOrder::Second,
             physical_only: false,
+            exact_source_arithmetic: false,
+            exact_source_control: None,
             planning: false,
             provider_cache: std::collections::HashMap::new(),
         })
+    }
+    /// Use exact native rational values for the already admitted canonical binary64
+    /// literals and conversion scales, before any mathematical arithmetic. This
+    /// is an analytical source profile; it does not change numerical execution.
+    pub fn with_exact_source_arithmetic(
+        mut self,
+        limits: crate::jets::EvaluationLimits,
+        coefficient_bits: usize,
+        scope: &pse_kernels::ExecutionScope,
+    ) -> Result<Self, MathError> {
+        limits.check()?;
+        if coefficient_bits == 0 {
+            return Err(MathError::Limit("zero exact source coefficient allowance"));
+        }
+        self.exact_source_arithmetic = true;
+        self.exact_source_control = Some(Arc::new(ExactSourceControl {
+            limits,
+            coefficient_bits,
+            scope: scope.nested(),
+            work: std::sync::atomic::AtomicUsize::new(0),
+            reserved: std::sync::atomic::AtomicUsize::new(0),
+            aliases: std::sync::Mutex::new(Default::default()),
+        }));
+        if let Some(control) = &self.exact_source_control {
+            control.check()?;
+        }
+        Ok(self)
+    }
+    /// Whether this construction uses the explicit source bit-authority profile.
+    pub fn exact_source_arithmetic(&self) -> bool {
+        self.exact_source_arithmetic
     }
     /// A physical-only pass validates even empty finite bodies without constructing arithmetic.
     /// # Errors
@@ -248,6 +288,9 @@ impl<'a> BodyBuilder<'a> {
         Ok(builder)
     }
     fn tick(&mut self) -> Result<(), MathError> {
+        if let Some(control) = &self.exact_source_control {
+            control.check()?;
+        }
         self.occurrences += 1;
         if self.occurrences > self.limits.occurrences {
             return Err(MathError::Limit("body occurrences"));
@@ -338,7 +381,7 @@ impl<'a> BodyBuilder<'a> {
         expected: QuantityTypeId,
     ) -> Result<TypedValue, MathError> {
         let (contract, scale) = value.quantity.at_boundary(expected, self.registry)?;
-        value.scale(scale);
+        value.scale(scale, self.exact_source_control.as_deref())?;
         value.quantity = contract;
         Ok(value)
     }
@@ -351,7 +394,7 @@ impl<'a> BodyBuilder<'a> {
         let (contract, scale) = value
             .quantity
             .at_contract_boundary(expected, self.registry)?;
-        value.scale(scale);
+        value.scale(scale, self.exact_source_control.as_deref())?;
         value.quantity = contract;
         Ok(value)
     }
@@ -362,7 +405,7 @@ impl<'a> BodyBuilder<'a> {
         boundary: &pse_quantity::AdmittedContractBoundary,
     ) -> Result<TypedValue, MathError> {
         let (contract, scale) = boundary.apply_contract(&value.quantity)?;
-        value.scale(scale);
+        value.scale(scale, self.exact_source_control.as_deref())?;
         value.quantity = contract;
         Ok(value)
     }
@@ -373,7 +416,7 @@ impl<'a> BodyBuilder<'a> {
         authorization: &pse_quantity::AdmittedOutputBoundary,
     ) -> Result<TypedValue, MathError> {
         let (contract, scale) = authorization.apply_contract(&value.quantity)?;
-        value.scale(scale);
+        value.scale(scale, self.exact_source_control.as_deref())?;
         value.quantity = contract;
         self.output_authorizations.push(authorization.clone());
         Ok(value)
@@ -521,7 +564,7 @@ impl<'a> BodyBuilder<'a> {
                 {
                     Atom::num(canonical as i32)
                 } else {
-                    Atom::num(canonical)
+                    canonical_coefficient(canonical, self.exact_source_arithmetic)?
                 },
             )
         })?;
@@ -566,7 +609,7 @@ impl<'a> BodyBuilder<'a> {
                     {
                         Atom::num(canonical as i32)
                     } else {
-                        Atom::num(canonical)
+                        canonical_coefficient(canonical, self.exact_source_arithmetic)?
                     },
                 )
             })?,
@@ -888,7 +931,7 @@ impl<'a> BodyBuilder<'a> {
                 atom: Some(if scale == 1.0 {
                     atom
                 } else {
-                    atom * Atom::num(scale)
+                    atom * canonical_coefficient(scale, self.exact_source_arithmetic)?
                 }),
                 shape: plan::Shape::Unknown,
                 quantity,
@@ -918,7 +961,10 @@ impl<'a> BodyBuilder<'a> {
             piecewise::strengthen_guards(&mut self.stages[scope.0..], arguments.len());
             self.stages.extend(stages);
             return Ok(TypedValue {
-                atom: Some(library::formal(output)? * Atom::num(scale)),
+                atom: Some(
+                    library::formal(output)?
+                        * canonical_coefficient(scale, self.exact_source_arithmetic)?,
+                ),
                 shape: plan::Shape::Unknown,
                 quantity,
                 indices: value.indices,
@@ -945,7 +991,7 @@ impl<'a> BodyBuilder<'a> {
             atom: Some(if scale == 1.0 {
                 atom
             } else {
-                atom * Atom::num(scale)
+                atom * canonical_coefficient(scale, self.exact_source_arithmetic)?
             }),
             shape: plan::Shape::Unknown,
             quantity,
@@ -959,6 +1005,17 @@ impl<'a> BodyBuilder<'a> {
             return Ok(0);
         }
         let slot = self.slot()?;
+        if let (Some(control), Some(atom)) = (&self.exact_source_control, &atom) {
+            let extent = control.extent(atom.as_view(), 0)?;
+            let symbol = library::formal(slot)?
+                .get_symbol()
+                .ok_or_else(|| MathError::Contract("exact source stage symbol".into()))?;
+            control
+                .aliases
+                .lock()
+                .map_err(|_| MathError::Contract("exact source stage admission poisoned".into()))?
+                .insert(symbol, extent);
+        }
         self.stages.push(Stage::Block {
             expressions: atom.into_iter().collect(),
             outputs: vec![slot],
@@ -1016,6 +1073,11 @@ impl<'a> BodyBuilder<'a> {
             && let Some(exponent) = exponent
         {
             check_power_degree(exponent)?;
+            if self.exact_source_arithmetic && exponent.den() != 1 {
+                return Err(MathError::Contract(
+                    "checked fractional power is outside exact source construction".into(),
+                ));
+            }
         }
         let quantity = admission.result;
         let indices = quantity.indices().clone();
@@ -1023,7 +1085,7 @@ impl<'a> BodyBuilder<'a> {
             .into_iter()
             .zip(&admission.operand_scales)
         {
-            value.scale(*scale);
+            value.scale(*scale, self.exact_source_control.as_deref())?;
         }
         if !self.physical_only
             && op == Binary::Pow
@@ -1104,6 +1166,16 @@ impl<'a> BodyBuilder<'a> {
                 )?,
             }
         }
+        if let Some(control) = &self.exact_source_control {
+            let power = if op == Binary::Pow {
+                exponent
+                    .map_or(1, |value| value.num().unsigned_abs() as usize)
+                    .max(1)
+            } else {
+                1
+            };
+            control.reserve(&[left.atom()?, right.atom()?], power)?;
+        }
         let atom = self.atom_with(|| {
             let lhs = left.atom()?;
             let rhs = right.atom()?;
@@ -1123,7 +1195,7 @@ impl<'a> BodyBuilder<'a> {
             indices,
             source,
         };
-        value.scale(admission.result_scale);
+        value.scale(admission.result_scale, self.exact_source_control.as_deref())?;
         Ok(value)
     }
     /// Physically admitted unary negation.
@@ -1162,7 +1234,10 @@ impl<'a> BodyBuilder<'a> {
                     Atom::num(0)
                 } else {
                     -value.atom()?.clone()
-                        * Atom::num(admission.operand_scales[0] * admission.result_scale)
+                        * canonical_coefficient(
+                            admission.operand_scales[0] * admission.result_scale,
+                            self.exact_source_arithmetic,
+                        )?
                 })
             })?,
             shape: plan::Shape::Unknown,
@@ -1224,7 +1299,10 @@ impl<'a> BodyBuilder<'a> {
         use crate::UnaryFunction as Unary;
         let quantity = admission.result;
         let indices = quantity.indices().clone();
-        value.scale(admission.operand_scales[0]);
+        value.scale(
+            admission.operand_scales[0],
+            self.exact_source_control.as_deref(),
+        )?;
 
         if self.physical_only {
             return Ok(TypedValue {
@@ -1320,7 +1398,7 @@ impl<'a> BodyBuilder<'a> {
             indices,
             source,
         };
-        result.scale(admission.result_scale);
+        result.scale(admission.result_scale, self.exact_source_control.as_deref())?;
         Ok(result)
     }
     /// Stable logarithmic ratio retaining the original positive argument guards.
@@ -1351,8 +1429,14 @@ impl<'a> BodyBuilder<'a> {
         admission: ResolvedInference,
         source: SemanticId,
     ) -> Result<TypedValue, MathError> {
-        left.scale(admission.operand_scales[0]);
-        right.scale(admission.operand_scales[1]);
+        left.scale(
+            admission.operand_scales[0],
+            self.exact_source_control.as_deref(),
+        )?;
+        right.scale(
+            admission.operand_scales[1],
+            self.exact_source_control.as_deref(),
+        )?;
         if !self.physical_only {
             self.require(
                 &mut left,
@@ -1386,7 +1470,7 @@ impl<'a> BodyBuilder<'a> {
             quantity: admission.result,
             source,
         };
-        result.scale(admission.result_scale);
+        result.scale(admission.result_scale, self.exact_source_control.as_deref())?;
         Ok(result)
     }
     /// Stable Euclidean magnitude after complete physical component admission.
@@ -1417,8 +1501,14 @@ impl<'a> BodyBuilder<'a> {
         admission: ResolvedInference,
         source: SemanticId,
     ) -> Result<TypedValue, MathError> {
-        left.scale(admission.operand_scales[0]);
-        right.scale(admission.operand_scales[1]);
+        left.scale(
+            admission.operand_scales[0],
+            self.exact_source_control.as_deref(),
+        )?;
+        right.scale(
+            admission.operand_scales[1],
+            self.exact_source_control.as_deref(),
+        )?;
         let mut effects = left.effects.clone();
         effects.extend(right.effects.iter().copied());
         if !self.physical_only {
@@ -1458,7 +1548,7 @@ impl<'a> BodyBuilder<'a> {
             quantity: admission.result,
             source,
         };
-        result.scale(admission.result_scale);
+        result.scale(admission.result_scale, self.exact_source_control.as_deref())?;
         Ok(result)
     }
     /// Admit and materialize a scalar comparison.
@@ -1624,12 +1714,15 @@ impl<'a> BodyBuilder<'a> {
                     "conditional result stage is absent".into(),
                 ));
             };
-            expressions[0] *= Atom::num(scales[0]);
+            if let Some(control) = &self.exact_source_control {
+                control.reserve(&[&expressions[0]], 1)?;
+            }
+            expressions[0] *= canonical_coefficient(scales[0], self.exact_source_arithmetic)?;
         }
         let quantity = admission.result;
         let indices = quantity.indices().clone();
         let mut else_value = else_value;
-        else_value.scale(scales[1]);
+        else_value.scale(scales[1], self.exact_source_control.as_deref())?;
         self.stages.push(Stage::Block {
             expressions: else_value.atom.into_iter().collect(),
             outputs: vec![result_slot],
@@ -1771,15 +1864,30 @@ impl<'a> BodyBuilder<'a> {
                 match kind {
                     pse_quantity::ReductionKind::Sum => {
                         terms.iter().try_fold(Atom::num(0), |sum, term| {
+                            if let Some(control) = &self.exact_source_control {
+                                control.reserve(&[&sum, term.atom()?], 1)?;
+                            }
                             Ok::<_, MathError>(
-                                sum + term.atom()? * Atom::num(admission.operand_scales[0]),
+                                sum + term.atom()?
+                                    * canonical_coefficient(
+                                        admission.operand_scales[0],
+                                        self.exact_source_arithmetic,
+                                    )?,
                             )
                         })?
                     }
                     pse_quantity::ReductionKind::Prod => {
                         terms.iter().try_fold(Atom::num(1), |product, term| {
+                            if let Some(control) = &self.exact_source_control {
+                                control.reserve(&[&product, term.atom()?], 1)?;
+                            }
                             Ok::<_, MathError>(
-                                product * term.atom()? * Atom::num(admission.operand_scales[0]),
+                                product
+                                    * term.atom()?
+                                    * canonical_coefficient(
+                                        admission.operand_scales[0],
+                                        self.exact_source_arithmetic,
+                                    )?,
                             )
                         })?
                     }
@@ -1789,7 +1897,7 @@ impl<'a> BodyBuilder<'a> {
                         ));
                     }
                 }
-            } * Atom::num(admission.result_scale))
+            } * canonical_coefficient(admission.result_scale, self.exact_source_arithmetic)?)
         })?;
         Ok(TypedValue {
             atom,
@@ -1988,5 +2096,173 @@ impl<'a> BodyBuilder<'a> {
             crate::jets::EvaluationLimits::default(),
             scope,
         )
+    }
+}
+
+fn canonical_coefficient(value: f64, exact: bool) -> Result<Atom, MathError> {
+    if exact {
+        symbolica::domains::rational::Rational::try_from(value)
+            .map(Atom::num)
+            .map_err(|error| MathError::Contract(error.to_string()))
+    } else {
+        Ok(Atom::num(value))
+    }
+}
+
+/// Local exact-source admission. Ordinary numerical construction does not use
+/// this profile. Native normalization is indivisible; its conservative input
+/// extent and coefficient-growth envelope are admitted before invoking it.
+#[derive(Debug)]
+struct ExactSourceControl {
+    limits: crate::jets::EvaluationLimits,
+    coefficient_bits: usize,
+    scope: pse_kernels::ExecutionScope,
+    work: std::sync::atomic::AtomicUsize,
+    reserved: std::sync::atomic::AtomicUsize,
+    aliases: std::sync::Mutex<std::collections::BTreeMap<symbolica::atom::Symbol, (usize, usize)>>,
+}
+impl ExactSourceControl {
+    fn check(&self) -> Result<(), MathError> {
+        self.scope.check().map_err(|error| match error {
+            pse_kernels::ProviderError::Cancelled => MathError::Cancelled,
+            other => MathError::Scope(other),
+        })
+    }
+    fn reserve(&self, inputs: &[&Atom], power: usize) -> Result<(), MathError> {
+        use std::sync::atomic::Ordering;
+        self.check()?;
+        let mut bytes = 256usize; // binary64 rational and normalization headers
+        let mut nodes = 1usize;
+        let mut bits = 1usize;
+        for atom in inputs {
+            let (expanded_bytes, expanded_bits) = self.extent(atom.as_view(), 0)?;
+            bits = bits
+                .checked_add(expanded_bits)
+                .ok_or(MathError::Limit("exact source coefficient bits"))?;
+            bytes = bytes
+                .checked_add(expanded_bytes)
+                .ok_or(MathError::Limit("exact source normalization bytes"))?;
+            atom.visitor(&mut |_| {
+                nodes = nodes.saturating_add(1);
+                nodes <= self.limits.operations
+            });
+        }
+        if bits
+            .checked_mul(power)
+            .is_none_or(|bits| bits > self.coefficient_bits)
+        {
+            return Err(MathError::Limit("exact source coefficient bits"));
+        }
+        let work = nodes
+            .checked_mul(power)
+            .ok_or(MathError::Limit("exact source normalization work"))?;
+        let total = self
+            .work
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |old| {
+                old.checked_add(work)
+                    .filter(|new| *new <= self.limits.operations)
+            });
+        if total.is_err() {
+            return Err(MathError::Limit("exact source normalization work"));
+        }
+        // Add/multiply/divide rational coefficient bit extents are bounded by
+        // the sum of their input extents; integer powers multiply that extent.
+        // Thirty-two times this envelope covers simultaneous native temporaries
+        // and atom backing. No expanded polynomial is constructed here.
+        let predicted = bytes
+            .checked_mul(power)
+            .and_then(|value| value.checked_mul(32))
+            .filter(|value| *value <= self.limits.scratch_bytes)
+            .ok_or(MathError::Limit("exact source normalization bytes"))?;
+        let previous = self.reserved.fetch_max(predicted, Ordering::Relaxed);
+        if predicted > previous {
+            crate::construction::additional(predicted - previous)?;
+        }
+        self.check()
+    }
+    fn extent(
+        &self,
+        atom: symbolica::atom::AtomView<'_>,
+        depth: usize,
+    ) -> Result<(usize, usize), MathError> {
+        use symbolica::{
+            atom::AtomView, coefficient::CoefficientView, domains::rational::Rational,
+        };
+        self.check()?;
+        if depth > 128 {
+            return Err(MathError::Limit("exact source nesting"));
+        }
+        let join =
+            |(a, b): (usize, usize), (c, d): (usize, usize)| -> Result<(usize, usize), MathError> {
+                Ok((
+                    a.checked_add(c)
+                        .ok_or(MathError::Limit("exact source normalization bytes"))?,
+                    b.checked_add(d)
+                        .ok_or(MathError::Limit("exact source coefficient bits"))?,
+                ))
+            };
+        let value = match atom {
+            AtomView::Num(number) => {
+                let value = match number.get_coeff_view() {
+                    CoefficientView::Natural(n, d, 0, _) if d != 0 => Some(Rational::new(n, d)),
+                    CoefficientView::Large(real, imaginary) if imaginary.is_zero() => {
+                        Some(real.to_rat())
+                    }
+                    _ => None,
+                };
+                (
+                    atom.get_byte_size(),
+                    value
+                        .map(|value| crate::rational_binary64::bits(&value))
+                        .transpose()?
+                        .unwrap_or(1),
+                )
+            }
+            AtomView::Var(variable) => self
+                .aliases
+                .lock()
+                .map_err(|_| MathError::Contract("exact source stage admission poisoned".into()))?
+                .get(&variable.get_symbol())
+                .copied()
+                .unwrap_or((atom.get_byte_size(), 1)),
+            AtomView::Pow(power) => {
+                let (bytes, bits) = self.extent(power.get_base(), depth + 1)?;
+                let exponent = if let Ok(value) = i64::try_from(power.get_exp()) {
+                    usize::try_from(value.unsigned_abs())
+                        .map_err(|_| MathError::Limit("exact source exponent"))?
+                        .max(1)
+                } else {
+                    1
+                };
+                (
+                    bytes
+                        .checked_mul(exponent)
+                        .ok_or(MathError::Limit("exact source normalization bytes"))?,
+                    bits.checked_mul(exponent)
+                        .ok_or(MathError::Limit("exact source coefficient bits"))?,
+                )
+            }
+            AtomView::Add(add) => add.iter().try_fold((1, 1), |total, arg| {
+                join(total, self.extent(arg, depth + 1)?)
+            })?,
+            AtomView::Mul(mul) => mul.iter().try_fold((1, 1), |total, arg| {
+                join(total, self.extent(arg, depth + 1)?)
+            })?,
+            AtomView::Fun(function) => function.iter().try_fold((1, 1), |total, arg| {
+                join(total, self.extent(arg, depth + 1)?)
+            })?,
+        };
+        if value.0 > self.limits.scratch_bytes || value.1 > self.coefficient_bits {
+            return Err(MathError::Limit("exact source expanded extent"));
+        }
+        Ok(value)
+    }
+    fn output(&self, atom: &Atom) -> Result<(), MathError> {
+        self.check()?;
+        self.extent(atom.as_view(), 0)?;
+        if atom.as_view().get_byte_size() > self.limits.scratch_bytes {
+            return Err(MathError::Limit("exact source output bytes"));
+        }
+        Ok(())
     }
 }

@@ -2144,3 +2144,117 @@ fn stable_typed_log_ratio_preserves_named_temperature_contract_and_both_source_g
         }
     }
 }
+
+#[test]
+fn exact_source_arithmetic_checks_growth_before_normalization_and_keeps_original_scope() {
+    use pse_quantity::{Ratio, literal::LiteralContext};
+    let registry = standard_registry().unwrap();
+    let quantity = ids::quantity("neutral");
+    let unit = registry
+        .unit(registry.quantity_type(quantity).unwrap().canonical_unit)
+        .unwrap();
+    let scope = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        0,
+        BodyLimits::default(),
+    )
+    .unwrap()
+    .with_exact_source_arithmetic(crate::jets::EvaluationLimits::default(), 256, &scope)
+    .unwrap();
+    let value = builder
+        .literal(
+            0.1,
+            unit,
+            LiteralContext::Explicit {
+                quantity_type: quantity,
+            },
+            source(),
+        )
+        .unwrap();
+    let mut product = value.clone();
+    for _ in 0..2 {
+        product = builder
+            .binary(Binary::Mul, product.clone(), product, None, source())
+            .unwrap();
+    }
+    assert!(
+        builder
+            .binary(Binary::Mul, product.clone(), product, None, source())
+            .is_err(),
+        "coefficient bits refuse before the next native product"
+    );
+    let exponent = builder
+        .literal(
+            -1024.,
+            unit,
+            LiteralContext::Explicit {
+                quantity_type: quantity,
+            },
+            source(),
+        )
+        .unwrap();
+    assert!(
+        builder
+            .binary(
+                Binary::Pow,
+                value,
+                exponent,
+                Some(Ratio::new(-1024, 1).unwrap()),
+                source()
+            )
+            .is_err(),
+        "large negative rational power is admitted before native normalization"
+    );
+    let base = builder
+        .literal(
+            2.,
+            unit,
+            LiteralContext::Explicit {
+                quantity_type: quantity,
+            },
+            source(),
+        )
+        .unwrap();
+    let half = builder
+        .literal(
+            0.5,
+            unit,
+            LiteralContext::Explicit {
+                quantity_type: quantity,
+            },
+            source(),
+        )
+        .unwrap();
+    assert!(
+        matches!(
+            builder.binary(
+                Binary::Pow,
+                base,
+                half,
+                Some(Ratio::new(1, 2).unwrap()),
+                source()
+            ),
+            Err(crate::MathError::Contract(_))
+        ),
+        "exact literal embedding does not widen the checked fractional-power profile"
+    );
+    let expired = pse_kernels::ExecutionScope::new(
+        pse_diagnostics::Cancellation::default(),
+        Some(std::time::Instant::now()),
+    );
+    assert!(
+        BodyBuilder::new(
+            crate::initialize().unwrap(),
+            &registry,
+            &StandardInvariantChecker,
+            0,
+            BodyLimits::default()
+        )
+        .unwrap()
+        .with_exact_source_arithmetic(crate::jets::EvaluationLimits::default(), 256, &expired)
+        .is_err()
+    );
+}

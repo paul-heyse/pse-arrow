@@ -247,6 +247,20 @@ pub fn canonicalize_contraction(
     let mut mapping = BTreeMap::<(SemanticId, SemanticId), Atom>::new();
     let mut original_mapping = BTreeMap::<Atom, Atom>::new();
     let mut correspondence = Vec::new();
+    let mut fixed = BTreeMap::<Atom, SemanticId>::new();
+    let mut occurrences = BTreeMap::<(SemanticId, SemanticId), usize>::new();
+    for factor in factors {
+        for axis in &factor.axes {
+            if let TensorAxis::Dummy { binder, group } = axis {
+                *occurrences.entry((*binder, *group)).or_default() += 1;
+            }
+        }
+    }
+    if occurrences.values().any(|count| *count != 2) {
+        return Err(MathError::Contract(
+            "contraction dummy must occur exactly twice".into(),
+        ));
+    }
     let mut indices = Vec::<(Atom, SemanticId)>::new();
     for (group, pool) in &pools {
         indices.extend(pool.iter().cloned().map(|label| (label, *group)));
@@ -293,9 +307,9 @@ pub fn canonicalize_contraction(
                 }
                 TensorAxis::External { identity, group } => {
                     let index = named_atom(format!("pse_math_external_index::e{}", identity))?;
-                    if !indices.iter().any(|(existing, _)| existing == &index) {
-                        indices.push((index.clone(), *group));
-                    }
+                    // Fixed physical coordinates are ordinary graph labels, not
+                    // renameable native index candidates, even when repeated.
+                    fixed.insert(index.clone(), *group);
                     index
                 }
             };
@@ -325,7 +339,7 @@ pub fn canonicalize_contraction(
     let observation = IndexedObservation {
         original: mathematical_view(&original, limits, scope)?,
         canonical: mathematical_view(&canonical.canonical_form, limits, scope)?,
-        external_indices: labels(canonical.external_indices),
+        external_indices: labels(fixed.into_iter().collect()),
         dummy_indices: labels(canonical.dummy_indices),
         original_to_input: correspondence,
     };
@@ -398,8 +412,104 @@ impl AnalyticalResult {
     }
     /// Report retained native expression storage.
     pub fn retained_bytes(&self) -> usize {
-        self.expression.as_view().get_byte_size() + size_of::<Self>()
+        self.expression
+            .as_view()
+            .get_byte_size()
+            .saturating_add(size_of::<Self>())
+            .saturating_add(owned_projection_extent(&self.observation))
     }
+}
+
+/// Conservative owned backing of an already produced, atom-free projection.
+/// The counting writer allocates no document; the factor covers tree nodes,
+/// geometric string/vector capacity and simultaneous publication projection.
+pub fn owned_projection_extent(value: &impl Serialize) -> usize {
+    struct Counter(usize);
+    impl std::io::Write for Counter {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0 = self.0.saturating_add(bytes.len());
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let mut counter = Counter(0);
+    if serde_json::to_writer(&mut counter, value).is_err() {
+        return usize::MAX;
+    }
+    counter.0.saturating_mul(128)
+}
+// Pre-admit native rational expansion. The supplier then owns normalization;
+// this counts a conservative numerator/denominator term envelope, not a second
+// polynomial algorithm or a sampled identity test.
+fn admit_rational_normalization(
+    atom: &Atom,
+    limits: EvaluationLimits,
+    scope: &ExecutionScope,
+) -> Result<(), MathError> {
+    fn extent(
+        atom: AtomView<'_>,
+        limits: EvaluationLimits,
+        scope: &ExecutionScope,
+        depth: usize,
+    ) -> Result<(usize, usize), MathError> {
+        check(scope)?;
+        if depth > 128 {
+            return Err(MathError::Limit("analytical normalization nesting"));
+        }
+        let mul = |a: usize, b: usize| {
+            a.checked_mul(b)
+                .filter(|v| *v <= limits.operations)
+                .ok_or(MathError::Limit("analytical normalization terms"))
+        };
+        let value = match atom {
+            AtomView::Add(add) => add.iter().try_fold((0usize, 1usize), |(n, d), arg| {
+                let (an, ad) = extent(arg, limits, scope, depth + 1)?;
+                Ok::<_, MathError>((
+                    mul(n, ad)?
+                        .checked_add(mul(an, d)?)
+                        .filter(|v| *v <= limits.operations)
+                        .ok_or(MathError::Limit("analytical normalization terms"))?,
+                    mul(d, ad)?,
+                ))
+            })?,
+            AtomView::Mul(product) => product.iter().try_fold((1, 1), |(n, d), arg| {
+                let (an, ad) = extent(arg, limits, scope, depth + 1)?;
+                Ok::<_, MathError>((mul(n, an)?, mul(d, ad)?))
+            })?,
+            AtomView::Pow(power) => {
+                let (mut n, mut d) = extent(power.get_base(), limits, scope, depth + 1)?;
+                let exponent = i64::try_from(power.get_exp()).map_err(|_| {
+                    MathError::Contract("nonintegral rational normalization exponent".into())
+                })?;
+                if exponent < 0 {
+                    std::mem::swap(&mut n, &mut d);
+                }
+                let degree = u32::try_from(exponent.unsigned_abs())
+                    .map_err(|_| MathError::Limit("analytical normalization degree"))?;
+                (
+                    n.checked_pow(degree)
+                        .filter(|v| *v <= limits.operations)
+                        .ok_or(MathError::Limit("analytical normalization terms"))?,
+                    d.checked_pow(degree)
+                        .filter(|v| *v <= limits.operations)
+                        .ok_or(MathError::Limit("analytical normalization terms"))?,
+                )
+            }
+            _ => (1, 1),
+        };
+        Ok(value)
+    }
+    let (n, d) = extent(atom.as_view(), limits, scope, 0)?;
+    let bytes = n
+        .checked_add(d)
+        .and_then(|terms| terms.checked_mul(atom.as_view().get_byte_size().max(64)))
+        .and_then(|bytes| bytes.checked_mul(32))
+        .filter(|bytes| *bytes <= limits.scratch_bytes)
+        .ok_or(MathError::Limit("analytical normalization backing"))?;
+    crate::construction::additional(bytes)?;
+    check(scope)
 }
 fn check(scope: &ExecutionScope) -> Result<(), MathError> {
     scope.check().map_err(crate::error::scope_error)
@@ -513,21 +623,81 @@ pub fn mathematical_view(
         options.hide_all_namespaces = false;
         options
     };
-    let view = MathematicalView {
-        symbolica: atom.printer(PrintOptions::file()).to_string(),
-        latex: atom.printer(options(PrintOptions::latex())).to_string(),
-        typst: atom.printer(options(PrintOptions::typst())).to_string(),
-    };
-    let bytes = view
-        .symbolica
-        .len()
-        .checked_add(view.latex.len())
-        .and_then(|n| n.checked_add(view.typst.len()))
-        .ok_or(MathError::Limit("analytical presentation bytes"))?;
-    if bytes > limits.scratch_bytes {
-        return Err(MathError::Limit("analytical presentation bytes"));
+    use std::fmt::Write as _;
+    struct Counter<'a> {
+        bytes: usize,
+        maximum: usize,
+        scope: &'a ExecutionScope,
+        error: Option<MathError>,
     }
-    crate::construction::additional(bytes)?;
+    impl std::fmt::Write for Counter<'_> {
+        fn write_str(&mut self, text: &str) -> std::fmt::Result {
+            if let Err(error) = check(self.scope) {
+                self.error = Some(error);
+                return Err(std::fmt::Error);
+            }
+            match self
+                .bytes
+                .checked_add(text.len())
+                .filter(|bytes| *bytes <= self.maximum)
+            {
+                Some(bytes) => {
+                    self.bytes = bytes;
+                    Ok(())
+                }
+                None => {
+                    self.error = Some(MathError::Limit("analytical presentation bytes"));
+                    Err(std::fmt::Error)
+                }
+            }
+        }
+    }
+    let formats = [
+        PrintOptions::file(),
+        options(PrintOptions::latex()),
+        options(PrintOptions::typst()),
+    ];
+    let mut counts = [0usize; 3];
+    let mut total = 0usize;
+    for (index, format) in formats.iter().enumerate() {
+        let mut counter = Counter {
+            bytes: 0,
+            maximum: limits.scratch_bytes - total,
+            scope,
+            error: None,
+        };
+        if write!(&mut counter, "{}", atom.printer(format.clone())).is_err() {
+            return Err(counter.error.unwrap_or_else(|| {
+                MathError::Library("native analytical printer refused formatting".into())
+            }));
+        }
+        counts[index] = counter.bytes;
+        total += counter.bytes;
+    }
+    // Admit complete presentation backing before allocating the returned strings.
+    // Native formatting remains the sole presentation authority in both passes.
+    crate::construction::additional(total)?;
+    let mut text = [String::new(), String::new(), String::new()];
+    for (index, format) in formats.into_iter().enumerate() {
+        check(scope)?;
+        text[index]
+            .try_reserve_exact(counts[index])
+            .map_err(|_| MathError::Limit("analytical presentation allocation"))?;
+        write!(&mut text[index], "{}", atom.printer(format)).map_err(|_| {
+            MathError::Library("native analytical printer refused formatting".into())
+        })?;
+        if text[index].len() != counts[index] {
+            return Err(MathError::Contract(
+                "native presentation changed during one immutable projection".into(),
+            ));
+        }
+    }
+    let [symbolica, latex, typst] = text;
+    let view = MathematicalView {
+        symbolica,
+        latex,
+        typst,
+    };
     check(scope)?;
     Ok(view)
 }
@@ -794,6 +964,27 @@ impl SelectedExpression {
             expression,
         })
     }
+    /// Express the exact derivative in the receiving physical contract's
+    /// coordinates. The scale's actual binary value is converted exactly to a
+    /// native rational; this grants no new physical conversion authority.
+    pub fn derivative_with_scale(
+        &self,
+        coordinates: &[usize],
+        scale: f64,
+        limits: EvaluationLimits,
+        scope: &ExecutionScope,
+    ) -> Result<AnalyticalResult, MathError> {
+        let mut result = self.derivative(coordinates, limits, scope)?;
+        result.expression *= physical_scale(scale)?;
+        let observation = AnalyticalObservation::Derivative {
+            coordinates: coordinates.to_vec(),
+            result: mathematical_view(&result.expression, limits, scope)?,
+        };
+        Ok(AnalyticalResult {
+            observation,
+            expression: result.expression,
+        })
+    }
     /// Expand using native exact series semantics and retain its actual remainder.
     pub fn series(
         &self,
@@ -882,14 +1073,54 @@ impl SelectedExpression {
         limits: EvaluationLimits,
         scope: &ExecutionScope,
     ) -> Result<AnalyticalResult, MathError> {
+        self.identity_derivative_with_scales(other, coordinates, 1.0, 1.0, limits, scope)
+    }
+    /// Compare in the single complete receiving physical representation after
+    /// source-owned derivative and boundary conversions have been admitted.
+    pub fn identity_derivative_with_scales(
+        &self,
+        other: &Self,
+        coordinates: &[usize],
+        left_scale: f64,
+        right_scale: f64,
+        limits: EvaluationLimits,
+        scope: &ExecutionScope,
+    ) -> Result<AnalyticalResult, MathError> {
+        self.identity_derivative_product_with_scales(
+            other,
+            coordinates,
+            None,
+            left_scale,
+            right_scale,
+            limits,
+            scope,
+        )
+    }
+    /// Compare an original derivative multiplied by one explicitly selected
+    /// original source output, under the compiler's complete physical boundary.
+    pub fn identity_derivative_product_with_scales(
+        &self,
+        other: &Self,
+        coordinates: &[usize],
+        multiplier: Option<&Self>,
+        left_scale: f64,
+        right_scale: f64,
+        limits: EvaluationLimits,
+        scope: &ExecutionScope,
+    ) -> Result<AnalyticalResult, MathError> {
         bounded(&self.expression, limits, scope)?;
         bounded(&other.expression, limits, scope)?;
-        let left = if coordinates.is_empty() {
+        let mut left = if coordinates.is_empty() {
             self.expression.clone()
         } else {
             self.derivative(coordinates, limits, scope)?.expression
         };
-        let mut difference = (&left - &other.expression).expand().cancel();
+        if let Some(multiplier) = multiplier {
+            bounded(&multiplier.expression, limits, scope)?;
+            left *= &multiplier.expression;
+        }
+        let mut difference =
+            left * physical_scale(left_scale)? - &other.expression * physical_scale(right_scale)?;
         bounded(&difference, limits, scope)?;
         let mut rational = true;
         difference.visitor(&mut |node| {
@@ -911,6 +1142,7 @@ impl SelectedExpression {
         // Native rational conversion brings nested coefficient denominators into
         // one exact field before a nonzero claim; local cancel alone is incomplete.
         if rational {
+            admit_rational_normalization(&difference, limits, scope)?;
             use symbolica::domains::{
                 integer::Z, rational::Q, rational_polynomial::RationalPolynomial,
             };
@@ -935,6 +1167,17 @@ impl SelectedExpression {
             expression: difference,
         })
     }
+}
+
+fn physical_scale(scale: f64) -> Result<Atom, MathError> {
+    if !scale.is_finite() || scale <= 0.0 {
+        return Err(MathError::Contract(
+            "analytical physical conversion scale must be finite and positive".into(),
+        ));
+    }
+    Rational::try_from(scale)
+        .map(Atom::num)
+        .map_err(|error| MathError::Contract(error.to_string()))
 }
 
 #[cfg(test)]

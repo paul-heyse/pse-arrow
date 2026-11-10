@@ -157,7 +157,14 @@ impl<'a> BodyBuilder<'a> {
         if self.planning {
             Ok(None)
         } else {
-            create().map(Some)
+            if let Some(control) = &self.exact_source_control {
+                control.check()?;
+            }
+            let atom = create()?;
+            if let Some(control) = &self.exact_source_control {
+                control.output(&atom)?;
+            }
+            Ok(Some(atom))
         }
     }
 

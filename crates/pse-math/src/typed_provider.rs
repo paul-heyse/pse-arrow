@@ -365,7 +365,9 @@ impl BodyBuilder<'_> {
         for (value, conversion) in inputs.iter().zip(&prepared.input_conversions) {
             input_slots.push(self.materialize(
                 Some(
-                    value.atom()? * Atom::num(conversion.scale()) + Atom::num(conversion.offset()),
+                    value.atom()?
+                        * canonical_coefficient(conversion.scale(), self.exact_source_arithmetic)?
+                        + canonical_coefficient(conversion.offset(), self.exact_source_arithmetic)?,
                 ),
                 source,
             )?);
@@ -390,12 +392,16 @@ impl BodyBuilder<'_> {
                 atom: Some(if self.physical_only {
                     Atom::num(0)
                 } else {
-                    library::formal(slot)? * Atom::num(scale)
-                        + Atom::num(if partial.is_empty() {
-                            conversion.offset()
-                        } else {
-                            0.
-                        })
+                    library::formal(slot)?
+                        * canonical_coefficient(scale, self.exact_source_arithmetic)?
+                        + canonical_coefficient(
+                            if partial.is_empty() {
+                                conversion.offset()
+                            } else {
+                                0.
+                            },
+                            self.exact_source_arithmetic,
+                        )?
                 }),
                 shape: plan::Shape::Unknown,
                 quantity: quantity.clone(),

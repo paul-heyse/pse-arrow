@@ -70,12 +70,43 @@ impl Request<'_> {
         };
         Ok(body)
     }
+    /// Admit original analytical source with each canonical binary64 bit pattern
+    /// embedded exactly before native arithmetic. It has a distinct definition
+    /// and policy and no ordinary numerical portable/replay product.
+    pub fn admit_exact_source(
+        &self,
+        registry: &QuantityRegistry,
+        checker: &dyn InvariantChecker,
+        limits: pse_math::jets::EvaluationLimits,
+        coefficient_bits: usize,
+        scope: &pse_kernels::ExecutionScope,
+    ) -> Result<AdmittedBody, MathError> {
+        self.admit_domain(
+            registry,
+            checker,
+            scope.cancellation(),
+            Some((limits, coefficient_bits, scope)),
+        )
+    }
     /// Construct exactly this selected direct graph, consuming its already admitted facts.
     pub(super) fn admit_inner(
         &self,
         registry: &QuantityRegistry,
         checker: &dyn InvariantChecker,
         cancelled: &Arc<AtomicBool>,
+    ) -> Result<AdmittedBody, MathError> {
+        self.admit_domain(registry, checker, cancelled, None)
+    }
+    fn admit_domain(
+        &self,
+        registry: &QuantityRegistry,
+        checker: &dyn InvariantChecker,
+        cancelled: &Arc<AtomicBool>,
+        exact: Option<(
+            pse_math::jets::EvaluationLimits,
+            usize,
+            &pse_kernels::ExecutionScope,
+        )>,
     ) -> Result<AdmittedBody, MathError> {
         let _phase = pse_diagnostics::observation::phase("compiler.typed_body_lowering");
         self.validate_layout(cancelled)?;
@@ -86,6 +117,9 @@ impl Request<'_> {
             self.inputs.len(),
             self.limits,
         )?;
+        if let Some((limits, coefficient_bits, scope)) = exact {
+            builder = builder.with_exact_source_arithmetic(limits, coefficient_bits, scope)?;
+        }
         let (values, occurrences) = self.lower_values(&mut builder, cancelled.as_ref(), None)?;
         let quantities = values
             .iter()
@@ -117,7 +151,11 @@ impl Request<'_> {
                 .iter()
                 .map(pse_kernels::ProviderSpec::identity)
                 .collect(),
-            policy: pse_math::binding::guarded_real_policy(),
+            policy: if exact.is_some() {
+                pse_ids::derive_hash(pse_ids::Frame::MathGuardedRealV1,&[b"analytical-source;exact-canonical-binary64-bits;physical-first;original-guards"])
+            } else {
+                pse_math::binding::guarded_real_policy()
+            },
         };
         Ok(AdmittedBody {
             semantic_identity: None,
@@ -245,8 +283,12 @@ impl Request<'_> {
 
     fn definition_identity(&self, builder: &BodyBuilder<'_>) -> Result<ContentHash, MathError> {
         let mut hash = FramedHasher::new(pse_ids::Frame::MathTypedDefinitionV10);
-        hash.str("direct-resolved-construction")
-            .hash(&self.support.syntax());
+        hash.str(if builder.exact_source_arithmetic() {
+            "direct-resolved-exact-canonical-source"
+        } else {
+            "direct-resolved-construction"
+        })
+        .hash(&self.support.syntax());
         self.support.frame(&mut hash);
         self.providers.frame(&mut hash);
         self.syntax
