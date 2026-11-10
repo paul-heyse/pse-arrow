@@ -19,7 +19,10 @@ use std::{
         atomic::{AtomicBool, Ordering},
     },
 };
-use symbolica::domains::rational::Rational;
+use symbolica::domains::{
+    RingOps,
+    rational::{Q, Rational},
+};
 
 mod sealed {
     pub trait Sealed {}
@@ -845,9 +848,8 @@ pub(crate) fn ldlt(
         // The Schur complement: a_ij -= a_ip a_jp / d.
         for (x, (i, _)) in neighbors.iter().enumerate() {
             for (j, a_jp) in neighbors.iter().skip(x) {
-                let update = &multipliers[x] * a_jp;
                 let entry = a[*i].entry(*j).or_insert_with(Rational::zero);
-                *entry -= &update;
+                Q.sub_mul_assign(entry, &multipliers[x], a_jp);
                 let value = entry.clone();
                 if value.is_zero() {
                     a[*i].remove(j);

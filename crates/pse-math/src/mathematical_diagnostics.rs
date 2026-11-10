@@ -31,32 +31,39 @@ use symbolica::{
     tensors::matrix::{Matrix, RowReductionOperation},
 };
 
+pse_contract::projection_enum! {
 /// Distinct claims; estimates never acquire enclosure fields.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum DiagnosticClaim {
+    projection: { name: "DiagnosticClaim", rust_path: crate::mathematical_diagnostics::DiagnosticClaim, version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
     /// Ordinary binary64 realization without a new accuracy certificate.
-    Ordinary,
+    Ordinary => 1;
     /// Native double-float estimate at its actual 106-bit domain precision.
-    DoubleFloat,
+    DoubleFloat => 2;
     /// Multiprecision estimate at the explicitly selected binary precision.
-    ChosenPrecision,
+    ChosenPrecision => 3;
     /// Native propagated error estimate, without containment certification.
-    PropagatedError,
+    PropagatedError => 4;
     /// Exact rational-function structure under explicit original conditions.
-    ExactIdentity,
+    ExactIdentity => 5;
     /// Directed basic arithmetic enclosing the complete requested real input set.
-    ValidatedEnclosure,
+    ValidatedEnclosure => 6;
+}
 }
 
+pse_contract::projection_struct! {
 /// Exact rational transport. Denominators must be nonzero; admission bounds digits.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ExactValue {
+    projection: { name: "ExactValue", rust_path: crate::mathematical_diagnostics::ExactValue, version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+
     /// Exact signed integer numerator in decimal notation.
-    pub numerator: String,
+    pub numerator: String => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Exact nonzero integer denominator in decimal notation.
-    pub denominator: String,
+    pub denominator: String => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 impl ExactValue {
     /// Construct an exact integer point.
@@ -67,7 +74,11 @@ impl ExactValue {
         }
     }
     fn rational(&self, limits: DiagnosticLimits) -> Result<Rational, MathError> {
-        if self.numerator.len().saturating_add(self.denominator.len()) > limits.bytes {
+        let digits = limits.coefficient_bits / 3 + 4;
+        if self.numerator.len() > digits
+            || self.denominator.len() > digits
+            || self.numerator.len().saturating_add(self.denominator.len()) > limits.bytes
+        {
             return Err(MathError::Limit("diagnostic rational input"));
         }
         let numerator = self
@@ -89,35 +100,42 @@ impl ExactValue {
     }
 }
 
+pse_contract::projection_struct! {
 /// A point when `upper` is absent; otherwise an exact closed input interval.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DiagnosticInput {
+    projection: { name: "DiagnosticInput", rust_path: crate::mathematical_diagnostics::DiagnosticInput, version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+
     /// Original scalar coordinate identity.
-    pub coordinate: SemanticId,
+    pub coordinate: SemanticId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Exact lower endpoint, or the sole point value.
-    pub lower: ExactValue,
+    pub lower: ExactValue => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Optional exact upper endpoint; absence denotes a point.
-    pub upper: Option<ExactValue>,
+    pub upper: Option<ExactValue> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 
+pse_contract::projection_struct! {
 /// Mathematical workload limits, independent of host capacity placement.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DiagnosticLimits {
-    /// Ordered original selected row identities.
-    pub rows: usize,
-    /// Ordered original scalar coordinate identities.
-    pub coordinates: usize,
-    /// Maximum admitted native polynomial or evaluator population.
-    pub terms: usize,
+    projection: { name: "DiagnosticLimits", rust_path: crate::mathematical_diagnostics::DiagnosticLimits, version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
 
+    /// Maximum admitted selected original row count.
+    pub rows: usize => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
+    /// Maximum admitted original unknown and parameter count.
+    pub coordinates: usize => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
+    /// Maximum admitted native polynomial or evaluator population.
+    pub terms: usize => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
     /// Maximum native work population for an admitted pass.
-    pub work: usize,
+    pub work: usize => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
     /// Maximum mathematical construction backing for this request.
-    pub bytes: usize,
+    pub bytes: usize => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
     /// Maximum admitted exact coefficient or requested precision extent.
-    pub coefficient_bits: usize,
+    pub coefficient_bits: usize => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
+}
 }
 impl Default for DiagnosticLimits {
     fn default() -> Self {
@@ -132,26 +150,31 @@ impl Default for DiagnosticLimits {
     }
 }
 
+pse_contract::projection_struct! {
 /// Ordered original demand, with symbolic parameters retained until specialization.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct DiagnosticRequest {
+    projection: { name: "DiagnosticRequest", rust_path: crate::mathematical_diagnostics::DiagnosticRequest, version: 1, direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+
     /// Ordered original selected row identities.
-    pub rows: Vec<SemanticId>,
+    pub rows: Vec<SemanticId> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Ordered coordinates solved by exact block inspection.
-    pub unknowns: Vec<SemanticId>,
+    pub unknowns: Vec<SemanticId> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Ordered symbolic parameters, retained until an explicit specialization.
-    pub parameters: Vec<SemanticId>,
-
+    pub parameters: Vec<SemanticId> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Exact points or closed intervals bound to original coordinate identities.
-    pub inputs: Vec<DiagnosticInput>,
+    pub inputs: Vec<DiagnosticInput> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Actual mathematical assurance requested or delivered.
-    pub claim: DiagnosticClaim,
+    pub claim: DiagnosticClaim => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Requested or actual binary arithmetic precision.
-    pub precision: u32,
-
+    pub precision: u32 => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
     /// Explicit mathematical workload admission.
-    pub limits: DiagnosticLimits,
+    pub limits: DiagnosticLimits => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    /// Ordered first/second derivative coordinate sequences; empty requests values only.
+    #[serde(default)]
+    pub derivatives: Vec<Vec<SemanticId>> => { tag: 8, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
 }
 
 /// Compiler-issued proof of the original source arithmetic profile, before normalization.
@@ -234,6 +257,8 @@ pub struct ExactBlockResult {
     pub physical_bounds_valid: Option<bool>,
     /// Recovered coordinates satisfy original residual, domain and bound validation.
     pub reduced_evaluation: bool,
+    /// This specialization consumed the retained generic recovery product.
+    pub used_reduced_product: bool,
 }
 
 /// One numerical result. Exact rational endpoint strings preserve outward rounding.
@@ -250,6 +275,15 @@ pub struct NumericalDiagnosticValue {
     pub upper: Option<String>,
     /// The supported enclosure arithmetic produced a nonfinite ball.
     pub unbounded: bool,
+}
+
+/// One delivered numerical scalar's original row and ordered derivative axes.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+pub struct DiagnosticOutput {
+    /// Original selected output row.
+    pub row: SemanticId,
+    /// Empty denotes its value; otherwise the ordered native partial derivative.
+    pub derivatives: Vec<SemanticId>,
 }
 
 /// Durable mathematical projection, without supplier atoms or executable state.
@@ -276,6 +310,8 @@ pub struct DiagnosticResult {
 
     /// Ordered numerical output projections when requested.
     pub numerical: Vec<NumericalDiagnosticValue>,
+    /// Original row/derivative mapping in delivered numerical order.
+    pub outputs: Vec<DiagnosticOutput>,
     /// Explicit unsupported or unestablished claim reason, if present.
     pub unsupported: Option<String>,
 
@@ -297,11 +333,24 @@ pub struct PreparedDiagnostic {
     structure: ContentHash,
     request: DiagnosticRequest,
     expressions: Vec<Atom>,
+    evaluation_expressions: Vec<Atom>,
+    outputs: Vec<DiagnosticOutput>,
     formals: Vec<Atom>,
     guards: Vec<Guard>,
     sources: Vec<SemanticId>,
     exact: Option<Arc<library::admission::ScalarProduct>>,
     variables: Vec<crate::binding::Variable>,
+    reduction: std::sync::OnceLock<CachedReduction>,
+}
+struct CachedReduction {
+    result: ExactBlockResult,
+    conditions: Vec<Atom>,
+    matrix: Vec<Vec<Atom>>,
+    rhs: Vec<Atom>,
+    reduced: Vec<Vec<Atom>>,
+    reduced_rhs: Vec<Atom>,
+    witnesses: Vec<Vec<Atom>>,
+    recovered: BTreeMap<Symbol, Atom>,
 }
 impl std::fmt::Debug for PreparedDiagnostic {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -370,6 +419,132 @@ fn substitute(atom: &Atom, substitutions: &BTreeMap<Symbol, Atom>) -> Atom {
         }
     })
 }
+/// Admit exact numeric substitution before native normalization can materialize
+/// large powers. This counts a conservative rational numerator/denominator extent;
+/// it does not evaluate the expression or replace the supplier interpreter.
+fn admit_substitution(
+    atom: &Atom,
+    substitutions: &BTreeMap<Symbol, Atom>,
+    limits: DiagnosticLimits,
+    scope: &ExecutionScope,
+) -> Result<(), MathError> {
+    fn extent(
+        atom: AtomView<'_>,
+        substitutions: &BTreeMap<Symbol, Atom>,
+        limits: DiagnosticLimits,
+        scope: &ExecutionScope,
+        depth: usize,
+        work: &mut usize,
+    ) -> Result<usize, MathError> {
+        check(scope)?;
+        *work = work
+            .checked_add(1)
+            .ok_or(MathError::Limit("exact substitution work"))?;
+        if *work > limits.work || depth > 128 {
+            return Err(MathError::Limit("exact substitution scope"));
+        }
+        let bits = match atom {
+            AtomView::Num(_) => exact_constant(&atom.to_owned())
+                .map(|value| crate::rational_binary64::bits(&value))
+                .transpose()?
+                .unwrap_or(1)
+                .saturating_mul(2),
+            AtomView::Var(variable) => {
+                if let Some(value) = substitutions.get(&variable.get_symbol()) {
+                    exact_constant(value)
+                        .map(|value| crate::rational_binary64::bits(&value))
+                        .transpose()?
+                        .unwrap_or(1)
+                        .saturating_mul(2)
+                } else {
+                    1
+                }
+            }
+            AtomView::Add(add) => {
+                let mut bits = 1usize;
+                for argument in add.iter() {
+                    bits = bits
+                        .checked_add(extent(
+                            argument,
+                            substitutions,
+                            limits,
+                            scope,
+                            depth + 1,
+                            work,
+                        )?)
+                        .and_then(|bits| bits.checked_add(1))
+                        .ok_or(MathError::Limit("exact substitution bits"))?;
+                }
+                bits
+            }
+            AtomView::Mul(mul) => {
+                let mut bits = 1usize;
+                for argument in mul.iter() {
+                    bits = bits
+                        .checked_add(extent(
+                            argument,
+                            substitutions,
+                            limits,
+                            scope,
+                            depth + 1,
+                            work,
+                        )?)
+                        .ok_or(MathError::Limit("exact substitution bits"))?;
+                }
+                bits
+            }
+            AtomView::Pow(power) => {
+                let base = extent(
+                    power.get_base(),
+                    substitutions,
+                    limits,
+                    scope,
+                    depth + 1,
+                    work,
+                )?;
+                if let Ok(exponent) = i64::try_from(power.get_exp()) {
+                    base.checked_mul(
+                        usize::try_from(exponent.unsigned_abs())
+                            .map_err(|_| MathError::Limit("exact substitution exponent"))?,
+                    )
+                    .ok_or(MathError::Limit("exact substitution bits"))?
+                } else {
+                    base.checked_add(extent(
+                        power.get_exp(),
+                        substitutions,
+                        limits,
+                        scope,
+                        depth + 1,
+                        work,
+                    )?)
+                    .ok_or(MathError::Limit("exact substitution bits"))?
+                }
+            }
+            AtomView::Fun(function) => {
+                let mut bits = 1usize;
+                for argument in function.iter() {
+                    bits = bits
+                        .checked_add(extent(
+                            argument,
+                            substitutions,
+                            limits,
+                            scope,
+                            depth + 1,
+                            work,
+                        )?)
+                        .ok_or(MathError::Limit("exact substitution bits"))?;
+                }
+                bits
+            }
+        };
+        if bits > limits.coefficient_bits {
+            return Err(MathError::Limit("exact substitution coefficient bits"));
+        }
+        Ok(bits)
+    }
+    extent(atom.as_view(), substitutions, limits, scope, 0, &mut 0).map(|_| ())
+}
+
 fn symbol(atom: &Atom) -> Result<Symbol, MathError> {
     match atom.as_view() {
         AtomView::Var(variable) => Ok(variable.get_symbol()),
@@ -406,7 +581,7 @@ impl CasePlan {
         if request.rows.is_empty()
             || request.rows.len() > limits.rows
             || coordinates.len() > limits.coordinates
-            || request.unknowns.is_empty()
+            || (request.claim == DiagnosticClaim::ExactIdentity && request.unknowns.is_empty())
             || request.rows.iter().collect::<BTreeSet<_>>().len() != request.rows.len()
             || coordinates.iter().collect::<BTreeSet<_>>().len() != coordinates.len()
             || coordinates.iter().any(|id| !declared.contains(id))
@@ -482,6 +657,29 @@ impl CasePlan {
             .enumerate()
             .map(|(index, id)| (*id, index))
             .collect::<BTreeMap<_, _>>();
+        if request.derivatives.iter().any(|axes| {
+            axes.is_empty()
+                || axes.len() > 2
+                || axes.iter().any(|axis| !coordinate_map.contains_key(axis))
+        }) || request.derivatives.iter().collect::<BTreeSet<_>>().len()
+            != request.derivatives.len()
+            || (request.claim == DiagnosticClaim::ExactIdentity && !request.derivatives.is_empty())
+        {
+            return Err(MathError::Contract(
+                "invalid or unsupported diagnostic derivative demand".into(),
+            ));
+        }
+        let order = match request.derivatives.iter().map(Vec::len).max().unwrap_or(0) {
+            0 => pse_kernels::DerivativeOrder::Value,
+            1 => pse_kernels::DerivativeOrder::First,
+            _ => pse_kernels::DerivativeOrder::Second,
+        };
+        let derivative_axes = request
+            .derivatives
+            .iter()
+            .flatten()
+            .copied()
+            .collect::<BTreeSet<_>>();
         let mut guards = Vec::new();
         let mut sources = BTreeSet::new();
         let mut visited = BTreeSet::new();
@@ -495,6 +693,20 @@ impl CasePlan {
                 sources.insert(binding.instance);
                 let body = &self.bodies()[&binding.body];
                 let local_formals = body.diagnostic_formals()?;
+                if order > pse_kernels::DerivativeOrder::Value {
+                    let axes = binding
+                        .slots
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, binding)| derivative_axes.contains(&binding.source()))
+                        .map(|(slot, _)| body.diagnostic_axis(slot))
+                        .collect::<Result<Vec<_>, _>>()?;
+                    if body.available_order_for_outputs(&[output], &axes)? < order {
+                        return Err(MathError::Contract(
+                            "selected source lacks requested diagnostic derivative order".into(),
+                        ));
+                    }
+                }
                 let mut slots = BTreeMap::<usize, Atom>::new();
                 for (slot, binding) in binding.slots.iter().enumerate() {
                     let value = if let Some(&index) = coordinate_map.get(&binding.source()) {
@@ -535,6 +747,7 @@ impl CasePlan {
                                 })
                                 .collect::<Result<BTreeMap<_, _>, MathError>>()?;
                             for (expression, slot) in expressions.iter().zip(outputs) {
+                                admit_substitution(expression, &substitutions, limits, scope)?;
                                 let bound = substitute(expression, &substitutions);
                                 if bound.as_view().get_byte_size() > limits.bytes {
                                     return Err(MathError::Limit("diagnostic guard expression"));
@@ -546,8 +759,12 @@ impl CasePlan {
                             argument,
                             condition,
                             source,
+                            order: minimum_order,
                             ..
                         } => {
+                            if minimum_order > order {
+                                continue;
+                            }
                             let expression = slots.get(&argument).cloned().ok_or_else(|| {
                                 MathError::Contract("diagnostic original guard slot".into())
                             })?;
@@ -567,11 +784,66 @@ impl CasePlan {
                 }
             }
         }
+        let output_count = request
+            .rows
+            .len()
+            .checked_mul(
+                request
+                    .derivatives
+                    .len()
+                    .checked_add(1)
+                    .ok_or(MathError::Limit("diagnostic derivative population"))?,
+            )
+            .ok_or(MathError::Limit("diagnostic derivative population"))?;
+        if output_count > limits.terms {
+            return Err(MathError::Limit("diagnostic derivative outputs"));
+        }
+        let mut evaluation_expressions = expressions.clone();
+        let mut outputs = request
+            .rows
+            .iter()
+            .map(|row| DiagnosticOutput {
+                row: *row,
+                derivatives: vec![],
+            })
+            .collect::<Vec<_>>();
+        for axes in &request.derivatives {
+            for (row, original) in request.rows.iter().zip(&expressions) {
+                let mut expression = original.clone();
+                for axis in axes {
+                    check(scope)?;
+                    if expression.as_view().get_byte_size() > limits.bytes {
+                        return Err(MathError::Limit("diagnostic partial source bytes"));
+                    }
+                    expression = symbolica::analytical::derivative_with(
+                        expression.as_view(),
+                        &symbol(&formals[coordinate_map[axis]])?.into(),
+                        &mut control(scope, limits),
+                    )?;
+                    check(scope)?;
+                    let operations = expression.count_operations();
+                    let work = operations
+                        .additions
+                        .checked_add(operations.multiplications)
+                        .and_then(|work| work.checked_add(operations.inversions))
+                        .and_then(|work| work.checked_add(operations.function_calls))
+                        .ok_or(MathError::Limit("diagnostic partial work"))?;
+                    if work > limits.work || expression.as_view().get_byte_size() > limits.bytes {
+                        return Err(MathError::Limit("diagnostic partial construction"));
+                    }
+                }
+                evaluation_expressions.push(expression);
+                outputs.push(DiagnosticOutput {
+                    row: *row,
+                    derivatives: axes.clone(),
+                });
+            }
+        }
         let exact = if request.claim == DiagnosticClaim::ExactIdentity {
             None
         } else {
             Some(library::admission::diagnostic_product(
-                &expressions,
+                &evaluation_expressions,
                 &formals,
                 Optimization {
                     cores: scope.admitted_threads().get(),
@@ -590,11 +862,14 @@ impl CasePlan {
             structure: self.structure().key(),
             request,
             expressions,
+            evaluation_expressions,
+            outputs,
             formals,
             guards,
             sources: sources.into_iter().collect(),
             exact,
             variables: self.structure().variables().to_vec(),
+            reduction: std::sync::OnceLock::new(),
         })
     }
 
@@ -651,12 +926,13 @@ impl PreparedDiagnostic {
                 .collect(),
             exact: None,
             numerical: vec![],
+            outputs: self.outputs.clone(),
             unsupported: None,
             supplier_profile:
                 "symbolica-3.0.1;maintained-checked-diagnostic-v1;numerica-3.0.1;real-basic-ball-v1"
                     .into(),
             mathematical_views: self
-                .expressions
+                .evaluation_expressions
                 .iter()
                 .map(|expression| {
                     crate::analytical::mathematical_view(
@@ -695,6 +971,17 @@ impl PreparedDiagnostic {
                     "unordered or unsupported diagnostic interval".into(),
                 ));
             }
+            if request.claim != DiagnosticClaim::ExactIdentity
+                && let Some(variable) = self
+                    .variables
+                    .iter()
+                    .find(|variable| variable.port.id == input.coordinate)
+                && !coordinate_interval_permitted(variable, &lower, &upper)?
+            {
+                return Err(MathError::Contract(
+                    "diagnostic input violates original coordinate domain or bounds".into(),
+                ));
+            }
             bound.insert(input.coordinate, (lower, upper));
         }
         if request.claim == DiagnosticClaim::ExactIdentity {
@@ -727,6 +1014,7 @@ impl PreparedDiagnostic {
             .collect::<Result<BTreeMap<_, _>, MathError>>()?;
         if request.claim != DiagnosticClaim::ValidatedEnclosure {
             for guard in &self.guards {
+                admit_substitution(&guard.expression, &substitutions, request.limits, scope)?;
                 let value = exact_constant(&substitute(&guard.expression, &substitutions))
                     .ok_or_else(|| {
                         MathError::Contract("diagnostic guard has no exact point decision".into())
@@ -748,13 +1036,35 @@ impl PreparedDiagnostic {
             DiagnosticClaim::Ordinary => {
                 let mut evaluator = exact
                     .evaluator
-                    .try_map_coeff_with_prec(&|value| Ok(value.re.to_f64()), 53, &mut admission)
+                    .try_map_coeff_with_prec(
+                        &|value| {
+                            crate::rational_binary64::nearest(&value.re)
+                                .map_err(|error| error.to_string())
+                                .and_then(|value| {
+                                    if value.is_finite() {
+                                        Ok(value)
+                                    } else {
+                                        Err("nonfinite diagnostic coefficient".into())
+                                    }
+                                })
+                        },
+                        53,
+                        &mut admission,
+                    )
                     .map_err(operation)?;
                 let inputs = intervals
                     .iter()
-                    .map(|(value, _)| value.to_f64())
-                    .collect::<Vec<_>>();
-                let mut outputs = vec![0.0; request.rows.len()];
+                    .map(|(value, _)| {
+                        crate::rational_binary64::nearest(value).and_then(|value| {
+                            if value.is_finite() {
+                                Ok(value)
+                            } else {
+                                Err(MathError::Contract("nonfinite diagnostic input".into()))
+                            }
+                        })
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+                let mut outputs = vec![0.0; self.outputs.len()];
                 evaluator
                     .try_evaluate_with(&inputs, &mut outputs, &mut admission)
                     .map_err(operation)?;
@@ -776,7 +1086,7 @@ impl PreparedDiagnostic {
                     .iter()
                     .map(|(value, _)| DoubleFloat::from(value))
                     .collect::<Vec<_>>();
-                let mut outputs = vec![DoubleFloat::new_zero(); request.rows.len()];
+                let mut outputs = vec![DoubleFloat::new_zero(); self.outputs.len()];
                 evaluator
                     .try_evaluate_with(&inputs, &mut outputs, &mut admission)
                     .map_err(operation)?;
@@ -798,7 +1108,7 @@ impl PreparedDiagnostic {
                     .iter()
                     .map(|(value, _)| value.to_multi_prec_float(request.precision))
                     .collect::<Vec<_>>();
-                let mut outputs = vec![Float::new(request.precision); request.rows.len()];
+                let mut outputs = vec![Float::new(request.precision); self.outputs.len()];
                 evaluator
                     .try_evaluate_with(&inputs, &mut outputs, &mut admission)
                     .map_err(operation)?;
@@ -826,7 +1136,7 @@ impl PreparedDiagnostic {
                     .iter()
                     .map(|(value, _)| make(value))
                     .collect::<Vec<_>>();
-                let mut outputs = vec![make(&Rational::zero()); request.rows.len()];
+                let mut outputs = vec![make(&Rational::zero()); self.outputs.len()];
                 evaluator
                     .try_evaluate_with(&inputs, &mut outputs, &mut admission)
                     .map_err(operation)?;
@@ -896,7 +1206,7 @@ impl PreparedDiagnostic {
                         &Rational::zero(),
                         request.precision
                     );
-                    request.rows.len()
+                    self.outputs.len()
                 ];
                 evaluator
                     .try_evaluate_with(&inputs, &mut outputs, &mut admission)
@@ -941,6 +1251,11 @@ impl PreparedDiagnostic {
         inputs: &BTreeMap<SemanticId, (Rational, Rational)>,
         scope: &ExecutionScope,
     ) -> Result<ExactBlockResult, MathError> {
+        if !inputs.is_empty()
+            && let Some(result) = self.reduced_specialization(inputs, scope)?
+        {
+            return Ok(result);
+        }
         let unknown_count = self.request.unknowns.len();
         let substitutions = self
             .request
@@ -957,8 +1272,11 @@ impl PreparedDiagnostic {
         let equations = self
             .expressions
             .iter()
-            .map(|expression| substitute(expression, &substitutions))
-            .collect::<Vec<_>>();
+            .map(|expression| {
+                admit_substitution(expression, &substitutions, self.request.limits, scope)?;
+                Ok(substitute(expression, &substitutions))
+            })
+            .collect::<Result<Vec<_>, MathError>>()?;
         let (matrix, rhs) = symbolica::solve::system_to_matrix_with::<u16, _, _, _>(
             &equations,
             &self.formals[..unknown_count],
@@ -1077,73 +1395,15 @@ impl PreparedDiagnostic {
             }
         }
         let mut full_substitutions = substitutions;
-        full_substitutions.extend(recovered_atoms);
-        let domain = if consistency == ExactConsistency::Unique {
-            let mut established = true;
-            let mut valid = true;
-            for guard in &self.guards {
-                if let Some(value) =
-                    exact_constant(&substitute(&guard.expression, &full_substitutions))
-                {
-                    valid &= permits(guard.condition, &value);
-                } else {
-                    established = false;
-                }
-            }
-            if established { Some(valid) } else { None }
-        } else {
-            None
-        };
-        let bounds = if consistency == ExactConsistency::Unique {
-            let mut valid = true;
-            let mut established = true;
-            for (index, id) in self.request.unknowns.iter().enumerate() {
-                let expression = full_substitutions
-                    .get(&symbol(&self.formals[index])?)
-                    .ok_or_else(|| MathError::Contract("missing recovered coordinate".into()))?;
-                if let Some(value) = exact_constant(expression) {
-                    if let Some(variable) = self
-                        .variables
-                        .iter()
-                        .find(|variable| variable.port.id == *id)
-                    {
-                        if let Some(lower) = variable.lower.filter(|lower| lower.is_finite()) {
-                            valid &= value
-                                >= Rational::try_from(lower)
-                                    .map_err(|error| MathError::Library(error.to_string()))?;
-                        }
-                        if let Some(upper) = variable.upper.filter(|upper| upper.is_finite()) {
-                            valid &= value
-                                <= Rational::try_from(upper)
-                                    .map_err(|error| MathError::Library(error.to_string()))?;
-                        }
-                        use pse_model::generated::enums::ModelingVariableDomain;
-                        match variable.domain {
-                            ModelingVariableDomain::Integer
-                            | ModelingVariableDomain::Semiinteger => valid &= value.is_integer(),
-                            ModelingVariableDomain::Binary => {
-                                valid &= value == Rational::zero() || value == Rational::one()
-                            }
-                            ModelingVariableDomain::Continuous
-                            | ModelingVariableDomain::Semicontinuous => {}
-                        }
-                    }
-                } else {
-                    established = false;
-                }
-            }
-            if established { Some(valid) } else { None }
-        } else {
-            None
-        };
-        // Recovery is accepted only against the original selected residuals, never
-        // solely because the reduced equations report a solution.
-        let recovered_valid = consistency == ExactConsistency::Unique
-            && equations
-                .iter()
-                .all(|equation| substitute(equation, &full_substitutions).is_zero());
+        full_substitutions.extend(recovered_atoms.clone());
+        let (domain, bounds, recovered_valid) = self.validate_recovered(
+            &equations,
+            &full_substitutions,
+            consistency == ExactConsistency::Unique,
+            scope,
+        )?;
         check(scope)?;
-        Ok(ExactBlockResult {
+        let result = ExactBlockResult {
             matrix: original_matrix,
             right_hand_side: original_rhs,
             rank,
@@ -1164,8 +1424,245 @@ impl PreparedDiagnostic {
             recovered,
             original_domain_valid: domain,
             physical_bounds_valid: bounds,
-            reduced_evaluation: recovered_valid && domain != Some(false) && bounds != Some(false),
-        })
+            reduced_evaluation: recovered_valid && domain == Some(true) && bounds == Some(true),
+            used_reduced_product: false,
+        };
+        if inputs.is_empty() && result.consistency == ExactConsistency::Unique {
+            let mut conditions = witness
+                .pivots
+                .iter()
+                .flat_map(|value| {
+                    [
+                        value.numerator.to_expression(),
+                        value.denominator.to_expression(),
+                    ]
+                })
+                .collect::<Vec<_>>();
+            conditions.extend(
+                matrix
+                    .row_iter()
+                    .flatten()
+                    .chain(rhs.row_iter().flatten())
+                    .map(|value| value.denominator.to_expression()),
+            );
+            let cached = CachedReduction {
+                result: result.clone(),
+                conditions,
+                matrix: (0..matrix.nrows())
+                    .map(|row| {
+                        (0..unknown_count)
+                            .map(|column| matrix[(row as u32, column as u32)].to_expression())
+                            .collect()
+                    })
+                    .collect(),
+                rhs: (0..rhs.nrows())
+                    .map(|row| rhs[(row as u32, 0)].to_expression())
+                    .collect(),
+                reduced: (0..matrix.nrows())
+                    .map(|row| {
+                        (0..unknown_count)
+                            .map(|column| reduced[(row as u32, column as u32)].to_expression())
+                            .collect()
+                    })
+                    .collect(),
+                reduced_rhs: (0..matrix.nrows())
+                    .map(|row| reduced[(row as u32, unknown_count as u32)].to_expression())
+                    .collect(),
+                witnesses: (rank..matrix.nrows())
+                    .map(|row| {
+                        (0..matrix.nrows())
+                            .map(|column| {
+                                reduced[(row as u32, (unknown_count + 1 + column) as u32)]
+                                    .to_expression()
+                            })
+                            .collect()
+                    })
+                    .collect(),
+                recovered: recovered_atoms,
+            };
+            // A racing consumer may already have published the same immutable request product.
+            if self.reduction.set(cached).is_err() {
+                check(scope)?;
+            }
+        }
+        Ok(result)
+    }
+
+    fn validate_recovered(
+        &self,
+        equations: &[Atom],
+        full_substitutions: &BTreeMap<Symbol, Atom>,
+        unique: bool,
+        scope: &ExecutionScope,
+    ) -> Result<(Option<bool>, Option<bool>, bool), MathError> {
+        for expression in equations
+            .iter()
+            .chain(self.guards.iter().map(|guard| &guard.expression))
+        {
+            admit_substitution(expression, full_substitutions, self.request.limits, scope)?;
+        }
+        let domain = if unique {
+            let mut established = true;
+            let mut valid = true;
+            for guard in &self.guards {
+                if let Some(value) =
+                    exact_constant(&substitute(&guard.expression, full_substitutions))
+                {
+                    valid &= permits(guard.condition, &value);
+                } else {
+                    established = false;
+                }
+            }
+            if !valid {
+                Some(false)
+            } else if established {
+                Some(true)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        let bounds = if unique {
+            let mut valid = true;
+            let mut established = true;
+            for (index, id) in self.request.unknowns.iter().enumerate() {
+                let expression = full_substitutions
+                    .get(&symbol(&self.formals[index])?)
+                    .ok_or_else(|| MathError::Contract("missing recovered coordinate".into()))?;
+                if let Some(value) = exact_constant(expression) {
+                    if let Some(variable) = self
+                        .variables
+                        .iter()
+                        .find(|variable| variable.port.id == *id)
+                    {
+                        valid &= coordinate_interval_permitted(variable, &value, &value)?;
+                    }
+                } else {
+                    established = false;
+                }
+            }
+            if !valid {
+                Some(false)
+            } else if established {
+                Some(true)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+        // Recovery is accepted only against the original selected residuals, never
+        // solely because the reduced equations report a solution.
+        let recovered_valid = unique
+            && equations
+                .iter()
+                .all(|equation| substitute(equation, full_substitutions).is_zero());
+
+        Ok((domain, bounds, recovered_valid))
+    }
+
+    fn reduced_specialization(
+        &self,
+        inputs: &BTreeMap<SemanticId, (Rational, Rational)>,
+        scope: &ExecutionScope,
+    ) -> Result<Option<ExactBlockResult>, MathError> {
+        if self
+            .request
+            .parameters
+            .iter()
+            .any(|id| !inputs.contains_key(id))
+        {
+            return Ok(None);
+        }
+        if self.reduction.get().is_none() {
+            self.exact_block(&BTreeMap::new(), scope)?;
+        }
+        let Some(cached) = self.reduction.get() else {
+            return Ok(None);
+        };
+        let parameters = self
+            .request
+            .parameters
+            .iter()
+            .enumerate()
+            .map(|(index, id)| {
+                Ok((
+                    symbol(&self.formals[self.request.unknowns.len() + index])?,
+                    Atom::num(inputs[id].0.clone()),
+                ))
+            })
+            .collect::<Result<BTreeMap<_, _>, MathError>>()?;
+        for expression in cached
+            .conditions
+            .iter()
+            .chain(cached.recovered.values())
+            .chain(cached.matrix.iter().flatten())
+            .chain(&cached.rhs)
+            .chain(cached.reduced.iter().flatten())
+            .chain(&cached.reduced_rhs)
+            .chain(cached.witnesses.iter().flatten())
+        {
+            admit_substitution(expression, &parameters, self.request.limits, scope)?;
+        }
+        // Exceptional values always re-extract and reduce the original selected block.
+        // A canceled denominator in a generic inverse cannot classify those values.
+        for condition in &cached.conditions {
+            check(scope)?;
+            if !exact_constant(&substitute(condition, &parameters))
+                .is_some_and(|value| !value.is_zero())
+            {
+                return Ok(None);
+            }
+        }
+        let mut recovered = BTreeMap::new();
+        for (coordinate, expression) in &cached.recovered {
+            check(scope)?;
+            recovered.insert(*coordinate, substitute(expression, &parameters));
+        }
+        let mut full = parameters.clone();
+        full.extend(recovered.clone());
+        let (domain, bounds, residual) =
+            self.validate_recovered(&self.expressions, &full, true, scope)?;
+        let project = |expression: &Atom| substitute(expression, &parameters).to_string();
+        let mut result = cached.result.clone();
+        result.matrix = cached
+            .matrix
+            .iter()
+            .map(|row| row.iter().map(project).collect())
+            .collect();
+        result.right_hand_side = cached.rhs.iter().map(project).collect();
+        result.reduced_matrix = cached
+            .reduced
+            .iter()
+            .map(|row| row.iter().map(project).collect())
+            .collect();
+        result.reduced_right_hand_side = cached.reduced_rhs.iter().map(project).collect();
+        for (witness, expressions) in result.row_witnesses.iter_mut().zip(&cached.witnesses) {
+            witness.multipliers = expressions.iter().map(project).collect();
+        }
+        result.nonzero_conditions.clear();
+        result.recovered = self
+            .request
+            .unknowns
+            .iter()
+            .enumerate()
+            .map(|(index, id)| {
+                Ok((
+                    *id,
+                    recovered
+                        .get(&symbol(&self.formals[index])?)
+                        .ok_or_else(|| MathError::Contract("missing reduced recovery".into()))?
+                        .to_string(),
+                ))
+            })
+            .collect::<Result<Vec<_>, MathError>>()?;
+        result.original_domain_valid = domain;
+        result.physical_bounds_valid = bounds;
+        result.reduced_evaluation = residual && domain == Some(true) && bounds == Some(true);
+        result.used_reduced_product = true;
+        check(scope)?;
+        Ok(Some(result))
     }
 }
 /// Conservative numerator/denominator populations before the native field operation.
@@ -1173,22 +1670,36 @@ fn exact_arithmetic_admission(
     operation: RowReductionOperation<'_, ExactField>,
     limits: DiagnosticLimits,
 ) -> Result<usize, MathError> {
-    let shape = |value: &RationalPolynomial<Z, u16>| -> Result<(usize, usize, usize), MathError> {
-        let bits = value
-            .numerator
-            .coefficients
-            .iter()
-            .chain(&value.denominator.coefficients)
-            .map(|integer| integer.significant_bits() as usize)
-            .max()
-            .unwrap_or(1)
-            .max(1);
-        Ok((
-            value.numerator.nterms().max(1),
-            value.denominator.nterms().max(1),
-            bits,
-        ))
-    };
+    let shape =
+        |value: &RationalPolynomial<Z, u16>| -> Result<(usize, usize, usize, usize), MathError> {
+            let bits = value
+                .numerator
+                .coefficients
+                .iter()
+                .chain(&value.denominator.coefficients)
+                .map(|integer| integer.significant_bits() as usize)
+                .max()
+                .unwrap_or(1)
+                .max(1);
+            Ok((
+                value.numerator.nterms().max(1),
+                value.denominator.nterms().max(1),
+                bits,
+                [&value.numerator, &value.denominator]
+                    .into_iter()
+                    .flat_map(|polynomial| {
+                        (0..polynomial.nterms()).map(move |term| {
+                            polynomial
+                                .exponents(term)
+                                .iter()
+                                .map(|&e| usize::from(e))
+                                .sum::<usize>()
+                        })
+                    })
+                    .max()
+                    .unwrap_or(0),
+            ))
+        };
     let mul = |a: usize, b: usize| {
         a.checked_mul(b)
             .ok_or(MathError::Limit("exact arithmetic growth"))
@@ -1197,22 +1708,26 @@ fn exact_arithmetic_admission(
         a.checked_add(b)
             .ok_or(MathError::Limit("exact arithmetic growth"))
     };
-    let (terms, bits) = match operation {
+    let (terms, bits, degree) = match operation {
         RowReductionOperation::Inspect => return Ok(0),
         RowReductionOperation::Inverse(value) => {
-            let (n, d, b) = shape(value)?;
-            (add(n, d)?, b)
+            let (n, d, b, degree) = shape(value)?;
+            (add(n, d)?, b, degree)
         }
         RowReductionOperation::Multiply(a, b) => {
-            let (an, ad, ab) = shape(a)?;
-            let (bn, bd, bb) = shape(b)?;
+            let (an, ad, ab, ae) = shape(a)?;
+            let (bn, bd, bb, be) = shape(b)?;
             let terms = add(mul(an, bn)?, mul(ad, bd)?)?;
-            (terms, add(add(ab, bb)?, terms.max(1).ilog2() as usize + 2)?)
+            (
+                terms,
+                add(add(ab, bb)?, terms.max(1).ilog2() as usize + 2)?,
+                add(ae, be)?,
+            )
         }
         RowReductionOperation::SubtractProduct(a, b, c) => {
-            let (an, ad, ab) = shape(a)?;
-            let (bn, bd, bb) = shape(b)?;
-            let (cn, cd, cb) = shape(c)?;
+            let (an, ad, ab, ae) = shape(a)?;
+            let (bn, bd, bb, be) = shape(b)?;
+            let (cn, cd, cb, ce) = shape(c)?;
             let terms = add(
                 add(mul(mul(an, bd)?, cd)?, mul(mul(bn, cn)?, ad)?)?,
                 mul(mul(ad, bd)?, cd)?,
@@ -1220,9 +1735,13 @@ fn exact_arithmetic_admission(
             (
                 terms,
                 add(add(add(ab, bb)?, cb)?, terms.max(1).ilog2() as usize + 3)?,
+                add(add(ae, be)?, ce)?,
             )
         }
     };
+    if degree > usize::from(u16::MAX) {
+        return Err(MathError::Limit("exact arithmetic exponent growth"));
+    }
     if terms > limits.terms || bits > limits.coefficient_bits {
         return Err(MathError::Limit("exact arithmetic predicted growth"));
     }
@@ -1231,6 +1750,39 @@ fn exact_arithmetic_admission(
         return Err(MathError::Limit("exact arithmetic predicted bytes"));
     }
     Ok(bytes)
+}
+
+fn coordinate_interval_permitted(
+    variable: &crate::binding::Variable,
+    lower: &Rational,
+    upper: &Rational,
+) -> Result<bool, MathError> {
+    use pse_model::generated::enums::ModelingVariableDomain as Domain;
+    if matches!(
+        variable.domain,
+        Domain::Semicontinuous | Domain::Semiinteger
+    ) && lower.is_zero()
+        && upper.is_zero()
+    {
+        return Ok(true);
+    }
+    if let Some(bound) = variable.lower.filter(|bound| bound.is_finite())
+        && lower
+            < &Rational::try_from(bound).map_err(|error| MathError::Library(error.to_string()))?
+    {
+        return Ok(false);
+    }
+    if let Some(bound) = variable.upper.filter(|bound| bound.is_finite())
+        && upper
+            > &Rational::try_from(bound).map_err(|error| MathError::Library(error.to_string()))?
+    {
+        return Ok(false);
+    }
+    Ok(match variable.domain {
+        Domain::Integer | Domain::Semiinteger => lower == upper && lower.is_integer(),
+        Domain::Binary => lower == upper && (lower.is_zero() || lower.is_one()),
+        Domain::Continuous | Domain::Semicontinuous => true,
+    })
 }
 
 fn permits(condition: Condition, value: &Rational) -> bool {
@@ -1294,6 +1846,13 @@ mod tests {
         inputs: usize,
         outputs: impl FnOnce(&mut BodyBuilder<'_>, &[TypedValue]) -> Vec<TypedValue>,
     ) -> CasePlan {
+        plan_bounded(inputs, false, outputs)
+    }
+    fn plan_bounded(
+        inputs: usize,
+        nonnegative: bool,
+        outputs: impl FnOnce(&mut BodyBuilder<'_>, &[TypedValue]) -> Vec<TypedValue>,
+    ) -> CasePlan {
         let registry = standard_registry().unwrap();
         let quantity = ids::quantity("neutral");
         let port = |index| Port {
@@ -1325,7 +1884,7 @@ mod tests {
                     port: port(index as u8 + 1),
                     fixed: false,
                     domain: ModelingVariableDomain::Continuous,
-                    lower: (index == 0).then_some(0.0),
+                    lower: (index == 0 && nonnegative).then_some(0.0),
                     upper: None,
                 })
                 .collect(),
@@ -1386,6 +1945,7 @@ mod tests {
                 .map(|index| id(index as u8 + 1))
                 .collect(),
             inputs: vec![],
+            derivatives: vec![],
             claim,
             precision: 160,
             limits: DiagnosticLimits::default(),
@@ -1396,7 +1956,7 @@ mod tests {
     }
     #[test]
     fn exact_diagnostic_accounting_specializations_and_original_row_witnesses() {
-        let plan = plan(4, |_, input| {
+        let plan = plan_bounded(4, true, |_, input| {
             let [x, y, p, q] = input else { unreachable!() };
             vec![
                 expression(
@@ -1434,6 +1994,17 @@ mod tests {
         assert_eq!(unique.original_domain_valid, Some(true));
         assert_eq!(unique.physical_bounds_valid, Some(false));
         assert!(!unique.reduced_evaluation);
+        assert!(unique.used_reduced_product);
+        let feasible = prepared
+            .evaluate_with_inputs(&[point(3, 2), point(4, 0)], &scope())
+            .unwrap()
+            .exact
+            .unwrap();
+        assert!(feasible.used_reduced_product && feasible.reduced_evaluation);
+        assert_eq!(
+            feasible.recovered,
+            vec![(id(1), "2".into()), (id(2), "-1".into())]
+        );
         let redundant = prepared
             .evaluate_with_inputs(&[point(3, 1), point(4, 1)], &scope())
             .unwrap()
@@ -1441,6 +2012,7 @@ mod tests {
             .unwrap();
         assert_eq!((redundant.rank, redundant.augmented_rank), (1, 1));
         assert_eq!(redundant.consistency, ExactConsistency::Underdetermined);
+        assert!(!redundant.used_reduced_product);
         assert_eq!(
             redundant.row_witnesses[0].original_rows,
             vec![id(10), id(11)]
@@ -1454,6 +2026,7 @@ mod tests {
         assert_eq!((inconsistent.rank, inconsistent.augmented_rank), (1, 2));
         assert_eq!(inconsistent.consistency, ExactConsistency::Inconsistent);
         assert!(inconsistent.row_witnesses[0].inconsistent);
+        assert!(!inconsistent.used_reduced_product);
     }
     #[test]
     fn exact_diagnostic_preserves_canceled_denominator_and_limits() {
@@ -1562,6 +2135,207 @@ mod tests {
         assert!(ratio(ball.upper.as_ref().unwrap()) >= Rational::from(15));
         assert!(ball.value.is_none() && ball.absolute_error.is_none());
     }
+    #[test]
+    fn diagnostic_delivers_original_rows_and_ordered_native_partials() {
+        let plan = plan(1, |_, input| {
+            vec![expression(
+                input[0].atom.as_ref().unwrap().pow(2)
+                    + input[0].atom.as_ref().unwrap() * Atom::num(2),
+                &input[0],
+            )]
+        });
+        let mut request = request(DiagnosticClaim::ChosenPrecision, 1, 1, 0);
+        request.inputs = vec![point(1, 3)];
+        request.derivatives = vec![vec![id(1)], vec![id(1), id(1)]];
+        let result = plan
+            .mathematical_diagnostics(&CaseValues::default(), request, None, &scope())
+            .unwrap();
+        assert_eq!(
+            result
+                .numerical
+                .iter()
+                .map(|value| value.value.as_ref().unwrap().parse::<f64>().unwrap())
+                .collect::<Vec<_>>(),
+            vec![15.0, 8.0, 2.0]
+        );
+        assert_eq!(
+            result
+                .outputs
+                .iter()
+                .map(|output| output.derivatives.clone())
+                .collect::<Vec<_>>(),
+            vec![vec![], vec![id(1)], vec![id(1), id(1)]]
+        );
+        assert!(result.outputs.iter().all(|output| output.row == id(10)));
+        assert_eq!(result.mathematical_views.len(), 3);
+    }
+    #[test]
+    fn diagnostic_original_domain_guards_follow_actual_derivative_demand() {
+        let plan = plan(1, |builder, input| {
+            vec![
+                builder
+                    .unary(crate::Function::Sqrt, input[0].clone(), id(91))
+                    .unwrap(),
+            ]
+        });
+        let mut request = request(DiagnosticClaim::ChosenPrecision, 1, 1, 0);
+        request.inputs = vec![point(1, 0)];
+        let value = plan
+            .mathematical_diagnostics(&CaseValues::default(), request.clone(), None, &scope())
+            .unwrap();
+        assert_eq!(
+            value.numerical[0]
+                .value
+                .as_ref()
+                .unwrap()
+                .parse::<f64>()
+                .unwrap(),
+            0.0
+        );
+        request.derivatives = vec![vec![id(1)]];
+        assert!(
+            plan.mathematical_diagnostics(&CaseValues::default(), request, None, &scope())
+                .is_err()
+        );
+    }
+    #[test]
+    fn diagnostic_chosen_precision_retains_small_residual_lost_to_binary64() {
+        let plan = plan(1, |_, input| {
+            vec![expression(
+                input[0].atom.as_ref().unwrap().pow(2) - Atom::num(2),
+                &input[0],
+            )]
+        });
+        // x=1+2^-80: x^2-2 is -1+2^-79+2^-160. Chosen precision must
+        // distinguish the exact residual from the binary64-rounded input result -1.
+        let denominator = Integer::from(2).pow(80);
+        let mut request = request(DiagnosticClaim::ChosenPrecision, 1, 1, 0);
+        request.inputs = vec![DiagnosticInput {
+            coordinate: id(1),
+            lower: ExactValue {
+                numerator: (&denominator + Integer::from(1)).to_string(),
+                denominator: denominator.to_string(),
+            },
+            upper: None,
+        }];
+        let high = plan
+            .mathematical_diagnostics(&CaseValues::default(), request.clone(), None, &scope())
+            .unwrap();
+        let text = high.numerical[0].value.as_ref().unwrap();
+        let actual = Float::parse(text, Some(160)).unwrap();
+        assert!(actual > Float::from(-1.0));
+        request.claim = DiagnosticClaim::Ordinary;
+        let ordinary = plan
+            .mathematical_diagnostics(&CaseValues::default(), request, None, &scope())
+            .unwrap();
+        assert_eq!(
+            ordinary.numerical[0]
+                .value
+                .as_ref()
+                .unwrap()
+                .parse::<f64>()
+                .unwrap(),
+            -1.0
+        );
+    }
+    #[test]
+    fn diagnostic_precision_maps_fixed_builtin_constants_at_actual_requested_precision() {
+        crate::initialize().unwrap();
+        let formal = library::formal(0).unwrap();
+        let expression = &formal + Atom::num(1).sin();
+        let scope = scope();
+        let product = library::admission::diagnostic_product(
+            &[expression],
+            &[formal],
+            Optimization::default(),
+            &scope,
+            EvaluationLimits::default(),
+        )
+        .unwrap();
+        let mut evaluator = product
+            .evaluator
+            .try_map_coeff_with_prec(
+                &|value| Ok(value.re.to_multi_prec_float(160)),
+                160,
+                &mut control(&scope, DiagnosticLimits::default()),
+            )
+            .unwrap();
+        let mut output = vec![Float::new(160)];
+        evaluator
+            .try_evaluate_with(
+                &[Float::new(160)],
+                &mut output,
+                &mut control(&scope, DiagnosticLimits::default()),
+            )
+            .unwrap();
+        let realized = output[0].to_rational();
+        // Independent alternating Taylor bounds for sin(1). These bounds are much
+        // narrower than binary64 error and do not use the native evaluator or balls.
+        let mut sum = Rational::zero();
+        let mut term = Rational::one();
+        let mut lower = Rational::zero();
+        let mut upper = Rational::one();
+        for index in 0..=14 {
+            sum += &term;
+            if index == 13 {
+                lower = sum.clone();
+            }
+            if index == 14 {
+                upper = sum.clone();
+            }
+            term = -term / Rational::from(((2 * index + 2) * (2 * index + 3)) as i64);
+        }
+        assert!(lower < realized && realized < upper);
+    }
+
+    #[test]
+    fn diagnostic_admission_refuses_coordinate_and_exact_binding_extent_errors() {
+        let plan = plan_bounded(1, true, |_, input| vec![input[0].clone()]);
+        let mut demand = request(DiagnosticClaim::ChosenPrecision, 1, 1, 0);
+        demand.inputs = vec![point(1, -1)];
+        assert!(
+            plan.mathematical_diagnostics(&CaseValues::default(), demand.clone(), None, &scope())
+                .is_err()
+        );
+        demand.unknowns.push(id(1));
+        assert!(
+            plan.prepare_mathematical_diagnostic(
+                &CaseValues::default(),
+                demand.clone(),
+                None,
+                &scope()
+            )
+            .is_err()
+        );
+        demand.unknowns = vec![id(99)];
+        assert!(
+            plan.prepare_mathematical_diagnostic(&CaseValues::default(), demand, None, &scope())
+                .is_err()
+        );
+        let mut limits = DiagnosticLimits::default();
+        limits.coefficient_bits = 16;
+        let large = ExactValue {
+            numerator: "1".repeat(1_000),
+            denominator: "1".into(),
+        };
+        assert!(matches!(
+            large.rational(limits),
+            Err(MathError::Limit("diagnostic rational input"))
+        ));
+        let formal = library::formal(0).unwrap();
+        let expression = formal.pow(100_000);
+        let substitutions = BTreeMap::from([(symbol(&formal).unwrap(), Atom::num(2))]);
+        assert!(matches!(
+            admit_substitution(
+                &expression,
+                &substitutions,
+                DiagnosticLimits::default(),
+                &scope()
+            ),
+            Err(MathError::Limit("exact substitution coefficient bits"))
+        ));
+    }
+
     #[test]
     fn diagnostic_native_enclosure_refuses_unsupported_and_singular_programs() {
         crate::initialize().unwrap();

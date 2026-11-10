@@ -1200,6 +1200,16 @@ impl PreparedBody {
         self.parameters()
     }
 
+    /// Original derivative-axis identity for a diagnostic's admitted local input.
+    pub(crate) fn diagnostic_axis(&self, slot: usize) -> Result<usize, MathError> {
+        if slot >= self.inputs {
+            return Err(MathError::Contract(
+                "diagnostic derivative input slot".into(),
+            ));
+        }
+        Ok(self.formal_id(slot))
+    }
+
     fn parameters(&self) -> Result<Vec<Atom>, MathError> {
         if self.formal_slots.is_empty() {
             (0..self.slots).map(library::formal).collect()

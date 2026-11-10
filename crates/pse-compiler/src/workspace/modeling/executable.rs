@@ -13,6 +13,7 @@ mod derived;
 mod factorable;
 mod grouped;
 mod numerical_observation;
+mod mathematical_diagnostics;
 pub use numerical_observation::{
     NumericalObservationArtifact, NumericalObservationBuildRecipe,
     NumericalObservationInstanceRequest, NumericalObservationRequest,
