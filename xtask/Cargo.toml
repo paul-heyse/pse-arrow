@@ -143,7 +143,6 @@ thiserror = { workspace = true, optional = true }
 strum = { workspace = true, optional = true }
 arrow-array = { workspace = true, optional = true }
 arrow-schema.workspace = true
-tracing.workspace = true
 surrealdb-parser-next = { workspace = true, optional = true }
 libfuzzer-sys = { workspace = true, optional = true }
 pse-admission = { workspace = true, optional = true }
