@@ -3,21 +3,33 @@
 //! Bounded original indexed products captured by the finite source producer.
 use super::*;
 use crate::resolved::{ContractionAxis, ContractionFactor, OriginalContraction, Source};
+/// Original lexical occurrence and its already selected instance environment.
+pub(super) struct ContractionSource<'a> {
+    pub(super) instance: InstanceId,
+    pub(super) at: DeclarationId,
+    pub(super) binder: &'a dsl::Binder,
+    pub(super) body: &'a Expr,
+    pub(super) environment: &'a Environment,
+    pub(super) source: &'a Source,
+}
 impl Engine<'_, '_> {
     /// The initial product is exactly two indexed family occurrences, with one
     /// occurrence of the original dummy in each. Other reductions keep their
     /// ordinary scalar meaning and have no admitted indexed analytical product.
     pub(super) fn original_contraction(
         &self,
-        instance: InstanceId,
-        at: DeclarationId,
-        binder: &dsl::Binder,
-        body: &Expr,
-        env: &Environment,
+        original: ContractionSource<'_>,
         selection: &finite::ReductionSelection,
         prototype: &Type,
-        source: &Source,
     ) -> Result<Option<OriginalContraction>> {
+        let ContractionSource {
+            instance,
+            at,
+            binder,
+            body,
+            environment: env,
+            source,
+        } = original;
         let ExprKind::Binary {
             op: BinaryOp::Mul,
             lhs,

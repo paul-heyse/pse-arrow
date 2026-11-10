@@ -693,7 +693,16 @@ impl Engine<'_, '_> {
                 };
                 let indexed = if *kind == ReduceKind::Sum {
                     self.original_contraction(
-                        instance, at, binder, body, &env, &selection, &prototype, &source,
+                        indexed::ContractionSource {
+                            instance,
+                            at,
+                            binder,
+                            body,
+                            environment: &env,
+                            source: &source,
+                        },
+                        &selection,
+                        &prototype,
                     )?
                 } else {
                     None

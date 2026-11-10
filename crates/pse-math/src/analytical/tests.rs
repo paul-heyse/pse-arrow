@@ -236,9 +236,9 @@ fn analytical_native_pade_checks_formal_congruence_and_preserves_symbolic_coeffi
 #[test]
 fn analytical_native_relation_keeps_hypothesis_stopping_and_exact_algebraic_proof_separate() {
     crate::initialize().unwrap();
-    let first = selected(0, Atom::num(2).sqrt());
-    let second = selected(0, Atom::num(3).sqrt());
-    let third = selected(0, Atom::num(2).sqrt() + Atom::num(3).sqrt());
+    let first = selected(0, Atom::num(1));
+    let second = selected(0, Atom::num(2).sqrt());
+    let third = selected(0, Atom::num(2) * Atom::num(2).sqrt());
     let request = RelationRequest {
         precision: 192,
         tolerance: RationalView {
@@ -264,7 +264,13 @@ fn analytical_native_relation_keeps_hypothesis_stopping_and_exact_algebraic_proo
     assert_eq!(observation.algebraic_normal_form.unwrap().symbolica, "0");
     assert_eq!(observation.candidate.unwrap().len(), 3);
     let rounded = |value| selected(0, Atom::num(Float::with_val(128, value)));
-    let [a, b, c] = [-32.0177, 3.1416, 2.7183].map(rounded);
+    let round_four_decimals = |value: f64| (value * 10_000.).round() / 10_000.;
+    let [a, b, c] = [
+        -32.0177,
+        round_four_decimals(std::f64::consts::PI),
+        round_four_decimals(std::f64::consts::E),
+    ]
+    .map(rounded);
     let request = RelationRequest {
         precision: 128,
         tolerance: RationalView {
@@ -282,6 +288,13 @@ fn analytical_native_relation_keeps_hypothesis_stopping_and_exact_algebraic_proo
     };
     assert_eq!(observation.meaning, RelationMeaning::NumericalHypothesis);
     assert!(observation.algebraic_normal_form.is_none());
+    assert!(
+        observation
+            .verification_unavailable
+            .as_ref()
+            .unwrap()
+            .contains("rounded")
+    );
     let exhausted = first
         .integer_relation(
             &[&second, &third],
@@ -564,5 +577,54 @@ fn analytical_identity_refuses_explosive_polynomial_expansion_before_native_norm
             &scope()
         ),
         Err(MathError::Limit("analytical normalization terms"))
+    ));
+}
+
+#[test]
+fn analytical_integer_relation_verifies_a_native_algebraic_extension_and_bounds_magnitude() {
+    use symbolica::domains::integer::Integer;
+    crate::initialize().unwrap();
+    let root = Atom::num(2).sqrt();
+    let first = selected(0, (&root + Atom::num(1)) * (Atom::num(1) - &root));
+    assert!(
+        !(first.expression() + Atom::num(1)).is_zero(),
+        "the native algebraic extension must do more than a syntactic zero check"
+    );
+    let second = selected(0, Atom::num(3).sqrt());
+    let third = selected(0, Atom::num(1));
+    let request = RelationRequest {
+        precision: 192,
+        tolerance: RationalView {
+            numerator: "1".into(),
+            denominator: "1000000000000000000000000000000".into(),
+        },
+        max_iterations: 100,
+        max_coefficient: 100,
+    };
+    let product = first
+        .integer_relation(
+            &[&second, &third],
+            &request,
+            EvaluationLimits::default(),
+            &scope(),
+        )
+        .unwrap();
+    let AnalyticalObservation::IntegerRelation(observation) = product.observation else {
+        panic!("research relation")
+    };
+    assert_eq!(observation.meaning, RelationMeaning::ExactAlgebraicZero);
+    assert_eq!(observation.algebraic_normal_form.unwrap().symbolica, "0");
+    let tiny = selected(
+        0,
+        Atom::num(Rational::new(Integer::from(1), Integer::from(10).pow(100))),
+    );
+    assert!(matches!(
+        tiny.integer_relation(
+            &[&second, &third],
+            &request,
+            EvaluationLimits::default(),
+            &scope()
+        ),
+        Err(MathError::Limit("research realized magnitude profile"))
     ));
 }

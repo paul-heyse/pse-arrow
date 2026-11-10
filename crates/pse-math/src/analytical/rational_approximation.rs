@@ -53,7 +53,7 @@ impl SelectedExpression {
             .checked_add(1)
             .ok_or(MathError::Limit("Padé congruence order"))?;
         if !self.expression.is_zero()
-            && matches!(series.precision(),SeriesPrecision::Finite{absolute,..} if absolute<Rational::from(order))
+            && matches!(series.precision(),SeriesPrecision::Finite{absolute,..} if absolute<order)
         {
             return Err(MathError::Contract(
                 "native series does not cover the Padé congruence order".into(),

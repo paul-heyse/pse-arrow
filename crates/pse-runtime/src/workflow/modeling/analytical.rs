@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! Original selected analytical products, ready for the shared result publisher.
 use super::*;
+use crate::workflow::document_extent;
 use pse_compiler::workspace::{AnalyticalOperation, AnalyticalSource, CompiledAnalyticalResult};
 use pse_ids::ContentHash;
 use pse_math::analytical::AnalyticalObservation;
@@ -84,7 +85,7 @@ impl ModelingPackage {
                         &driver,
                     )
                     .await?;
-                let projection_bytes = crate::workflow::document_extent(
+                let projection_bytes = document_extent(
                     &(
                         &native.operation,
                         &native.source,

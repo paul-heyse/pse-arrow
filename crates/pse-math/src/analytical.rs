@@ -858,6 +858,14 @@ impl PreparedBody {
         })
     }
 }
+/// Source-selected representation scales for one physical comparison boundary.
+#[derive(Clone, Copy, Debug)]
+pub struct ComparisonScales {
+    /// Native derivative/product conversion to the admitted result contract.
+    pub left: f64,
+    /// Native comparator conversion to that same complete physical contract.
+    pub right: f64,
+}
 impl SelectedExpression {
     /// Borrow the complete original guarded execution body.
     pub fn original_body(&self) -> &PreparedBody {
@@ -907,6 +915,13 @@ impl SelectedExpression {
         limits: EvaluationLimits,
         scope: &ExecutionScope,
     ) -> Result<(), MathError> {
+        crate::typed::admit_exact_source_substitution(
+            &self.expression,
+            axis,
+            point,
+            limits,
+            scope,
+        )?;
         for requirement in &self.requirements {
             crate::typed::admit_exact_source_substitution(
                 &requirement.argument,
@@ -1036,7 +1051,7 @@ impl SelectedExpression {
             .all(|coefficient| !coefficient.contains(axis.as_view()))
             && absolute_order
                 .as_ref()
-                .is_none_or(|order| Rational::from(polynomial.degree(0)) < *order);
+                .is_none_or(|order| *order > polynomial.degree(0));
         let coefficients = series
             .terms()
             .map(|(exponent, coefficient)| {
@@ -1098,8 +1113,10 @@ impl SelectedExpression {
             other,
             coordinates,
             None,
-            left_scale,
-            right_scale,
+            ComparisonScales {
+                left: left_scale,
+                right: right_scale,
+            },
             limits,
             scope,
         )
@@ -1111,8 +1128,7 @@ impl SelectedExpression {
         other: &Self,
         coordinates: &[usize],
         multiplier: Option<&Self>,
-        left_scale: f64,
-        right_scale: f64,
+        scales: ComparisonScales,
         limits: EvaluationLimits,
         scope: &ExecutionScope,
     ) -> Result<AnalyticalResult, MathError> {
@@ -1128,7 +1144,7 @@ impl SelectedExpression {
             left *= &multiplier.expression;
         }
         let mut difference =
-            left * physical_scale(left_scale)? - &other.expression * physical_scale(right_scale)?;
+            left * physical_scale(scales.left)? - &other.expression * physical_scale(scales.right)?;
         bounded(&difference, limits, scope)?;
         let mut rational = true;
         difference.visitor(&mut |node| {

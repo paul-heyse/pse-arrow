@@ -113,8 +113,8 @@ fn projection_owner(
     source: &impl Serialize,
     result: &impl Serialize,
 ) -> Result<Arc<dyn pse_columnar::PayloadOwner>, WorkflowError> {
-    let bytes = study_variants::document_extent(source, usize::MAX)?
-        .checked_add(study_variants::document_extent(result, usize::MAX)?)
+    let bytes = document_extent(source, usize::MAX)?
+        .checked_add(document_extent(result, usize::MAX)?)
         .and_then(|bytes| bytes.checked_mul(128))
         .and_then(|bytes| bytes.checked_add(size_of::<MathematicalProduct>()))
         .ok_or_else(|| {

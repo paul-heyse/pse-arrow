@@ -523,8 +523,10 @@ impl CompilerWorkspace {
                     &other,
                     &coordinate_ordinals,
                     factor.as_ref(),
-                    result_scale,
-                    scale,
+                    pse_math::analytical::ComparisonScales {
+                        left: result_scale,
+                        right: scale,
+                    },
                     limits,
                     scope,
                 )?
