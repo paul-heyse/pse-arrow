@@ -1,5 +1,13 @@
 # Functional opportunity reviews
 
+The [integrated Symbolica ecosystem review](symbolica-ecosystem-functional-improvements-2026-11-09.md)
+assesses all supplied Symbolica, Numerica and Graphica opportunities for shared mathematical
+preparation, stable operations, demanded-product batching, exact/numerical diagnostics and
+scientific research workflows. Thirteen connected opportunities and five supporting documents
+compare complete alternatives, current strengths, conditional adoption and delivery evidence.
+Its correspondence preserves historical and lower-priority leads; the review changes no
+production capability, dependency or Plan66 scope/status and claims no measured efficiency gain.
+
 The [SurrealDB-backed functional improvements review](surrealdb-functional-improvements-2026-11-09.md)
 assesses the complete v4 ecosystem discovery account across authoring, schema evolution,
 canonical progression, graph/search, observation, persistence, delivery and developer operations.
