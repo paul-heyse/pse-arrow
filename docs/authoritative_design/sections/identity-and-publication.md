@@ -867,8 +867,8 @@ bytes and is not an exported database lease or another publication catalog.
 > (proposed), maintainer-authorized Plan72b/72c target.
 
 Effect-bearing transitions bind exact predecessor, original operation and issuer, frozen
-effective inputs, original/target module artifacts and explicit preservation policy. Native
-named conversion and bounded backfill run under the actual lifecycle owner's physical
+effective inputs, original/target module artifacts and explicit preservation policy. Separately
+admitted native named conversion and bounded backfill require the actual lifecycle owner's physical
 exclusion; supplier history is distinct from independent data conformance, ready indexes
 and native activation. Ordinary readmission follows complete physical handoff. No implicit
 upgrade or arbitrary configured-store reset follows from this target.
@@ -879,6 +879,13 @@ require preservation of existing scientific results. Authored source inputs rema
 outside reset authority. No v11 compatibility reader or retained-results backfill estate
 is introduced for this cutover. Ordinary opening still refuses unsupported stores;
 reconstruction is explicit and physically owned, with fresh issuer and credentials.
+
+Fresh bootstrap commits source-derived concurrent index definitions with admission closed.
+The initializer checks each exact required definition and actual build readiness under its
+original deadline, validates the selected module and only then opens admission atomically.
+Missing, failed or mismatched indexes refuse. Reentry follows the same closed bootstrap
+identity without replaying schema creation. Ordinary retained-schema maintenance keeps its
+blocking installation contract. Native build completion is not inferred from submitted DDL.
 
 > Decision: [ADR-0261](../../adr/0261-native-operation-contracts.md) (proposed),
 > maintainer-authorized Plan72a target.

@@ -76,6 +76,14 @@ requires successful validation. Source retention ends only through explicit disp
 origin records survive source disposal and target reopening; they cannot claim live ownership.
 Unknown replies reconcile the original operation before replay.
 
+Fresh schema initialization submits source-derived concurrent index definitions atomically
+with admission closed. The initializer observes every exact required index under its original
+deadline and admits callers only after successful readiness and module validation. Missing,
+failed or mismatched indexes cannot be mistaken for ready. Recovery follows that same closed
+bootstrap identity rather than issuing a second installation. Ordinary retained-schema maintenance
+keeps its existing blocking installation contract. This avoids serial global index-build barriers
+behind unrelated long datastore writers without relaxing readiness or changing host concurrency.
+
 For separately admitted retained-data transitions, supplier history, data conformance, ready
 indexes and activation remain distinct facts. Exclusion spans actual index gaps. Fallbacks
 cannot silently repair data, and reverse DDL cannot restore discarded information. Such a
