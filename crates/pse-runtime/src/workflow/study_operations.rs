@@ -1888,3 +1888,7 @@ mod study_operation_unit {
 #[cfg(all(test, feature = "native-solvers"))]
 #[path = "study_operation_admission_tests.rs"]
 mod study_operation_admission_tests;
+
+#[cfg(all(test, feature = "solver-ipopt"))]
+#[path = "study_population_tests.rs"]
+mod study_population_tests;

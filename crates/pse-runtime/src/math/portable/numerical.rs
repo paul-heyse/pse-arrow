@@ -59,6 +59,13 @@ impl AcquiredExecution {
     }
 }
 
+/// A freshly restored numerical product, or an identical already admitted local
+/// realization whose canonical bytes were just qualified under the current read.
+pub(crate) enum ExecutionAcquisition {
+    Restored(AcquiredExecution),
+    Retained(Arc<super::super::NumericalArtifact>),
+}
+
 fn transfer_error<E: std::fmt::Debug + std::fmt::Display>(
     error: pse_math::transfer::TransferError<E>,
     admission: impl FnOnce(E) -> PortableError,
@@ -364,7 +371,7 @@ pub(crate) async fn reuse_execution_current(
     namespace: &ValidatedReplayNamespace,
     request: Arc<NumericalObservationRequest>,
     cancelled: &Arc<AtomicBool>,
-) -> Result<Option<AcquiredExecution>, PortableError> {
+) -> Result<Option<ExecutionAcquisition>, PortableError> {
     let mut after = String::new();
     loop {
         receiving_checkpoint(cancelled, namespace.deadline)?;
@@ -392,6 +399,16 @@ pub(crate) async fn reuse_execution_current(
             return Err(PortableError::Qualification(
                 "numerical product extent".into(),
             ));
+        }
+        if let Some(retained) = service.retained_numerical_artifact(&request)
+            && retained.execution.encoded.as_slice() == product.payload()
+        {
+            // Qualification above still hydrates and authenticates the current
+            // protected candidate, so a warm entry cannot hide corrupt storage.
+            // Identical bytes have already passed the full passive/custody checks;
+            // keep the existing realized template instead of restoring it again.
+            receiving_checkpoint(cancelled, namespace.deadline)?;
+            return Ok(Some(ExecutionAcquisition::Retained(retained)));
         }
         let scratch = product
             .payload()
@@ -494,6 +511,6 @@ pub(crate) async fn reuse_execution_current(
             },
         )
         .await
-        .map(Some);
+        .map(|execution| Some(ExecutionAcquisition::Restored(execution)));
     }
 }

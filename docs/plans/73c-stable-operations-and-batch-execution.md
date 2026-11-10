@@ -583,3 +583,45 @@ separate, and no repo-wide health checks are requested by this checkpoint.
 profile/frame changes. Generated engineering crossings, native projections and schemas are
 published together with their declarations. This establishes current generated products;
 the active numerical/consumer tests retain their own verdicts.
+
+## Authored science, actions and fitting Study acceptance — 2026-11-10
+
+**Implemented, Tested — C03/C06.** The actual authored DIPPR100 heat/entropy table executes
+through interpreted and x4 profiles over eight original temperatures, including adjacent
+floating-point values around the reference temperature and the original zero-temperature
+refusal. Repeated point IDs and repeated calls retain their original rows and reuse preparation.
+Independent heat/entropy answers cover both the reference difference and temperature ratio.
+Its original scientific domain predicate contains a lazy branch. The packed eligibility gate
+was corrected to permit those scalar, effect-only domain/applicability predicates before
+pure lane execution, while continuing to refuse numeric output branches and providers.
+The actual cold numerical receiver also passed all three execution profiles after producer
+exit; 73b owns the receiving evidence and source-authority distinction.
+
+**Implemented, Tested — C05.** Packed direct Jv, transposed-Jacobian, weighted-Hessian and
+Hessian-vector actions use ordinary runtime seed/weight inputs, shared scalar/action
+binding and actual supplier lane packing. Failed rows retain original IDs and are excluded
+before gathering. Selected products do not request an unnecessary Second family, and a zero
+weight does not erase the original domain guard. The command
+`scripts/pse test pse-math --lib --features compiled-evaluator -E 'test(ordered_x4_action_) | test(ordered_x4_direct_) | test(ordered_x4_scalar_scientific_)'`
+passed **8/8**, with zero warnings and zero failures against baseline zero. This includes the
+combined four-products/one-operation control, changing seeds and weights, scalar tails,
+finite selected curvature, lazy inactive-log predicates and original cancellation before
+entry and after a complete 256-row segment. An earlier combined action invocation timed out;
+the split controls and the original combined control subsequently passed without increasing
+the timeout. No cause or timing improvement is claimed for that observation.
+
+**Implemented, Tested — C06.** An actual declared ordered fitting Study uses the production
+fitting/population path with point order90/10/70, independent fitted-parameter and prediction
+answers, original run IDs, a structured original child-binding Domain failure, dependent
+point disposition and pre-entry cancellation without an attempt/result. The command
+`scripts/pse test pse-runtime --lib --features compiled-evaluator,solver-ipopt -E 'test(=workflow::study_operations::study_population_tests::ordered_study_fitting_population_keeps_original_points_failures_and_cancellation)'`
+passed **1/1**, zero warnings and zero failures against baseline zero. The fixture explicitly
+selects stationarity/complementarity tolerances consistent with its numerical assertions;
+the earlier default KKT tolerance did not justify that assertion. The control now belongs to
+the actual `solver-ipopt` test module rather than a broader hidden `native-solvers` module.
+
+The four-test runtime selection recorded in 73b passed the authored caloric, cold numerical
+and symbolic continuation cases and failed the initial Study spelling. The corrected Study
+above is the affected rerun. C03/C05/C06 retain final checked-construction integration and
+zero-input constant-call controls before their package state closes. No general workspace
+health check, exhaustive solver/backend qualification or measured speedup is claimed.

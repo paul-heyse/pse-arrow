@@ -47,6 +47,22 @@ impl NumericalArtifact {
 }
 
 impl MathService {
+    /// Read the existing profile-qualified owner; passive canonical receiving may
+    /// reuse it only after authenticating the exact same canonical payload.
+    pub(crate) fn retained_numerical_artifact(
+        &self,
+        request: &NumericalObservationRequest,
+    ) -> Option<Arc<NumericalArtifact>> {
+        let key = Key::Numerical(request.key(), request.profile().optimization.evaluator);
+        match self.entries.get(&key) {
+            Some(Value::Numerical(artifact))
+                if artifact.request().request_bytes() == request.request_bytes() =>
+            {
+                Some(artifact)
+            }
+            _ => None,
+        }
+    }
     /// Run the same execution-only assembly over an ordered Value population.
     pub(crate) async fn evaluate_numerical_observation_batch(
         self: &Arc<Self>,
@@ -176,12 +192,27 @@ impl MathService {
         workspace: Workspace,
         request: Arc<NumericalObservationRequest>,
         recipe: NumericalObservationBuildRecipe,
-        received: Option<portable::AcquiredExecution>,
+        received: Option<portable::ExecutionAcquisition>,
         driver: &crate::CancelSource,
     ) -> Result<Arc<NumericalArtifact>, MathRuntimeError> {
         let driver = self.preparation_driver(driver)?;
+        let received = match received {
+            Some(portable::ExecutionAcquisition::Retained(artifact)) => {
+                if artifact.request().request_bytes() != request.request_bytes()
+                    || artifact.request().profile().optimization.evaluator
+                        != request.profile().optimization.evaluator
+                {
+                    return Err(MathRuntimeError::Internal(
+                        "retained numerical acquisition request changed".into(),
+                    ));
+                }
+                return Ok(artifact);
+            }
+            Some(portable::ExecutionAcquisition::Restored(execution)) => Some(execution),
+            None => None,
+        };
         let key = Key::Numerical(request.key(), request.profile().optimization.evaluator);
-        if let Some(Value::Numerical(artifact)) = self.entries.get(&key) {
+        if let Some(artifact) = self.retained_numerical_artifact(&request) {
             return Ok(artifact);
         }
         let _ = self.preparation_driver(&driver)?;
@@ -205,7 +236,7 @@ impl MathService {
             attribution.shared_producer_at("math.numerical.producer", pse_diagnostics::observation::current())
                 .instrument(population.run(async move {
                     let _descriptor_owner = descriptor_owner;
-                    if let Some(Value::Numerical(artifact)) = service.entries.get(&key) { return Ok(artifact); }
+                    if let Some(artifact) = service.retained_numerical_artifact(&request) { return Ok(artifact); }
                     let execution = if let Some(received) = received {
                         if received.request().request_bytes() != request.request_bytes() {
                             return Err(MathRuntimeError::Internal("numerical acquisition request changed".into()));

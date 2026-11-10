@@ -18,7 +18,9 @@ use std::sync::{Arc, Mutex, atomic::AtomicBool};
 
 mod numerical;
 pub use numerical::AcquiredExecution;
-pub(crate) use numerical::{capture_execution, publish_execution_current, reuse_execution_current};
+pub(crate) use numerical::{
+    ExecutionAcquisition, capture_execution, publish_execution_current, reuse_execution_current,
+};
 
 const INTERPRETATION: &str = "pse.runtime.admitted-body-product.v5";
 const OBSERVATION_WORK_BYTES: usize = pse_buildinfo::identity::OBSERVATION_WORK_BYTES;

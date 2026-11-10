@@ -102,7 +102,8 @@ async fn canonical_numerical_child() {
     let mut options =
         pse_operations::canonical::CanonicalOptions::from_state(Path::new(&state)).unwrap();
     options.database = context.database.clone();
-    let store = CanonicalStore::connect(&options).await.unwrap();
+    let store =
+        pse_operations::native_fixture::canonical_fixture_with_options(&options, false).unwrap();
     store.open().await.unwrap();
     let local = crate::workflow::tests::runtime();
     let runtime = crate::workflow::Runtime::from_shared(
@@ -439,7 +440,7 @@ async fn canonical_numerical_child() {
                     .then(|| artifact.request().clone())
             })
             .unwrap();
-        let read = SelectedRead::new(
+        let mut read = SelectedRead::new(
             store
                 .protect(
                     package.canonical_revision().unwrap().clone(),
@@ -460,6 +461,22 @@ async fn canonical_numerical_child() {
             .unwrap()
             .unwrap();
         let key = candidate.key().to_owned();
+        let expected = math.retained_numerical_artifact(&request).unwrap();
+        let received = reuse_execution_current(
+            math,
+            &store,
+            &mut read,
+            &namespace,
+            request,
+            &Arc::new(AtomicBool::new(false)),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        let ExecutionAcquisition::Retained(retained) = received else {
+            panic!("identical qualified warm bytes must reuse the admitted realization");
+        };
+        assert!(Arc::ptr_eq(&retained, &expected));
         read.finish().await.unwrap();
         crate::workflow::fixture_controls::corrupt_product_block(&store, &key)
             .await
@@ -511,7 +528,7 @@ async fn canonical_numerical_observation_survives_producer_exit_without_source_r
         "canonical_test_numerical_receiver_{}",
         pse_operations::mint_id::<SemanticId>().to_hex()
     );
-    let _fixture =
+    let fixture =
         pse_operations::native_fixture::canonical_fixture_with_options(&options, true).unwrap();
     let directory = tempfile::tempdir().unwrap();
     let file = directory.path().join("receiving.json");
@@ -542,7 +559,5 @@ async fn canonical_numerical_observation_survives_producer_exit_without_source_r
             String::from_utf8_lossy(&output.stderr)
         );
     }
-    let store = CanonicalStore::connect(&options).await.unwrap();
-    store.open().await.unwrap();
-    store.remove_isolated_fixture().await.unwrap();
+    fixture.remove_isolated_fixture().await.unwrap();
 }

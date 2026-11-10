@@ -2405,7 +2405,7 @@ pub(super) fn evaluate_experiment(
 /// Derivative-only observations use the fit's production job owner too: actual
 /// threads, prepared extent, task clock and foreign allowance remain admitted
 /// until the evaluator and native thread have been destroyed and joined.
-#[cfg(test)]
+#[cfg(all(test, feature = "solver-diffsol"))]
 pub(super) async fn with_admitted_fit_oracle(
     problem: Arc<FitProblem>,
     math: Arc<MathService>,

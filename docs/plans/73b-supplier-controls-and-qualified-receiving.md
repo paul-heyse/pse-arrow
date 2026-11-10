@@ -69,8 +69,8 @@ Preserve [maintained bounded roots](../../vendor/symbolica-bounded-roots.md), pa
 | [B02](#B02) | in-progress | B01 implemented control interface | Checked construction/vectorization/optimization consumed; corresponding expansion mirrors/rebinding removed. |
 | [B03](#B03) | in-progress | B01 interface; C01 supported-head descriptors | Checked scalar/x4 C++ export and native caller migration cover stable heads/source overlap; replaced exporter predictors removed. |
 | [B04](#B04) | complete | A01 module scenario; B01 preservation contract | Composer backport/rebase versus no-adoption decision implemented with A04, preserving maintained source contracts/provenance. |
-| [B05](#B05) | in-progress | A01 binding/custody slice; working C02 interpreted products; C01 identities | Numerical-only production receiver includes stable Value/First/Second cold after producer retirement; replaced consumer encoding/replay retired. |
-| [B06](#B06) | in-progress | A01 source/guard contract; B05 early custody conventions | Guarded symbolic production continuation or justified single typed-replay branch delivered with actual later-symbolic consumer and retired replaced path. |
+| [B05](#B05) | complete | A01 binding/custody slice; working C02 interpreted products; C01 identities | Numerical-only production receiver includes stable Value/First/Second cold after producer retirement; replaced consumer encoding/replay retired. |
+| [B06](#B06) | complete | A01 source/guard contract; B05 early custody conventions | Guarded symbolic production continuation or justified single typed-replay branch delivered with actual later-symbolic consumer and retired replaced path. |
 | [B07](#B07) | in-progress | B02–B06 actual caller deliveries | Adversarial receiving/control integration and source-level retirement complete; evidence handed to H. |
 
 <a id="B01"></a>
@@ -558,3 +558,34 @@ exits before a receiver requests previously absent class and Second evidence, re
 original temperature domain and independent heat-capacity derivatives. The runtime canonical
 continuation is still under test. B01/B02 checked exact construction and B07 final cutover
 remain open; these checkpoints do not close A/B/C or H qualification.
+
+## Actual receiving and continuation acceptance — 2026-11-10
+
+**Implemented, Tested — B05.** The actual canonical producer publishes Value, First and
+selected Second, then exits. A fresh receiving process starts without a mathematical symbol
+pool and uses the protected canonical reader, compiler-issued original request and
+execution-only assembly. Its interpreted, scalar-native and x4 realizations reproduce
+independent reordered-axis values, Jacobians and Hessians, including tiny and extreme
+inputs. A joint-zero value remains valid while its singular Second request refuses. No
+admitted symbolic body or source scalar-family construction is acquired on a numerical hit.
+Current pre-cancellation and the original expired deadline refuse. An identical authenticated
+warm payload reuses the actual existing artifact Arc, while corruption of that same present
+canonical candidate still refuses; a warm cache cannot bypass protected reading.
+
+**Implemented, Tested — B06.** Actual authored canonical typed replay supports a new class
+request and previously absent Second derivatives, preserving original domain and instance
+attribution. An unbounded denominator obligation correctly leaves class discovery pending;
+an explicitly positive case box establishes that premise before a non-affine witness can be
+returned. This corrected a test assumption that a nonzero sampled point established a
+whole-domain premise. Corrupt present recipes refuse even after successful local preparation.
+The fresh-process caloric continuation remains a separate compiler acceptance control.
+
+The receiving, authored caloric and symbolic continuation tests passed in the four-test
+selection
+`scripts/pse test pse-runtime --lib --features compiled-evaluator,solver-ipopt -E 'test(canonical_numerical_observation_survives_producer_exit_without_source_reconstruction) | test(ordered_authored_caloric_table_) | test(authored_canonical_replay_) | test(ordered_study_fitting_population_)'`.
+That invocation had **3 passed, 1 failed**, against baseline zero: the Study fixture used an
+unsupported authored `ln` spelling. The receiving and continuation tests themselves passed;
+the corrected Study has its own successful acceptance in 73c. These are the actual production
+journeys required by B05/B06. B01/B02 and B07 remain open for the final checked alias/map
+cutover, removal of the remaining expansion mirrors and combined affected-path verification.
+H's assembled qualification remains separate.

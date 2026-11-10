@@ -221,7 +221,7 @@ pub(in crate::workflow) async fn population_package(
         pse_quantity::PhysicalPreconditions::new(pse_quantity::generated::standard_preconditions())
             .unwrap(),
     );
-    let mut rows=pse_authoring::language::parse("package p {def Root {param p:Scalar=2;let y:Scalar=p*p;} def Failed {param p:Scalar=-2;let y:Scalar=ln(p);}}",id(20),pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
+    let mut rows=pse_authoring::language::parse("package p {def Root {param p:Scalar=2;let y:Scalar=p*p;} def Failed {param p:Scalar=-2;let y:Scalar=log(p);}}",id(20),pse_authoring::language::IdentityPolicy::Named,pse_authoring::ParseBudget::default()).unwrap();
     let root = rows
         .iter()
         .find(|row| row.name == "Root")

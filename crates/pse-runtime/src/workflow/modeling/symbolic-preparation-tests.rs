@@ -274,29 +274,55 @@ async fn authored_canonical_replay_continues_with_new_second_class_and_original_
         base.case.compiled().presolve.class_status,
         pse_math::presolve::ClassStatus::Unassessed
     ));
-    // Class discovery and the previously absent Second request remain ordinary
-    // charged runtime consumers of the source-bearing mathematical capability.
-    let class = math
-        .discover_class(
-            base.case.clone(),
+    // A sampled nonzero value is not evidence that the original x!=0
+    // obligation holds over a free unbounded variable. Preserve that refusal.
+    let class_profile = crate::math::solves::SolverProfile {
+        intent: pse_backend_native::solve::SolveIntent::FeasiblePoint,
+        selection: pse_backend_native::solve::SolverSelection::Explicit(
+            pse_backend_native::solve::Backend::Highs,
+        ),
+        ..Default::default()
+    };
+    let pending = math
+        .discover_class(base.case.clone(), values.clone(), &class_profile, &[])
+        .await
+        .unwrap();
+    assert!(matches!(&pending.compiled().presolve.class_status,
+        pse_math::presolve::ClassStatus::Pending(dependencies) if dependencies.iter().any(|dependency|
+            matches!(dependency,pse_math::presolve::ClassDependency::UnestablishedObligation {..}))));
+    drop(pending);
+    // The class consumer explicitly admits a positive case box, establishing the
+    // original denominator condition. This new class work is charged normally;
+    // the unbounded source-bearing case remains the later derivative/domain control.
+    let class_case = package
+        .bound_case(
+            source.preparation(),
+            &model,
             values.clone(),
-            &crate::math::solves::SolverProfile {
-                intent: pse_backend_native::solve::SolveIntent::FeasiblePoint,
-                selection: pse_backend_native::solve::SolverSelection::Explicit(
-                    pse_backend_native::solve::Backend::Highs,
-                ),
-                ..Default::default()
-            },
-            &[],
+            &BTreeMap::from([(
+                x,
+                pse_compiler::workspace::ModelingVariableState {
+                    lower: Some(Some(1.)),
+                    upper: Some(Some(3.)),
+                    ..Default::default()
+                },
+            )]),
+            DerivativeOrder::Value,
+            crate::workflow::tests::compiler_profile(),
+            &driver,
         )
+        .await
+        .unwrap();
+    let class = math
+        .discover_class(class_case.case, values.clone(), &class_profile, &[])
         .await
         .unwrap();
     assert!(
         matches!(
-            class.compiled().presolve.class_status,
+            &class.compiled().presolve.class_status,
             pse_math::presolve::ClassStatus::RuledOut(
-                pse_math::presolve::ClassWitness::NonAffineRow { .. }
-            )
+                pse_math::presolve::ClassWitness::NonAffineRow { row }
+            ) if *row==cubic
         ),
         "{:?}",
         class.compiled().presolve.class_status
