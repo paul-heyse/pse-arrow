@@ -44,11 +44,11 @@ Cancellation stops issuance, settles live members and publishes incomplete origi
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| [F01](#F01) | open | Shared source/product contract; current case/overlay admission | Measure/transform/estimand/failure contracts and applicable decisions delivered with ordinary authored heater consumer. |
-| [F02](#F02) | open | F01 and original member execution | Fixed-weight scalar expectation applies the declared law, retains all outcomes and produces correctly scoped estimates. |
-| [F03](#F03) | open | F02 and source-qualified grid/statistics contracts | Adaptive iterations use frozen compatible snapshots, merge/update barriers, controls, cancellation and stream/state replay. |
-| [F04](#F04) | open | F02/F03 products and protected custody; C's working batch contract for eligible integration | Native operation, generated boundaries, protected publication, independent read/export and eligible batch consumer delivered; replaced expectation machinery deleted. |
-| [F05](#F05) | open | F01–F04 functional delivery | Independent analytic, failed-member, replay and settled-cancellation journeys available to H; all expectation source leads dispositioned with consequences. |
+| [F01](#F01) | paused | Shared source/product contract; current case/overlay admission | Measure/transform/estimand/failure contracts and applicable decisions delivered with ordinary authored heater consumer. |
+| [F02](#F02) | paused | F01 and original member execution | Fixed-weight scalar expectation applies the declared law, retains all outcomes and produces correctly scoped estimates. |
+| [F03](#F03) | paused | F02 and source-qualified grid/statistics contracts | Adaptive iterations use frozen compatible snapshots, merge/update barriers, controls, cancellation and stream/state replay. |
+| [F04](#F04) | paused | F02/F03 products and protected custody; C's working batch contract for eligible integration | Native operation, generated boundaries, protected publication, independent read/export and eligible batch consumer delivered; replaced expectation machinery deleted. |
+| [F05](#F05) | paused | F01–F04 functional delivery | Independent analytic, failed-member, replay and settled-cancellation journeys available to H; all expectation source leads dispositioned with consequences. |
 
 <a id="F01"></a>
 ### F01 — Admit a probability law and estimand against an ordinary physical case
@@ -160,3 +160,65 @@ owner with original per-occurrence completions. An unavailable required output w
 estimate and standard error, preserving original points/counts without a successful-subset mean.
 End-to-end heater, cancellation, replay and independent reader journeys remain required;
 F01–F05 are not yet closed.
+
+## Paused handoff — 2026-11-10
+
+The maintainer requested cancellation. F01–F05 remain unclosed and execution is paused.
+Changes are preserved in `2dbd7509e`, `645f9c69e` and shared integration history through
+`9200f3e7b`. No F test, fixture or managed scientific worker was left running by the cancelled
+acceptance jobs.
+
+**Implemented:** typed source-bound laws, normalized category attribution, physical coordinates,
+source-authored joint pushforwards, references/scales, fixed/adaptive native statistics and
+explicit invalid-law refusal. Missing required outputs withhold their estimates/errors.
+Operational loss remains separate from scientific failure. Early scientific stopping cannot
+complete a separately requested indicator over an unfulfilled population. Frozen original
+proposals, deterministic streams, native grid/statistics merge barriers and checkpoints retain
+source/supplier/child correspondence. The maintained nested-grid clone fix clears actual nested
+history. The current bounded adaptive replay profile admits at most 16 categorical levels
+(6*d+16 <=112 containers under the default 128-level JSON decoder); fixed and continuous laws
+retain the 64-total-coordinate bound. The maximum-depth regression is written but unrun.
+
+**Implemented:** a typed native parent controller composes immutable ordinary finite child
+studies; the existing managed worker reconstructs case or selected-observation members. The
+ordinary parent run publishes registered summaries, samples and typed estimates under a sealed
+manifest. Immutable journals support recovery rather than replacing published data. Public
+report/sample/estimate readers use protected original selections and retain custody through
+drain; pages cannot cross original child boundaries. Parent/report APIs return retained ownership.
+Native transport holds shared originals and admits each response copy. The public guide and real
+worker/RPC fixtures are present; the native journey has not yet qualified this implementation.
+
+**Tested, default Nextest, zero failure baseline:**
+`scripts/pse test pse-runtime --lib -E 'test(workflow::expectation::tests::)'` passed 8/8
+(`01a1c61b-4395-7037-aa95-1f21f899e4d3`). The strengthened missing-output/early-indicator case
+`scripts/pse test pse-runtime --lib -E 'test(=workflow::expectation::tests::expectation_missing_output_is_not_renormalized_and_operational_loss_is_not_failure)'`
+passed 1/1 (`01a1c63d-5c0f-756e-a1f5-6a39eebb60ed`). These include actual local study/batch and
+scalar arithmetic, joint transforms and finite normalization/replay controls. The local batch
+used the Interpreted evaluator; it is not CompiledX4 evidence. The supplier nested-clone
+regression separately passed 1/1.
+
+**Cancelled before compilation:** actual native/RPC acceptance
+`01a1c64f-324e-7645-bfc4-c2a1688462c4` and maximum-depth/replay regression
+`01a1c64e-7f0b-76e9-8694-e54ec8a2bbe3` both settled completely with no pending native lifetime.
+Neither launched its fixture/worker. The native command is
+`scripts/pse test pse-runtime:native_boundary_acceptance --features engineering-service,native-service,product-operators,solver-scip,solver-ipopt -E 'test(=expectation::public_native_expectation_heater_preserves_law_children_and_independent_reading)'`.
+
+### Required work on resumption
+
+1. Correct `ExpectationReport.completed_iterations`: it currently follows `state.next_iteration`
+   and therefore includes a settled operationally incomplete child. Keep settled/recorded child
+   ordinal separate from completed committed barriers. Cancellation in the first child must
+   report zero committed iterations; cancellation after one seal must preserve one. Add the
+   corresponding kernel/native assertions and validate restored checkpoint counts. This fix
+   was identified immediately before STOP and was not started.
+2. Run the written 16-level populated-history/checkpoint/next-population replay test and
+   17-level adaptive refusal control. Do not claim deeper adaptive profiles from transitive
+   serde features; reopen deeper laws with a qualified codec/supplier state route.
+3. Explicitly select CompiledX4 and exercise batch/scalar agreement and authored joint transforms
+   with compiled-evaluator enabled. The existing default batch pass does not fulfill that profile.
+4. Execute the actual native/RPC heater, 1050/875 W laws, exact 64-point independent finite
+   oracles, missing-output/indicator, cancellation before/after a barrier, original child replay,
+   sealed publication, independent source-free reader/export and cleanup journeys. Repair failures.
+5. Finish the requested Clippy campaign and reconcile final package/evidence state. H retains
+   the broader assembled campaign; Plan66 has not been edited or resumed.
+

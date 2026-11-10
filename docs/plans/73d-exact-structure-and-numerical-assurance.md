@@ -229,12 +229,12 @@ contract; they do not wait for an unrelated old supplier package.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| [D01](#d01) | open | Coordinator decision route; A's admitted original-product and binding contract | Exact/assurance request, claim and refusal semantics implemented with source/domain attribution. |
-| [D02](#d02) | open | D01; A's working selected-product demand/lifetime | Class evidence and coefficient projection consume compatible shared exact views; replaced repeated extraction deleted; sparse demand preserved. |
-| [D03](#d03) | open | D01–D02; native matrix condition/provenance support | Selected parameter-block diagnostic delivered at ordinary/exceptional values; reduction investigation disposition and any selected implementation complete. |
-| [D04](#d04) | open | D01; A's working exact evaluator product; B's supplier-qualified mapping/error contract | Chosen-precision and propagated-error diagnostics integrated without stronger false claims; certified conversion consumers migrated. |
-| [D05](#d05) | open | D01; D04's claim/result path; checked supplier bridge and provenance | Real supported arithmetic enclosure executable through native evaluator; unsupported program and singular interval outcomes explicit. |
-| [D06](#d06) | open | D02–D05; E's protected presentation consumer when exposing mathematical output | Witness/root/conversion preservation, conditional dispositions, original-result readers and all in-scope replacement deletions accepted. |
+| [D01](#d01) | paused | Coordinator decision route; A's admitted original-product and binding contract | Exact/assurance request, claim and refusal semantics implemented with source/domain attribution. |
+| [D02](#d02) | paused | D01; A's working selected-product demand/lifetime | Class evidence and coefficient projection consume compatible shared exact views; replaced repeated extraction deleted; sparse demand preserved. |
+| [D03](#d03) | paused | D01–D02; native matrix condition/provenance support | Selected parameter-block diagnostic delivered at ordinary/exceptional values; reduction investigation disposition and any selected implementation complete. |
+| [D04](#d04) | paused | D01; A's working exact evaluator product; B's supplier-qualified mapping/error contract | Chosen-precision and propagated-error diagnostics integrated without stronger false claims; certified conversion consumers migrated. |
+| [D05](#d05) | paused | D01; D04's claim/result path; checked supplier bridge and provenance | Real supported arithmetic enclosure executable through native evaluator; unsupported program and singular interval outcomes explicit. |
+| [D06](#d06) | paused | D02–D05; E's protected presentation consumer when exposing mathematical output | Witness/root/conversion preservation, conditional dispositions, original-result readers and all in-scope replacement deletions accepted. |
 
 <a id="d01"></a>
 ### D01 — Admit exact and assurance requests
@@ -473,3 +473,56 @@ The original selected core batch passed 36 tests; the second diagnostic/Gram/roo
 16 tests. Compiler source admission, retained reduction use, final supplier controls and the
 ordinary native mathematical publication/reader are still being integrated and qualified.
 These bounded passes do not close D01–D06 or qualify physical feasibility.
+
+## Paused handoff — 2026-11-10
+
+The maintainer requested cancellation and a handoff. D01–D06 remain unclosed and execution
+is paused; no further implementation or qualification is running. The implementation is
+preserved through `4aa7293a1` and the shared integration commits. Paused package status does
+not mean the delivered mathematics is absent.
+
+**Implemented:** `ExactObjective` views now feed class evidence and coefficient extraction,
+replacing eligible objective derivative classification followed by repeated polynomial
+expansion. Sparse affine proofs and nonpolynomial witnesses remain. Controlled native
+`system_to_matrix_with`/`row_reduce_with` supply exact ranks, parameter exclusions, original-row
+witnesses and recovery. Regular parameter values consume retained reductions; exceptional
+values re-extract the original equations. Original residuals, domains and bounds independently
+check applicability. The source-aware `MathematicalDiagnosticOperation` reaches the ordinary
+mathematical publisher through `diagnose_selected_mathematics`.
+
+**Implemented:** true-domain DoubleFloat/Float/ErrorPropagatingFloat diagnostics, certified
+nearest rational coefficient/conic conversion, and restricted directed RealBall execution.
+Exact source literals, fixed inputs and representation scales retain their canonical binary64
+bits as rationals under distinct preparation identities and bounded construction. Compiler
+source admission precedes simplification; the supplier independently checks final instructions.
+The former selected general-evaluation/`to_f64` conversion branches are replaced. LDLᵀ/Gram,
+negative-direction and cubic-root certificates retain their existing authority. Native
+`sub_mul_assign` consolidates the Schur update without a measured speed claim.
+
+**Tested, default Nextest, zero failure baseline:** the selected diagnostic/coefficient/class
+batch passed 36 tests, and the diagnostic/Gram/root/conversion batch passed 16. The actual
+authored accounting and ball value/first/second-partial runtime journey passed. After fixing
+shared non-solver numerical-policy publication,
+`scripts/pse test pse-runtime --lib -E 'test(mathematical_diagnostic_original_reader)'`
+passed 1/1 (`01a1c641-e50a-7667-8a33-2c8f33cd3753`). The independent protected reader preserves
+the original precision, formula, source revision and manifest after source evolution and
+scientific-service retirement; incomplete and mismatched selections refuse without changing
+the stored attempt. These results do not establish native RPC acceptance.
+
+**Cancelled:** the actual HTTP/2 diagnostic journey
+`scripts/pse test pse-runtime:native_boundary_acceptance --features engineering-service -E 'test(public_native_diagnostic_rpc_)'`
+(`01a1c64e-782c-7160-bbba-f16df973793f`) stopped before compilation, with complete settlement
+and no pending native lifetime. It remains required on resumption. D-owned reported Clippy
+findings were corrected; the final workspace Clippy verdict remains unestablished, as recorded
+in the coordinator handoff.
+
+**Settled bounded decisions:** ordinary elimination suffices for the actual small accounting
+block; reopen on consequential coefficient growth or a domain failure requiring a complete
+fraction-free/modular/witness route. Interior rational search remains unselected without strict
+interior/contraction guarantees. Complex balls require a typed complex consumer; `nsolve` a named
+nonlinear estimate consumer; rational explanations an explicit changed-value/difference or
+containment demand. These are decisions rather than unfinished substitutes for selected scope.
+All resulting claims remain diagnostic: no solver seed permission, physical feasibility or
+empirical applicability is inferred. Ball support is limited to the admitted real basic-arithmetic
+profile. H retains assembled qualification.
+

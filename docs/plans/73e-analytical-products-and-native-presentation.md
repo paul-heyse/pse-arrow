@@ -266,11 +266,11 @@ files require editing coordination even where package prerequisites are otherwis
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| [E01](#e01) | open | Coordinator decision route; A's admitted-product/coordinate contract; D01 claim vocabulary | Selected analytical/indexed request and original-result semantics admitted, including physical/source support and honest refusal. |
-| [E02](#e02) | open | E01; A's working selected definitions/derivative product | Real caloric derivative/series/identity operation delivered, including ordinary authored correlation and independent exact case. |
-| [E03](#e03) | open | E01; compiler finite-index membership and A binding correspondence | Native indexed canonicalization integrated for one admitted constitutive family with fixed physical/external axes. |
-| [E04](#e04) | open | E02–E03 result producers; D01 result envelope, D results as available | Native mathematical printers and protected original reader/export migrated, with source/physical correspondence and replaced presentation paths removed. |
-| [E05](#e05) | open | E02–E04 named consumer cases; exact-version companion evidence | Conditional lead decisions closed; selected extensions fully delivered; remaining leads carry specific evidence and reopen conditions. |
+| [E01](#e01) | paused | Coordinator decision route; A's admitted-product/coordinate contract; D01 claim vocabulary | Selected analytical/indexed request and original-result semantics admitted, including physical/source support and honest refusal. |
+| [E02](#e02) | paused | E01; A's working selected definitions/derivative product | Real caloric derivative/series/identity operation delivered, including ordinary authored correlation and independent exact case. |
+| [E03](#e03) | paused | E01; compiler finite-index membership and A binding correspondence | Native indexed canonicalization integrated for one admitted constitutive family with fixed physical/external axes. |
+| [E04](#e04) | paused | E02–E03 result producers; D01 result envelope, D results as available | Native mathematical printers and protected original reader/export migrated, with source/physical correspondence and replaced presentation paths removed. |
+| [E05](#e05) | paused | E02–E04 named consumer cases; exact-version companion evidence | Conditional lead decisions closed; selected extensions fully delivered; remaining leads carry specific evidence and reopen conditions. |
 
 <a id="e01"></a>
 ### E01 — Admit selected analytical and indexed operations
@@ -514,3 +514,57 @@ the mandatory derivative/series/identity consumer, while the compatible companio
 required complete scoped-control/cache contract. A named missing caloric antiderivative or
 an upstream controlled API is the reopen trigger. Padé and bounded integer-relation research
 remain selected work. Native and source-consumer acceptance is still open.
+
+## Paused handoff — 2026-11-10
+
+The maintainer requested cancellation. E01–E05 remain unclosed and execution is paused.
+Source and generated changes are preserved through `8de824055`, `4016b64c5`, `d001fad57`
+and the shared integration/Clippy commits. No E build, test or generation remains running.
+
+**Implemented:** compiler `AnalyticalOperation` selects original source regions and physical
+contracts; `SelectedExpression` uses controlled native derivative/series operations and checked
+rational identity normalization. Exact canonical binary64 literals/scales have a separate,
+bounded source realization and preparation identity. Stable log primitives project to builtin
+logs for analytical work with original guards retained. Requested series depth is distinct
+from native remainder, ramification and termination. Source revision, occurrences, physical
+contracts, guards, arithmetic policy and supplier premises remain attached to the result.
+
+**Implemented:** specialization preserves original finite two-factor contractions before scalar
+expansion, including membership, factor families, fixed axes and binders. Native
+`canonicalize_tensors` receives group-qualified dummy names; fixed external identities remain
+fixed. No unproved original-to-canonical index permutation is invented. `AtomPrinter` and
+`PrintOptions` produce counted Symbolica/LaTeX/Typst views, stored through ordinary mathematical
+run/attempt/manifest custody and read without rerunning mathematics. These products grant
+DiagnosticOnly use. Scalar predicates on metadata-only products refuse. The ordinary numerical
+scalar expansion remains its separate execution path; no local tensor matcher or printer was added.
+
+**Tested, default Nextest, zero failure baseline:**
+`scripts/pse test pse-math pse-compiler --lib -E 'test(analytical_) or test(exact_source_arithmetic_)'`
+passed 17/17 (`01a1c637-d628-717a-a22a-32963f9e7fcb`). This covers controlled analytical work,
+resource refusals, exact algebraic verification, real authored decimal Shomate derivative/series/
+reference identities, indexed renaming/fixed-axis counterexamples and exact-versus-numerical
+preparation identity. The subsequent compiler context-refactor regression passed 3/3
+(`01a1c64e-6e0d-7300-b867-b4078df4dd84`).
+`scripts/pse test pse-codegen --lib -E 'test(registry_options_)'` passed 8/8
+(`01a1c646-9916-728c-a23d-3658a004b1f5`), including result-role/order interpretation, malformed
+facts and disagreement with original native IPC. `just codegen` completed all 16 targets.
+
+**Cancelled:** native analytical producer/protected-readback acceptance
+(`01a1c64e-7b96-7436-8784-39bd755aa831`, engineering-service selection) was interrupted with
+complete settlement and no pending native lifetime. Its observation is partial and supplies
+no native acceptance pass. Resume that actual source/service-retirement, printer and original
+readback journey and the metadata-only scalar-predicate acceptance. Final Clippy clearance
+remains pending at the coordinator; source fixes are not a passing campaign.
+
+**Conditional decisions:** controlled native Padé is selected for analytical candidates with
+formal congruence/degree/denominator checks, without executable-surrogate or error-bound authority.
+Bounded opt-in native PSLQ is selected; rounded candidates remain hypotheses, and only the admitted
+small exact-radical profile can receive native algebraic verification. Unsupported verification
+retains its reason. The compatible integration companion lacks the complete scoped-control/cache
+contract and adds no missing current caloric consumer; reopen on an actual missing antiderivative
+or suitable upstream controls. Interpolation, executable approximation, lattice recovery,
+additional complex/special-function execution, Spenso, richer Typst layout and combinatorial
+iteration remain unselected without their named sampled-data, numerical-error, recovery,
+branch, larger/sparse contraction, layout or mixed-index consumer. No bespoke fallback was added.
+The public usage guide is `docs/dev/native-workflow.md`. H retains assembled qualification.
+

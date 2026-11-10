@@ -93,7 +93,10 @@ Local targeted checks precede assembled scope-end qualification.
 [Plan73: Symbolica ecosystem improvements](73-symbolica-ecosystem-improvements.md) owns
 the selected mathematical, numerical, analytical and study improvements. The entire series
 executes before returning to Plan66; Plan66 retains its own scope and will be reconciled
-afterward. The companion package tables own current implementation and acceptance status.
+afterward. Execution of 73d–73f is paused at the maintainer's request; see the
+[paused handoff](73-symbolica-ecosystem-improvements.md#paused-handoff--2026-11-10).
+Native acceptance, the known F iteration-count correction and final Clippy clearance remain
+open. The companion package tables own current implementation and acceptance status.
 The coordinator records opportunity dispositions and the cross-series handoff.
 
 - [73a · Shared mathematical preparation](73a-shared-mathematical-preparation.md)

@@ -83,16 +83,16 @@ A/B changes to preparation identity or producer/receiver custody, D claim semant
 | O01 | resolved | 73a; 73b supplier compatibility | **Implemented, Tested:** [73a Outcome](73a-shared-mathematical-preparation.md#outcome), including consumed replacements, deletions and scoped acceptance. |
 | O02 | resolved | 73c; 73b control/receiving support | **Implemented, Tested:** [73c Outcome](73c-stable-operations-and-batch-execution.md#outcome), including consumed replacements, deletions and scoped acceptance. |
 | O03 | resolved | 73c | **Implemented, Tested:** [73c Outcome](73c-stable-operations-and-batch-execution.md#outcome), including consumed replacements, deletions and scoped acceptance. |
-| O04 | scheduled | 73d | Shared exact diagnostic products and selected elimination decision; sparse/witness countercases preserved. |
-| O05 | scheduled | 73d | Explicit numerical claims and supported certified arithmetic, with existing converter/root authority retained. |
+| O04 | in progress; paused | 73d | Shared exact diagnostic products and selected elimination decision; sparse/witness countercases preserved. |
+| O05 | in progress; paused | 73d | Explicit numerical claims and supported certified arithmetic, with existing converter/root authority retained. |
 | O06 | resolved | 73b | **Implemented, Tested:** [73b Outcome](73b-supplier-controls-and-qualified-receiving.md#outcome), including consumed replacements, deletions and scoped acceptance. |
 | O07 | resolved | 73b | **Implemented, Tested:** [73b Outcome](73b-supplier-controls-and-qualified-receiving.md#outcome), including consumed replacements, deletions and scoped acceptance. |
-| O08 | scheduled | 73a mapped reuse; 73e indexed mathematics | Bindings transported with original premises; native indexed inspection; graph matching and Spenso decisions. |
+| O08 | in progress; paused | 73a mapped reuse; 73e indexed mathematics | Bindings transported with original premises; native indexed inspection; graph matching and Spenso decisions. |
 | O09 | scheduled | 73g | Finite candidate family and ordinary admission/science/reader, including incomplete generation. |
-| O10 | scheduled | 73f | Explicit measure/estimand, adaptive estimator, failure semantics and replay. |
-| O11 | scheduled | 73e | Source-linked derivative/series/identity outcomes and finite analytical-extension decisions. |
+| O10 | in progress; paused | 73f | Explicit measure/estimand, adaptive estimator, failure semantics and replay. |
+| O11 | in progress; paused | 73e | Source-linked derivative/series/identity outcomes and finite analytical-extension decisions. |
 | O12 | scheduled | 73a lifetimes; 73h build decisions | Remove actual repeated representations; close build/streaming/backend decisions without speculative speed claims. |
-| O13 | scheduled | 73e | Native presentation through protected readers; finite richer-report decision. |
+| O13 | in progress; paused | 73e | Native presentation through protected readers; finite richer-report decision. |
 
 ### Detailed lead ownership and completion
 
@@ -177,3 +177,44 @@ The completed A/B/C companions and source reviews remain inputs to active later 
 particularly 73h, so they are retained until those dependencies release. No existing Plan66
 state has been edited; its later handback remains H03's responsibility. Repo-level health
 qualification was not run under the operator's parallel-work instruction.
+
+
+## Paused handoff — 2026-11-10
+
+**Execution paused at the maintainer's request.** All active D–F builds/tests and Clippy
+processes were cancelled. Do not automatically resume. A–C retain their prior completion;
+D–F remain unclosed, and G/H retain their existing scope. The companion paused-handoff sections
+own delivered mechanisms, remaining acceptance and known defects. Plan66 remains unchanged.
+
+**Implemented:** D–F source, native declarations, ordinary result publication, protected readers,
+supplier fixes and source receipts are integrated on main. Relevant history includes
+`98322f057`, `4aa7293a1`, `d001fad57` and `9200f3e7b`. Git inventory found only the main checkout:
+there were no linked worktrees to merge or delete and no unresolved merge entries. Current
+source edits were preserved rather than discarded on cancellation.
+
+**Tested, zero failure baseline:** the shared construction regression
+`scripts/pse test pse-math --lib -E 'test(library::admission::tests::scalar_) | test(regional_products_) | test(stable_)'`
+passed 20/20, default Nextest (`01a1c63b-d71d-7741-bfbb-7f7c9508a05d`). The companion evidence
+covers the selected D/E/F kernels, source consumers and D protected original reader. E's
+`just codegen` completed all 16 targets. Independent archive/delta reconstruction matched all
+166 Symbolica and 52 Numerica tracked paths, bytes and modes. These are scoped passes, not
+native D–F or whole-series completion, measured speedups or full product qualification.
+
+**Clippy is not cleared.** Completed `just clippy` default/no-default attempts failed against
+the zero-warning target. Reported issues were corrected in source and generators, including
+borrowed scalar requests, coherent region/contraction contexts, source-owned derived defaults
+and negative-probe error handling. The subsequent `just clippy` attempt
+(`01a1c64e-7965-7726-8cd1-8cd87b775aa9`) was cancelled; interruption left incomplete child
+result observation, so no passing verdict is available. The additional workspace
+`just clippy-default --features pse-runtime/engineering-service,pse-runtime/native-service,pse-runtime/product-operators,pse-runtime/solver-scip,pse-runtime/solver-ipopt,pse-runtime/compiled-evaluator`
+was also cancelled. Both Clippy process groups exited and process inspection found no Clippy
+driver remaining. Repeat both default modes and the selected native/compiled feature coverage
+on resumption, then fix every actual error/warning before claiming clearance.
+
+The repaired stable-head negative probe's rerun (`01a1c650-27b5-70a6-b11a-2c75c62e939f`)
+was cancelled before compilation, with complete settlement and no pending native lifetime.
+Its final error-conversion edit therefore still needs the targeted integration-test rerun.
+D/E/F native acceptance and F's maximum-depth regression were cancelled and remain pending.
+F also owns an identified committed-iteration-count correction and explicit CompiledX4 evidence
+gap; these are listed in its handoff. No further checks or implementation were started after
+the cancellation request; this update records an incomplete checkpoint, not a completed plan.
