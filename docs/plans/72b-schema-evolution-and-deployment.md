@@ -77,7 +77,7 @@ requirements in passive preview. There is no claim that retained-data migration 
 
 ## Packages
 
-### Execution checkpoint — 2026-11-09
+### Execution checkpoint — 2026-11-10
 
 Execution is authorized under proposed ADR-0262. The shared target is one combined
 72b/72c schema/module cutover. The maintainer clarified during execution that existing
@@ -87,14 +87,19 @@ validated fresh target and actual authored-input obligations are accepted; dispo
 is explicit. No arbitrary configured target has been selected for reset. Authored
 source files/workspaces remain outside replacement authority. B01 exact frozen effect
 preview remains observational; unselected native conversions grant no execution capability.
-Plan71 is complete and its fixture/result custody is consumed. B01–B03 remain open until
-the selected reconstruction, physical handoff and original-operation recovery controls pass.
+Plan71 is complete and its fixture/result custody is consumed. Implementation is committed
+in `819b01bc6`; selected reconstruction passed before the final bootstrap improvement.
+At the maintainer's request to move on, final receiving and closeout remain pending.
+A post-format rerun selecting only `canonical-maintenance` matched zero tests because this
+target requires `native-service`; it is not a passing rerun. Resume with
+`scripts/pse test pse-operations --lib --features native-service,canonical-maintenance -E 'test(~fresh_reconstruction_rejects_nested_target)'`.
+No new implementation or dependency-ceiling investigation is authorized by this checkpoint.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| B01 | Planned | Current frozen input and preview owners; selected 72a contract as needed | Typed effect-bearing transition preview, identity and admission model ready for intended issuer; reconstruction/native/backfill choice explicit. |
-| B02 | Planned | B01; selected target/source mapping from A02/A03; required decision route | Chosen transition executes under original custody with native/supplier orchestration and a coherent writer/index policy; old rewrite/history machinery removed. |
-| B03 | Planned | B02 issued operation; actual affected consumers and protected readers | Completion, activation and recovery distinguish data/index/catalog facts; destructive cleanup and obsolete readers removed only at their safe cut. |
+| B01 | Implemented; receiving pending | Current frozen input and preview owners; selected 72a contract as needed | Typed exact effects and observational preview; empty reconstruction explicitly selected. |
+| B02 | Implemented; receiving pending | B01; selected target/source mapping from A02/A03; required decision route | Synchronous preparation and borrowed controller retain both physical owners; fresh v12 installation gates admission on actual index/module readiness. |
+| B03 | Implemented; receiving pending | B02 issued operation; actual affected consumers and protected readers | Original target reconciliation, checked ready handoff and explicit old-state disposal; unused v11 compatibility/backfill estate removed. |
 
 <a id="B01"></a>
 ### B01 — Admit exact transition intent and show its effects
@@ -167,4 +172,47 @@ effect cases, not a competing harness.
 Use scoped compile checks and targeted native fixture tests during implementation. Additional
 proof is restricted to unresolved migration/corruption/performance risks; clear deletion of rewrite
 or duplicated history machinery needs no benchmark. Scope-end receiving belongs to 72i.
-**Proposed:** no deployment, migration, runtime check or measured benefit occurred in authoring.
+The Outcome below records execution separately from the original authoring baseline.
+
+## Outcome
+
+**Implemented, 2026-11-10.** The selected transition is fresh empty v12 reconstruction,
+not retained-value conversion. Frozen preview admits bounded native migration clauses,
+cleanup, typed type/function/module removals and required migration barriers. Its current
+schema epoch comes from the actual catalog observation. Preview grants no mutation authority.
+Synchronous reconstruction preparation binds authentic stopped source identity, the target
+schema/module and original operation before launch. A caller-held controller retains both
+physical owners across borrowed launch/reconciliation; validated handoff and explicit source
+disposal remain separate effects. Target provenance survives source disposal and physical reopen.
+The operational API is documented in the [substrate guide](../dev/surreal-substrate.md#explicit-empty-reconstruction).
+
+**Tested.** Selected controls ran on Linux against the pinned source-built v4 service,
+using native correctness routes and their explicit force-validation where applicable. All
+rows below have a zero-failure target and the reported selected population passed:
+
+| Command / selected scope | Result |
+| --- | --- |
+| `scripts/pse test pse-operations --lib --features native-service,canonical-maintenance -E 'test(~transition_intent) or test(~frozen_native_migration) or test(~frozen_cleanup)'` | 4 passed, 0 failed; effect identity, cleanup/removal admission and native barrier requirements. |
+| `scripts/pse test pse-operations --lib --features native-service -E 'test(~fresh_reconstruction_rejects_nested_target)'` | 1 passed, 0 failed; real source/target startup, nested target and module refusal before factory, cancellation after launch, lost acknowledgement, original-operation reconciliation, replay refusal, distinct credentials/issuer, empty target, explicit disposal and reopened provenance. |
+
+### Mistakes made and corrected
+
+The first reconstruction API consumed the physical owner in an async future. Independent
+review exposed cancellation dropping that custody. The consuming API was deleted in favor
+of synchronous preparation and a borrowed controller; the native test cancels after actual
+target startup and recovers the same target. An early fixture passed unit rather than an
+object to native bindings; correcting the test setup exposed and then exercised the real path.
+
+### Deliberate choices and receiving limits
+
+**Implemented.** The maintainer's design-phase clarification supersedes preservation/backfill
+acceptance for this cutover. Unused v11 frozen compatibility inputs and conversion executor
+work were removed rather than retained as another production path. Native conversion and
+SurrealKit retained-history mechanisms remain unselected alternatives requiring an actual
+retained-data use case. Empty reconstruction does not import authored models or preserve
+scientific results. No configured deployment was reset, migrated or disposed.
+
+**Proposed receiving.** 72i owns assembled series qualification and eventual retirement;
+72f retains actual protected storage/history and physical reclamation scope. This companion
+remains available for downstream consumers of its selected transition contract. Expected
+simplification is qualitative; no measured performance benefit is claimed.

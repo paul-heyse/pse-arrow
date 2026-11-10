@@ -84,7 +84,7 @@ It does not supersede any plan or change Plan66 scientific acceptance.
 Use the [architecture](../authoritative_design/README.md) for enduring contracts.
 
 [Plan72: SurrealDB functional improvements](72-surrealdb-functional-improvements.md) is a
-draft series from the complete functional review. Its nine companions cover native contracts,
+series from the complete functional review. Its nine companions own their execution status and cover native contracts,
 schema evolution, canonical operations, graph/search, observation, persistence/delivery,
 developer workflows, diagnostics and integrated acceptance. Plans66 and 71 retain their own
 scope and status. Plan72 supersedes only Plan68, without importing its obligations.

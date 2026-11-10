@@ -62,24 +62,37 @@ ABI-5 `BINDINGS` do not own durable state. [Extension architecture](https://surr
 
 ## Packages
 
-### Execution checkpoint — 2026-11-09
+### Execution checkpoint — 2026-11-10
 
-Execution is authorized under proposed ADR-0262. Explicit transaction rendering and
-transport-owned single-result projection are being integrated before broad-guard
-retirement. The native readiness backend consumes source projection graphs supplied
-by the composing owner; the generator retains its existing dependency ceiling. Native
-read/mutation carriers can differ from portable Arrow rows without another editable
-model. C02 includes stored metadata and every affected policy consumer; a generated
-adapter alone is insufficient. C03 requires actual SSI races and C04 retains the
-constrained definer API and runtime patches. C01–C04 remain open until receiving tests
-and consumer/deletion obligations are complete.
+Execution is authorized under proposed ADR-0262. Explicit transaction rendering,
+transport-owned single-operation result projection, owner-derived native readiness and
+consumer migration are implemented together in the clean v12 contract. The composing
+owner supplies the projection graph, preserving the generator's ordinary dependency
+ceiling. Portable Arrow rows and native carriers retain separate boundary roles.
+The global study-publication row/event fanout and JSON policy adapters are deleted.
+Actual SSI/protection races, native/WASI policy and shared direct/API receipt controls
+have passed. The constrained definer API and runtime patches remain selected because
+they still discharge rollback, authority and physical custody obligations.
+
+Implementation is committed in `819b01bc6`. The maintainer requested moving on before
+final receiving/closeout; this plan remains active for that verification, with no further
+feature work identified. The compiler dependency-ceiling discussion is outside current
+work: use of Tokio alone does not establish dependency on product runtime code or ownership
+of product execution responsibilities. No library split or rule change follows from the
+transitive package name alone.
+
+A repeated default-concurrency selection exposed
+the engine's global index-build barrier: schema setup in one logical database can wait
+behind long writes in another. The initialization owner is being corrected to submit
+concurrent native index builds and validate exact required readiness before admission,
+under the original deadline. The earlier selected startup failures are not passing evidence.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| C01 | Planned | Actual operation/protection/read owners; required contract decisions | Typed intent-level procedures and explicit isolation used by affected canonical callers; replaced framing and incidental result interpretation removed. |
-| C02 | Planned | A01/A02 carrier meaning; C01 enclosing transaction | Typed shared readiness facts/decisions replace JSON adaptation across native/WASI consumers; preparation/custody remains explicit. |
-| C03 | Planned | C01 decision footprint; 72e dependency/freshness contract | Scope-appropriate native conflict coverage and one retry owner replace concurrency-only broad guards; authority/semantic fences retained. |
-| C04 | Planned | C01 operation contract; C02 policy where consumed | Direct/API access shares one operation policy with explicit authority; any replaced ingress or runtime patch is removed only at its covered boundary. |
+| C01 | Implemented; receiving pending | Actual operation/protection/read owners; required contract decisions | Explicit isolation and one transport-projected result; closed fresh bootstrap requires exact native readiness. |
+| C02 | Implemented; receiving pending | A01/A02 carrier meaning; C01 enclosing transaction | Source-owned native/WASI projections replace JSON policy adaptation across storage and runtime consumers; bounded raw admission precedes decoding. |
+| C03 | Implemented; receiving pending | C01 decision footprint; 72e dependency/freshness contract | Actual SSI capture replaces the global publication witness; one original-clock retry owner and semantic/authority fences retained. |
+| C04 | Implemented; receiving pending | C01 operation contract; C02 policy where consumed | Shared direct/API original receipts and explicit authority; constrained definer API and runtime controls deliberately retained. |
 
 <a id="C01"></a>
 ### C01 — Expose a complete operation and its isolation
@@ -177,5 +190,92 @@ Implementation uses scoped compile checks and targeted procedure/module/client t
 applicable force-validation. Move all affected consumers and delete replaced paths as they are
 proven, not in a later compatibility phase. Additional proof addresses serious degradation risks;
 no general performance proof is required for removing crossings, JSON conversion or broad conflict
-writes. Integrated receiving belongs to 72i. **Proposed:** no implementation, runtime test or
-measured benefit occurred during this plan's authoring.
+writes. Integrated series receiving belongs to 72i. Execution evidence follows separately
+from the original authoring baseline.
+
+## Outcome
+
+**Implemented, 2026-11-10.** Canonical mutation/custody and guarded-read operations use
+explicit serializable transactions. Pure observations use readonly snapshots; installation
+retains its deliberate writable snapshot exception. The transport checks all body and commit
+errors before exposing one operation result; caller statement-position arithmetic is removed.
+Protected history acquisition remains a guarded read, including authority registration.
+
+Owner-derived native projections now cover stored policy, facts, outcomes, action/start and
+readiness premises across SQL, native/WASI policy and runtime consumers. The generator receives
+the source projection graph from its composing owner without adding a normal model dependency.
+Generated encode/decode layout guards protect source correspondence. Raw tree admission precedes
+owned decoding and charges every node, payload and key; full unsigned values retain exact native
+U64 representation with checked wire widening. JSON-in-bytes policy adapters are deleted.
+Portable Arrow rows retain their own representation and do not become another semantic owner.
+
+The concurrency-only study-publication row, event fanout, helper calls and mechanism-specific
+fixtures are deleted. Exact selected-study lookup and native serializable positive/negative/range
+tracking protect atomic frozen capture. Semantic/issuer/lease fences, history, file-owner custody,
+original receipts and one original-clock retry owner remain. Empty selections avoid unrelated
+point scans. Captured-member paging uses an optional unsigned cursor, so the initial page includes
+ordinal zero without a signed sentinel.
+
+Fresh initialization now derives concurrent bootstrap index declarations and exact expected
+observations from the same source index registry. It commits definitions with admission
+closed, validates every actual index and the selected module, then atomically opens admission
+against the original marker/custody. Reentry resumes that same installation rather than
+replaying DDL. This replaces sequential global index-build waits during fresh setup; ordinary
+maintenance retains its blocking contract. A source-count-derived bootstrap metadata profile
+admits the complete index inventory within finite node/depth/byte limits and admits no blobs.
+
+**Implemented finite decisions.** The pure readonly Rust policy with visible SQL acquisition
+and publication is sufficient. Fixed generated adapters remove the descriptor decoding that
+might justify `init`; no immutable per-definition configuration requires ABI-5 `BINDINGS`.
+There is no selected transaction-access extension. The constrained definer control API and
+runtime admission/deadline/rollback/settlement patches remain because their required guarantees
+are not replaced by ordinary native HTTP response handling. Direct/API operations share original
+receipt meaning. Native engine constraints backstop representable structure; recursive diagnostics
+use native object edges with full generated Rust checks because recursive named types are
+unsupported by the selected engine.
+
+**Tested.** Selected controls used Linux, the pinned source-built v4 server/module and native
+correctness routes with explicit force-validation where applicable. The target is zero failures:
+
+| Command / selected scope | Result |
+| --- | --- |
+| `scripts/pse test pse-codegen --lib` | 107 passed, 0 failed; generation, native projections, source layout/kind checks and deterministic full-registry lowering. |
+| `scripts/pse test pse-study-module --lib` | 10 passed, 0 failed; native/WASI shared policy, aggregate limits, opaque input refusal and exact typed products. |
+| `scripts/pse test pse-operations --lib --features canonical-maintenance -E 'test(~canonical::bootstrap::tests)'` | 5 passed, 0 failed; actual closed bootstrap reentry keeps issuer/epoch and blocks ordinary opening, missing index remains closed, changed/failed/pending inventory refuses readiness, and the complete generated observation parses. |
+| `scripts/pse test pse-operations --lib --features canonical-maintenance -E 'test(~canonical_server_unit_exact_conflicts)'` | 20 passed, 0 failed; real native serializable point/range/absence races, protected reads, snapshot observations, whole-decision retry and disjoint writers. |
+| `scripts/pse test pse-operations:native_service --features canonical-maintenance -E 'test(~native_control_http_actor_grants_original_receipts_and_raw_envelopes)'` | 1 passed, 0 failed; direct/API original receipts, grants, denied/malformed/revoked authority and raw envelopes. |
+| Native operations typed full-u64 and nested diagnostic roundtrips | 2 passed, 0 failed against the installed module/schema. |
+| Native operations readiness/progression/refusal selection | 6 passed, 0 failed; existing policy and guarded publication behavior. |
+| `scripts/pse test pse-operations --lib --features native-service --run-ignored all` selecting the four module qualification/open cases, with exact prepared qualification receipt and `SURREAL_SURREALISM_MAX_TOTAL_CONTROLLERS=4` | 4 passed, 0 failed; missing/tampered module refusal, fault rollback/recovery, original pool expiry and cancelled apply receipt. The four-controller setting selects this fixture's bounded cold/deadline test, not a workstation resource cap. |
+
+### Mistakes made and corrected
+
+Native `FOR UPDATE` registration is not permitted in a readonly transaction, and the engine's
+lockset alone does not create a write conflict. Actual native tests corrected the initial
+observation/read classification while preserving mutation authority registration. Native parser
+receiving exposed recursive named-type and `FLEXIBLE` placement limitations; generated acyclic
+aliases plus literal recursive roots now respect the engine and retain full Rust validation.
+Two general renderer tests still supplied the full registry without its semantic graph; their
+composing calls were corrected and the complete 107-test suite passed. Early fixture setup
+failure was mistakenly reported as unsettled solely because Nextest never started; settlement
+now reads the actual fixture producer fact, with a regression control. A failed setup remains
+a failed/incomplete test execution.
+
+The repeated 69-case native selection initially had 66 passes and three fixture-initialization
+timeouts at normal 16-lane concurrency; the affected three passed alone, but that did not
+qualify the complete selection. Exact engine source showed each blocking index could wait
+behind unrelated datastore writers. Concurrent bootstrap plus closed admission addresses
+that mechanism without changing deadlines or lanes. Independent review also caught the
+new observation exceeding the small header budget and an ordinary open-only fence rejecting
+the deliberately closed marker; bootstrap-specific bounded admission and identity validation
+correct both defects before acceptance.
+
+### Deliberate choices and receiving limits
+
+**Implemented.** This is a direct clean-v12 cutover, with no JSON compatibility policy path or
+v11 result-preserving reader. Scientific policy still belongs to its existing owner; no solver
+or external side effect enters SQL rollback. No configured deployment was reset. 72e consumes
+the qualified canonical conflict model and still owns derived/follow freshness; 72f owns
+transport/lifetime and protected storage scope. 72i owns assembled journeys and eventual
+retirement. Expected reductions in interpretation, conversion and broad conflict writes are
+qualitative; no measured speedup is claimed.

@@ -1,6 +1,6 @@
 ---
 title: "Plan72: SurrealDB functional improvements"
-status: draft
+status: active
 date: 2026-11-09
 adrs: [ADR-0261, ADR-0262]
 doc_role: plan
