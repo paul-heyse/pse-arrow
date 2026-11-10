@@ -58,12 +58,27 @@ not an unsupported validity lease. Native grouped summaries and explicit reconst
 selected; maintained views/changefeed replay are not added. Plan73 scientific categories and
 original result authority remain their owners; capture SSI is not replaced by summaries.
 
+The current source provides native fixed-principal registrations, current study/run grouped
+summaries and evidence/knowledge generation following. The ordinary connection-only project
+reader observes one finite subscription window with bounded retained updates. The old delayed
+telemetry follow shortcut is removed; explicit one-shot per-attempt telemetry remains.
+Fresh principal registration, rather than same-session cached roles, revalidates authority
+within 30 seconds; dirty notifications cannot postpone that deadline. Summary run-header
+dependencies retain exact linked-run invalidation. Native loss, rollback, revocation and
+capture receiving remain pending and do not inherit a pass from compilation.
+
+Query-first grouped summaries preserve original lifecycle, settlement and usable-result facts.
+Existing 72c native predicate protection remains the capture owner; summaries grant no capture
+fence. No maintained view, feed cursor or generic broker is selected. Reopen retained aggregate
+maintenance for demonstrated repeated costly summary reads or a cross-process retained
+projection owner; arbitrary source-file edits still require original-cut reconstruction.
+
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| E01 | Planned | Current native client/service owners; O10 snapshot/continuity contract | Select and implement an owned native subscription surface with snapshot alignment, invalidation and settled cancellation. |
-| E02 | Planned | E01 owned subscriptions and current selected-state readers | Native study/run/evidence follow returns current snapshots and explicit resynchronization while preserving permission and custody. |
-| E03 | Planned | 72c chosen predicate/scoped guard contract; 72d composed selection | Shared query-first summaries and precise invalidation replace broad reconstruction/conflict work without missing dependencies. |
-| E04 | Planned | E03 explicit projection dependency/source identity | Select maintained/replayable projections where useful; otherwise retain on-demand/reconstruction and close each branch with its reason/trigger. |
+| E01 | In progress | Current native client/service owners; O10 snapshot/continuity contract | Select and implement an owned native subscription surface with snapshot alignment, invalidation and settled cancellation. |
+| E02 | In progress | E01 owned subscriptions and current selected-state readers | Native study/run/evidence follow returns current snapshots and explicit resynchronization while preserving permission and custody. |
+| E03 | In progress | 72c chosen predicate/scoped guard contract; 72d composed selection | Shared query-first summaries and precise invalidation replace broad reconstruction/conflict work without missing dependencies. |
+| E04 | In progress | E03 explicit projection dependency/source identity | Select maintained/replayable projections where useful; otherwise retain on-demand/reconstruction and close each branch with its reason/trigger. |
 
 <a id="E01"></a>
 ### E01 — Own the subscription and snapshot boundary

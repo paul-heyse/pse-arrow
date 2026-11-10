@@ -1,6 +1,6 @@
 ---
 status: current
-revision: 380
+revision: 381
 date: 2026-11-10
 ---
 
@@ -24,6 +24,7 @@ collection. Revisions 1–55 and the former single-file text are in Git history,
 
 | Revision | Date | Change | git |
 |---|---|---|---|
+| 381 | 2026-11-10 | Clarify frozen native path pages and capture export, query-first scientific summaries, retained sealed-file custody, passive original-producer persistence reads and truthful SurrealKit progress availability (§20.5, §21.7). | Proposed ADR-0267 implementation integration; Plan72d-h retain receiving status. |
 | 380 | 2026-11-10 | Propose complete native discovery, owned gRPC follow/batch delivery, explicit Collector export and spill readiness (§20.5, §21.7). | Proposed ADR-0267; authorized Plan72d-h execution, receiving remains with the owning companions. |
 | 379 | 2026-11-10 | Clarify independent failure-indicator population completion and typed publication of existing registered sample selection/sort facets, with unchanged protected result authority (§19.3.1). | Proposed ADR-0266 native-binding clarification before dependent projection implementation. |
 | 378 | 2026-11-10 | Clarify exact dyadic source realization and diagnostic-only mathematical authority (§14.3.4), and typed expectation-parent reconstruction, ordinary manifest publication, protected original-child pages and centered precision meaning (§19.3.1). | Proposed ADR-0265/0266 implementation clarification; owning plans retain acceptance status. |

@@ -2,7 +2,7 @@
 title: "Plan72: SurrealDB functional improvements"
 status: active
 date: 2026-11-09
-adrs: [ADR-0261, ADR-0262]
+adrs: [ADR-0261, ADR-0262, ADR-0267]
 doc_role: plan
 doc_owner: docs/plans/72-surrealdb-functional-improvements.md
 doc_topics: [current-work, design, deployment, storage, libraries, validation, diagnostics]

@@ -874,6 +874,22 @@ Tentative query batches retain original allocation and physical custody through 
 EOF and trailers. Releasing a batch does not reset cumulative query admission. Original
 effect acknowledgements and protected payload release remain separate capabilities.
 
+Evidence-bearing paths stage one bounded native read-only snapshot before exposing immutable
+pages. The owner retains its original deadline and allocation through those pages; continuation
+never refetches a mutable graph under an old cut. Expansion and retained bytes have independent
+bounds, and path scope/completeness remain explicit. Frozen study-member export consumes native
+batches under its original capture and publishes its staged file only after terminal success.
+Compact display counts preserve scientific lifecycle, settlement and usable-result categories;
+they are not capture concurrency fences. Query-first reconstruction remains selected over
+maintained views or feed replay for these disposable local projections.
+
+Protected artifacts retain sealed-file instance, extent, digest, publication and recovery custody.
+The selected local bucket backend does not supply fsynced atomic publication or recoverable
+no-clobber reservation failure; native bucket replacement reopens when that complete contract
+exists. Persistent MX remains the canonical metadata engine. A KV or remote topology change
+requires a concrete retained-history, capacity or participant need and the corresponding
+predicate-isolation/recovery decision, rather than a parallel canonical backend.
+
 > Decision: ADR-0264 (proposed; Plan73b B05 numerical execution product).
 
 The separately interpreted numerical execution description follows the existing protected

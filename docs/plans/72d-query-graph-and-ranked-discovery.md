@@ -73,12 +73,23 @@ selected lexical/graph retrieval; no embedding-model lifecycle is added. GQL and
 inverse collections remain unselected. Native relation occurrence/evidence identity survives.
 Shared generated publication has one integrator; current package tables retain acceptance.
 
+The current source implements complete selected-generation filtering, explicit selected-set
+scope and exact/ranked modes, best-excerpt BM25 with stable ties, and an atomically advanced
+ranking-population epoch. Native path execution stages one bounded read-only snapshot,
+including the root header, then pages frozen evidence without a mutable refetch cursor.
+The snapshot bytes/allocation and original deadline remain with pages; native activity ends
+at complete receipt. Structured project and developer readers consume these owners.
+Receiving is pending against the newly prepared server; pure parsing alone is not native
+query or permission evidence. The maintainer's lexical/graph choice closes semantic retrieval
+for this scope; a new corpus/model requirement is its revisit trigger. GQL and materialized
+inverses do not simplify the selected attributed, occurrence-preserving path question.
+
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| D01 | Planned | Current knowledge/query builders; owner-approved selection meaning | Complete selected-population predicates precede pagination; typed exact/bounded modes, cursors, projections and native count/existence access are integrated. |
-| D02 | Planned | D01 query contract; declared graph meaning and generated-schema changes from 72a where needed | Bounded multi-hop provenance/dependent explanations, occurrence/evidence-preserving relation choices and suitable native access replace client reconstruction. |
-| D03 | Planned | D01 selection/cursor contract and existing analyzer corpus | Ranked lexical mode, explanations of matches and deterministic continuation are delivered alongside exact lookup. |
-| D04 | Planned | D02 concrete path examples and D03 judged questions | Close the bounded GQL/materialization/semantic retrieval decisions; implement selected extensions or record explicit rejected branches and triggers. |
+| D01 | In progress | Current knowledge/query builders; owner-approved selection meaning | Complete selected-population predicates precede pagination; typed exact/bounded modes, cursors, projections and native count/existence access are integrated. |
+| D02 | In progress | D01 query contract; declared graph meaning and generated-schema changes from 72a where needed | Bounded multi-hop provenance/dependent explanations, occurrence/evidence-preserving relation choices and suitable native access replace client reconstruction. |
+| D03 | In progress | D01 selection/cursor contract and existing analyzer corpus | Ranked lexical mode, explanations of matches and deterministic continuation are delivered alongside exact lookup. |
+| D04 | In progress | D02 concrete path examples and D03 judged questions | Close the bounded GQL/materialization/semantic retrieval decisions; implement selected extensions or record explicit rejected branches and triggers. |
 
 <a id="D01"></a>
 ### D01 — Complete intent and native selection

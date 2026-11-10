@@ -52,12 +52,28 @@ Plan71 result references remain the operator route. Unrestricted MCP tools also 
 files; Viewer credentials alone cannot make that surface read-only. No MCP/SQL-wire/GraphQL
 listener is added. Plan71 is complete and supplies infrastructure, not a new execution scope.
 
+The current source extends the existing owned suite with a prebuilt connection-only native
+`--exec` consumer, independent full-u64/byte expectations, external failure/interruption and
+logical cleanup readback. It preserves original work and cleanup failures independently.
+Structured project commands consume native graph/path snapshots, compact study/run summaries,
+bounded follow and original-incarnation persistence observations. Existing schema/drift,
+transition and original-result commands retain their own owners. No terminal scraping or new
+report ledger is introduced. Compilation and native suite receiving remain open obligations.
+
+G04 selects the typed native route. The selected MCP surface also mutates local project files,
+so Viewer database credentials do not make that adapter read-only. SQL-wire and generated
+GraphQL would add listeners and another interpretation/continuation boundary without removing
+the original issuer, exact-value and selected-result contracts served by the native reader.
+They are not dormant production paths. Reopen for a named standard-client participant with
+a complete native type, authority and continuation mapping that simplifies its whole workflow;
+no browser/session or Node companion is introduced for this Rust operating target.
+
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| [G01](#G01) | Planned | Existing native fixture and prepared tool; selected 72a/72c contract as each changes | Shared contract groups and independent native readback exercise the changed declaration/operation with one physical owner. |
-| [G02](#G02) | Planned | G01 suite/actor inputs; existing Plan71 result and fixture owners | Selected external consumers reuse logical provisioning and report assertion/infrastructure/cleanup outcomes without duplicate setup. |
-| [G03](#G03) | Planned | Existing native command/output contracts; 72a schema inspection and 72b transitions when available | Structured inspection, drift/test/transition views carry exact selection, authority and original result references. |
-| [G04](#G04) | Planned | G03 operation contracts; exact selected tool/client features | Resolve optional adapter branches by callable/type/authority fit; implement fitting read-scoped adapters and retain explicit nonselected outcomes. |
+| [G01](#G01) | In progress | Existing native fixture and prepared tool; selected 72a/72c contract as each changes | Shared contract groups and independent native readback exercise the changed declaration/operation with one physical owner. |
+| [G02](#G02) | In progress | G01 suite/actor inputs; existing Plan71 result and fixture owners | Selected external consumers reuse logical provisioning and report assertion/infrastructure/cleanup outcomes without duplicate setup. |
+| [G03](#G03) | In progress | Existing native command/output contracts; 72a schema inspection and 72b transitions when available | Structured inspection, drift/test/transition views carry exact selection, authority and original result references. |
+| [G04](#G04) | In progress | G03 operation contracts; exact selected tool/client features | Resolve optional adapter branches by callable/type/authority fit; implement fitting read-scoped adapters and retain explicit nonselected outcomes. |
 
 <a id="G01"></a>
 ## G01 — Share database contracts and preserve independent interpretation

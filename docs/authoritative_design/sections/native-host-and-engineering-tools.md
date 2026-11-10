@@ -18,6 +18,22 @@ service incarnation. Configuration alone does not establish delivered observatio
 Explicit scratch setup establishes the actual native temporary store before readiness;
 failed setup cannot silently disable the selected spill behavior.
 
+The connection-only project reader exposes compact study/run summaries, bounded native
+follow, graph/path questions and original-incarnation persistence observations. Follow is
+an observation window with bounded retained updates, never replay or acknowledgement.
+Persistence inspection validates owner-issued startup records, prepared executable and
+the actual original process/listener before and after its authenticated metrics read;
+it acquires no stop or maintenance authority. Supplied Collector records retain their
+weaker evidence origin. Missing native counters stay unknown; MX recorded-version queries
+and manual snapshot completion remain explicitly unavailable.
+
+SurrealKit stays a separately prepared subprocess. Its structured suite/schema reports and
+bounded output captures compose the original native result and release owners. The selected
+CLI does not export its task-local `ProgressSink` attachment or dropped-line counter;
+stdout/stderr overflow reports capture loss only. Embedding its process-global logger would
+not establish those missing facts and is not selected. Native OTLP delivery and arbitrary
+supplied metric JSON likewise remain distinct evidence origins.
+
 The independent `pse-host` owns native commands, environment selection, managed processes
 and engineering investigations. Scientific preparation, execution and result interpretation
 remain with product owners. Source-only reads need no analyzer; native analysis, acquired APIs

@@ -46,12 +46,34 @@ warning-and-disable path. Native sort/group spill retains original cleanup owner
 for scheduling and workstation placement remain. The older large-capture timeouts alone do not
 establish scheduler contention or justify a tuning programme.
 
+The current source shares a bounded explanation projection across graph/path/knowledge readers,
+captures complete response statistics before consuming the plan and retains the actual native
+server version when supplied by that generation. Unknown operators/counters remain explicit.
+Static graph inspection no longer executes a separate graph read before obtaining its plan.
+Native server OTLP configuration is explicit, loopback gRPC and incarnation-attributed; the
+new receiving fixture uses the already prepared Collector rather than another receiver.
+Pure source/encoding controls have passed, but delivered native metrics remain unverified.
+
+SurrealKit remains a standalone subprocess with structured reports and bounded redacted capture.
+The selected rc.1 CLI does not expose its task-local ProgressSink attachment/drop counter;
+capture overflow is not relabeled as provider queue loss. Its global logger and task propagation
+would add an embedding boundary without supplying those facts through this route. Original
+reports and release stay with Plan71. Reopen a structured progress adapter when the selected
+provider exports its bounded attachment with original operation attribution.
+
+The maintained supplier scratch patch validates the instantiated native temporary store before
+readiness. Targeted native tests now cover eligible sort spill, cancellation with run files,
+runtime allocation refusal, cleanup and invalid scratch startup; their execution is pending.
+The first rebuild hit a kernel process-exit/artifact-lock residual. Recovery uses the existing
+isolated tool preparation and verified source-release import routes; no source pin, lock file,
+compiler-job limit, scheduler default or workstation resource selection is changed.
+
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| [H01](#H01) | Planned | Existing query descriptions and Plan71 references; each selected 72d/72f operation as delivered | One bounded explanation joins query intent, versioned plan and complete native outcome without executing ordinary inspection. |
-| [H02](#H02) | Planned | H01 identity; existing telemetry and 72g report owners | Real available signals/progress join the original operation with visible omission/loss and existing release semantics. |
-| [H03](#H03) | Planned | 72d query contracts and 72f consumer lifetime; current native scratch owner | Eligible larger reads use native sort/group spill and owned cleanup without application-side duplicate materialization. |
-| [H04](#H04) | Planned | H03 useful execution; only a named serious coexistence/regression risk | Resolve remaining scheduler/maintenance contention by the smallest relevant evidence; keep defaults if no risk warrants tuning. |
+| [H01](#H01) | In progress | Existing query descriptions and Plan71 references; each selected 72d/72f operation as delivered | One bounded explanation joins query intent, versioned plan and complete native outcome without executing ordinary inspection. |
+| [H02](#H02) | In progress | H01 identity; existing telemetry and 72g report owners | Real available signals/progress join the original operation with visible omission/loss and existing release semantics. |
+| [H03](#H03) | In progress | 72d query contracts and 72f consumer lifetime; current native scratch owner | Eligible larger reads use native sort/group spill and owned cleanup without application-side duplicate materialization. |
+| [H04](#H04) | In progress | H03 useful execution; only a named serious coexistence/regression risk | Resolve remaining scheduler/maintenance contention by the smallest relevant evidence; keep defaults if no risk warrants tuning. |
 
 <a id="H01"></a>
 ## H01 — Explain the same operation that the caller performs

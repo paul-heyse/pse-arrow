@@ -371,6 +371,25 @@ compares sync and rollout replay using the retained rollout's frozen target, the
 a deliberate schema drift is reported. The fixture settles and disposes the endpoint even
 when a suite assertion or setup fails.
 
+The same suite also composes the prebuilt connection-only `pse-surreal-contract-reader`
+through `test --exec`. It receives the suite's selected database-scoped credentials and
+checks independent full-width unsigned and byte expectations through the native codec.
+The outer native fixture checks original case/report completeness and logical database
+cleanup, including external-consumer failure and interruption, before physical disposal.
+An external executable is not allowed to start another database or reconstruct suite setup.
+
+`pse project study-summary`, `run-summary`, `follow`, `graph` and `persistence` use the
+explicitly prepared connection-only project reader and existing configured target selection.
+`follow` retains one native subscription window, bounded by its window and update count,
+and returns identified current snapshots or explicit unavailability. It does not resume
+missed transitions. Persistence reads verify original process/listener identity and expose
+native observations without maintenance authority. None of these reads prepares a tool,
+starts a configured service or hydrates scientific result payloads.
+
+`canonical-graph-inspect --describe-only` emits checked SQL and bindings without connecting.
+`--explain` obtains only the static native plan; `--experiment` explicitly admits analyzed
+execution. Missing supplier counters and version/incarnation facts remain unknown.
+
 ```bash
 scripts/pse-env -- scripts/pse diagnostic-tools install surrealkit
 scripts/pse diagnostic-tools verify surrealkit
@@ -388,8 +407,11 @@ and older beta fixture passes establish no arbitrary-data migration or new persi
 
 Retain typed attributed/enforced relations, explicit guards, persisted readiness/CAS and
 owner-driven cleanup. Notifications, feeds, timers and storage TTLs are not release authority.
-Finite protected reads remain the selected transport; consider streaming only for an actual
-consumer and compare finality, cancellation, memory and protection through returned buffers.
+Ordinary protected pages remain bounded complete reads. Frozen study-member metadata export
+uses native incremental batches under the original capture/allocation and publishes only after
+QueryEnd, EOF, trailers and every statement succeed. Releasing a frame never resets cumulative
+query admission. Path continuation stages one bounded read-only snapshot and pages that frozen
+evidence under its original deadline; it never refetches a changed graph under an old cursor.
 Bulk payload custody belongs to sealed files; engine history/compaction cannot grant disposal.
 Queries/indexes remain generated declarations with exact selection/ordering/cursor semantics;
 small output or LIMIT does not prove bounded examined work. EXPLAIN FULL executes work and needs

@@ -54,12 +54,27 @@ remain inside original request/allocation/driver custody and tentative until ter
 First migrate frozen capture/result-metadata export; ordinary bounded pages remain useful.
 Preserve Plan73 original formula/source/sample interpretation and protected reader lifetimes.
 
+The current source implements original-incarnation persistence inspection and incremental
+query batch consumption. Passive inspection verifies private owner-issued startup records,
+prepared executable, actual unit/invocation and owned listener on both sides of an authenticated
+bounded metrics read. It gains no lifecycle or maintenance authority. Supplied Collector JSON
+retains a distinct weaker origin. MX recorded-version queries and manual snapshot completion
+remain explicitly unavailable; physical space release is not inferred from logical gauges.
+
+Frozen study-member metadata export now processes tentative batches into an incomplete staged
+file and publishes only after QueryEnd, EOF, trailers and every statement succeed. Ordinary
+complete bounded pages remain. Independent per-frame and whole-query admission retain the
+original request/allocation/driver custody. Sealed-file publication is retained: selected local
+buckets lack fsynced atomic publication and recoverable no-clobber reservation failure. Reopen
+that replacement only when the complete native custody contract exists. Native receiving and
+interruption verification remain pending; the initial synthetic batch control has passed.
+
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| F01 | Planned | Current service/files/retention owners and 72c explicit isolation contract | Native maintenance and recorded-history inspection use truthful ownership and preserve authored scientific time; nonselected topology branches have explicit triggers. |
-| F02 | Planned | Current sealed-file contract; independent selected Arrow/Proto readers | Close native bucket custody decision and deliver the selected artifact realization with original-instance publication/read/release/recovery. |
-| F03 | Planned | 72a declared exact-value mapping and current request/result owners | Generated native mappings and bounded incremental selected delivery replace repetitive conversion/materialization without weakening terminal completeness. |
-| F04 | Planned | F01–F03 changed lifetime/data contracts and actual migrated consumers | Targeted recovery, interruption and held-reader controls establish the changed correctness boundaries; replaced code/callers/tests are removed. |
+| F01 | In progress | Current service/files/retention owners and 72c explicit isolation contract | Native maintenance and recorded-history inspection use truthful ownership and preserve authored scientific time; nonselected topology branches have explicit triggers. |
+| F02 | In progress | Current sealed-file contract; independent selected Arrow/Proto readers | Close native bucket custody decision and deliver the selected artifact realization with original-instance publication/read/release/recovery. |
+| F03 | In progress | 72a declared exact-value mapping and current request/result owners | Generated native mappings and bounded incremental selected delivery replace repetitive conversion/materialization without weakening terminal completeness. |
+| F04 | In progress | F01–F03 changed lifetime/data contracts and actual migrated consumers | Targeted recovery, interruption and held-reader controls establish the changed correctness boundaries; replaced code/callers/tests are removed. |
 
 <a id="F01"></a>
 ### F01 — Owned persistence and recorded-history inspection
