@@ -8,7 +8,7 @@ level: decision
 principles: [AP-04, AP-07, DP-09, DP-13, PS-07]
 blueprint: [§14.3, §20.5]
 review: "not-required: A separate mathematical execution product within existing canonical producer, selection and framed-hash contracts; no existing identity, hash algorithm or commit contract changes. The authorized Plan73b target follows functional opportunity O07 and its preparation/receiving assessment."
-evidence: Interface-checked
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A receiving caller requires new symbolic work, providers, a different numerical/head profile, or source/guard correspondence that the protected execution description cannot establish.
@@ -85,11 +85,17 @@ drain. Later symbolic demand uses its separately qualified original recipe/custo
 
 ### Confirmation
 
-Plan73b B05 and Plan73c C03 own production acceptance. The current math transfer prerequisites
-are targeted evidence only: cold immutable workers, Second layouts and stable fixed-head
-instruction transfer do not themselves establish canonical scientific receiving. Require the
-actual observation caller, fresh receiver/retired producer and independent tiny/extreme
-numerical controls before claiming that outcome.
+Plan73b B05 and Plan73c C03 own production acceptance. On 2026-11-10 the actual canonical
+producer exited before a fresh receiver executed Value/First/selected Second through
+interpreted, scalar-native and x4 profiles. Independent tiny/extreme values, original layouts,
+guards/custody, current cancellation/deadline, warm artifact reuse and corruption refusal are
+tested through the production observation caller. Actual guarded typed replay also supports
+previously absent class/Second evidence without numerical-to-symbolic promotion.
+[Plan73b Outcome](../plans/73b-supplier-controls-and-qualified-receiving.md#outcome) records
+the exact compiled-evaluator/solver-ipopt runtime selection (four production journeys passed,
+one separate shared-diamond failure corrected in its affected rerun), source/binding compiler
+checks and the complete local math pass. Transfer unit tests alone are not this evidence.
+Formal decision status, unselected profiles and assembled Plan73h qualification remain separate.
 
 ## Pros and cons
 
@@ -108,3 +114,4 @@ cannot be replaced by matching bytes or introducing a new type name.
 ## Status history
 
 - 2026-11-10 — Proposed before durable numerical interpretation/publication/acquisition implementation under authorized Plan73a/b/c execution. Formal acceptance and implementation qualification remain separate.
+- 2026-11-10 — Production numerical receiving and guarded typed continuation pass local acceptance; evidence updated to Tested. Status remains proposed, with assembled qualification owned by Plan73h.

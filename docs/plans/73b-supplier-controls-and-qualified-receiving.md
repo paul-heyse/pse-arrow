@@ -1,6 +1,6 @@
 ---
 title: "Plan73b: Supplier controls and qualified receiving"
-status: in-progress
+status: complete
 date: 2026-11-09
 doc_role: plan
 doc_owner: docs/plans/73b-supplier-controls-and-qualified-receiving.md
@@ -12,7 +12,7 @@ review_sources: [docs/functional_reviews/symbolica-ecosystem-functional-improvem
 
 ## Outcome and foundation
 
-**Proposed.** Deliver O06/O07 and supplier compatibility for composition in [Plan73](73-symbolica-ecosystem-improvements.md). Supplier APIs and actual application adoption belong together. Own production cold receiving, original custody and subsequent symbolic use; overlapping Plan66 reconstruction/receiving obligations are delivered here rather than external completion gates.
+**Implemented, Tested.** Delivered O06/O07 and supplier compatibility for composition in [Plan73](73-symbolica-ecosystem-improvements.md). Supplier APIs and actual application adoption belong together. Own production cold receiving, original custody and subsequent symbolic use; overlapping Plan66 reconstruction/receiving obligations are delivered here rather than external completion gates.
 
 The implementer's scope is:
 
@@ -65,13 +65,13 @@ Preserve [maintained bounded roots](../../vendor/symbolica-bounded-roots.md), pa
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| [B01](#B01) | in-progress | A01/C01 design slices and existing callers | Checked operation extents, overflow/refusal, temporary overlap, safe points and per-call control settled through applicable decisions. |
-| [B02](#B02) | in-progress | B01 implemented control interface | Checked construction/vectorization/optimization consumed; corresponding expansion mirrors/rebinding removed. |
-| [B03](#B03) | in-progress | B01 interface; C01 supported-head descriptors | Checked scalar/x4 C++ export and native caller migration cover stable heads/source overlap; replaced exporter predictors removed. |
+| [B01](#B01) | complete | A01/C01 design slices and existing callers | Checked operation extents, overflow/refusal, temporary overlap, safe points and per-call control settled through applicable decisions. |
+| [B02](#B02) | complete | B01 implemented control interface | Checked construction/vectorization/optimization consumed; corresponding expansion mirrors/rebinding removed. |
+| [B03](#B03) | complete | B01 interface; C01 supported-head descriptors | Checked scalar/x4 C++ export and native caller migration cover stable heads/source overlap; replaced exporter predictors removed. |
 | [B04](#B04) | complete | A01 module scenario; B01 preservation contract | Composer backport/rebase versus no-adoption decision implemented with A04, preserving maintained source contracts/provenance. |
 | [B05](#B05) | complete | A01 binding/custody slice; working C02 interpreted products; C01 identities | Numerical-only production receiver includes stable Value/First/Second cold after producer retirement; replaced consumer encoding/replay retired. |
 | [B06](#B06) | complete | A01 source/guard contract; B05 early custody conventions | Guarded symbolic production continuation or justified single typed-replay branch delivered with actual later-symbolic consumer and retired replaced path. |
-| [B07](#B07) | in-progress | B02–B06 actual caller deliveries | Adversarial receiving/control integration and source-level retirement complete; evidence handed to H. |
+| [B07](#B07) | complete | B02–B06 actual caller deliveries | Adversarial receiving/control integration and source-level retirement complete; evidence handed to H. |
 
 <a id="B01"></a>
 
@@ -440,7 +440,7 @@ on an old plan or a benchmark promised solely to quantify an expected simplifica
 
 ## Verification
 
-**Proposed:** scoped supplier/math/runtime compilation and focused tests through supported `pse` routes, explicit Arrow validation where applicable. Construction checks include one-unit-short allowance, overflow, interrupted stages, truncation and no partial retention. Receiving checks include passive inspection, admitted restore, producer retirement, destination compatibility and actual symbolic continuation. H selects assembled native/compiler lifecycle and cold receiver journeys at scope end, including maintained root/conversion controls when supplier code changes. No tests, builds or performance measurements ran in authoring.
+**Implemented, Tested.** The [Outcome](#outcome) records exact commands, modes, selections, failures and affected reruns against baseline zero, including the final 640/640 math pass, 18/18 checked supplier controls, actual cold numerical/symbolic receiving and reproducible source custody. Safe-point, profile and opaque-scratch limits remain explicit. H owns the separate assembled campaign; repo-level health suites were not run during the operator's parallel work.
 
 ## Execution checkpoint — 2026-11-10
 
@@ -628,3 +628,98 @@ The remaining B01/B02 acceptance concerns supplier stage-specific CPE/cache and 
 geometry under a finite construction owner, followed by affected integration and complete
 source-delta reconstruction. This checkpoint removes the application mirrors; it does not
 substitute unlimited construction admission for that remaining feasibility check.
+
+## Outcome
+
+**Implemented, Tested — 2026-11-10.** B01–B07 are complete for the selected maintained
+profile. The application consumes `EvaluatorBuilder::try_new_aliases_with`,
+`try_build_known_with`, `ExpressionEvaluator::try_vectorize_shape_known_with`,
+`try_map_f64_known_with`, checked public instruction export and checked scalar/x4 C++ export.
+The existing construction owner admits supplier-reported input, temporary overlap and output
+before growth. Current cancellation/deadline and original typed admission errors cross native
+workers without becoming retained producer callbacks. Returned scalar products contain no
+construction control. Public realized instruction/scalar facts and authored source limits
+remain independent checks.
+
+Native stage extents follow branch-scoped alias sharing, the existing occurrence-selected
+Horner indeterminates, actual operand/pair/cache populations and visible coefficient backing.
+The coefficient envelope preserves exact unit denominators and bounds sequential partial
+sums through a balanced positive absolute-sum envelope. Native arithmetic, optimization
+order, configured limits and supported scientific demands were not relaxed to make the
+acceptance case fit. Numerica's maintained fresh-allocation context covers actual constructor
+workers, checked copies and ordinary private-frame clone/reset. The floating auxiliary
+census includes exact fixed arguments and native capacity slack; those bytes do not become
+scientific scalar slots. GMP/MPFR private algorithm scratch retains the existing separate
+opaque foreign allowance, with no allocator/RSS or within-primitive interruption guarantee.
+
+**Implemented — retirement.** The application no longer contains `EvaluatorConstruction`,
+`construction_shape`, `evaluator_construction_shape`, `expansion_with_products`, `products_for`,
+`reserve_facts`, `export_bound`, `CURRENT_ABORT`, `scoped_abort`, `AbortBinding` or callback
+detach/rebinding. Initial source/layout/frame/transport admission remains and is explicitly
+not a prediction of final evaluator/worker storage. The unused exact Taylor export and its
+obsolete observation metric are removed. Source syntax/payload bounds, provider effects,
+original guards, compiler/module drain and independent scientific tests remain.
+
+B05 uses the actual protected canonical numerical product before symbolic preparation, with
+compiler-sealed original binding and Value/First/selected Second layouts. The producer exits
+before an independent receiver executes interpreted, scalar-native and x4 realizations.
+Authenticated identical warm bytes reuse the existing artifact, while corrupt present storage
+still refuses. B06 deliberately uses one strict typed-replay route through the existing body
+owner for later class/derivative evidence. Numerical bytes grant no symbolic or proof authority;
+there is no parallel symbolic cache or production sealed-atom trust boundary. B04 retains the
+joint native alias route selected with A04, without an unused composer or dependency upgrade.
+
+**Tested — final local acceptance, baseline zero.**
+
+| Command / conditions | Actual result and scope |
+| --- | --- |
+| `scripts/pse test pse-math --lib --features compiled-evaluator` | 640/640 passed, zero skipped and zero compiler warnings. Includes current-scope controls, malformed/old receiving profiles, stable and direct products, transfer/native compiler lifecycle, original bounded roots/conversion controls and all corrected preservation fixtures. |
+| `scripts/pse check pse-math --all-targets --features compiled-evaluator` | Passed; zero compile failures. |
+| `scripts/pse check pse-runtime --all-targets --features compiled-evaluator,solver-ipopt` | Passed; zero compile failures. |
+| `scripts/pse test pse-compiler --lib -E 'test(numerical_request_) \| test(numerical_only_observations_) \| test(numerical_batch_guard_) \| test(actual_caloric_module_and_energy_response_keep_joint_aliases_and_independent_invalidation) \| test(symbolic_replay_)'` | 8/8 passed in the default profile: original request/custody, source-free binding, actual caloric alias/invalidation and symbolic replay controls. |
+| `scripts/pse test pse-runtime --lib --features compiled-evaluator,solver-ipopt -E 'test(canonical_numerical_observation_survives_producer_exit_without_source_reconstruction) \| test(ordered_authored_caloric_table_) \| test(authored_canonical_replay_) \| test(ordered_study_fitting_population_) \| test(fitting_population_) \| test(artifact_products_retain_named_diamond_partials_)'` | 5 selected: 4 passed, shared-diamond action upgrade failed its unchanged 8 MiB constructor fixture with the earlier coefficient envelope. Receiving, caloric, symbolic continuation and actual fitting Study passed. The unmatched `fitting_population_` spelling selects no steady-fitting control; those are exercised separately below. |
+| `scripts/pse test pse-runtime --lib --features compiled-evaluator,solver-ipopt -E 'test(=math::artifacts::tests::artifact_products_retain_named_diamond_partials_across_runtime_actions_and_eviction)'` | Affected rerun after the coefficient-envelope correction: 1/1 passed under the same 8 MiB allowance, with no fixture or policy change. |
+| `scripts/pse test pse-runtime --lib --features compiled-evaluator,solver-ipopt -E 'test(steady_fit_population_)'` | 2/2 passed: actual serial/assigned-lane fitting and native x4 populations. |
+| `scripts/pse-env -- cargo test --manifest-path vendor/symbolica/Cargo.toml --config 'patch.crates-io.numerica.path="vendor/numerica"' --locked --no-default-features --features integer-gmp,float-mpfr,native_code_generation --lib evaluate::checked` | 18/18 passed on the final formatted supplier source. Covers before-growth typed refusal, exact coefficient/Float bounds, current workers, native Taylor-shape metadata, checked copies, branch-cache scopes, CPE cache limits and PI/E versus exponential-marker metadata. |
+| Full `just codegen` | Passed all 16 targets. Snapshot rule values remain version 3; two generated source-input associations changed for the maintained Numerica Cargo source declaration/lock. Generated outputs were published through the generator. |
+
+The local runtime evidence is composite: the four successful production journeys plus the
+affected diamond rerun and two separate fitting controls. It is not a claim that the original
+five-test invocation passed. Earlier focused checks and failures retain their original scope
+in the checkpoints above; the final full math run supersedes the five stale test assumptions
+found by its preceding 639-test selection.
+
+The unchanged large-DAG control is part of the final 640-test pass and separately passed in
+its focused three-test acceptance with zero warnings. It builds 2,560 shared aliases and
+checks an actual emitted population within 5,000–8,000 instructions under the same finite
+512 MiB constructor owner and default optimization/scientific limits. The cold constructor
+succeeds, a fresh cold owner with exactly one byte less than its observed requirement refuses
+without cache publication, an expired original scope performs no owner growth, and the same
+successful owner completes numerical realization. Two input points have independent cyclic
+binomial-convolution and mean answers. The successful exact byte/count values were not printed;
+no measurement-only rerun or performance/heap claim is implied by these tested inequalities.
+
+**Tested — provenance.** Supplier commit `746183f57` reproduces all 165 maintained Symbolica
+files exactly in bytes and modes from the pinned archive and committed delta, with zero
+reconstruction failures. The maintained Numerica source and source-only lock changes retain
+the earlier 52-file reconstruction and backend/fresh-allocation controls. Exact dependency
+versions, the one family/type universe and original conservative native floating policy remain.
+
+**A mistake made and corrected.** The first staged source envelope still overcharged the
+shared DAG and treated unit-denominator symbolic sums as progressively wider rational
+coefficients. It refused the unchanged 512 MiB fixture, and the diamond action case later
+exposed a smaller-budget refusal. Factoring the actual native indeterminate selection and
+correcting the mathematical coefficient envelope made both original allowances pass. No
+capacity, source topology, demanded product or optimizer setting was increased. An additional
+private-frame test had required equal spare capacity; it now checks the admitted upper bound,
+while retaining the independently demonstrated oversized ordinary-clone counterexample.
+
+**Deliberate limits and handoff.** Legacy EvalTree/hot-start/retained callback/custom
+normalization profiles and newly normalized exact numeric fractional-power factorization
+remain explicit unsupported outcomes; canonical symbolic sqrt/Powf is supported. Safe points
+do not interrupt one arbitrary-precision arithmetic call or optimizer pass. These enduring
+limits and mechanisms are recorded in blueprint §14.3.2–§14.3.3, ADR-0263/0264 and the maintained
+supplier notes. No measured speedup, exhaustive backend/powerset or full series qualification
+is claimed. Repo-level health suites were not run under the operator's parallel-work guidance.
+This completed plan remains an input to active 73h; H owns assembled A–G and static/scientific
+qualification and final retirement/Plan66 handback. Plan66 remains untouched.

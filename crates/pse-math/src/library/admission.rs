@@ -648,6 +648,212 @@ mod tests {
     use super::*;
 
     #[test]
+    fn large_shared_alias_dag_fits_finite_owner_and_refuses_one_byte_short_without_publication() {
+        use crate::construction::ConstructionAdmission;
+        const WIDTH: usize = 128;
+        const LAYERS: usize = 20;
+        const CAPACITY: usize = 512 << 20;
+        const REFUSAL: &str = "large shared DAG construction owner full";
+        #[derive(Debug, Default)]
+        struct Usage {
+            used: usize,
+            required: usize,
+            calls: usize,
+            refusals: usize,
+        }
+        #[derive(Debug)]
+        struct FiniteOwner {
+            capacity: usize,
+            usage: std::sync::Mutex<Usage>,
+        }
+        impl FiniteOwner {
+            fn new(capacity: usize) -> Self {
+                Self {
+                    capacity,
+                    usage: Default::default(),
+                }
+            }
+        }
+        impl ConstructionAdmission for FiniteOwner {
+            fn try_grow(&self, bytes: usize) -> Result<(), MathError> {
+                let mut usage = self.usage.lock().unwrap();
+                usage.calls += 1;
+                usage.required = usage
+                    .used
+                    .checked_add(bytes)
+                    .ok_or(MathError::Limit(REFUSAL))?;
+                if usage.required > self.capacity {
+                    usage.refusals += 1;
+                    return Err(MathError::Limit(REFUSAL));
+                }
+                usage.used = usage.required;
+                Ok(())
+            }
+        }
+
+        crate::initialize().unwrap();
+        let parameters = (0..WIDTH)
+            .map(formal)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        let mut previous = parameters.clone();
+        let mut definitions = Vec::with_capacity(WIDTH * LAYERS);
+        for _ in 0..LAYERS {
+            let mut next = Vec::with_capacity(WIDTH);
+            for column in 0..WIDTH {
+                let alias = formal(WIDTH + definitions.len()).unwrap();
+                let value = (&previous[column] + &previous[(column + 1) % WIDTH]) / Atom::num(2);
+                definitions.push((alias.clone(), value));
+                next.push(alias);
+            }
+            previous = next;
+        }
+        // The mean keeps every shared node live; the endpoints distinguish the
+        // local cyclic binomial convolution from a shortcut to the global mean.
+        let mean =
+            previous.iter().fold(Atom::num(0), |sum, value| sum + value) / Atom::num(WIDTH as u64);
+        let expressions = [previous[0].clone(), previous[WIDTH - 1].clone(), mean];
+        let options = Optimization::default();
+        let limits = EvaluationLimits::default();
+        let scope =
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
+        let owner = Arc::new(FiniteOwner::new(CAPACITY));
+        let mut cache = ScalarCache::default();
+        assert_eq!(cache.len(), 0);
+        crate::construction::scoped(owner.clone(), || {
+            cache.admit_prepare(
+                &expressions,
+                &parameters,
+                &definitions,
+                options,
+                &scope,
+                limits,
+            )
+        })
+        .unwrap_or_else(|error| {
+            panic!("cold shared DAG construction failed: {error:?}; owner={owner:?}")
+        });
+        assert_eq!(cache.len(), 1);
+        assert_eq!(cache.builds(), 1);
+        let product = cache.evaluators.values().next().unwrap();
+        assert!(
+            (5_000..=8_000).contains(&product.facts.storage.instruction_count),
+            "actual shared native instruction count {}",
+            product.facts.storage.instruction_count
+        );
+        let required = owner.usage.lock().unwrap().used;
+        assert!((1..CAPACITY).contains(&required));
+        assert_eq!(
+            Arc::strong_count(&owner),
+            1,
+            "native products retain no construction control"
+        );
+
+        // This is the actual cold scalar-preparation boundary, not a warm-cache
+        // acceptance substitute. Its observed finite admission defines the exact
+        // adjacent refusal case while all optimizer and scientific limits stay fixed.
+        let short = Arc::new(FiniteOwner::new(required - 1));
+        let mut refused = ScalarCache::default();
+        let result = crate::construction::scoped(short.clone(), || {
+            refused.admit_prepare(
+                &expressions,
+                &parameters,
+                &definitions,
+                options,
+                &scope,
+                limits,
+            )
+        });
+        assert!(matches!(result, Err(MathError::Limit(REFUSAL))));
+        assert_eq!((refused.len(), refused.builds()), (0, 0));
+        let usage = short.usage.lock().unwrap();
+        assert_eq!(usage.refusals, 1);
+        assert_eq!(
+            usage.required,
+            short.capacity + 1,
+            "refusal is exactly one byte short"
+        );
+        assert!(
+            usage.calls > 1,
+            "the native operation follows source/key admission"
+        );
+        assert!(
+            usage.used < usage.required,
+            "refused growth was never committed"
+        );
+        drop(usage);
+        assert_eq!(Arc::strong_count(&short), 1);
+
+        // Ordinary numerical realization continues under the same finite owner
+        // after the cold constructor passed; it does not renew that admission.
+        let mut floating = crate::construction::scoped(owner.clone(), || {
+            bounded_defined_scalar_evaluator(
+                &expressions,
+                &parameters,
+                &definitions,
+                options,
+                &scope,
+                limits,
+                &mut cache,
+            )
+        })
+        .unwrap();
+        assert_eq!(cache.builds(), 1);
+        for (offset, scale) in [(0_u64, 1_u64), (7, 3)] {
+            let inputs: Vec<_> = (0..WIDTH)
+                .map(|j| (offset + scale * (j * j) as u64) as f64)
+                .collect();
+            let endpoint = |column: usize| {
+                let mut coefficient = 1_u64;
+                let mut numerator = 0_u64;
+                for shift in 0..=LAYERS {
+                    let j = (column + shift) % WIDTH;
+                    numerator += coefficient * (offset + scale * (j * j) as u64);
+                    if shift < LAYERS {
+                        coefficient = coefficient * (LAYERS - shift) as u64 / (shift + 1) as u64;
+                    }
+                }
+                numerator as f64 / (1_u64 << LAYERS) as f64
+            };
+            let expected_mean =
+                offset as f64 + scale as f64 * ((WIDTH - 1) * (2 * WIDTH - 1)) as f64 / 6.;
+            let mut values = [0.; 3];
+            floating
+                .evaluator
+                .try_evaluate(&inputs, &mut values)
+                .unwrap();
+            assert_eq!(values, [endpoint(0), endpoint(WIDTH - 1), expected_mean]);
+        }
+        assert_eq!(owner.usage.lock().unwrap().refusals, 0);
+
+        let cancellation = pse_diagnostics::Cancellation::default();
+        let expired =
+            pse_kernels::ExecutionScope::new(cancellation.clone(), Some(std::time::Instant::now()));
+        let stopped_owner = Arc::new(FiniteOwner::new(CAPACITY));
+        let mut stopped = ScalarCache::default();
+        let result = crate::construction::scoped(stopped_owner.clone(), || {
+            stopped.admit_prepare(
+                &expressions,
+                &parameters,
+                &definitions,
+                options,
+                &expired,
+                limits,
+            )
+        });
+        assert!(matches!(
+            result,
+            Err(MathError::Scope(pse_kernels::ProviderError::Deadline))
+        ));
+        assert_eq!((stopped.len(), stopped.builds()), (0, 0));
+        assert_eq!(stopped_owner.usage.lock().unwrap().calls, 0);
+        assert!(
+            !cancellation.is_cancelled(),
+            "the original deadline is not rewritten as cancellation"
+        );
+    }
+
+    #[test]
     fn checked_floating_constant_call_payload_is_in_auxiliary_and_worker_backing() {
         use crate::typed::{BodyBuilder, BodyLimits, TypedValue};
         use pse_quantity::{

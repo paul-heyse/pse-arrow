@@ -98,8 +98,13 @@ fn physical_intermediates_lower_ua_delta_t_and_qualified_cancellation() {
     let ua = builder
         .binary(Binary::Mul, u.clone(), area.clone(), None, source())
         .unwrap();
-    assert!(ua.physical_contract().named_id().is_none());
-    assert_eq!(ua.physical_contract().qualified_factors().len(), 2);
+    let conductance = pse_quantity::ResolvedPhysicalContract::named(
+        named("ThermalConductance"),
+        IndexSet::new(),
+        &registry,
+    )
+    .unwrap();
+    assert_eq!(ua.physical_contract(), &conductance);
     let rate = builder
         .binary(Binary::Mul, ua, delta.clone(), None, source())
         .unwrap();
@@ -107,7 +112,7 @@ fn physical_intermediates_lower_ua_delta_t_and_qualified_cancellation() {
     let partial = builder
         .partial(scope, rate.clone(), std::slice::from_ref(&delta), source())
         .unwrap();
-    assert!(partial.physical_contract().named_id().is_none());
+    assert_eq!(partial.physical_contract(), &conductance);
     let partial = builder
         .binary(Binary::Mul, partial, delta, None, source())
         .unwrap();
@@ -1608,7 +1613,14 @@ fn retained_finite_reduction_accepts_anonymous_prototype_even_when_empty() {
     let delta = builder
         .input(2, named("DeltaTemperature"), IndexSet::new(), source())
         .unwrap();
-    let product = builder.binary(Binary::Mul, u, a, None, source()).unwrap();
+    let ua = builder
+        .binary(Binary::Mul, u, a.clone(), None, source())
+        .unwrap();
+    // UA is a registered ThermalConductance. Its product with another Area
+    // remains an actual anonymous physical contract for this reduction control.
+    let product = builder
+        .binary(Binary::Mul, ua, a.clone(), None, source())
+        .unwrap();
     let prototype = product.physical_contract().clone();
     assert!(prototype.named_id().is_none());
     let admission = pse_quantity::resolved::infer_operation(
@@ -1639,6 +1651,14 @@ fn retained_finite_reduction_accepts_anonymous_prototype_even_when_empty() {
             admission,
             source(),
         )
+        .unwrap();
+    assert_eq!(nonempty.physical_contract(), &prototype);
+    assert_eq!(empty.physical_contract(), &prototype);
+    let nonempty = builder
+        .binary(Binary::Div, nonempty, a.clone(), None, source())
+        .unwrap();
+    let empty = builder
+        .binary(Binary::Div, empty, a, None, source())
         .unwrap();
     let nonempty = builder
         .binary(Binary::Mul, nonempty, delta.clone(), None, source())

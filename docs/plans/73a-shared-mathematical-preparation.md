@@ -1,6 +1,6 @@
 ---
 title: "Plan73a: Shared mathematical preparation"
-status: in-progress
+status: complete
 date: 2026-11-09
 doc_role: plan
 doc_owner: docs/plans/73a-shared-mathematical-preparation.md
@@ -23,7 +23,7 @@ These packages include cross-cutting shared machinery as well as caller migratio
 
 ## Outcome and foundations
 
-**Proposed.** Deliver O01 and mapped O08 in [Plan73](73-symbolica-ecosystem-improvements.md): one admitted definition supplies useful selected values, partials and actions while different physical instances retain their original guards, coordinates, provider premises and results. Own the remaining structural integration and deletion here, including Plan66 overlaps; no unfinished Plan66 package gates delivery.
+**Implemented, Tested.** Delivered O01 and mapped O08 in [Plan73](73-symbolica-ecosystem-improvements.md): one admitted definition supplies useful selected values, partials and actions while different physical instances retain their original guards, coordinates, provider premises and results. Own the remaining structural integration and deletion here, including Plan66 overlaps; no unfinished Plan66 package gates delivery.
 
 **Interface-checked.** Baseline `baadc7e32`. [Current library construction](../../crates/pse-math/src/library.rs) uses `FunctionMap::add_aliases`, `Atom::evaluator_multiple` and direct translation to retain shared definitions in an instruction DAG. [ScalarCache/ScalarProducts](../../crates/pse-math/src/library/admission.rs) already share immutable exact preparations across interpreted/native Value selections. [LocalPartials](../../crates/pse-math/src/execution.rs), [typed partials](../../crates/pse-math/src/typed_partial.rs) and [dynamic layouts](../../crates/pse-math/src/jets.rs) already supply selected/action derivative structure. Extend these owners, not a second DAG, AD engine or global shape/cache service.
 
@@ -142,7 +142,7 @@ Exercise a repeated fitting/residual assembly through the runtime owner with ent
 
 ## Verification
 
-**Proposed:** scoped `pse check` and focused `pse test` for changed math/compiler/runtime consumers, with force-validation in Arrow closures. Use repeated chains/diamonds, reordered outputs, independently expected Jv/Jᵀw/Hv, changed values versus guard/layout/provider invalidation, distinct mapped-instance provenance and incompatible axes. Include finite weighted output with overflowing unused intermediate, cancellation and no partial retention. Supplier-vs-shared self-comparison alone is insufficient. H owns relevant assembled fitting/solver/native/receiver qualification after functional scope. No build, test or performance measurement was run in authoring; expected less repeated preparation remains qualitative.
+**Implemented, Tested.** Local acceptance is complete: the full compiled-evaluator math selection passed 640/640, selected compiler acceptance passed 8/8, and the shared runtime diamond/fitting controls passed their composite affected reruns, baseline zero. See the [Outcome](#outcome) and [73b's exact verification account](73b-supplier-controls-and-qualified-receiving.md#outcome). H retains assembled A–G, independent scientific and static qualification; no speedup magnitude is measured.
 
 ## Execution checkpoint — 2026-11-10
 
@@ -217,3 +217,44 @@ input refusal and cancellation exercise the real compiler consumer. The companio
 heater/correspondence controls passed in the same scoped compiler investigation. These
 bounded choices complete A04/A05; they do not imply a general absence of composition or graph
 opportunities elsewhere in Plan73.
+
+## Outcome
+
+**Implemented, Tested — 2026-11-10.** A01–A06 are complete. Compiler-issued demands,
+retained named partials in the existing scalar family, and one immutable instance transport
+now serve selected entries and direct actions through runtime artifact retention and the
+actual fitting/solver assembly. Replaced pointer-local preparation and duplicate destination,
+scale and contribution interpretation are removed. Direct, regional and reverse products
+retain their distinct scientific validity; shared preparation does not imply shared mutable
+scratch or a weakened original guard. B's checked alias/build/Taylor/map cutover completes
+the common construction path used by these consumers.
+
+**Tested.** The final `scripts/pse test pse-math --lib --features compiled-evaluator` passed
+640/640 with zero skips and zero compiler warnings, baseline zero. The selected compiler
+acceptance passed 8/8, including actual caloric-module aliases/invalidation, original numerical
+requests/binding and symbolic replay. The runtime shared-diamond control passes unchanged
+under its original 8 MiB fixture allowance after the final supplier bound correction, preserving
+independent entry/Jv/Jᵀw/Hessian-action answers, changed weights, cache eviction with a live
+worker, retained named partials and canceled nonpublication. The two actual steady-fitting
+population controls also pass through serial and existing assigned native lanes. The exact
+commands, composite runtime result and exclusions are recorded in [73b's Outcome](73b-supplier-controls-and-qualified-receiving.md#outcome).
+
+**A mistake made and corrected.** Initial-allocation estimates were still treated as final
+program/worker bounds by two retained tests after adaptive supplier admission replaced the
+private predictor. Those assertions now compare actual retained backing with the same
+captured admission owner, preserving coordinate, axis, numerical and worker checks. The
+request's earlier `binary64-rne` label also overstated the general coefficient conversion;
+its frame now names the actual pinned conversion without changing that arithmetic policy.
+
+**Deliberate choices.** Joint native aliases already supply the caloric module and heater
+response, so no composer backport, new module owner or unused adapter was added. Renamed and
+reordered heaters already share normalized body keys, while changed guards/multiplicity and
+physical occurrences remain distinct; no additional graph matcher/cache was selected. The
+concrete reopening conditions remain in A04/A05. Expected preparation savings follow from
+removed work and retained ownership; no measured speedup or general graph equivalence claim
+is made.
+
+The enduring contracts are in blueprint §14.3.1–§14.3.3 and ADR-0263/0264. This completed
+companion remains an evidence input to the active coordinator and 73h; retirement waits for
+those consumers. H's assembled qualification and the remaining D–G capabilities are separate.
+Plan66 has not been edited or marked complete.

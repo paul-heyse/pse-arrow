@@ -1082,6 +1082,19 @@ An original `ExecutionScope` crosses preparation phases without renewing its dea
 retaining its controls inside a returned evaluator. Checked native workers preserve typed
 caller refusal through actual worker join; unrelated panics are not converted into admission.
 
+This profile retains native alias/direct translation and the selected Horner/CPE policy.
+Legacy EvalTree/hot-start/abort options, retained or arbitrary normalization callbacks,
+unqualified coefficient domains and numeric fractional-power factorization requiring new
+normalization refuse explicitly; canonical symbolic sqrt/Powf remains supported. Checked
+safe points surround source/alias traversal, normalization and lowering records, Horner
+candidates, Float decoding/conversion, each optimizer pass, mapping and export. They do not
+promise interruption inside one arithmetic call or optimizer pass. Native occurrence-selected
+indeterminates determine Horner workspace depth, branch-local alias caches determine lowering
+population, and actual operands/pairs plus the configured native cache limit determine CPE
+staging. Rational coefficient envelopes preserve exact unit denominators and bound all partial
+sums through a balanced absolute-sum envelope rather than accumulating a fictitious carry per
+symbolic term. These are supplier-owned conservative backing extents, not allocator or RSS measurements.
+
 Numerica's lexical fresh-allocation policy prevents newly admitted mathematical copies from
 adopting unrelated cleared GMP capacity. Checked construction propagates that policy into
 actual supplier workers, and ordinary private numerical-frame clone/reset applies it to

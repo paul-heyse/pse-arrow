@@ -1,6 +1,6 @@
 ---
 title: "Plan73c: Stable operations and batch execution"
-status: in-progress
+status: complete
 date: 2026-11-09
 doc_role: plan
 doc_owner: docs/plans/73c-stable-operations-and-batch-execution.md
@@ -12,7 +12,7 @@ review_sources: [docs/functional_reviews/symbolica-ecosystem-functional-improvem
 
 ## Outcome and baseline
 
-**Proposed.** Deliver O02/O03 in [Plan73](73-symbolica-ecosystem-improvements.md): authors express stable mathematical operations once, request values/derivative products and evaluate ordered independent points with compatible preparation retained. Scalar `log1p` and two-argument magnitude precede an explicit x4 C++ batch profile. Structural overlap, actual consumers, deletion and receiving acceptance belong here before returning to Plan66.
+**Implemented, Tested.** Delivered O02/O03 in [Plan73](73-symbolica-ecosystem-improvements.md): authors express stable mathematical operations once, request values/derivative products and evaluate ordered independent points with compatible preparation retained. Scalar `log1p` and two-argument magnitude precede an explicit x4 C++ batch profile. Structural overlap, actual consumers, deletion and receiving acceptance belong here before returning to Plan66.
 
 The implementer's scope is:
 
@@ -23,7 +23,7 @@ The implementer's scope is:
 - **Preserved behavior:** original physical/domain/derivative admission, selected/direct actions, source attribution, conservative floating-point settings and truthful individual outcomes remain mandatory across every profile. There is no default global precision escalation or workstation resource cap.
 
 The package sections specify what to implement and remove. Their table is an execution index,
-not a substitute for those briefs. All statuses remain open and no old-plan package gates work.
+not a substitute for those briefs. The package table and Outcome record completed scope; no old-plan package gated delivery.
 
 **Interface-checked.** Baseline `baadc7e32`, maintained Symbolica/Numerica3.0.1 with explicit opt-in native codegen. [Dynamic products/layouts](../../crates/pse-math/src/jets.rs) and [Dualizer admission](../../crates/pse-math/src/library/admission.rs) already provide selected/action demands. No new AD engine or global shape registry is needed. The builtin Log calls `Real::log`; using a higher-precision domain alone does not preserve an increment already lost in `log(1+x)`. Numerica scalar `Real::log1p` uses native `ln_1p`.
 
@@ -55,10 +55,10 @@ Use scalar realization explicitly for small/unsupported work, selected before ef
 | --- | --- | --- | --- |
 | [C01](#C01) | complete | Joint A01/B01 design slices | Stable primitive/signature/domain/derivative formulas, registration, scalar/x4 profiles and receiving identities settled; builtin alternative closed before representation freezes. |
 | [C02](#C02) | complete | C01/A01 contracts; B02 checked known-head derivative slice | Scalar interpreted stable Value/First/Second and an actual authored scientific consumer implemented with original guards/source reporting. |
-| [C03](#C03) | in-progress | C02; working B03 scalar export and B05 numerical receiving | Compiled scalar stable products and portable receiving delivered; replaced consumer numerical tricks removed. |
+| [C03](#C03) | complete | C02; working B03 scalar export and B05 numerical receiving | Compiled scalar stable products and portable receiving delivered; replaced consumer numerical tricks removed. |
 | [C04](#C04) | complete | A02 working demanded-product slice; C01 layout/profile contract | Ordered batch request/outcomes and private reusable worker scratch delivered, initially explicit scalar realization. |
-| [C05](#C05) | in-progress | C03/C04; working B02/B03 checked x4 operations | x4 C++ batches use supplier packing/scattering, stable realizations and scalar tails. |
-| [C06](#C06) | in-progress | C02–C05 capabilities; actual repeated property/residual/fitting/study callers | Consumers migrated, compatible preparation reused and duplicate per-point/output preparation or packing removed. |
+| [C05](#C05) | complete | C03/C04; working B02/B03 checked x4 operations | x4 C++ batches use supplier packing/scattering, stable realizations and scalar tails. |
+| [C06](#C06) | complete | C02–C05 capabilities; actual repeated property/residual/fitting/study callers | Consumers migrated, compatible preparation reused and duplicate per-point/output preparation or packing removed. |
 | [C07](#C07) | complete | C04/C05 named workload; H01 dependency/build observations | Packed interpreter/JIT/device/fixed-shape decisions closed, selected implementations integrated or reasoned no-adoption outcomes recorded. |
 
 <a id="C01"></a>
@@ -428,7 +428,7 @@ for assembled qualification after functional implementation.
 
 ## Verification
 
-**Proposed:** scoped compilation and focused math/compiler/runtime tests through `pse`, with explicit Arrow validation as needed. Independent analytic/exact/high-precision expectations cover stable values/derivatives, extreme scales, original-domain failures, ordered numerical populations, power/profile behavior, scratch and cancellation. Scalar-vs-packed self-comparison alone cannot establish a shared transformation's correctness. H owns assembled property/fitting/study/native/receiver journeys after functional scope. No tests, compilation or performance measurement occurred in authoring; expected less repeated preparation/dispatch is qualitative.
+**Implemented, Tested.** The final compiled-evaluator math run passed 640/640 with zero skips and compiler warnings, baseline zero; actual production property, fitting/Study and cold receiving journeys passed the composite runtime acceptance in [73b's exact verification account](73b-supplier-controls-and-qualified-receiving.md#outcome). The [Outcome](#outcome) bounds supported profiles and no-adoption decisions. H retains assembled A–G/static qualification, and no throughput or compile-time improvement magnitude is measured.
 
 ## Execution checkpoint — 2026-11-10
 
@@ -625,3 +625,65 @@ and symbolic continuation cases and failed the initial Study spelling. The corre
 above is the affected rerun. C03/C05/C06 retain final checked-construction integration and
 zero-input constant-call controls before their package state closes. No general workspace
 health check, exhaustive solver/backend qualification or measured speedup is claimed.
+
+## Outcome
+
+**Implemented, Tested — 2026-11-10.** C01–C07 are complete for the selected scalar and x4
+profiles. Typed `log1p`, positive original-argument `log_ratio` and two-argument magnitude
+retain physical meaning, original domains and requested-order local derivatives through the
+closed known-head registration owner. Symbolica owns chain/Taylor composition; the application
+has no second AD engine. Interpreted, conservative scalar C++ and explicit AVX2 x4 execution
+consume the same qualified mathematical meanings. Native module/header lifetime, current
+operation cancellation and private numerical workers remain with the existing owners.
+
+`PreparedBatch` and checked numerical batches reuse the ordinary private frame and supplier
+packing/scattering rather than a second execution or packing engine. Populations preserve
+original ordinals and repeated IDs, exclude scientifically refused rows before packing,
+execute tails through the same module's scalar entry and check the original clock/cancellation
+between segments. Direct Jv, transposed-Jacobian, weighted-Hessian and Hessian-vector actions
+use runtime seeds/weights and the shared scalar binding/result helpers, without demanding an
+unnecessary full Second product or pruning an original guard because a weight is zero.
+Zero-input known constant heads are eligible under the same closed purity contract.
+
+Actual authored property tables, repeated residual/response instances, fitting oracles and an
+ordered declared fitting Study use this shared population. Pure cross-case frontier waves
+replace redundant per-case value/Jacobian workers. Original Value guards precede First
+programs across instances, and an experiment's failed instance stops its later instances.
+Existing assigned lanes and outer study policy remain authoritative. Provider/numerical-branch
+and distinct curvature capabilities keep their scientifically necessary workers; no
+error-triggered fallback or hidden scalar substitution delivers an explicit x4 request.
+
+**Tested.** The final full compiled-evaluator math run passed 640/640, zero skips and zero
+compiler warnings, baseline zero. This includes real packed products/actions, varying seeds
+and weights, scalar tails, zero-input constant populations, domain and inactive-branch
+controls, cancellation, reusable backing and finite selected products with singular unused
+intermediates. The actual authored caloric table, cold numerical receiving in all three
+profiles, guarded later symbolic continuation and ordered fitting Study passed their runtime
+journeys. Both actual steady-fitting controls passed serial and assigned-lane execution,
+including native x4. [73b's Outcome](73b-supplier-controls-and-qualified-receiving.md#outcome)
+records exact commands, the composite runtime verdict and the corrected diamond rerun;
+this does not claim the original five-test invocation passed or qualify unselected backends.
+
+**A mistake made and corrected.** The initial packed eligibility gate rejected lazy
+scientific domain/applicability predicates even though they only publish scalar effect
+tokens before pure lane execution. The actual caloric consumer exposed that distinction;
+numeric output branches/providers remain excluded. Integration inspection also found that
+the new fitting waves could change an existing Value-before-First failure priority. Reusing
+the already-prepared Value waves first restored the original outcome order, with independent
+sqrt-at-zero/log-at-negative controls. Retained physical fixtures were updated to assert the
+actual named ThermalConductance contract; the separate anonymity test now uses a genuinely
+anonymous prototype while retaining its original numerical answers.
+
+**Deliberate decisions.** The required x4 C++ profile is delivered. The C07 account retains
+reasoned no-adoption decisions for packed interpretation, unqualified JIT/device execution
+and generated fixed shapes, with named reopening conditions. Suitable GPU hardware exists;
+its presence alone does not supply a qualified device/ownership contract. No backend was
+rejected because of licensing, and no workstation CPU/memory cap or global precision change
+was introduced. Expected gains follow from removed preparation/dispatch and actual packed
+execution; their magnitude has not been benchmarked.
+
+The enduring execution/allocation/receiving contracts are in blueprint §7.2.1 and
+§14.3.1–§14.3.3 with ADR-0263/0264. This completed companion is retained for active 73h's
+assembled A–G qualification and the coordinator's remaining scope. H's health/static,
+independent scientific and feature/backend selection remains separate; those repo-wide
+checks were not run during the operator's parallel work. Plan66 remains unchanged.

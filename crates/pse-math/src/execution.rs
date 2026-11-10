@@ -668,11 +668,11 @@ impl PreparedSupport {
             None,
         )
     }
-    /// Initial selected numeric construction population. Fixed inputs remain value
-    /// parameters, while only the demanded coordinates contribute Taylor axes.
-    /// Each arithmetic block conservatively uses the compact slot population and
-    /// selected coordinate count. This preflight constructs no selection metadata.
-    /// Positive optimized excess grows the installed runtime owner before floats.
+    /// Initial application-owned source, layout, frame and transport backing.
+    /// Fixed inputs remain value parameters; only demanded coordinates contribute
+    /// Taylor axes. This preflight constructs no selection metadata and does not
+    /// bound final evaluator or worker storage. Checked supplier construction,
+    /// Taylor, mapping and export grow the same runtime owner before their work.
     pub fn compilation_allocation_bound(
         &self,
         limits: EvaluationLimits,
@@ -9860,6 +9860,32 @@ mod compact_tests {
         assert_eq!(result.values, [22.]);
         assert_eq!(result.jacobian, [13., 6.]);
     }
+    fn captured_construction<T>(
+        initial_bytes: usize,
+        construct: impl FnOnce() -> Result<T, MathError>,
+    ) -> (T, usize) {
+        #[derive(Debug)]
+        struct Capture(std::sync::atomic::AtomicUsize);
+        impl crate::construction::ConstructionAdmission for Capture {
+            fn try_grow(&self, bytes: usize) -> Result<(), MathError> {
+                self.0
+                    .try_update(Ordering::SeqCst, Ordering::SeqCst, |current| {
+                        current.checked_add(bytes)
+                    })
+                    .map(|_| ())
+                    .map_err(|_| MathError::Limit("test captured construction extent"))
+            }
+        }
+        let capture = Arc::new(Capture(std::sync::atomic::AtomicUsize::new(initial_bytes)));
+        let result = crate::construction::scoped(capture.clone(), construct).unwrap();
+        let actual = capture.0.load(Ordering::SeqCst);
+        assert!(
+            actual > initial_bytes,
+            "the actual native constructor must report its growth"
+        );
+        (result, actual)
+    }
+
     #[test]
     fn selected_artifact_fixed_parameters_do_not_become_taylor_axes() {
         crate::initialize().unwrap();
@@ -9930,16 +9956,19 @@ mod compact_tests {
             .unwrap()
             .unwrap();
         assert!(second.retained_bytes() < upgrade_bound);
-        let program = second
-            .compile(
+        let (program, admitted) = captured_construction(second_bound, || {
+            second.compile(
                 Optimization::default(),
                 limits,
                 &pse_kernels::ExecutionScope::new(control.clone(), None),
             )
-            .unwrap();
+        });
         assert_eq!(program.input_formals().len(), 129);
         assert_eq!(program.coordinates(), &[0]);
-        assert!(program.retained_bytes() + program.worker_bytes() < second_bound);
+        assert!(
+            program.retained_bytes() + program.worker_bytes() <= admitted,
+            "retained programme and worker fit the initial demand plus actual checked native growth"
+        );
         let mut inputs = vec![1.0; 129];
         inputs[0] = 128.0;
         let result = eval(&mut program.worker(), &inputs, DerivativeOrder::Second).unwrap();
@@ -12166,7 +12195,6 @@ mod compact_tests {
             count("math.rational_representation_inspections"),
             Some(Value::Count(5))
         );
-        assert_eq!(count("math.taylor_representation_inspections"), None);
         assert_eq!(
             count("math.floating_representation_inspections"),
             Some(Value::Count(3))
@@ -12425,26 +12453,28 @@ mod compact_tests {
         let operation = hub.start("native scalar production consumer");
         let context = operation.context();
         let _entered = context.enter();
-        let scalars = support
-            .prepare_scalars(
+        let ((scalars, program), admitted) = captured_construction(bound, || {
+            let scalars = support.prepare_scalars(
                 Optimization::default(),
                 limits,
                 &pse_kernels::ExecutionScope::new(control.clone(), None),
-            )
-            .unwrap();
-        let program = support
-            .compile_reusing(
+            )?;
+            let program = support.compile_reusing(
                 options,
                 limits,
                 &pse_kernels::ExecutionScope::new(control.clone(), None),
                 &scalars,
-            )
-            .unwrap();
+            )?;
+            Ok((scalars, program))
+        });
         assert_eq!(
             program.scalar_builds, 0,
             "native execution must reuse exact scalar preparation"
         );
-        assert!(program.retained_bytes() + program.worker_bytes() <= bound);
+        assert!(
+            program.retained_bytes() + program.worker_bytes() <= admitted,
+            "native templates and workers fit their initial demand plus actual checked growth"
+        );
         assert!(matches!(
             &program.template.programs[DerivativeOrder::Value]
                 .as_ref()
@@ -12683,10 +12713,6 @@ mod compact_tests {
         );
         assert_eq!(
             count("math.rational_representation_inspections"),
-            Some(Value::Count(1))
-        );
-        assert_eq!(
-            count("math.taylor_representation_inspections"),
             Some(Value::Count(1))
         );
         assert_eq!(

@@ -80,13 +80,13 @@ A/B changes to preparation identity or producer/receiver custody, D claim semant
 
 | Opportunity | Disposition | Work owner | Evidence or revisit trigger |
 | --- | --- | --- | --- |
-| O01 | scheduled | 73a; 73b supplier compatibility | Shared demanded preparation and actual caller deletions; finite composition comparison integrated. |
-| O02 | scheduled | 73c; 73b control/receiving support | Stable operations and requested derivatives through authored, interpreted, compiled and receiver paths. |
-| O03 | scheduled | 73c | Reused dynamic demand and genuine supplier batch execution with original point outcomes. |
+| O01 | resolved | 73a; 73b supplier compatibility | **Implemented, Tested:** [73a Outcome](73a-shared-mathematical-preparation.md#outcome), including consumed replacements, deletions and scoped acceptance. |
+| O02 | resolved | 73c; 73b control/receiving support | **Implemented, Tested:** [73c Outcome](73c-stable-operations-and-batch-execution.md#outcome), including consumed replacements, deletions and scoped acceptance. |
+| O03 | resolved | 73c | **Implemented, Tested:** [73c Outcome](73c-stable-operations-and-batch-execution.md#outcome), including consumed replacements, deletions and scoped acceptance. |
 | O04 | scheduled | 73d | Shared exact diagnostic products and selected elimination decision; sparse/witness countercases preserved. |
 | O05 | scheduled | 73d | Explicit numerical claims and supported certified arithmetic, with existing converter/root authority retained. |
-| O06 | scheduled | 73b | Checked supplier operations consumed by callers; corresponding local mirrors/rebinding removed. |
-| O07 | scheduled | 73b | Production numerical and symbolic receiving, migrations and old-path retirement. |
+| O06 | resolved | 73b | **Implemented, Tested:** [73b Outcome](73b-supplier-controls-and-qualified-receiving.md#outcome), including consumed replacements, deletions and scoped acceptance. |
+| O07 | resolved | 73b | **Implemented, Tested:** [73b Outcome](73b-supplier-controls-and-qualified-receiving.md#outcome), including consumed replacements, deletions and scoped acceptance. |
 | O08 | scheduled | 73a mapped reuse; 73e indexed mathematics | Bindings transported with original premises; native indexed inspection; graph matching and Spenso decisions. |
 | O09 | scheduled | 73g | Finite candidate family and ordinary admission/science/reader, including incomplete generation. |
 | O10 | scheduled | 73f | Explicit measure/estimand, adaptive estimator, failure semantics and replay. |
@@ -152,3 +152,28 @@ Completion requires all selected behavior and consumers delivered, bounded decis
 ## Execution checkpoint — 2026-11-10
 
 Execution of the integrated A/B/C scope began at `d2302f32a` with a clean checkout. The selected first assignments are shared transport consolidation, checked supplier construction and stable primitives. A01/B01/C01 are coordinated prerequisite contracts; A03 proceeds within existing binding semantics. Required new kernel/primitive decisions precede dependent implementation. All other scope remains open until its actual production cutover and targeted evidence; broader Plan73/Plan66 completion is not claimed.
+
+## A/B/C execution handoff — 2026-11-10
+
+**Implemented, Tested.** The authorized 73a–73c scope is complete; their package tables and
+Outcomes own delivered details, deletion evidence, exact selected checks and remaining
+profile limits. O01/O02/O03/O06/O07 are resolved by that implementation and its local acceptance.
+O08 remains scheduled for 73e's indexed scope after A's mapped reuse decision; O12 remains
+scheduled for H's build/representation and assembled acceptance. This is not completion of
+D–H or the whole series.
+
+The final math selection passed 640/640 with zero skips and compiler warnings, baseline zero.
+Compiler acceptance passed 8/8, and the production receiving/caloric/symbolic/Study journeys,
+actual serial/native fitting and corrected shared-diamond action control passed their
+composite runtime acceptance. The unchanged 512 MiB large-DAG test and unchanged 8 MiB runtime
+diamond now pass after supplier extent corrections, without increasing their allowances.
+The maintained supplier's 18 checked controls and complete 165-file byte/mode reconstruction
+also pass. The full 16-target generator completed, publishing the changed source associations.
+These are scoped results, not measured speedups or unexecuted whole-series qualification.
+
+Enduring mechanism and limit descriptions are in blueprint §7.2.1 and §14.3.1–§14.3.3, with
+proposed ADR-0263/0264 retaining rationale. Their formal decision status has not been changed.
+The completed A/B/C companions and source reviews remain inputs to active later work,
+particularly 73h, so they are retained until those dependencies release. No existing Plan66
+state has been edited; its later handback remains H03's responsibility. Repo-level health
+qualification was not run under the operator's parallel-work instruction.

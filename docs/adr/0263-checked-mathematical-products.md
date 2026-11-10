@@ -8,7 +8,7 @@ level: decision
 principles: [AP-04, AP-07, DP-09, DP-13, PS-06, PS-07]
 blueprint: [§7.2, §14.3]
 review: "not-required: New kernel/primitive contracts within library-owned mathematics; authorized Plan73a/b/c execution follows the integrated functional review and independent actionability assessment."
-evidence: Interface-checked
+evidence: Tested
 supersedes: []
 superseded-by: null
 revisit: A new supported operation or backend cannot preserve the closed primitive profile, original domain/derivative meaning or admission before construction growth.
@@ -58,6 +58,16 @@ Preserve original source/domain and derivative-order checks, physical conversion
 
 Targeted tests must attack before-growth admission, overflow, nested cancellation, interrupted-success refusal and no partial publication. Independent tiny-increment, extreme-scale and derivative cases establish selected primitive meaning. Implementation and test evidence remain in Plan73; no performance benefit or whole-series qualification is claimed by this proposed record.
 
+On 2026-11-10, `scripts/pse test pse-math --lib --features compiled-evaluator` passed
+640/640 with zero skips/compiler warnings, baseline zero. The final maintained supplier
+checked selection passed 18/18; the unchanged finite 512 MiB shared-DAG and 8 MiB runtime
+diamond controls pass after native stage/coefficient bound corrections. Actual authored
+caloric, ordered fitting/Study and receiving journeys pass their scoped composite acceptance.
+[Plan73b Outcome](../plans/73b-supplier-controls-and-qualified-receiving.md#outcome) owns exact
+commands, failed intermediate runs, affected reruns, source reconstruction and profile limits.
+This establishes that local implementation scope, with formal decision status and assembled
+Plan73h qualification still separate.
+
 ## Pros and cons
 
 Supplier-owned operations remove duplicate algorithm knowledge and keep local scientific policy explicit. They require maintaining checked paths through nested builders and source export, reproducible supplier provenance and qualified numeric profiles. Known heads require controlled initialization and explicit support in every selected backend.
@@ -71,3 +81,4 @@ Supplier-owned operations remove duplicate algorithm knowledge and keep local sc
 - 2026-11-10 — Proposed before new checked-operation and stable-primitive implementation under maintainer-authorized Plan73 execution. Formal ADR acceptance and actual implementation qualification remain separate.
 - 2026-11-10 — Refined before the caloric correction to include positive `log_ratio` with original-argument partials. Actual consumer review exposed the far-from-reference subtraction/domain failure and the named temperature-ratio physical contract; Plan73c C02 retains its acceptance obligations.
 - 2026-11-10 — Clarified supplier-visible backing versus the existing opaque foreign allowance after inspecting the actual native coefficient/normalizer path. Original before-growth control of visible inputs, outputs and temporaries remains required; no GMP allocator interception or process-RSS guarantee is introduced.
+- 2026-11-10 — Authorized A/B/C implementation and scoped acceptance complete; evidence updated to Tested. Status remains proposed; no acceptance PR or whole-series qualification is implied.

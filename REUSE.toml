@@ -306,7 +306,10 @@ SPDX-License-Identifier = "LicenseRef-Symbolica-Source-Available-1.0"
 [[annotations]]
 path = ["vendor/numerica/**", "vendor/deltas/numerica.patch"]
 precedence = "override"
-SPDX-FileCopyrightText = ["2025-present Ruijl Research", "2026 Paul Heyse (lexical allocation context)"]
+SPDX-FileCopyrightText = [
+  "2025-present Ruijl Research",
+  "2026 Paul Heyse (lexical allocation context)",
+]
 SPDX-License-Identifier = "MIT"
 
 # The embedded archive retains this complete upstream notice and license.
