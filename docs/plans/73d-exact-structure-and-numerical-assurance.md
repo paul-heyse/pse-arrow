@@ -23,7 +23,7 @@ outcomes, including deletion of replaced routes. The entire new series completes
 Plan66 resumes. Existing Plan66 packages are context for overlaps, never prerequisites or
 an alternative owner of this work's structural migrations and acceptance.
 
-The inspected planning baseline is `baadc7e32`. The source review records its earlier
+The inspected planning baseline is `e9f4e7b7`. The source review records its earlier
 `7d89d16f` evidence separately. **Interface-checked:** the maintained Symbolica 3.0.1
 matrix/evaluator APIs and installed Numerica 3.0.1 domain contracts described below.
 **Proposed:** every changed operation, package, migration and verification in this plan.
@@ -37,6 +37,27 @@ provides directed exact conversion; `implicit_cubic.rs` uses maintained bounded 
 composition and adds useful operations; it does not describe those existing delegations as
 missing. Current scientific authority remains blueprint §§7, 14, 16, 23, with changes routed
 through the coordinator's decision packages before a new durable operation/kernel contract.
+
+## What changes, what is consolidated, and what is new
+
+The result is two new developer operations over admitted science: parameter-aware exact-block
+inspection and claim-scoped numerical diagnosis. The work also changes existing coefficient
+classification/projection, rather than delivering those operations beside unchanged repeated
+extraction. These are separate obligations:
+
+| Work | Current pathway and resulting change | Owning package |
+| --- | --- | --- |
+| Consolidate existing exact work | `shape_facts_with_objectives` already passes `ExactObjectives` into `project_coefficients`. Replace the remaining objective derivative-classification followed by separate polynomial expansion with a compatible request-owned exact objective view consumed by both; preserve sparse row proof. | [D02](#d02) |
+| Change a numerical projection policy | `coefficients::number` currently uses general scalar evaluation; exact rational coefficient projections will use the existing certified nearest-even boundary with their existing nonzero-underflow refusal. Exact rational conic projection in `curvature.rs` receives the same explicit range policy. | [D04](#d04) |
+| Add exact diagnostic capability | Select original rows, unknowns and symbolic parameters, then return rank/consistency/exceptional conditions with original-row attribution; bounded reduction is a separate decision. | [D01](#d01), [D03](#d03) |
+| Add approximate and enclosure capabilities | Chosen precision/error estimates and a restricted supplier ball evaluator produce distinct claims through one request/result path. | [D04](#d04), [D05](#d05) |
+| Cross-cut result consumption and preserve certificates | Extend the protected original-result journey for these products, preserve consumed LDLᵀ/Gram/root evidence, and finish each explicitly bounded optional decision. | [D06](#d06), [E04](73e-analytical-products-and-native-presentation.md#e04) |
+
+The actual baseline deletions are the replaced objective classification/projection passes and
+the selected rational conversion branches, after all their callers move. There is no claimed
+existing exact-block diagnostic, generic interval interpreter or duplicate certified conversion
+engine to delete. New capability packages state that distinction below. A mathematical consumer
+is an acceptance journey, not a restriction against a coherent replacement across several owners.
 
 ## Target and focused foundation decisions
 
@@ -58,7 +79,14 @@ representations. A wide model with a one-row demand must examine only its admitt
 shared preparation is an aid to that behavior, not permission to flatten the model.
 
 The baseline already has request-local sharing through `ExactObjectives` and
-`shape_facts_with_objectives`; extend that owner rather than introduce a second cache. Actual
+`shape_facts_with_objectives`; extend that owner rather than introduce a second cache. In
+`class_evidence::class_evidence` and `CasePlan::coefficients`, aggregated objective atoms are
+already handed to `project_coefficients`; affine row proofs are already consumed from `Facts`.
+The residual duplicate is objective structure: classification takes first/second derivatives
+over the objective columns, then projection calls `expand().to_polynomial_in_vars::<u16>` on
+the same objectives. In addition, `coefficients_with_facts` has no retained objective product
+and its projection deliberately calls `aggregate_objectives` again. These are different from
+the selected-row derivative proof, which must remain demand-owned. Actual
 reference consumers are [class evidence](../../crates/pse-math/src/class_evidence.rs) and
 [coefficient projection](../../crates/pse-math/src/coefficients.rs). Retain their current
 original-domain and consumed-value matching. Changed fixed parameters, provider premises,
@@ -201,106 +229,219 @@ contract; they do not wait for an unrelated old supplier package.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| D01 | open | Coordinator decision route; A's admitted original-product and binding contract | Exact/assurance request, claim and refusal semantics implemented with source/domain attribution. |
-| D02 | open | D01; A's working selected-product demand/lifetime | Class evidence and coefficient projection consume compatible shared exact views; replaced repeated extraction deleted; sparse demand preserved. |
-| D03 | open | D01–D02; native matrix condition/provenance support | Selected parameter-block diagnostic delivered at ordinary/exceptional values; reduction investigation disposition and any selected implementation complete. |
-| D04 | open | D01; A's working exact evaluator product; B's supplier-qualified mapping/error contract | Chosen-precision and propagated-error diagnostics integrated without stronger false claims; certified conversion consumers migrated. |
-| D05 | open | D01; D04's claim/result path; checked supplier bridge and provenance | Real supported arithmetic enclosure executable through native evaluator; unsupported program and singular interval outcomes explicit. |
-| D06 | open | D02–D05; E's protected presentation consumer when exposing mathematical output | Witness/root/conversion preservation, conditional dispositions, original-result readers and all in-scope replacement deletions accepted. |
+| [D01](#d01) | open | Coordinator decision route; A's admitted original-product and binding contract | Exact/assurance request, claim and refusal semantics implemented with source/domain attribution. |
+| [D02](#d02) | open | D01; A's working selected-product demand/lifetime | Class evidence and coefficient projection consume compatible shared exact views; replaced repeated extraction deleted; sparse demand preserved. |
+| [D03](#d03) | open | D01–D02; native matrix condition/provenance support | Selected parameter-block diagnostic delivered at ordinary/exceptional values; reduction investigation disposition and any selected implementation complete. |
+| [D04](#d04) | open | D01; A's working exact evaluator product; B's supplier-qualified mapping/error contract | Chosen-precision and propagated-error diagnostics integrated without stronger false claims; certified conversion consumers migrated. |
+| [D05](#d05) | open | D01; D04's claim/result path; checked supplier bridge and provenance | Real supported arithmetic enclosure executable through native evaluator; unsupported program and singular interval outcomes explicit. |
+| [D06](#d06) | open | D02–D05; E's protected presentation consumer when exposing mathematical output | Witness/root/conversion preservation, conditional dispositions, original-result readers and all in-scope replacement deletions accepted. |
 
+<a id="d01"></a>
 ### D01 — Admit exact and assurance requests
 
-Implement selection through the existing compiler/model scientific operation owner, consuming
-resolved physical and mathematical source products. Extend registry declarations for actual
-request/result relations and regenerate through `just codegen` during execution; generated
-files are never hand-edited. Keep requested scope, examined scope, parameter roles, precision,
-input uncertainty and actual claim separate. A partial/unsupported selection retains its source
-and reason; the independent native host remains command/process custody, not scientific policy.
+The operation receives original selected expressions/rows, unknown and parameter coordinates,
+fixed values or intervals, requested precision and claim. It returns examined scope, original
+source/physical premises, actual claim and typed unsupported/partial outcomes. Admission retains
+original guards before algebraic cancellation. It cannot accept duplicate/absent unknowns or
+pretend an unsupported provider has the requested precision.
 
-Migrate exact diagnostic operation entry points and their result producers together. Test a
-valid selected law, a provider or branch lacking the requested product, duplicate or absent
-unknowns, a source-domain violation hidden by algebraic cancellation and an interrupted request.
-A changed source cannot make a retained old result appear current. The result contract is also
-the small early prerequisite consumed by E; E need not wait for every D realization.
+**Footprint and contracts.** Extend the scientific boundary in
+`pse-compiler/src/workspace/modeling/executable.rs` and `typed_math`, the exact/diagnostic API in
+`pse-math`, and orchestration in `pse-runtime/src/workflow`. Add authored registry declarations
+for the actual operation/result in `pse-schema/src/catalog/native_math.rs` and the boundary
+projection owners, and regenerate; generated files are never edited. Symbolica
+3.0.1's selected `AtomCore` operations and Numerica 3.0.1 arithmetic are consumed through the
+contracts at D03–D05, without exposing raw Atoms as another authoring authority. The independent
+native host retains command/process custody only.
 
+**Readiness and migration.** Begin once A issues a selected original product with complete
+binding/domain attribution and the coordinator has routed the new operation/result contract.
+E can consume this early contract without waiting for all D realizations. These exact and
+assurance operation variants are new; no predecessor diagnostic implementation is identified
+for deletion. Migrate their producers and scientific entry points together rather than exposing
+an isolated library demo.
+
+**Independent acceptance.** Exercise the actual operation with a selected law, unsupported
+provider/branch, duplicate or absent unknowns, original denominator violation hidden by
+cancellation, interruption and changed source. Assert declared scope and physical/source IDs
+from the authored request independently of returned mathematical text. A retained old result
+must continue to identify its old premises.
+
+<a id="d02"></a>
 ### D02 — Share exact extraction at actual consumers
 
-Refactor the existing request aggregation/objective owner into selected reusable exact views
-without changing original coordinates or domain authority. Move `class_evidence` and
-`coefficients` onto that owner, including repeated objectives/constraints and compatible exact
-inspection. Preserve consumed fixed-value assumptions and sparse allocation/refusal checks.
-Delete superseded duplicate conversion, aggregation or differentiation paths and their
-mechanism-specific fixtures as soon as the replacement's targeted tests pass. Preserve useful
-behavior tests against the target; do not retain old code as a comparison backend.
+Extend `class_evidence::ExactObjectives` into the request-owned selected objective product. It
+carries aggregated exact atoms, actual coordinate maps, consumed fixed-value assumptions and a
+lazily constructed sparse polynomial view where supported. Classification reads degree/support
+and quadratic structure from this view; `project_coefficients` reads its terms to assemble the
+existing numerical `Coefficients`. Native Symbolica 3.0.1 `AtomCore::expand`,
+`to_polynomial_in_vars::<u16>` and polynomial coefficient/exponent access already used in
+[coefficients.rs](../../crates/pse-math/src/coefficients.rs) own the algebra. Unsupported
+polynomial representation stays distinct from a mathematical negative; retain meaningful
+nonpolynomial derivative witnesses without running a second polynomial objective classifier.
+Original-domain admission and continuing proof allowances still govern both consumers.
 
-Acceptance must include two real consumers of the same compatible view, a mismatched
-parameter/guard refusal and a wide sparse one-row demand. Verify independent exact expected
-coefficients and affine/quadratic classifications, including cancellation between contributions.
-Do not use a new snapshot produced by the same extractor as the only expected answer.
+**Actual cutover.** Migrate `CasePlan::{class_evidence,coefficients,coefficients_with_facts}` and
+the internal `shape_facts_with_objectives` / `coefficient_projection` composition. The existing
+combined request already shares objective atoms. Replace its remaining polynomial-eligible
+objective first/second-derivative classification followed by independent polynomial expansion
+with one shared view. Carry that view through operations that request facts and projection
+separately within the same compatible lifetime, removing their now-unnecessary
+`aggregate_objectives` call. A genuinely new facts-only request may prepare its demanded
+objective view anew through the same owner; never serialize supplier atoms into `Facts` or
+invent a global cache.
 
+Selected-row `affine_row_evidence` / `prove_affine` retain sparse derivative/zero-substitution
+proof. Projection already reads established row entries from `Facts`; there is no duplicate row
+polynomial extractor to remove. Keep term/byte/refusal accounting across atom and polynomial
+lifetimes and release views at their last consumer. The footprint is
+`pse-math/src/{class_evidence,coefficients}.rs`, compiler callers composing the joint request,
+and D03's new exact-view consumer. Delete replaced objective loops, transfer-only plumbing and
+mechanism-specific fixtures as soon as the migrated target tests pass; keep independent behavior
+checks. Readiness is A's selected demand/lifetime and D01's assumption identity, not completion
+of D03 or an unrelated whole-model representation.
+
+**Independent acceptance.** Both current consumers must consume the compatible view for a
+quadratic primary objective, linear later objective and cancelling contributions. Use manually
+specified exact coefficients and Hessian values. Include nonlinear later-objective and
+nonpolynomial witnesses, mismatched fixed values/guards, a separately requested facts-based
+projection, and a wide model with one selected sparse row. The latter must not allocate or
+classify all objective columns merely to prove that row. Supplier self-comparison is insufficient.
+
+<a id="d03"></a>
 ### D03 — Deliver parameter diagnostics and settle reduction
 
-Integrate the matrix composition above into a selected modeling diagnostic, with named original
-rows and parameters carried through the result. Implement generic condition projection in the
-supplier if needed, or explicitly limit unsupported generic scope while still delivering exact
-specialization results. Settle small-block reduction against the accounting example and its
-original-coordinate validation. An affirmative reduction decision includes its implementation,
-coordinate recovery, migrated consuming path and deleted replaced elimination; a negative
-decision names the failed criterion and reopen trigger in this plan.
+The selected operation extracts original named rows into coefficient/righthand-side mathematics,
+reports exact specialization rank/consistency and, where established, generic exclusions and
+source-linked dependencies. Use maintained Symbolica 3.0.1 `AtomCore::system_to_matrix` and
+Numerica 3.0.1 `Matrix::{row_reduce,rank,solve}` under the contracts above. Add a supplier
+condition/witness projection if needed; otherwise explicitly withhold unsupported generic claims
+while still delivering exact specialization results. Generic inversion followed by substitution
+is not an exceptional-case diagnostic.
 
-Acceptance distinguishes the three `p,q` cases, generic exclusions, invalid original denominator,
-nonlinear unsupported extraction, physically inadmissible algebraic solution, selected-row
-limits and cancellation. Verify classifications independently from small exact matrices. This
-operation does not replace structural rank analysis, solver selection or whole-model presolve.
+**Footprint and readiness.** Add the block operation beside D02's exact views in `pse-math`,
+compiler row/parameter selection and D01's runtime result producer. Supplier condition support,
+if needed, belongs in `vendor/symbolica/src/solve.rs` and maintained-source notes coordinated
+with B. Begin when original selected expressions/maps are available; dense extraction is only
+for this bounded block. This is a new diagnostic: no current product elimination is alleged
+for deletion.
 
-### D04 — Deliver approximate diagnostics and one certified conversion boundary
+**Bounded reduction decision.** On the accounting block `x+y=1`, `x+p*y=q`, determine whether
+a reduced evaluation product preserves coordinate recovery, original residual/domain checks,
+exceptional conditions and bounded/cancellable supplier work. If yes, deliver the reduced
+product and its actual diagnostic evaluation consumer, removing that path's replaced local
+preparation while retaining original residual validation. If no, retain the unreduced diagnostic
+and record the failed criterion plus the concrete contract or workload change that would reopen
+reduction. Do not add an unused general presolver.
 
-Map the selected evaluator once for each requested arithmetic realization, preserving exact
-constants until that mapping. Bind selected inputs without rebuilding admitted source
-preparation. Keep mapped workspaces request-owned and release them with the result operation;
-retain compact outputs and premises, not all supplier stacks. Add the supplier fallible mapping
-needed to turn unsupported constants/callbacks into typed refusals. Migrate actual diagnostic
-and proof-projection clients to the shared conversion owner; delete their alternate rounding
-policies where replaced. Ordinary production binary64 solver semantics remain explicit.
+**Independent acceptance.** Check `p=2,q=3` gives `x=-1,y=2`, `p=1,q=1` is underdetermined and
+`p=1,q=2` inconsistent; generic uniqueness excludes `p=1`. Verify expected ranks directly from
+these small exact matrices. Add an original denominator violation, nonlinear extraction refusal,
+physical nonnegativity rejecting the first algebraic solution, selected-row limits and
+cancellation. Row attribution must follow original identities through reduction. Structural
+matching, solver selection and whole-model presolve retain their distinct owners.
 
-Use a cancellation-sensitive arithmetic relation, an exact rational rounding tie, signed zero,
-subnormal and overflow boundaries, and a provider with only binary64 support. Independently
-expected exact/multiprecision values must reveal both wrong arithmetic and overstated claims.
-An error estimate or extra digits must never populate an enclosure claim field.
+<a id="d04"></a>
+### D04 — Deliver approximate diagnostics and explicit rational projection policies
 
+Map A's admitted exact evaluator once per requested `DoubleFloat`, chosen-precision `Float` or
+`ErrorPropagatingFloat` realization through Symbolica 3.0.1
+`ExpressionEvaluator::map_coeff_with_prec` / `try_evaluate`. Preserve exact constants until
+mapping, bind inputs without rebuilding source preparation, retain actual provider precision and
+release mapped workspaces at operation settlement. Add fallible supplier mapping where current
+constant/function mapping can panic; unsupported support is a typed refusal, never a scalar
+callback fallback claiming higher precision. The existing supplier files
+`evaluate/{domain.rs,evaluator.rs}` and `pse-math/src/library/admission.rs` bound this change;
+B coordinates maintained-source provenance.
+
+The conversion migration has concrete clients and deliberately different policies:
+
+| Client | Current route | Target and removal |
+| --- | --- | --- |
+| `coefficients::number`, also called by `class_evidence::Allowance::number` | General `Atom::evaluate` into `f64`; finite/nonzero-underflow checks follow. | For exact real rational constants use `rational_binary64::nearest`, keeping cancellation, finiteness and nonzero-underflow refusal. Remove the general-evaluation branch for that rational case. Nonrational constants retain an explicitly approximate supported evaluation or representation refusal, never a guessed rational. There is one existing helper, not two duplicate converters. |
+| `curvature.rs`'s `Shape::Quadratic` conic projection | `q.constant`, linear coefficients, Gram weights and row terms call `to_f64`; zero terms are then removed. | Route exact rational-to-binary64 projections through the same certified boundary with explicit range refusal before nonzero terms can disappear. Preserve native square-root/rounding meaning for the subsequent numerical cone construction; this does not make the numerical cone an exact witness. Remove those replaced `to_f64` branches and propagate refusal through the actual conic projection result. |
+| New exact/assurance diagnostic producer | No baseline route. | Use `nearest` for requested binary64 values and `enclosure` for outward exact-rational endpoints, retaining their distinct meanings in D01's result. No predecessor to delete. |
+| Existing `implicit_cubic` and `factorable::Constant::enclosure` | Already use `rational_binary64::{nearest,enclosure}`. | Preserve and reuse; there is no alternate certified boundary to retire. |
+
+The certified boundary is [rational_binary64.rs](../../crates/pse-math/src/rational_binary64.rs),
+using Numerica 3.0.1 MPFR `Float::from_rational_round` and Rug 1.30.0 nearest-even projection.
+Ordinary `map_coeff(...to_f64())` in interpreted/compiled solver preparation, ordinary
+`factorable::Constant::value`, and collocation are distinct numerical-policy clients; they are
+not silently changed by this diagnostic package. The inspected source contains those routes,
+so a statement that all rational conversion is already unified would be false. Broadening their
+policy requires an explicit consumed behavior/qualification decision, rather than an invented
+count of duplicate engines.
+
+**Readiness and acceptance.** D01's result contract, A's working exact evaluator and B's fallible
+mapping contract are sufficient; D03 is independent. Check a cancellation-sensitive relation
+against exact arithmetic, rational ties and adjacent halfway cases, signed zero, subnormal and
+overflow boundaries, and a provider with only binary64 support. Exercise coefficient and conic
+consumers with a tiny nonzero rational that would vanish after ordinary conversion; assert
+explicit refusal rather than erased support. Verify coefficient/Hessian and Gram witness
+meaning independently. Extra digits and propagated-error estimates never populate enclosure
+fields. Delete only the actual branches named above and their mechanism-only tests after all
+consumers move.
+
+<a id="d05"></a>
 ### D05 — Implement and qualify the restricted enclosure bridge
 
-Add the maintained supplier `EvaluationDomain` integration and checked arithmetic-program
-constructor described above, with no implicit callback/constant fallback. Reuse native evaluator
-instructions and ball arithmetic; enforce restrictions at construction so a later generic map
-cannot accidentally bypass eligibility. Expose the checked product through the diagnostic owner,
-not raw unchecked ball evaluators as a scientific certificate API. Include maintained-source
-notes and focused supplier tests in the change; coordinate shared vendor edits with B.
+Add the maintained supplier `EvaluationDomain` bridge and checked arithmetic-program constructor
+specified above, composing native evaluator instructions with Numerica 3.0.1 `RealBall` basic
+arithmetic and `RealBall::from_rational_bounds`. The final program admits only the rational,
+addition/subtraction/negation, multiplication/division and integer-power profile. A generic trait
+implementation alone does not certify inherited transcendental methods. Check both source
+eligibility and final instructions so normalization cannot hide an unsupported source obligation.
+The diagnostic returns finite enclosure, unbounded/singular, unsupported or incomplete scope
+under D01's claim vocabulary.
 
-Test exact rational polynomial containment, input intervals versus rounding uncertainty, a
-nonzero rational denominator and a zero-crossing denominator. Include an expression where a
-forbidden operation disappears under normalization, so source-domain/support admission and
-final-program validation are both exercised. A `sin`, `log` or external callback request must
-refuse enclosure even if approximate evaluation works. Check unsupported instructions directly
-at the supplier constructor as well as through the product operation. No application interval
-walker or transcendental FBBT replacement remains after cutover.
+**Footprint and readiness.** Supplier `evaluate/{domain.rs,evaluator.rs}` owns checked execution;
+`pse-math` admission owns scientific source eligibility and D01's runtime operation publishes
+results. Begin after D04's mapping/refusal/result composition works and B can record the checked
+bridge revision and provenance. Coordinate shared supplier edits. This is a new capability:
+there is no baseline application interval evaluator to delete, and no new application tree
+walker is allowed. Do not replace existing transcendental FBBT or specialized root containment.
 
-### D06 — Complete consumed certificates, readers and dispositions
+**Independent acceptance.** Check exact rational polynomial containment against analytically
+known extrema, distinguish input intervals from arithmetic uncertainty, and test nonzero and
+zero-crossing denominators. A forbidden operation erased by simplification must still fail
+source eligibility; unsupported surviving instructions must fail the supplier constructor.
+`sin`, `log`, noninteger powers, branch selection and external callbacks refuse enclosure even
+when approximate evaluation works. A negative power crossing zero cannot report a finite ball.
+Include interruption with no success-shaped stale output. The independent expected interval
+must not be generated by the same ball evaluator.
 
-Verify that exact class/coefficient clients retain the LDLᵀ/Gram and negative-direction evidence
-they consume, and that maintained bounded roots and binary64 conversion keep their established
-claim strength. Consolidate thin arithmetic only where useful; delete a superseded arithmetic
-helper when the target tests prove its replacement. Carry exact and assurance fields into the
-existing protected original-result inspection/export path, using E's presentation projection
-without recomputing the mathematics while reading. Match source, original attempt and actual
-claim; bounded readback may be incomplete without weakening the stored outcome.
+<a id="d06"></a>
+### D06 — Complete consumed certificates, readers and bounded decisions
 
-Record decisions for selected block reduction, fraction-free/modular alternatives, complex-ball
-extension, rational interior-search, approximate `nsolve` and rational explanation candidates.
-Each conditional lead closes as adopted-and-delivered or explicitly not selected with its
-criterion, evidence and observable reopen condition. It is not an unbounded research backlog or
-a reason to defer the selected exact diagnostic/enclosure operation. Any new evidence/kernel
-contract follows the coordinator's decision route before implementation relies on it.
+Keep `convexity.rs`'s symmetric-pivot LDLᵀ/Gram and negative-direction witnesses and
+`implicit_cubic.rs`'s maintained square-free/isolation/midpoint-refinement certificate. General
+rank/solve is not their replacement. Carry D01/D03/D04/D05 products into E04's protected
+original-result publication/read path, retaining attempt, manifest, original physical closure
+and actual claim without recomputing mathematics while reading. The footprint includes these
+`pse-math` consumers, `pse-runtime/src/workflow/{durable,result_projection,result_inspection}.rs`
+and E's new stored mathematical projection. Readiness is the delivered D products and E04's
+stored-result contract, not the whole E05 optional investigation.
+
+The remaining leads close against named questions; none creates an open-ended framework:
+
+| Lead | Actual case, question and decision consequence |
+| --- | --- |
+| Fraction-free/modular/CRT/GCD alternatives | Only D03's accounting block, or its selected bounded larger exact-block fixture if it exposes consequential intermediate growth. Does native `solve_fraction_free` or a higher-level native polynomial/elimination route preserve all exclusions and original recovery with less repeated expansion? Adopt the complete native route and delete its replaced local path if yes. Otherwise retain ordinary exact elimination; reopen on that actual block's unsupported domain/growth, not on library availability. No separate benchmark or custom modular engine is mandatory. |
+| `RingOps::sub_mul_assign` | Inspect the actual LDLᵀ residual update in `convexity.rs`: can the native operation simplify that update without changing witness/cancellation semantics? Adopt and delete the replaced arithmetic helper only if useful. Otherwise retain it; general rational dispatch is not a fused-speed promise. |
+| Rational interior search | For `implicit_cubic`'s admitted midpoint refinement, does `Rational::round_in_interval` supply an interior point with the required contraction/limb/cancellation argument? Its endpoint possibility currently prevents that inference. Retain the existing route unless the complete argument/contract is established, then replace and delete the midpoint-only mechanism. Reopen on an actual selected-root refinement need or stronger supplier contract. |
+| Complex balls | Does any selected D01 diagnostic have complex inputs/outputs? The first real arithmetic profile does not. Record not selected unless such a request is admitted with an exact basic-operation contract; adoption includes constructor, output/claim and independent complex arithmetic checks. A real-ball trait implementation is insufficient evidence. |
+| Approximate `nsolve` | Does D03's accounting diagnostic need a nonlinear initial estimate? It does not. Record not selected for the affine case; reopen for a named nonlinear diagnostic with residual/scaling/domain/cancellation semantics. Native step-size convergence alone never becomes selected-root proof. |
+| Rational explanations | On D04's cancellation/rounding result, would `truncate_denominator`, `round` or `round_in_interval` help explain the actual value/interval? If selected, return a separate changed-value candidate and exact difference/containment status, tested independently; otherwise record no explanatory demand. Never populate exact-identity fields from an interval member. |
+
+**Cutover and independent acceptance.** Preserve independent LDLᵀ reconstruction/negative-direction,
+root containment/original residual, and rounding-boundary checks at the changed consumers. Read a
+stored D result after source evolution with science construction unavailable, using E04's
+permission and manifest checks. Verify that incomplete readback never changes the stored
+operation's completion. Each lead records evidence, adopted-and-delivered or not-selected status,
+failed criterion and observable reopen condition here; a favorable decision includes its actual
+producer/consumer and deletion. Delete only helpers truly superseded by adopted routes, plus
+D02/D04's identified replacements; no legacy certificate code is removed merely because a new
+matrix API exists. New evidence/kernel contracts follow the coordinator's decision route.
 
 ## Verification and completion
 

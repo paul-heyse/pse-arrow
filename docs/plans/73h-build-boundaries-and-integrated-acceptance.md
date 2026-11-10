@@ -10,6 +10,12 @@ review_sources: [docs/functional_reviews/symbolica-ecosystem-functional-improvem
 
 # Build boundaries and integrated acceptance
 
+## Scope and change locations
+
+[H01](#H01) is a bounded build/representation decision package: inspect actual math/runtime manifests, retained products and the supplier feature closure; implement a boundary or representation change only where the stated case establishes its value. It does not promise an otherwise unspecified crate split. [H02](#H02) integrates the selected A–G pathways through existing native test/operation/result infrastructure; its deliverable is actual assembled acceptance, not a second testing framework. [H03](#H03) verifies replacement deletion, publishes enduring contracts and records the later Plan66 handback. These are three different responsibilities and completion claims.
+
+Concrete source owners are the [math manifest](../../crates/pse-math/Cargo.toml), [runtime manifest](../../crates/pse-runtime/Cargo.toml), [artifact retention](../../crates/pse-runtime/src/math/artifacts.rs), [native compiler/module owner](../../crates/pse-math/src/native_compiled.rs) and the original operation/result owners named by A–G. H changes those owners only for a selected H01 branch or required assembled integration; there is no blanket cleanup of unrelated code.
+
 ## Target and baseline
 
 **Proposed.** Complete the [Plan73 target](73-symbolica-ecosystem-improvements.md) with credible build/representation choices, assembled scientific consumers and a factual handback. O12 applies to all mathematical deliveries: reduce necessary work and total machinery, rather than infer performance from fewer local lines or a new dependency name.
@@ -22,10 +28,11 @@ A owns shared representation/reuse, B supplier controls/receiving and C executio
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| H01 | open | A baseline/consumer map; exact selected dependency/profile declarations | Build, representation and optional-backend decisions closed with actual changed units/lifetimes or reasoned retention; selected changes integrated with consumers. |
-| H02 | open | Delivered A–G capabilities and their local acceptance | Assembled production consumers, cold receiving and relevant scientific/reference/static qualification complete against zero target; gaps remain explicit until corrected. |
-| H03 | open | H01/H02 and closed conditional decisions | Enduring contracts published, obsolete machinery retired, source coverage reconciled and factual Plan66 handback ready; no existing-plan status edited during this series' authoring. |
+| [H01](#H01) | open | A baseline/consumer map; exact selected dependency/profile declarations | Build, representation and optional-backend decisions closed with actual changed units/lifetimes or reasoned retention; selected changes integrated with consumers. |
+| [H02](#H02) | open | Delivered A–G capabilities and their local acceptance | Assembled production consumers, cold receiving and relevant scientific/reference/static qualification complete against zero target; gaps remain explicit until corrected. |
+| [H03](#H03) | open | H01/H02 and closed conditional decisions | Enduring contracts published, obsolete machinery retired, source coverage reconciled and factual Plan66 handback ready; no existing-plan status edited during this series' authoring. |
 
+<a id="H01"></a>
 ## H01 — Change the boundary that causes the cost
 
 Separate five costs when proposing a change: clean Rust compilation, incremental rebuild reach, symbolic preparation, runtime native compilation and repeated numerical execution. Source facts can establish removed conversion or reconstruction, but do not establish the size of a speedup.
@@ -46,6 +53,7 @@ Close the following finite decisions within H01:
 
 Do not impose workstation CPU/memory partitions, compiler-job reductions or a new general capacity framework. Existing operation-specific admission and supervised execution remain meaningful. Quantitative profiling is discretionary only where a serious regression concern changes the decision; otherwise record the qualitative mechanism and its limits without a deferred benchmark obligation.
 
+<a id="H02"></a>
 ## H02 — Assemble independent useful consumers
 
 Targeted checks belong with A–G implementation and the corresponding deletion. H02 verifies that individually correct components actually compose through the production operation and result routes. Select existing source-built fixtures and operations rather than a second runner or a unit-only substitute.
@@ -60,10 +68,24 @@ Required assembled journeys:
 6. A caloric source produces derivative/series/identity and indexed artifacts with faithful native presentation. Old artifacts retain original source context after editing; rendering does not rerun science or promote approximation to exactness.
 7. F's declared measure yields the independent heater mean, records failed members and replays the selected state/points. G's finite topology population distinguishes complete, interrupted and physically rejected candidates through ordinary admission and scientific execution.
 
+The production integration footprint is explicit:
+
+| Journey | Changed path to exercise | Required observation |
+| --- | --- | --- |
+| Shared assembly | Compiler modeling preparation → runtime math artifact retention → `CaseAssembly` entry/action consumers → fitting/solver oracle | One retained mathematical family, admitted per-instance transport and independently correct global products; replaced interpretation/construction absent. |
+| Stable/batch | Quantity primitive admission → C's selected exact/numerical product → native module/batch worker → original operation output | Stable identity and requested order survive the full route; x4 execution is actual selected work, not a renamed scalar preparation loop. |
+| Construction | `library/admission.rs` and `native_compiled.rs` → checked supplier optimization/vectorization/export | Admission precedes growth, current operation controls cancellation, application formula copies and callback rebinding are retired. |
+| Receiving | Compiler portable product → runtime `math/portable.rs` acquisition/retention → math checked restore → later numerical/symbolic consumer | Cold production receiver works after producer retirement with original attribution and selected derivatives. |
+| Exact/analysis | Compiler selected source → D/E math product → registry-backed operation result → runtime result projection/inspection | Original claim, units/source and mathematical representation survive protected read without recomputing science. |
+| Studies/research | Existing study lane and authored-model admission → F's estimator or G's generation/conversion → ordinary result custody | New operations use real scientific/member outcomes, explicit incompleteness and independent retained readers. |
+
+H02 changes fixture composition and selected integration assertions in those existing owners where needed. It does not move product policy into test helpers or write another orchestration/receipt framework. Failures return to the package owning the broken contract; H does not duplicate its implementation in a qualification-only adapter.
+
 Use focused native integration/component/solver tests for these journeys, plus applicable independent analytical/multiprecision or isolated scientific references. IDAES parity is selected only where its behavior genuinely supplies relevant independent evidence; its full unrelated population is not this series' completion gate. Preserve clean-room boundaries and explicit reference preparation. No test may infer physical validity solely from agreement between two routes using the same transformation.
 
 After all functional scope is integrated, select the affected hygiene/governance, docs/lifecycle, generated-output, native and feature/powerset checks according to repository policy. Use `pse check`/`pse test` for scoped implementation evidence, explicit Arrow validation where applicable, and codegen at declaration changes. Do not rerun full static/integration campaigns per companion. Report actual commands, selections, zero-target failure counts and exclusions. A narrower passing selection cannot qualify unexercised scientific scope.
 
+<a id="H03"></a>
 ## H03 — Completion and Plan66 handback
 
 Reconcile all O01–O13 and the coordinator's detailed lead ownership. Every finite investigation has an outcome and its selected implementation/consumer consequence. Do not close a selected capability merely because a supplier API exists, an ADR is accepted or one local test passes. Inspect removal of superseded code, callers, configuration, adapters, fixtures and mechanism-specific tests; preserve independent behavioral verification against the target.

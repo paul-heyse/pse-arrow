@@ -22,6 +22,14 @@ All affirmative O01–O13 outcomes are selected for implementation planning. Con
 
 Breaking interfaces, representations and component boundaries are acceptable. The maintainer explicitly confirmed targeted maintained-supplier changes on 2026-11-09. Consumer migration and removal of replaced machinery belong to each delivery. Authoring this draft does not implement the product or claim scientific qualification.
 
+## Reading the implementation scope
+
+Each companion begins with its concrete deliverables and maps them to linked scope IDs. Each ID owns a dedicated implementation section describing the existing components or shared mechanism changed, target dataflow, pivotal library behavior, actual migration/deletion and completion evidence. Tables are navigation and status indexes. They are not substitutes for the implementation descriptions.
+
+A–D primarily change or consolidate existing mathematical preparation, assembly, supplier controls, execution and exact/numerical pathways; they also add the explicitly selected diagnostic capabilities. E–G add selected analytical/research capabilities through existing scientific/operating owners, with their required cross-cutting changes and migration stated separately. H owns bounded build decisions, assembled qualification and the factual handback. An example scientific model is acceptance evidence, not an excuse to leave the actual changed components unspecified.
+
+The current baseline already has reusable bodies, `InstanceBinding`, scalar-family retention and several shared derivative/exact paths. Existing use is preserved and extended; the changed scope is the actual remaining construction, transport, supplier integration and receiving machinery. No package may create a second equivalent mechanism merely to satisfy an opportunity title. Conditional mechanisms remain finite decisions with a named case and implementation consequence.
+
 ## Baseline and focused foundation assessment
 
 **Interface-checked.** Source baseline `baadc7e3272d9e6d80f4ea1dbeda2f44f701318b`, with concurrent operations/codegen/schema/study changes present. The source review inspected `7d89d16f`; refreshed focused inspection covered math preparation, derivative products, native export, transfer, compiler physical formals, study sampling/uncertainty and structural graphs. No fresh exhaustive resolved-use census or runtime measurement was obtained. Do not label representative spelling/source reads as proof of absence elsewhere.
@@ -38,6 +46,8 @@ Existing foundations are dependencies, not new projects:
 - Existing model operations, study lanes, result custody and independent readers support new capabilities. No CAS service, new workflow engine or second scientific authority is selected.
 
 The focused assessment applies core3.4, efficient architecture heuristics1.0, process-simulator1.5, applicable test guidance and the [repository binding](../design_review/design_principles/standard.toml). It supports this bounded plan; it is not a broad diagnostic audit or a qualification verdict for surrounding subsystems.
+
+The package-detail revision additionally inspected source at `e9f4e7b7c`, preserving concurrent product work. It explicitly reconciles existing instance/body reuse, scalar retention, shared exact objectives and current receiving profiles before describing the remaining changes. Earlier source observations retain their dates; no source inspection is labeled product qualification.
 
 ## Combined design and contract ownership
 
