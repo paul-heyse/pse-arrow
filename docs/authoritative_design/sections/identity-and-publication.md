@@ -863,6 +863,17 @@ bytes and is not an exported database lease or another publication catalog.
 
 ### 20.5 Current contracts and schema evolution
 
+> Decision: [ADR-0261](../../adr/0261-native-operation-contracts.md) (proposed),
+> maintainer-authorized Plan72a target.
+
+Native vocabulary and mutation projections derive from source registry declarations. Existing
+enum spellings retain identity and string ordering; declaration ordinal grants no database rank.
+Creation supply/defaulting, merge unchanged/set/removal and complete replacement are distinct.
+Readonly may admit initial supply and never implies server derivation. Exact unsigned values
+may use native U64 with checked Int/Decimal wire widening; temporal precision and authoritative
+IEEE bits retain meaning. Installed native witnesses supplement partial compiler projections.
+Plan72a owns implementation evidence; Plan72b retained-state transitions and Plan72i receiving.
+
 > Decision: [ADR-0250](../../adr/0250-source-owned-result-selection.md) (proposed) separates
 > the versioned selected-result Arrow metadata representation from the original native
 > interpretation. The native selection owner generates the observation. Portable admission

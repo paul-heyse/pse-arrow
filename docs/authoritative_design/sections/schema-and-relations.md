@@ -15,6 +15,9 @@ explains ownership and purpose, not column lists.
 
 ## 4. The semantic schema registry
 
+> Decision: [ADR-0261](../../adr/0261-native-operation-contracts.md) (proposed)
+> selects source-owned native vocabulary and operation-input projections under Plan72a.
+
 The registry is the one declaration of every product relation, field, enumeration,
 extension type, invariant, authoring document shape and native algorithm signature. The
 catalog is assembled in a fixed order by `pse_schema::catalog`, with one module per

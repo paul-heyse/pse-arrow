@@ -2,7 +2,7 @@
 title: "Plan72a: Native contracts and schema interpretation"
 status: draft
 date: 2026-11-09
-adrs: []
+adrs: [ADR-0261]
 doc_role: plan
 doc_owner: docs/plans/72-surrealdb-functional-improvements.md
 doc_topics: [current-work, libraries, design, validation]
@@ -72,7 +72,7 @@ is convenient. [Tagged conversion](https://github.com/surrealdb/surrealdb/blob/v
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| A01 | Planned | Current declaration, codec and installed-interpretation owners | One declared contract/projection boundary and exact decision route for the selected changes; consumers and representation requirements identified. |
+| A01 | Implemented | Current declaration, codec and installed-interpretation owners | Shared contract/projection boundary and consumer footprint recorded below; proposed ADR-0261 and blueprint §4.1/§20.5 amendments precede dependent changes. |
 | A02 | Planned | A01 meaning and relevant decision route | Named vocabulary and operation-shaped generated conversions used by selected producers and all affected consumers; duplicate rendering/mapping removed. |
 | A03 | Planned | A01 value requirements; 72f transport owner participates | Full native unsigned/temporal representation choice settled and selected end-to-end path integrated, or exact current representation deliberately retained with the unsupported native condition recorded. |
 | A04 | Planned | A01; A02 definitions as each family becomes available | Strict engine-normalized schema feedback and live correspondence for represented contracts; unsupported coverage explicit; superseded normalization/publication removed. |
@@ -155,3 +155,64 @@ codec and installed-schema controls, retaining force-validation where applicable
 is required for removing repeated rendering or conversion. Integrated qualification belongs to
 72i. **Proposed:** this draft records design and planned verification only; no implementation,
 tests or measured benefit are claimed.
+
+## Execution checkpoint — November 9
+
+Execution starts from clean `273326931a18204b9a795578dff750ca1a7af894`. Plan71 is
+complete; its original evidence, structured reports and fixture ownership are receiving
+foundations. Plan66 remains independently owned. A01–A04 statuses above remain the native
+progress account; implementing a prerequisite does not close its enclosing package.
+
+### Shared contract decisions
+
+| Concern | Selected contract and consumer footprint |
+| --- | --- |
+| Vocabulary | `EnumSpec` owns stored spellings and membership. Emit named constrained strings (`AS string ASSERT ...`); ordinary string ordering remains. Its member ordinal is presentation-only. Native ordered unions require an explicit rank declaration. |
+| Presence | Existing optional scalar missing/NONE means absent; NULL is refused unless explicitly declared. Creation omission/defaulting, merge unchanged/set/remove and complete replacement are distinct inputs. |
+| Mutation | Existing field policy owns immutable/mutable/default/initial semantics. Immutable fields may be creation inputs. Server-derived fields come from operation context. Input types feed authorized operations; they grant no authority. |
+| Identity | Semantic IDs retain exact binary width and role; opaque lookup keys remain distinct from scientific identity. Native record links must match table and projected key. Graph occurrence and endpoint meaning survive every projection. |
+| Unsigned | Native U64 storage and exact domain coercion are selected. Proto `Number::wide` preserves value as Int/Decimal while dropping width. Generated decoding checks exact unsigned values; string roundtrips and redundant Decimal storage constraints retire with consumers. |
+| Temporal/numerical | Current signed microsecond timestamps and authoritative IEEE bits retain their meaning, including signed zero. Query floats remain projections. No new scientific frame or hash meaning is implied. |
+| Interpretation | Canonical, knowledge and evidence retain separate generated DDL/codecs and installation identities. Changed storage/input interpretation advances its owner explicitly. A v2 semantic digest does not replace schema/codec compatibility or native installation admission. |
+| Enforcement | Generated domain checks replace duplicated membership/shape interpretation. Transition legality, cross-field predicates, issuer/generation/lease authority and foreign-value admission remain at their owning boundaries. |
+
+The implementation footprint includes canonical registry lowering, private knowledge/evidence
+lowering, generated rows/codecs, SQL signatures and arithmetic, direct object producers,
+semantic readback comparisons, payload-size estimates, installation/maintenance witnesses,
+passive catalog readers, host output and native fixtures. Unsigned SQL is classified by domain,
+not changed by blanket Decimal substitution. Missing native conversion support refuses rather
+than silently degrading precision or using a second transport.
+
+### Schema feedback contract
+
+Use three separately identified comparisons: independent declaration expectations against
+compiler interpretation; represented compiler semantics against the selected live server;
+and complete intended definitions against the native installed witness. Type assertions and
+ordered definitions, extension digest/capabilities, authentication details, codec/history
+meaning and original issuer remain independently checked where v2 omits them.
+
+SurrealKit preparation explicitly selects embedded memory support and binds features into its
+build identity. Compiler/live staging has an isolated working directory and explicit strict v2
+engine configuration. Fresh output files and independently parsed diagnostics are required;
+JSON/stdout/lenient/acknowledgement modes do not establish acceptance. Unsupported coverage
+remains visible even with matching digests. Full function bodies remain intact; any unsupported
+embedded extension dependency is an explicit whole-definition coverage exclusion.
+
+### Receiving contracts for the remaining series
+
+| Receiver | A's delivered foundation | Receiver-owned remaining decisions |
+| --- | --- | --- |
+| 72b | Source/target field mapping, presence/default/removal policy, interpretation and conformance expectations | Reconstruction/native/backfill effects, retained data, index readiness, activation and original-operation recovery |
+| 72c | Typed operation projections and policy carriers, exact-value conversions and independently required checks | Transaction/isolation, authority, readiness acquisition, retries and ingress placement |
+| 72d | Record/reference/occurrence identity, declared ordering and graph/schema hooks | Topology, indexes/composite locality, complete selection and ranked retrieval |
+| 72e | Source/interpretation identity and explicit projection loss | Freshness/dependencies, subscriptions, resynchronization and durable replay |
+| 72f | Numeric/temporal/presence/identity mapping and actual widened wire size implications | Protocol assembly, bounded delivery, admission, artifact/connection custody and history |
+| 72g | Generated fixture inputs/readback and structured schema differences | Database case composition and developer/operator workflows using Plan71 facilities |
+| 72h | Versioned coverage/difference observations with provenance | Execution diagnostics, shared query observation and scratch lifecycle |
+| 72i | Author/change/inspect/install/write/read cases, actual migrated producers/consumers | Assembled acceptance, scope-end qualification and retirement |
+
+Every handoff distinguishes agreed semantics, implemented APIs, executed targeted evidence and
+remaining receiving. Disposable native fixtures use fresh owned state. Ordinary open remains
+validation-only; configured retained-state transition belongs to 72b, with historical reader
+obligations received jointly with 72f before activation where applicable. No compatibility shim
+or reset is implied by a new interpretation.
