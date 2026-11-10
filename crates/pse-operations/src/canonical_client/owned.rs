@@ -627,6 +627,22 @@ impl Body for WireBody {
                 if self.pending.len() >= len + 5 {
                     let frame = self.pending.split_to(len + 5).freeze();
                     let schema = self.schema;
+                    // LIVE notifications are individually bounded messages over
+                    // a finite observation lifetime, not one cumulative query
+                    // result. Query responses keep their original aggregate.
+                    if schema == Some("SubscribeResponse") {
+                        self.counts = super::wire::Counts::default();
+                    }
+                    if let Some(batch) =
+                        self.context.as_ref().and_then(RequestContext::batch_limits)
+                    {
+                        if let Err(reason) =
+                            super::wire::Counts::default().check(&frame[5..], schema, batch)
+                        {
+                            self.done = true;
+                            return Poll::Ready(Some(Err(refused(reason))));
+                        }
+                    }
                     if let Err(reason) = self.counts.check(&frame[5..], schema, limits) {
                         self.done = true;
                         return Poll::Ready(Some(Err(refused(reason))));
@@ -638,8 +654,15 @@ impl Body for WireBody {
                 Poll::Pending => return Poll::Pending,
                 Poll::Ready(Some(Ok(frame))) => match frame.into_data() {
                     Ok(data) => {
+                        let frame_limit = self
+                            .context
+                            .as_ref()
+                            .and_then(|context| {
+                                context.batch_limits().or_else(|| context.response_limits())
+                            })
+                            .map_or(self.limit, |limits| limits.wire_bytes.min(self.limit));
                         if self.pending.len().saturating_add(data.len())
-                            > self.limit.saturating_add(5).saturating_add(64 << 10)
+                            > frame_limit.saturating_add(5).saturating_add(64 << 10)
                         {
                             self.done = true;
                             return Poll::Ready(Some(Err(refused(

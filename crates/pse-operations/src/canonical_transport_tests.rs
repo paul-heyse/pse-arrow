@@ -2010,3 +2010,153 @@ fn inherited_response_retains_one_inline_child_without_async_state_duplication()
     let child = crate::canonical::inherit_activity(child);
     assert!(size_of_val(&child) <= bytes + size_of::<[usize; 8]>());
 }
+
+#[derive(Default)]
+struct BatchLengths(Vec<usize>);
+impl crate::transport::client::BatchConsumer for BatchLengths {
+    fn consume<'a>(
+        &'a mut self,
+        batch: crate::transport::client::TentativeBatch<'a>,
+    ) -> crate::transport::client::BatchFuture<'a> {
+        Box::pin(async move {
+            self.0.push(batch.values.len());
+            Ok(())
+        })
+    }
+}
+#[tokio::test]
+async fn grpc_owned_batches_complete_only_after_terminal_frames_and_keep_cumulative_limits() {
+    for (query, restricted, success) in [
+        ("AGGREGATE", false, true),
+        ("AGGREGATE", true, false),
+        ("NO_END", false, false),
+        ("MIXED_BATCH_TO_SINGLE", false, false),
+        ("MULTIPLE_STATEMENT_ERRORS", false, false),
+        ("SPARSE_WITH_KILL", false, false),
+    ] {
+        let peer = peer::start().await;
+        let db = connect(&peer).await;
+        let mut request = context();
+        if restricted {
+            let mut limits = crate::canonical::MetadataResponse::Header.limits();
+            limits.string_length = 4096;
+            limits.string_bytes = 8192;
+            request = request.with_response_limits(limits);
+        }
+        let query_builder = db
+            .query(format!("RETURN '{query}';"))
+            .request_context(request);
+        let query_builder = if query == "SPARSE_WITH_KILL" {
+            query_builder.operation_return()
+        } else {
+            query_builder
+        };
+        let completed = query_builder.consume_batches(BatchLengths::default()).await;
+        if success {
+            let completed = completed.unwrap();
+            assert_eq!(completed.rows(), 3);
+            assert_eq!(completed.statements(), 1);
+            assert_eq!(completed.into_consumer().0, vec![1, 1, 1]);
+        } else {
+            assert!(
+                completed.is_err(),
+                "{query} must not produce a completion capability"
+            );
+        }
+        db.disconnect().await.unwrap();
+        tokio::time::timeout(Duration::from_secs(2), peer.server)
+            .await
+            .unwrap()
+            .unwrap();
+    }
+}
+
+#[tokio::test]
+async fn grpc_abandoned_batch_consumer_keeps_original_driver_ownership_until_close() {
+    struct HeldBatch {
+        entered: Arc<tokio::sync::Notify>,
+        dropped: Arc<std::sync::atomic::AtomicBool>,
+    }
+    impl Drop for HeldBatch {
+        fn drop(&mut self) {
+            self.dropped
+                .store(true, std::sync::atomic::Ordering::Release);
+        }
+    }
+    impl crate::transport::client::BatchConsumer for HeldBatch {
+        fn consume<'a>(
+            &'a mut self,
+            batch: crate::transport::client::TentativeBatch<'a>,
+        ) -> crate::transport::client::BatchFuture<'a> {
+            Box::pin(async move {
+                assert!(!batch.values.is_empty());
+                self.entered.notify_one();
+                std::future::pending().await
+            })
+        }
+    }
+    let peer = peer::start().await;
+    let db = connect(&peer).await;
+    let entered = Arc::new(tokio::sync::Notify::new());
+    let dropped = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let consumer = HeldBatch {
+        entered: entered.clone(),
+        dropped: dropped.clone(),
+    };
+    let query = db
+        .query("RETURN 'AGGREGATE';")
+        .request_context(RequestContext::new(Instant::now() + Duration::from_secs(2)))
+        .consume_batches(consumer);
+    let running = tokio::spawn(async move {
+        let _ = query.await;
+    });
+    entered.notified().await;
+    running.abort();
+    let _ = running.await;
+    assert!(
+        !dropped.load(std::sync::atomic::Ordering::Acquire),
+        "abandoning the waiter cannot release a batch still borrowed by the request owner"
+    );
+    db.disconnect().await.unwrap();
+    assert!(dropped.load(std::sync::atomic::Ordering::Acquire));
+    tokio::time::timeout(Duration::from_secs(2), peer.server)
+        .await
+        .unwrap()
+        .unwrap();
+}
+
+#[tokio::test]
+async fn grpc_incremental_frame_bound_refuses_before_the_consumer_sees_values() {
+    struct Count(Arc<std::sync::atomic::AtomicUsize>);
+    impl crate::transport::client::BatchConsumer for Count {
+        fn consume<'a>(
+            &'a mut self,
+            batch: crate::transport::client::TentativeBatch<'a>,
+        ) -> crate::transport::client::BatchFuture<'a> {
+            Box::pin(async move {
+                self.0
+                    .fetch_add(batch.values.len(), std::sync::atomic::Ordering::AcqRel);
+                Ok(())
+            })
+        }
+    }
+    let peer = peer::start().await;
+    let db = connect(&peer).await;
+    let seen = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let mut batch = crate::canonical::MetadataResponse::Header.limits();
+    batch.string_length = 4096;
+    batch.string_bytes = 4095;
+    let response = db
+        .query("RETURN 'AGGREGATE';")
+        .request_context(context())
+        .batch_response_limits(batch)
+        .consume_batches(Count(seen.clone()))
+        .await;
+    assert!(response.is_err());
+    assert_eq!(seen.load(std::sync::atomic::Ordering::Acquire), 0);
+    db.disconnect().await.unwrap();
+    tokio::time::timeout(Duration::from_secs(2), peer.server)
+        .await
+        .unwrap()
+        .unwrap();
+}

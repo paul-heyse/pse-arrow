@@ -59,6 +59,7 @@ pub struct RequestContext(
     Option<PayloadOwnership>,
     Option<RequestLifetimeOwnership>,
     Option<ResponseLimits>,
+    Option<ResponseLimits>,
 );
 
 /// Finite decoded metadata envelope for one actual request. Counts apply to
@@ -384,6 +385,7 @@ impl RequestContext {
             None,
             None,
             None,
+            None,
         )
     }
 
@@ -391,6 +393,14 @@ impl RequestContext {
     pub fn with_response_limits(mut self, limits: ResponseLimits) -> Self {
         self.3 = Some(limits);
         self
+    }
+    /// Bound each simultaneously retained frame independently of cumulative work.
+    pub fn with_batch_limits(mut self, limits: ResponseLimits) -> Self {
+        self.4 = Some(limits);
+        self
+    }
+    pub(super) fn batch_limits(&self) -> Option<ResponseLimits> {
+        self.4
     }
     /// Return the explicit finite response envelope, when supplied.
     pub fn response_limits(&self) -> Option<ResponseLimits> {
@@ -459,6 +469,9 @@ impl RequestContext {
     /// Preserve both independent drain cells when a builder receives a current lifecycle.
     /// Copying the allocation out would strand it in retired old metadata.
     pub(crate) fn inherit_request_ownership(mut self, previous: &Self) -> Self {
+        if self.4.is_none() {
+            self.4 = previous.4;
+        }
         if self.3.is_none() {
             self.3 = previous.3;
         }

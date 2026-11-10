@@ -20,6 +20,8 @@ use surrealdb_types::{Error, Object, SurrealValue, Value, prost::Message};
 use tokio::sync::{Notify, Semaphore};
 #[path = "canonical_client/allocation.rs"]
 mod allocation;
+#[path = "canonical_client/batches.rs"]
+mod batches;
 #[path = "canonical_client/custody.rs"]
 mod custody;
 #[path = "canonical_client/errors.rs"]
@@ -32,6 +34,8 @@ mod owned;
 mod request;
 #[path = "canonical_client/results.rs"]
 mod results;
+#[path = "canonical_client/subscription.rs"]
+mod subscription;
 #[path = "canonical_client/wire.rs"]
 mod wire;
 // The generator's prettyplease output owns formatting for this wire catalogue.
@@ -39,11 +43,13 @@ mod wire;
 #[path = "generated/grpc_wire_schema.rs"]
 mod wire_schema;
 pub use allocation::ResponseAllocation;
+pub use batches::{BatchConsumer, BatchFuture, CompletedBatches, TentativeBatch};
 pub use custody::RetainedRequest;
 use owned::{Driver, OwnedHttp2, REQUEST};
 pub use owned::{REQUEST_SPAN_NAME, REQUEST_SPAN_TARGET, is_request_span};
 pub use request::{DispatchState, RequestContext, ResponseLimits};
 pub use results::{IndexedResults, QueryResult, QueryStatisticsObserver, Stats};
+pub use subscription::{Subscription, SubscriptionNotice};
 type EngineResult<T> = Result<T, Error>;
 type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = EngineResult<T>> + Send + 'a>>;
 
@@ -98,10 +104,19 @@ impl From<Database> for Credentials {
 #[derive(Clone, Debug)]
 enum Setup {
     Signin(Credentials),
+    Authenticate(SessionToken),
     Use {
         namespace: Option<String>,
         database: Option<String>,
     },
+}
+
+#[derive(Clone)]
+struct SessionToken(Arc<Mutex<String>>);
+impl std::fmt::Debug for SessionToken {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("SessionToken(redacted)")
+    }
 }
 
 struct Generation {
@@ -201,6 +216,33 @@ impl Generation {
     }
     async fn apply(&self, setup: &Setup) -> EngineResult<()> {
         match setup {
+            Setup::Authenticate(token) => {
+                let access = token
+                    .0
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .clone();
+                let response = self
+                    .client
+                    .clone()
+                    .authenticate(self.checked(rpc::AuthenticateRequest {
+                        context: Some(self.context()?),
+                        token: access,
+                    })?)
+                    .await
+                    .map_err(errors::status_to_error)?
+                    .into_inner();
+                if let Some(tokens) = response.tokens {
+                    if tokens.access.is_empty() {
+                        return Err(connection("Server omitted rotated access token"));
+                    }
+                    *token
+                        .0
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner) = tokens.access;
+                }
+                Ok(())
+            }
             Setup::Signin(credentials) => {
                 let (namespace, database, username, password) = match credentials {
                     Credentials::Root(root) => (
@@ -426,14 +468,27 @@ impl Client {
         message_bytes: usize,
         reconnect: bool,
     ) -> EngineResult<Self> {
+        let deadline = super::original_deadline(Duration::from_secs(5)).into_std();
+        Self::connect_context(
+            address,
+            message_bytes,
+            reconnect,
+            RequestContext::control(deadline),
+        )
+        .await
+    }
+    async fn connect_context(
+        address: SocketAddr,
+        message_bytes: usize,
+        reconnect: bool,
+        context: RequestContext,
+    ) -> EngineResult<Self> {
         if !address.ip().is_loopback() || message_bytes == 0 {
             return Err(Error::configuration(
                 "Bounded canonical transport requires loopback and a positive envelope".into(),
                 None,
             ));
         }
-        let deadline = super::original_deadline(Duration::from_secs(5)).into_std();
-        let context = RequestContext::control(deadline);
         let _cancel = Cancel(context.clone());
         let task = context.clone();
         let (send, receive) = tokio::sync::oneshot::channel();
@@ -493,6 +548,15 @@ impl Client {
         SetupRequest {
             client: self.clone(),
             setup: Setup::Signin(credentials.into()),
+            context: None,
+        }
+    }
+    /// Authenticate a database-scoped token without acquiring provisioning authority.
+    /// A rotated acknowledged token replaces the original in the retained setup log.
+    pub fn authenticate(&self, token: &str) -> SetupRequest {
+        SetupRequest {
+            client: self.clone(),
+            setup: Setup::Authenticate(SessionToken(Arc::new(Mutex::new(token.to_owned())))),
             context: None,
         }
     }
@@ -624,6 +688,10 @@ impl Client {
     /// Seal new requests and join one retained close round. Abandoning a waiter
     /// cannot restart its original detach clock or strand physical driver shutdown.
     pub async fn disconnect(&self) -> EngineResult<()> {
+        self.disconnect_at(super::original_deadline(Duration::from_secs(5)).into_std())
+            .await
+    }
+    async fn disconnect_at(&self, deadline: Instant) -> EngineResult<()> {
         let start = {
             let mut closing = self
                 .state
@@ -639,7 +707,6 @@ impl Client {
         };
         if start {
             let state = self.state.clone();
-            let deadline = super::original_deadline(Duration::from_secs(5)).into_std();
             tokio::spawn(owned::observe("disconnect", async move {
                 let generation = state.generation.lock().await.clone();
                 if generation.driver.begin_close() && !generation.driver.closed() {
@@ -791,6 +858,15 @@ impl std::fmt::Debug for Query<'_> {
     }
 }
 impl<'a> Query<'a> {
+    /// Consume borrowed, tentative native batches inside the original request owner.
+    /// The consumer is returned only after every statement and terminal frame succeeds.
+    /// Copies retained by a consumer must be charged to its own allocation owner.
+    pub fn consume_batches<C: BatchConsumer>(
+        self,
+        consumer: C,
+    ) -> BoxFuture<'static, CompletedBatches<C>> {
+        Box::pin(batches::consume(self.into_owned(), consumer))
+    }
     /// Bind typed supplier values without interpreting application policy.
     pub fn bind(mut self, variables: impl SurrealValue) -> Self {
         let guarded = &self.guarded_bindings;
@@ -869,6 +945,17 @@ impl<'a> Query<'a> {
         };
         self.replace_composed_context(context.with_response_limits(limits))
     }
+    /// Independent retained-frame bound for incremental delivery.
+    pub fn batch_response_limits(mut self, limits: ResponseLimits) -> Self {
+        let Some(context) = self.context.clone() else {
+            self.variables = Err(Error::configuration(
+                "Batch limits require an original request context".into(),
+                None,
+            ));
+            return self;
+        };
+        self.replace_composed_context(context.with_batch_limits(limits))
+    }
     #[cfg(test)]
     pub(crate) fn context_snapshot(&self) -> Option<RequestContext> {
         self.context.clone()
@@ -914,6 +1001,12 @@ impl<'a> Query<'a> {
             self = self.scientific_payload_owner(owner);
         }
         self
+    }
+    pub(crate) fn retained_request(self, owner: impl Into<RetainedRequest>) -> Self {
+        let context = self.context.clone().unwrap_or_else(|| {
+            RequestContext::new(super::original_deadline(super::REQUEST_TIMEOUT).into_std())
+        });
+        self.replace_composed_context(context.with_retained_request(owner.into()))
     }
     /// Retain an issued immutable selection through its guarded request.
     pub(crate) fn retain_selection(self, selection: crate::canonical::ProtectedSelection) -> Self {

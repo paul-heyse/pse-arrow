@@ -35,6 +35,12 @@ impl IndexedResults {
     pub fn num_statements(&self) -> usize {
         self.values.len()
     }
+    /// Statistics from this completely received result, using its published compact statement slots.
+    pub fn statement_statistics(&self) -> impl Iterator<Item = (usize, Stats, bool)> + '_ {
+        self.values
+            .iter()
+            .map(|(index, (stats, result))| (*index, *stats, result.is_ok()))
+    }
     /// The source-owned transaction ends in RETURN followed by COMMIT. Preserve
     /// every failure before projecting its single semantic result; callers never
     /// calculate a position from incidental prelude/body statement counts.
@@ -230,7 +236,7 @@ mod v4_value_tests {
 }
 
 #[derive(Default)]
-struct Statement {
+pub(super) struct Statement {
     complete: bool,
     batches: u64,
     values: Vec<Value>,
@@ -240,7 +246,7 @@ struct Statement {
     error: Option<Error>,
 }
 impl Statement {
-    fn push(&mut self, batch: rpc::QueryBatchFrame) -> EngineResult<()> {
+    fn decode_batch(&mut self, batch: rpc::QueryBatchFrame) -> EngineResult<Vec<Value>> {
         if self.complete || batch.batch_index != self.batches {
             return Err(protocol("Query batch sequence is incomplete or repeated"));
         }
@@ -278,28 +284,34 @@ impl Statement {
         }
         if let Some(error) = batch.error {
             self.error = Some(proto_error(error));
-            return Ok(());
+            return Ok(Vec::new());
         }
         match batch.payload {
             Some(rpc::query_batch_frame::Payload::Values(values)) => {
                 if self.single && values.values.len() > 1 {
                     return Err(protocol("Single query response carried multiple values"));
                 }
-                self.values.reserve(values.values.len());
+                let mut decoded = Vec::with_capacity(values.values.len());
                 for value in values.values {
-                    self.values.push(Value::try_from(value).map_err(|error| {
+                    decoded.push(Value::try_from(value).map_err(|error| {
                         Error::serialization(
                             error.to_string(),
                             surrealdb_types::SerializationError::Deserialization,
                         )
                     })?);
                 }
+                return Ok(decoded);
             }
             Some(rpc::query_batch_frame::Payload::Arrow(_)) => {
                 return Err(protocol("Server sent unrequested columnar data"));
             }
             None => {}
         }
+        Ok(Vec::new())
+    }
+    fn push(&mut self, batch: rpc::QueryBatchFrame) -> EngineResult<()> {
+        let values = self.decode_batch(batch)?;
+        self.values.extend(values);
         Ok(())
     }
     fn finish(self) -> EngineResult<(Stats, EngineResult<Value>)> {
@@ -333,12 +345,33 @@ pub(super) fn statement_slot_bytes() -> usize {
 }
 
 pub(super) async fn collect(
-    mut stream: tonic::Streaming<rpc::QueryResponse>,
+    stream: tonic::Streaming<rpc::QueryResponse>,
     statement_limit: usize,
 ) -> EngineResult<IndexedResults> {
+    collect_internal::<super::batches::Discard>(stream, statement_limit, None, None)
+        .await
+        .map(|(results, _)| results)
+}
+
+pub(super) async fn collect_batches<C: super::batches::BatchConsumer>(
+    stream: tonic::Streaming<rpc::QueryResponse>,
+    statement_limit: usize,
+    consumer: &mut C,
+    projection: Option<&super::StatementProjection>,
+) -> EngineResult<(IndexedResults, u64)> {
+    collect_internal(stream, statement_limit, Some(consumer), projection).await
+}
+
+async fn collect_internal<C: super::batches::BatchConsumer>(
+    mut stream: tonic::Streaming<rpc::QueryResponse>,
+    statement_limit: usize,
+    mut consumer: Option<&mut C>,
+    projection: Option<&super::StatementProjection>,
+) -> EngineResult<(IndexedResults, u64)> {
     let mut statements: Vec<Option<Statement>> = Vec::new();
     let mut began = false;
     let mut end = None;
+    let mut rows = 0u64;
     while let Some(response) = stream.message().await.map_err(status_to_error)? {
         match response.frame {
             Some(rpc::query_response::Frame::Begin(begin)) => {
@@ -361,11 +394,31 @@ pub(super) async fn collect(
                 if !began {
                     return Err(protocol("Query batch preceded Begin"));
                 }
-                statements
+                let statement_count = statements.len();
+                let statement = statements
                     .get_mut(index)
                     .ok_or_else(|| protocol("Query statement index exceeds Begin count"))?
-                    .get_or_insert_with(Statement::default)
-                    .push(batch)?;
+                    .get_or_insert_with(Statement::default);
+                if let Some(consumer) = &mut consumer {
+                    let values = statement.decode_batch(batch)?;
+                    if statement.kind == rpc::QueryStatementKind::Live as i32 {
+                        return Err(protocol("LIVE responses require the subscription owner"));
+                    }
+                    if super::batches::selected(projection, index, statement_count)? {
+                        rows = rows
+                            .checked_add(values.len() as u64)
+                            .ok_or_else(|| protocol("Query item count overflow"))?;
+                        consumer
+                            .consume(super::batches::TentativeBatch {
+                                statement: index,
+                                values: &values,
+                                final_batch: statement.complete,
+                            })
+                            .await?;
+                    }
+                } else {
+                    statement.push(batch)?;
+                }
             }
             Some(rpc::query_response::Frame::End(value)) => {
                 if !began {
@@ -395,6 +448,21 @@ pub(super) async fn collect(
     if stream.message().await.map_err(status_to_error)?.is_some() {
         return Err(protocol("Query carried frames after End"));
     }
+    // Streaming projection uses Begin's raw positions before final compaction.
+    // Canonical framed queries require dense complete slots, so sparse/KILL
+    // framing can never produce a completed projected batch capability.
+    if consumer.is_some()
+        && projection.is_some()
+        && statements.iter().any(|statement| {
+            statement
+                .as_ref()
+                .is_none_or(|statement| statement.kind == rpc::QueryStatementKind::Kill as i32)
+        })
+    {
+        return Err(protocol(
+            "Projected batch query requires dense non-KILL statement framing",
+        ));
+    }
     let actual = statements.iter().flatten().count();
     if actual
         != usize::try_from(end.result_count).map_err(|_| protocol("Query result count overflow"))?
@@ -410,7 +478,7 @@ pub(super) async fn collect(
         }
         values.insert(index, statement.finish()?);
     }
-    Ok(IndexedResults { values })
+    Ok((IndexedResults { values }, rows))
 }
 
 #[cfg(test)]

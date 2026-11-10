@@ -245,6 +245,25 @@ impl std::fmt::Debug for CanonicalClient {
 }
 
 impl CanonicalClient {
+    /// A fixed-principal notification generation never shares setup with the
+    /// ordinary connection, whose namespace-selection probe changes principal.
+    pub(crate) async fn subscribe(
+        &self,
+        query: String,
+        variables: Object,
+        deadline: std::time::Instant,
+    ) -> Result<crate::transport::client::Subscription, surrealdb_types::Error> {
+        self.client
+            .subscribe_fixed_viewer(
+                self.viewer.clone().into(),
+                self.namespace.clone(),
+                self.database.clone(),
+                query,
+                variables,
+                self.context_at(false, deadline),
+            )
+            .await
+    }
     pub(crate) fn new(client: Client, budget: Duration, options: &super::CanonicalOptions) -> Self {
         Self {
             access: super::lifetime::ConnectionAccess::default(),
@@ -425,6 +444,15 @@ impl CanonicalClient {
         control: bool,
         schema: SchemaEnvelope,
     ) -> crate::transport::client::Query<'r> {
+        self.query_class_on(&self.client, query, control, schema)
+    }
+    fn query_class_on<'r>(
+        &'r self,
+        connection: &Client,
+        query: impl Into<Cow<'r, str>>,
+        control: bool,
+        schema: SchemaEnvelope,
+    ) -> crate::transport::client::Query<'r> {
         let (frame, maintenance, access) = match schema {
             SchemaEnvelope::Unframed { access } => (true, false, access),
             SchemaEnvelope::Framed { access } => (false, false, access),
@@ -471,14 +499,14 @@ impl CanonicalClient {
                     super::migration::settlement_value(),
                 );
                 clock.insert("pse_schema_access", access.name().into_value());
-                self.client.query(query).bind_guarded(clock)
+                connection.query(query).bind_guarded(clock)
             } else {
-                self.client.query(query).refuse(
+                connection.query(query).refuse(
                     "Canonical schema has not been opened; construct a schema-ready capability",
                 )
             }
         } else {
-            self.client.query(query).bind_guarded(clock)
+            connection.query(query).bind_guarded(clock)
         };
         let query = query.request_context(self.context_at(control, deadline.into_std()));
         let query = if frame && !maintenance {
@@ -655,6 +683,37 @@ impl CanonicalClient {
         script: crate::canonical_script::PreparedScript<T>,
     ) -> crate::transport::client::Query<'static> {
         self.script(script).response_limits(profile.limits())
+    }
+    /// Reuse the same schema/clock builder on the fixed Viewer session.
+    pub(crate) fn observation_script<T>(
+        &self,
+        subscription: &crate::transport::client::Subscription,
+        profile: super::MetadataResponse,
+        script: crate::canonical_script::PreparedScript<T>,
+    ) -> crate::transport::client::Query<'static> {
+        let (access, installation) = script.schema_policy();
+        let (sql, bindings, selection) = script.into_parts();
+        let query = self
+            .query_class_on(
+                subscription.client(),
+                sql,
+                false,
+                SchemaEnvelope::Framed {
+                    access: super::migration::SchemaAdmission::Observation,
+                },
+            )
+            .operation_return()
+            .bind_guarded(bindings)
+            .response_limits(profile.limits())
+            .into_owned();
+        if installation
+            || selection.is_some()
+            || !matches!(access, super::migration::SchemaAdmission::Observation)
+        {
+            query.refuse("Subscription snapshots require a pure observation script")
+        } else {
+            query
+        }
     }
 
     fn context_at(&self, control: bool, deadline: std::time::Instant) -> RequestContext {
