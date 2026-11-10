@@ -457,7 +457,16 @@ pub struct InstructionList<T> {
 
 impl<T> InstructionList<T> {
     /// Append an instruction and return the temporary slot containing its result.
-    pub fn add(&mut self, instr: VectorInstruction) -> Slot {
+    pub fn add(&mut self, mut instr: VectorInstruction) -> Slot {
+        // Slots form an append-only SSA program. Preserve a direct source for
+        // copies so structural zeros survive generated/primitive boundaries.
+        if let VectorInstruction::Assign(source) = &mut instr {
+            while let Slot::Temp(index) = *source {
+                let Some(VectorInstruction::Assign(previous)) = self.instructions.get(index) else { break; };
+                if matches!(previous, Slot::Temp(previous) if *previous >= index) { break; }
+                *source = *previous;
+            }
+        }
         self.instructions.push(instr);
         Slot::Temp(self.instructions.len() - 1)
     }

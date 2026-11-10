@@ -117,6 +117,35 @@ evaluator. Returned products have no inherited or current abort callback. Exact 
 builder/Horner construction remains a separate migration obligation; this control is not a
 claim that every evaluator construction path is checked.
 
+Checked coefficient copies use Numerica's existing backend-copy and canonical-rational
+constructor APIs. They preserve already established numerator/denominator normalization
+without arithmetic, and avoid adopting larger capacities from Numerica's cleared GMP cache.
+Both the initial stack copy and the vectorizer's constant/fixed-argument copies follow this
+route. Through Taylor depth two the emitted scale coefficients stay in the small integer
+representation; stack and common-pair passes create only default coefficients and index
+metadata. Qualified generated local-partial bodies contain only the fixed half coefficient.
+Warmed exact callback state is outside this checked profile.
+
+## Checked Symbolica C++ source production
+
+The checked binary64 exporter counts through the same streaming instruction emitter
+that writes its final source. Counting allocates no operand strings, joined expressions
+or formatted assignments. It checks current control while counting, admits exact returned
+source plus live input and fixed formatting scratch, fallibly reserves that destination,
+then emits without further capacity growth. The native module caller retains its original
+prepaid module allowance, compiler output limits, process drain and publication boundary.
+Its former private source predictor and eight-population overlap mirror are removed.
+
+External definitions require a caller-supplied closed `CppKnownHead` with fixed source;
+the checked route never invokes a registered arbitrary source generator. All retained
+external entries are inspected, including entries omitted by instruction export. Packed
+source selects an explicit AVX2 four-lane type and refuses control flow or a head without
+a separately qualified packed body. Each named entry uses its own namespace for scalar
+head definitions, so a module can contain repeated heads without redefining helpers. Integer powers use
+an explicit integer multiplication sequence with inversion after negative powers, within
+the pinned Numerica binary64 magnitude range; they do not convert an integer exponent to
+a floating exponent. Existing unbounded exporters retain their other numerical profiles.
+
 ## Checked Symbolica binary64 evaluator transfer
 
 The supported borrowed native and inspected-byte profiles also provide checked,

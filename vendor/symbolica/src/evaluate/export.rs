@@ -12,6 +12,11 @@ pub trait ExportNumber {
     fn export_wrapped_with(&self, wrapper: &str) -> String {
         format!("{wrapper}({})", self.export())
     }
+    /// Write a wrapped constant. Concrete bounded exporters override this to
+    /// avoid allocating a temporary formatting string.
+    fn write_wrapped_with(&self, wrapper: &str, out: &mut dyn std::fmt::Write) -> std::fmt::Result {
+        out.write_str(&self.export_wrapped_with(wrapper))
+    }
     /// Check if the number is real.
     fn is_real(&self) -> bool;
 
@@ -22,6 +27,10 @@ pub trait ExportNumber {
 impl ExportNumber for f64 {
     fn export(&self) -> String {
         format!("{:e}", self)
+    }
+
+    fn write_wrapped_with(&self, wrapper: &str, out: &mut dyn std::fmt::Write) -> std::fmt::Result {
+        write!(out, "{wrapper}({self:e})")
     }
 
     fn is_real(&self) -> bool {
@@ -1005,132 +1014,96 @@ impl<T: ExportNumber + SingleFloat> ProgramView<'_, T> {
         tmp_array: bool,
         out: &mut String,
     ) {
-        macro_rules! get_input {
-            ($i:expr) => {
-                if $i < self.param_count {
-                    format!("params[{}{}]", param_offset, $i)
-                } else if $i < self.reserved_indices {
-                    self.constants[$i - self.param_count].export_wrapped_with(number_wrapper)
-                } else {
-                    // TODO: subtract reserved indices
-                    if tmp_array {
-                        format!("Z[{}]", $i)
-                    } else {
-                        format!("Z{}", $i)
-                    }
-                }
-            };
-        }
+        self.write_cpp_impl(external_fns, param_offset, number_wrapper, tmp_array,
+            false, out, &mut || Ok(())).expect("writing to a String is infallible");
+    }
 
-        macro_rules! get_output {
-            ($i:expr) => {
-                if tmp_array {
-                    format!("Z[{}]", $i)
-                } else {
-                    format!("Z{}", $i)
-                }
-            };
-        }
+    fn write_cpp_input(&self, slot: usize, param_offset: &str, number_wrapper: &str,
+        tmp_array: bool, out: &mut dyn std::fmt::Write) -> std::fmt::Result {
+        if slot < self.param_count { write!(out, "params[{param_offset}{slot}]") }
+        else if slot < self.reserved_indices {
+            self.constants[slot - self.param_count].write_wrapped_with(number_wrapper, out)
+        } else if tmp_array { write!(out, "Z[{slot}]") }
+        else { write!(out, "Z{slot}") }
+    }
 
+    // Shared streaming instruction emission. The f64 implementation formats
+    // constants straight into a counting or preallocated sink; no operand-string
+    // vector, joined expression or formatted assignment is materialized.
+    fn write_cpp_impl(&self, external_fns: &[ExternalFunctionContainer<T>],
+        param_offset: &str, number_wrapper: &str, tmp_array: bool, checked_profile: bool,
+        out: &mut dyn std::fmt::Write, safe_point: &mut impl FnMut() -> std::fmt::Result)
+        -> std::fmt::Result {
+        macro_rules! input { ($slot:expr) => {
+            self.write_cpp_input($slot, param_offset, number_wrapper, tmp_array, out)?
+        }; }
+        macro_rules! output { ($slot:expr) => {
+            if tmp_array { write!(out, "Z[{}]", $slot)?; }
+            else { write!(out, "Z{}", $slot)?; }
+        }; }
         let mut close_else_branch = 0;
-        for (ins, _c) in self.instructions {
-            match ins {
-                Instr::Add(o, a) => {
-                    let args = a
-                        .iter()
-                        .map(|x| get_input!(*x))
-                        .collect::<Vec<_>>()
-                        .join("+");
-
-                    *out += format!("\t{} = {args};\n", get_output!(o)).as_str();
+        for (instruction, _) in self.instructions {
+            safe_point()?;
+            match instruction {
+                Instr::Add(destination, args) | Instr::Mul(destination, args) => {
+                    out.write_str("\t")?; output!(destination); out.write_str(" = ")?;
+                    for (index, arg) in args.iter().enumerate() {
+                        if index != 0 { out.write_str(if matches!(instruction, Instr::Add(..)) { "+" } else { "*" })?; }
+                        input!(*arg);
+                    }
+                    out.write_str(";\n")?;
                 }
-                Instr::Mul(o, a) => {
-                    let args = a
-                        .iter()
-                        .map(|x| get_input!(*x))
-                        .collect::<Vec<_>>()
-                        .join("*");
-
-                    *out += format!("\t{} = {args};\n", get_output!(o)).as_str();
-                }
-                Instr::Pow(o, b, e) => {
-                    let base = get_input!(*b);
-                    if *e == -1 {
-                        *out += format!("\t{} = {number_wrapper}(1) / {base};\n", get_output!(o))
-                            .as_str();
+                Instr::Pow(destination, base, exponent) => {
+                    out.write_str("\t")?; output!(destination); out.write_str(" = ")?;
+                    if *exponent == -1 {
+                        write!(out, "{number_wrapper}(1) / ")?; input!(*base);
+                    } else if checked_profile {
+                        if *exponent < 0 { write!(out, "{number_wrapper}(1) / ")?; }
+                        out.write_str("pse_integer_power(")?; input!(*base);
+                        write!(out, ", {}u)", exponent.unsigned_abs())?;
                     } else {
-                        *out += format!("\t{} = pow({base}, {e});\n", get_output!(o)).as_str();
+                        out.write_str("pow(")?; input!(*base); write!(out, ", {exponent})")?;
                     }
+                    out.write_str(";\n")?;
                 }
-                Instr::Powf(o, b, e) => {
-                    let base = get_input!(*b);
-                    let exp = get_input!(*e);
-                    *out += format!("\t{} = pow({base}, {exp});\n", get_output!(o)).as_str();
+                Instr::Powf(destination, base, exponent) => {
+                    out.write_str("\t")?; output!(destination); out.write_str(" = pow(")?;
+                    input!(*base); out.write_str(", ")?; input!(*exponent); out.write_str(");\n")?;
                 }
-                Instr::BuiltinFun(o, s, a) => match s.get_id() {
-                    Symbol::EXP_ID => {
-                        let arg = get_input!(*a);
-                        *out += format!("\t{} = exp({arg});\n", get_output!(o)).as_str();
-                    }
-                    Symbol::LOG_ID => {
-                        let arg = get_input!(*a);
-                        *out += format!("\t{} = log({arg});\n", get_output!(o)).as_str();
-                    }
-                    Symbol::SIN_ID => {
-                        let arg = get_input!(*a);
-                        *out += format!("\t{} = sin({arg});\n", get_output!(o)).as_str();
-                    }
-                    Symbol::COS_ID => {
-                        let arg = get_input!(*a);
-                        *out += format!("\t{} = cos({arg});\n", get_output!(o)).as_str();
-                    }
-                    Symbol::SQRT_ID => {
-                        let arg = get_input!(*a);
-                        *out += format!("\t{} = sqrt({arg});\n", get_output!(o)).as_str();
-                    }
-                    Symbol::ABS_ID => {
-                        let arg = get_input!(*a);
-                        *out += format!("\t{} = std::abs({arg});\n", get_output!(o)).as_str();
-                    }
-                    Symbol::CONJ_ID => {
-                        let arg = get_input!(*a);
-                        *out += format!("\t{} = conj({arg});\n", get_output!(o)).as_str();
-                    }
-                    _ => unreachable!(),
-                },
-                Instr::ExternalFun(o, s, a) => {
-                    let name = ExpressionEvaluator::<T>::external_cpp_name(external_fns, *s);
-                    let args = a.iter().map(|x| get_input!(*x)).collect::<Vec<_>>();
-
-                    *out +=
-                        format!("\t{} = {}({});\n", get_output!(o), name, args.join(", ")).as_str();
+                Instr::BuiltinFun(destination, symbol, arg) => {
+                    let name = match symbol.get_id() {
+                        Symbol::EXP_ID => "exp", Symbol::LOG_ID => "log", Symbol::SIN_ID => "sin",
+                        Symbol::COS_ID => "cos", Symbol::SQRT_ID => "sqrt", Symbol::ABS_ID => if checked_profile { "abs" } else { "std::abs" },
+                        Symbol::CONJ_ID => "conj", _ => unreachable!(),
+                    };
+                    out.write_str("\t")?; output!(destination); write!(out, " = {name}(")?;
+                    input!(*arg); out.write_str(");\n")?;
                 }
-                Instr::IfElse(cond, _label) => {
-                    *out += &format!("\tif ({} != 0.) {{\n", get_input!(*cond));
+                Instr::ExternalFun(destination, function, args) => {
+                    let external = &external_fns[*function];
+                    let name = if external.body.is_some() {
+                        std::borrow::Cow::Owned(ExpressionEvaluator::<T>::external_cpp_name(external_fns, *function))
+                    } else { std::borrow::Cow::Borrowed(external.export_name()) };
+                    out.write_str("\t")?; output!(destination); write!(out, " = {name}(")?;
+                    for (index, arg) in args.iter().enumerate() {
+                        if index != 0 { out.write_str(", ")?; } input!(*arg);
+                    }
+                    out.write_str(");\n")?;
                 }
-                Instr::Goto(..) => {
-                    *out += "\t} else {\n";
-                    close_else_branch += 1;
+                Instr::IfElse(condition, _) => {
+                    out.write_str("\tif (")?; input!(*condition); out.write_str(" != 0.) {\n")?;
                 }
+                Instr::Goto(..) => { out.write_str("\t} else {\n")?; close_else_branch += 1; }
                 Instr::Label(..) => {}
-                Instr::Join(o, cond, a, b) => {
-                    if close_else_branch > 0 {
-                        close_else_branch -= 1;
-                        *out += "\t}\n";
-                    }
-                    let arg_a = get_input!(*a);
-                    let arg_b = get_input!(*b);
-                    *out += format!(
-                        "\t{} = ({} != 0.) ? {} : {};\n",
-                        get_output!(o),
-                        get_input!(*cond),
-                        arg_a,
-                        arg_b
-                    )
-                    .as_str();
+                Instr::Join(destination, condition, left, right) => {
+                    if close_else_branch > 0 { close_else_branch -= 1; out.write_str("\t}\n")?; }
+                    out.write_str("\t")?; output!(destination); out.write_str(" = (")?;
+                    input!(*condition); out.write_str(" != 0.) ? ")?; input!(*left);
+                    out.write_str(" : ")?; input!(*right); out.write_str(";\n")?;
                 }
             }
         }
+        Ok(())
     }
 
     fn export_asm_double_impl(
@@ -3162,3 +3135,7 @@ impl<T: ExportNumber + SingleFloat> ProgramView<'_, T> {
         in_asm_block
     }
 }
+
+#[path = "checked_export.rs"]
+mod checked_export;
+pub use checked_export::*;

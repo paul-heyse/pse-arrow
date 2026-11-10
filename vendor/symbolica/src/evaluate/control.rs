@@ -14,6 +14,8 @@ pub enum OperationStage {
     Optimization,
     /// Finite scalar native Taylor bodies for qualified local-partial heads.
     KnownHeadGeneration,
+    /// Allocation-free source counting or admitted source emission.
+    Export,
     /// Complete product, before returning to the caller.
     Finalization,
 }
@@ -23,7 +25,7 @@ pub enum OperationStage {
 pub struct OperationExtent {
     /// The stage whose growth or completion is being checked.
     pub stage: OperationStage,
-    /// Incremental scalar arithmetic work admitted by this stage.
+    /// Incremental work: scalar arithmetic for Taylor, program records for export.
     pub work: usize,
     /// Mathematical backing of the immutable input, which remains live.
     pub input_bytes: usize,
@@ -66,6 +68,8 @@ pub enum OperationError<E> {
     Control(E),
     /// An extent or shape could not be represented.
     Overflow,
+    /// A fallible destination reservation failed after admission.
+    Allocation,
     /// This operation has no maintained growth contract for the requested profile.
     Unsupported(&'static str),
     /// The supplied evaluator or vectorizer has inconsistent structure.
@@ -79,6 +83,7 @@ impl<E: std::fmt::Display> std::fmt::Display for OperationError<E> {
         match self {
             Self::Control(error) => write!(f, "operation refused: {error}"),
             Self::Overflow => f.write_str("evaluator operation extent overflow"),
+            Self::Allocation => f.write_str("evaluator operation allocation failed"),
             Self::Unsupported(profile) => write!(f, "unsupported checked operation: {profile}"),
             Self::InvalidProgram(error) => f.write_str(error),
             Self::Interrupted => f.write_str("evaluator operation interrupted"),
@@ -122,7 +127,7 @@ fn mul<E>(a: usize, b: usize) -> Result<usize, OperationError<E>> {
 
 // Count the selected coefficient representation without cloning or formatting it.
 // GMP is the maintained exact profile; a different backend needs its own backing contract.
-fn payload<E>(value: &Complex<Rational>) -> Result<usize, OperationError<E>> {
+pub(super) fn payload<E>(value: &Complex<Rational>) -> Result<usize, OperationError<E>> {
     let mut bytes = 0;
     for value in [&value.re, &value.im] {
         for integer in [value.numerator_ref(), value.denominator_ref()] {
@@ -142,6 +147,102 @@ fn payload<E>(value: &Complex<Rational>) -> Result<usize, OperationError<E>> {
         }
     }
     Ok(bytes)
+}
+
+// Ordinary Numerica Clone can adopt a cleared cached GMP allocation much
+// larger than its source. Copy canonical limbs through the backend's fresh-copy
+// API instead; no arithmetic, normalization or cache-capacity allowance is needed.
+fn copy_integer(value: &Integer) -> Integer {
+    match value {
+        Integer::Large(value) => Integer::Large(
+            crate::domains::integer::MultiPrecisionInteger::from_raw(value.to_raw())),
+        _ => value.clone(),
+    }
+}
+fn copy_rational(value: &Rational) -> Rational {
+    Rational::from_unchecked(copy_integer(value.numerator_ref()), copy_integer(value.denominator_ref()))
+}
+fn copy_coefficient(value: &Complex<Rational>) -> Complex<Rational> {
+    Complex::new(copy_rational(&value.re), copy_rational(&value.im))
+}
+fn copy_external(external: &ExternalFunctionContainer<Complex<Rational>>)
+    -> ExternalFunctionContainer<Complex<Rational>> {
+    ExternalFunctionContainer {
+        export_name: external.export_name.clone(), symbol: external.symbol, tags: Vec::new(),
+        fixed_args: external.fixed_args.iter().map(copy_coefficient).collect(),
+        imp: None, constant_index: external.constant_index, stack: Vec::new(), body: None,
+    }
+}
+
+#[cfg(all(test, feature = "integer-gmp"))]
+mod tests {
+    use super::*;
+    use crate::domains::{dual::HyperDual, integer::{MultiPrecisionInteger, RawMultiPrecisionInteger}};
+    use std::convert::Infallible;
+
+    #[test]
+    fn checked_known_head_admits_generated_names_before_their_allocation() {
+        let symbol = crate::symbol!("checked_name::value");
+        let derivative = crate::symbol!(format!("checked_name::{}", "d".repeat(32_768)));
+        let source = ExpressionEvaluator {
+            stack: vec![Complex::default(); 2], param_count: 1, reserved_indices: 1,
+            instructions: vec![(Instr::ExternalFun(1, 0, vec![0]), ComplexPhase::Any)],
+            result_indices: vec![1], external_fns: vec![ExternalFunctionContainer::new(symbol, vec![], vec![])],
+            settings: OptimizationSettings::default(),
+        };
+        let heads = [
+            KnownHead { symbol, arity: 1, first: [Some(derivative), None], second: [None; 3] },
+            KnownHead { symbol: derivative, arity: 1, first: [None; 2], second: [None; 3] },
+        ];
+        let dual = Dualizer::new(HyperDual::<Complex<Rational>>::new(vec![vec![0], vec![1]]), vec![]);
+        let mut admitted = 0;
+        let product = source.try_vectorize_known_with(&dual, &heads, &mut |extent: OperationExtent| {
+            if extent.stage == OperationStage::KnownHeadGeneration {
+                assert!(extent.output_bytes >= derivative.get_name().len());
+            }
+            admitted = admitted.max(extent.output_bytes);
+            Ok::<_, Infallible>(())
+        }).unwrap();
+        let retained_names = product.external_fns.iter().map(|external| external.export_name.capacity()).sum::<usize>();
+        assert!(retained_names > 32_768);
+        assert!(retained_names <= admitted);
+    }
+
+    #[test]
+    fn checked_taylor_copies_do_not_adopt_unadmitted_cached_limb_capacity() {
+        let integer = Integer::Large(MultiPrecisionInteger::from_raw(RawMultiPrecisionInteger::from(1) << 129_u32));
+        let coefficient = Complex::from(Rational::from_unchecked(integer, Integer::one()));
+        let source = ExpressionEvaluator {
+            stack: vec![Complex::default(), coefficient, Complex::default()], param_count: 1,
+            reserved_indices: 2, instructions: vec![(Instr::Add(2, vec![0, 1]), ComplexPhase::Any)],
+            result_indices: vec![2], external_fns: vec![], settings: OptimizationSettings::default(),
+        };
+        let source_payload = payload::<Infallible>(&source.stack[1]).unwrap();
+        // Exercise the selected backend's real cache, including a witness that
+        // ordinary Clone adopts its larger capacity. The source remains small.
+        let cache = (0..32).map(|_| MultiPrecisionInteger::from_raw(
+            RawMultiPrecisionInteger::from(1) << 1_000_000_u32)).collect::<Vec<_>>();
+        drop(cache);
+        let witness = source.stack[1].clone();
+        assert!(payload::<Infallible>(&witness).unwrap() > source_payload * 100);
+        drop(witness);
+        let dual = Dualizer::new(HyperDual::<Complex<Rational>>::new(vec![vec![0], vec![1], vec![2]]), vec![]);
+        let mut extent = OperationExtent::default();
+        let product = source.try_vectorize_with(&dual, &mut |reported: OperationExtent| {
+            if reported.output_bytes > 0 { extent = reported; }
+            Ok::<_, Infallible>(())
+        }).unwrap();
+        assert!(payload::<Infallible>(&product.get_constants()[0]).unwrap() <= source_payload);
+        let numeric = product.stack.capacity() * size_of::<Complex<Rational>>()
+            + product.stack.iter().map(|value| payload::<Infallible>(value).unwrap()).sum::<usize>();
+        let instruction_bytes = product.instructions.capacity() * size_of::<(Instr, ComplexPhase)>()
+            + product.instructions.iter().map(|(instruction, _)| match instruction {
+                Instr::Add(_, args) | Instr::Mul(_, args) => args.capacity() * size_of::<usize>(),
+                _ => 0,
+            }).sum::<usize>() + product.result_indices.capacity() * size_of::<usize>();
+        assert!(numeric + instruction_bytes <= extent.output_bytes,
+            "all realized returned backing fits the pre-growth extent");
+    }
 }
 
 impl ExpressionEvaluator<Complex<Rational>> {
@@ -198,12 +299,12 @@ impl ExpressionEvaluator<Complex<Rational>> {
             direct_translation: self.settings.direct_translation,
         };
         let evaluator = Self {
-            stack: self.stack.clone(),
+            stack: self.stack.iter().map(copy_coefficient).collect(),
             param_count: self.param_count,
             reserved_indices: self.reserved_indices,
             instructions: self.instructions.clone(),
             result_indices: self.result_indices.clone(),
-            external_fns: self.external_fns.clone(),
+            external_fns: self.external_fns.iter().map(copy_external).collect(),
             settings,
         };
         let mut error = None;
@@ -216,7 +317,7 @@ impl ExpressionEvaluator<Complex<Rational>> {
                     false
                 }
             }
-        });
+        }, &copy_coefficient, &copy_external);
         if let Some(error) = error {
             return Err(OperationError::Control(error));
         }
@@ -236,7 +337,9 @@ impl ExpressionEvaluator<Complex<Rational>> {
             return Err(OperationError::Unsupported("invalid evaluator stack"));
         }
         for external in &self.external_fns {
-            if external.body.is_some() || !external.tags.is_empty() {
+            if external.body.is_some() || !external.tags.is_empty() || external.imp.is_some()
+                || !external.stack.is_empty()
+                || (external.constant_index.is_none() && !external.fixed_args.is_empty()) {
                 return Err(OperationError::Unsupported("retained body or tagged external head"));
             }
             let head = KnownHead::find::<E>(heads, external.symbol)?;
@@ -260,6 +363,13 @@ impl ExpressionEvaluator<Complex<Rational>> {
         let table = dualizer.dual.get_multiplication_table();
         if table.iter().any(|&(a, b, c)| a >= width || b >= width || c >= width) {
             return Err(OperationError::Unsupported("invalid Taylor multiplication table"));
+        }
+        let mut generated_names = 0;
+        for external in &self.external_fns {
+            if external.constant_index.is_none() {
+                generated_names = add(generated_names,
+                    KnownHead::find::<E>(heads, external.symbol)?.name_bytes(depth, heads)?)?;
+            }
         }
         // mul emits W initial products and a product/add pair for each table entry.
         // Unary kernels add at most two W-sized setup/final maps and, per Taylor
@@ -301,7 +411,6 @@ impl ExpressionEvaluator<Complex<Rational>> {
                     if args.len() != head.arity {
                         return Err(OperationError::Unsupported("qualified head arity"));
                     }
-                    head.demand(depth, heads)?;
                     operand_capacity = add(operand_capacity, args.capacity())?;
                     (head.instruction_bound(width, table.len())?, 1, 1)
                 },
@@ -337,8 +446,8 @@ impl ExpressionEvaluator<Complex<Rational>> {
                 mul(add(operand_capacity, self.result_indices.capacity())?, size_of::<usize>())?)?,
         )?)?;
         let outputs = mul(self.result_indices.len(), width)?;
-        let head_bytes = mul(mul(6, self.external_fns.len())?,
-            add(size_of::<ExternalFunctionContainer<Complex<Rational>>>(), 2 * size_of::<usize>())?)?;
+        let head_bytes = add(generated_names, mul(mul(6, self.external_fns.len())?,
+            add(size_of::<ExternalFunctionContainer<Complex<Rational>>>(), 2 * size_of::<usize>())?)?)?;
         let output_bytes = add(add(external_bytes, head_bytes)?, add(
             add(mul(entries, size_of::<Complex<Rational>>())?, coefficients)?,
             add(mul(instructions, add(size_of::<(Instr, ComplexPhase)>(), 2 * size_of::<usize>())?)?,
@@ -350,10 +459,10 @@ impl ExpressionEvaluator<Complex<Rational>> {
         // linear in emitted instruction count, not in an application-side source
         // predictor. 64 machine words per instruction covers the simultaneous
         // maps, per-key table metadata, vectors and geometric capacity overlap.
-        let temporary_bytes = add(
+        let temporary_bytes = add(generated_names, add(
             add(input_bytes, mul(2, output_bytes)?)?,
             mul(add(add(emitted, self.reserved_indices)?, outputs)?, 64 * size_of::<usize>())?,
-        )?;
+        )?)?;
         let extent = OperationExtent { stage: OperationStage::Vectorization, work, input_bytes, temporary_bytes, output_bytes, output_entries: entries };
         extent.peak_bytes().ok_or(OperationError::Overflow)?;
         Ok(extent)

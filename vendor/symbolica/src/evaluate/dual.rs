@@ -2,14 +2,48 @@ use super::*;
 
 impl<T: Default + Clone> ExpressionEvaluator<T> {
     /// Inline generated scalar instructions without dualizing them again.
-    fn inline_vector_components(
+    fn inline_vector_components<V: Vectorize<T>>(
         &self,
         args: &[Slot],
+        vectorizer: &V,
         ins: &mut InstructionList<T>,
         external_functions: &mut Vec<ExternalFunctionContainer<T>>,
         next_label: &mut usize,
     ) -> Vec<Slot> {
         let mut slots = args.to_vec();
+        // Qualified generated heads are pure. Specialize their scalar DAG against
+        // original structural zeros before emitting any local-partial call: a
+        // zero multiplier must not cause an unrequested singular partial to run.
+        let mut zeros = vec![None; self.stack.len()];
+        let mut needed = vec![true; self.stack.len()];
+        if vectorizer.simplify_generated_function() {
+            for (index, slot) in args.iter().enumerate() {
+                if vectorizer.is_zero_slot(slot, ins) { zeros[index] = Some(*slot); }
+            }
+            for (instruction, _) in &self.instructions {
+                match instruction {
+                    Instr::Mul(output, args) => zeros[*output] = args.iter().find_map(|arg| zeros[*arg]),
+                    Instr::Add(output, args) if args.iter().all(|arg| zeros[*arg].is_some()) =>
+                        zeros[*output] = args.first().and_then(|arg| zeros[*arg]),
+                    _ => {}
+                }
+            }
+            needed.fill(false);
+            for output in &self.result_indices { needed[*output] = true; }
+            for (instruction, _) in self.instructions.iter().rev() {
+                let (output, args) = match instruction {
+                    Instr::Add(output, args) | Instr::Mul(output, args) | Instr::ExternalFun(output, _, args) => (*output, args),
+                    _ => continue, // The closed generator emits only these three operations.
+                };
+                if needed[output] && zeros[output].is_none() {
+                    for arg in args {
+                        if !matches!(instruction, Instr::Add(..)) || zeros[*arg].is_none() {
+                            needed[*arg] = true;
+                        }
+                    }
+                }
+            }
+        }
         let mut constants = Vec::new();
         for value in &self.stack[self.param_count..self.reserved_indices] {
             constants.push(ins.constants.len());
@@ -46,8 +80,11 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
         for (instr, _) in &self.instructions {
             let (output, instr) = match instr {
                 Instr::Add(output, args) | Instr::Mul(output, args) => {
-                    let mut value = slots[args[0]];
-                    for arg in &args[1..] {
+                    if let Some(zero) = zeros[*output] { slots[*output] = zero; continue; }
+                    if !needed[*output] { continue; }
+                    let mut nonzero = args.iter().filter(|arg| zeros[**arg].is_none());
+                    let mut value = slots[*nonzero.next().expect("nonzero scalar instruction has an operand")];
+                    for arg in nonzero {
                         value = ins.add(if matches!(instr, Instr::Add(..)) {
                             VectorInstruction::Add(value, slots[*arg])
                         } else {
@@ -60,13 +97,11 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
                 Instr::Pow(o, a, p) => (*o, VectorInstruction::Pow(slots[*a], *p)),
                 Instr::Powf(o, a, b) => (*o, VectorInstruction::Powf(slots[*a], slots[*b])),
                 Instr::BuiltinFun(o, f, a) => (*o, VectorInstruction::BuiltinFun(*f, slots[*a])),
-                Instr::ExternalFun(o, f, args) => (
-                    *o,
-                    VectorInstruction::ExternalFun(
-                        functions[*f],
-                        args.iter().map(|a| slots[*a]).collect(),
-                    ),
-                ),
+                Instr::ExternalFun(o, f, args) => {
+                    if !needed[*o] { continue; }
+                    (*o, VectorInstruction::ExternalFun(
+                        functions[*f], args.iter().map(|a| slots[*a]).collect()))
+                },
                 Instr::Join(o, c, a, b) => {
                     (*o, VectorInstruction::Join(slots[*c], slots[*a], slots[*b]))
                 }
@@ -125,7 +160,7 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
     /// assert!(dest.iter().all(|x| x.abs() < 1e-10));
     /// ```
     pub fn vectorize<V: Vectorize<T>>(self, v: &V) -> Result<ExpressionEvaluator<T>, String> {
-        self.vectorize_impl(v, &mut |_| true)
+        self.vectorize_impl(v, &mut |_| true, &|value: &T| value.clone(), &|external| external.clone())
     }
 
     // The checked and ordinary entry points use exactly the same expansion engine.
@@ -134,6 +169,8 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
         mut self,
         v: &V,
         safe_point: &mut impl FnMut(OperationStage) -> bool,
+        copy_coefficient: &impl Fn(&T) -> T,
+        copy_external: &impl Fn(&ExternalFunctionContainer<T>) -> ExternalFunctionContainer<T>,
     ) -> Result<ExpressionEvaluator<T>, String> {
         if !safe_point(OperationStage::Vectorization) {
             return Err("Vectorization interrupted".into());
@@ -157,7 +194,7 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
                     1
                 };
                 for i in 0..d {
-                    let mut e = external_fn.clone();
+                    let mut e = copy_external(external_fn);
                     e.constant_index = Some(c_index * v.get_dimension() + i);
                     new_external_fns.push(e);
                 }
@@ -215,10 +252,10 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
         for c in &self.stack[self.param_count..self.reserved_indices] {
             if v.duplicate_constants() {
                 for _ in 0..v.get_dimension() {
-                    constants.push(c.clone());
+                    constants.push(copy_coefficient(c));
                 }
             } else {
-                constants.push(c.clone());
+                constants.push(copy_coefficient(c));
                 for _ in 1..v.get_dimension() {
                     constants.push(T::default());
                 }
@@ -329,6 +366,7 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
                             .collect::<Vec<_>>();
                         let results = generated.inline_vector_components(
                             &args,
+                            v,
                             &mut ins,
                             &mut new_external_fns,
                             &mut next_label,
@@ -527,6 +565,13 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
 /// A trait to define how to vectorize coefficients and instructions.
 /// Every slot is mapped to `n` slots and every instruction is mapped to `n` instructions, where `n` is the dimension.
 pub trait Vectorize<T> {
+    /// Whether generated scalar bodies have the closed pure Add/Mul/call profile
+    /// and can discard unneeded local-partial calls after structural specialization.
+    fn simplify_generated_function(&self) -> bool { false }
+
+    /// Recognize an already established zero component without evaluating a head.
+    fn is_zero_slot(&self, _slot: &Slot, _instructions: &InstructionList<T>) -> bool { false }
+
     /// Whether independently registered `_v` functions may override generation.
     fn allow_explicit_vector_function(&self) -> bool { true }
 
@@ -576,6 +621,20 @@ impl<T: DualNumberStructure> Dualizer<T> {
             dual,
             zero_components: zero_components_per_parameter.into_iter().collect(),
         }
+    }
+}
+
+impl<T: DualNumberStructure> Dualizer<T> {
+    pub(super) fn structural_zero(&self, slot: &Slot, instructions: &InstructionList<Complex<Rational>>) -> bool {
+        let slot = match slot {
+            Slot::Temp(index) => match instructions.instructions.get(*index) {
+                Some(VectorInstruction::Assign(source)) => source,
+                _ => slot,
+            },
+            _ => slot,
+        };
+        instructions.is_zero(slot) || matches!(slot, Slot::Param(index)
+            if self.zero_components.contains(&(*index / self.get_dimension(), *index % self.get_dimension())))
     }
 }
 
@@ -674,22 +733,9 @@ impl<T: DualNumberStructure> Vectorize<Complex<Rational>> for Dualizer<T> {
         i: &VectorInstruction,
         instrs: &mut InstructionList<Complex<Rational>>,
     ) -> Vec<VectorInstruction> {
-        fn is_zero<T: DualNumberStructure>(
-            a: &Slot,
-            dualizer: &Dualizer<T>,
-            instrs: &InstructionList<Complex<Rational>>,
-        ) -> bool {
-            if instrs.is_zero(a) {
-                return true;
-            }
-
-            if let Slot::Param(x) = a {
-                dualizer
-                    .zero_components
-                    .contains(&(*x / dualizer.get_dimension(), *x % dualizer.get_dimension()))
-            } else {
-                false
-            }
+        fn is_zero<T: DualNumberStructure>(a: &Slot, dualizer: &Dualizer<T>,
+            instrs: &InstructionList<Complex<Rational>>) -> bool {
+            dualizer.structural_zero(a, instrs)
         }
 
         fn scalar_add<T: DualNumberStructure>(

@@ -23,6 +23,24 @@ impl KnownHead {
         Ok(())
     }
 
+    // ExternalFunctionContainer::new allocates get_ascii_name(). Match its
+    // borrowed name/alias selection without constructing the replacement String.
+    pub(super) fn name_bytes<E>(&self, depth: usize, heads: &[Self]) -> Result<usize, OperationError<E>> {
+        self.demand(depth, heads)?;
+        let first = if depth > 0 { self.arity } else { 0 };
+        let second = if depth > 1 { self.arity * (self.arity + 1) / 2 } else { 0 };
+        let mut bytes = 0usize;
+        for symbol in std::iter::once(self.symbol).chain(self.first[..first].iter().flatten().copied())
+            .chain(self.second[..second].iter().flatten().copied()) {
+            let name = if symbol.get_name().is_ascii() { Some(symbol.get_name()) }
+                else { symbol.get_aliases().iter().find(|name| name.is_ascii()).map(String::as_str) }
+                .ok_or(OperationError::Unsupported("known head has no ASCII export name"))?;
+            // Replacing :: with _ cannot increase the allocation's input length.
+            bytes = bytes.checked_add(name.len()).ok_or(OperationError::Overflow)?;
+        }
+        Ok(bytes)
+    }
+
     // Upper bound on scalar instructions in the finite generated evaluator. Its
     // parameter and constant backing is counted separately by the operation owner.
     pub(super) fn instruction_bound<E>(&self, width: usize, table: usize) -> Result<usize, OperationError<E>> {
@@ -41,6 +59,10 @@ pub(super) struct KnownDualizer<'a, D: DualNumberStructure> {
 }
 
 impl<D: DualNumberStructure> Vectorize<Complex<Rational>> for KnownDualizer<'_, D> {
+    fn simplify_generated_function(&self) -> bool { true }
+    fn is_zero_slot(&self, slot: &Slot, instructions: &InstructionList<Complex<Rational>>) -> bool {
+        self.dualizer.structural_zero(slot, instructions)
+    }
     fn duplicate_constants(&self) -> bool { self.dualizer.duplicate_constants() }
     fn get_dimension(&self) -> usize { self.dualizer.get_dimension() }
     fn allow_explicit_vector_function(&self) -> bool { false }

@@ -923,12 +923,277 @@ index 565f85db38bdb56e0eaa14e4a6d703a88b26dd51..92df3891d525b40450bb09351d5df1b1
  pub use function_map::*;
  pub use instruction::{
      ComplexPhase, ExportedConstantFunction, ExportedInstructions, ExportedSubEvaluator,
+diff --git a/src/evaluate/checked_export.rs b/src/evaluate/checked_export.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..a3be19b594ff8352849f94c6c81e29639cf2fbaa
+--- /dev/null
++++ b/src/evaluate/checked_export.rs
+@@ -0,0 +1,259 @@
++//! Allocation-free counting and admitted streaming for the maintained C++ profile.
++use super::*;
++use std::fmt::Write;
++
++/// Explicit numerical/ISA source profile. Compiler flags remain the caller's policy.
++#[derive(Clone, Copy, Debug, PartialEq, Eq)]
++pub enum CppProfile {
++    /// Binary64 scalar instructions, without inline assembly or contraction.
++    ScalarF64,
++    /// Four binary64 lanes using an explicitly selected AVX2 xsimd batch.
++    X4F64Avx2,
++}
++
++/// Source-owned finite definition of a qualified mathematical head.
++#[derive(Clone, Copy, Debug)]
++pub struct CppKnownHead {
++    /// Fixed registered head identity.
++    pub symbol: Symbol,
++    /// One or two ordinary arguments, named x and y in the fixed body.
++    pub arity: usize,
++    /// Complete scalar function body, with no caller-supplied snippets/generators.
++    pub body: &'static str,
++    /// Qualified packed function body. Absence refuses the packed profile.
++    pub packed_body: Option<&'static str>,
++}
++
++/// A complete source product and the extent accepted before its allocation.
++#[derive(Debug)]
++pub struct CheckedCpp {
++    /// Generated source, with no retained producer control.
++    pub source: String,
++    /// Admitted input/source/temporary overlap.
++    pub extent: OperationExtent,
++}
++
++struct Count {
++    bytes: usize,
++    overflow: bool,
++}
++impl Write for Count {
++    fn write_str(&mut self, text: &str) -> std::fmt::Result {
++        match self.bytes.checked_add(text.len()) {
++            Some(bytes) => { self.bytes = bytes; Ok(()) }
++            None => { self.overflow = true; Err(std::fmt::Error) }
++        }
++    }
++}
++struct BoundedSource {
++    source: String,
++    limit: usize,
++}
++impl Write for BoundedSource {
++    fn write_str(&mut self, text: &str) -> std::fmt::Result {
++        if self.source.len().checked_add(text.len()).is_none_or(|bytes| bytes > self.limit) {
++            return Err(std::fmt::Error);
++        }
++        self.source.push_str(text);
++        Ok(())
++    }
++}
++struct Name<'a> { base: &'a str, profile: CppProfile }
++impl std::fmt::Display for Name<'_> {
++    fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        write!(out, "{}_{}", self.base, match self.profile {
++            CppProfile::ScalarF64 => "realf64", CppProfile::X4F64Avx2 => "simd_realf64",
++        })
++    }
++}
++fn identifier(name: &str) -> bool {
++    !name.is_empty() && name.bytes().enumerate().all(|(i, byte)|
++        byte.is_ascii_alphabetic() || byte == b'_' || (i > 0 && byte.is_ascii_digit()))
++}
++fn head<'a, E>(heads: &'a [CppKnownHead], symbol: Symbol) -> Result<&'a CppKnownHead, OperationError<E>> {
++    let mut matches = heads.iter().filter(|head| head.symbol == symbol);
++    let head = matches.next().ok_or(OperationError::Unsupported("unqualified C++ head"))?;
++    if matches.next().is_some() || !(1..=2).contains(&head.arity) {
++        return Err(OperationError::Unsupported("ambiguous C++ head or arity"));
++    }
++    Ok(head)
++}
++
++impl ExpressionEvaluator<f64> {
++    /// Count without allocating, admit exact source backing/overlap, then stream
++    /// the same emitter into an exactly reserved destination. No temporary operand
++    /// strings, arbitrary source generators or hidden external bodies are accepted.
++    pub fn try_export_cpp_with<C: OperationControl>(&self, function_name: &str,
++        settings: ExportSettings, profile: CppProfile, heads: &[CppKnownHead], control: &mut C)
++        -> Result<CheckedCpp, OperationError<C::Error>> {
++        control.check(OperationExtent { stage: OperationStage::Export, ..Default::default() })
++            .map_err(OperationError::Control)?;
++        self.qualify_cpp(function_name, &settings, profile, heads)?;
++        let input_bytes = self.cpp_input_bytes()?;
++        let mut extent = OperationExtent { stage: OperationStage::Export,
++            input_bytes, temporary_bytes: 4096, ..Default::default() };
++        let name = Name { base: function_name, profile };
++        let mut count = Count { bytes: 0, overflow: false };
++        let mut error = None;
++        let counted = self.write_checked_cpp(&name, &settings, heads, &mut count, &mut || {
++            control.check(extent).map_err(|refusal| { error = Some(refusal); std::fmt::Error })
++        });
++        if let Some(error) = error { return Err(OperationError::Control(error)); }
++        if count.overflow { return Err(OperationError::Overflow); }
++        counted.map_err(|_| OperationError::Interrupted)?;
++        extent.output_bytes = count.bytes;
++        extent.work = self.instructions.len().checked_add(self.result_indices.len())
++            .and_then(|n| n.checked_add(self.external_fns.len())).ok_or(OperationError::Overflow)?;
++        extent.peak_bytes().ok_or(OperationError::Overflow)?;
++        control.check(extent).map_err(OperationError::Control)?;
++        let mut source = String::new();
++        source.try_reserve_exact(count.bytes).map_err(|_| OperationError::Allocation)?;
++        let mut source = BoundedSource { source, limit: count.bytes };
++        let safe_extent = OperationExtent { work: 0, ..extent };
++        let emitted = self.write_checked_cpp(&name, &settings, heads, &mut source, &mut || {
++            control.check(safe_extent).map_err(|refusal| { error = Some(refusal); std::fmt::Error })
++        });
++        if let Some(error) = error { return Err(OperationError::Control(error)); }
++        emitted.map_err(|_| OperationError::InvalidProgram("C++ count/emission mismatch".into()))?;
++        if source.source.len() != count.bytes {
++            return Err(OperationError::InvalidProgram("C++ count/emission mismatch".into()));
++        }
++        control.check(OperationExtent { stage: OperationStage::Finalization, ..safe_extent })
++            .map_err(OperationError::Control)?;
++        Ok(CheckedCpp { source: source.source, extent })
++    }
++
++    fn qualify_cpp<E>(&self, name: &str, settings: &ExportSettings, profile: CppProfile,
++        heads: &[CppKnownHead]) -> Result<(), OperationError<E>> {
++        if !identifier(name) || settings.inline_asm != InlineASM::None || settings.custom_header.is_some() {
++            return Err(OperationError::Unsupported("C++ name, assembly or custom header"));
++        }
++        if self.param_count > self.reserved_indices || self.reserved_indices > self.stack.len()
++            || self.stack[self.param_count..self.reserved_indices].iter().any(|value| !value.is_finite()) {
++            return Err(OperationError::Unsupported("nonfinite constants or invalid stack"));
++        }
++        for external in &self.external_fns {
++            let descriptor = head::<E>(heads, external.symbol)?;
++            if external.body.is_some() || !external.tags.is_empty() || !identifier(external.export_name())
++                || (profile == CppProfile::X4F64Avx2 && descriptor.packed_body.is_none()) {
++                return Err(OperationError::Unsupported("C++ body, tags or packed head"));
++            }
++            if external.constant_index.is_some() && external.fixed_args.len() != descriptor.arity {
++                return Err(OperationError::Unsupported("C++ constant head arity"));
++            }
++        }
++        for (instruction, _) in &self.instructions {
++            match instruction {
++                Instr::IfElse(..) | Instr::Goto(..) | Instr::Label(..) | Instr::Join(..)
++                    if profile == CppProfile::X4F64Avx2 =>
++                    return Err(OperationError::Unsupported("packed control flow")),
++                Instr::Pow(_, _, exponent) if exponent.unsigned_abs() > i32::MAX as u64 =>
++                    return Err(OperationError::Unsupported("integer power exceeds Numerica f64 range")),
++                Instr::ExternalFun(_, index, args) => {
++                    let external = self.external_fns.get(*index).ok_or(OperationError::Unsupported("C++ external index"))?;
++                    if args.len() != head::<E>(heads, external.symbol)?.arity {
++                        return Err(OperationError::Unsupported("C++ head arity"));
++                    }
++                }
++                Instr::BuiltinFun(_, symbol, _) if ![Symbol::EXP_ID, Symbol::LOG_ID, Symbol::SIN_ID,
++                    Symbol::COS_ID, Symbol::SQRT_ID, Symbol::ABS_ID, Symbol::CONJ_ID].contains(&symbol.get_id()) =>
++                    return Err(OperationError::Unsupported("C++ builtin")),
++                Instr::Add(_, args) | Instr::Mul(_, args) if args.is_empty() =>
++                    return Err(OperationError::Unsupported("C++ empty arithmetic")),
++                _ => {}
++            }
++        }
++        Ok(())
++    }
++
++    fn cpp_input_bytes<E>(&self) -> Result<usize, OperationError<E>> {
++        let mut bytes = self.stack.capacity().checked_mul(size_of::<f64>())
++            .and_then(|n| n.checked_add(self.instructions.capacity().checked_mul(size_of::<(Instr, ComplexPhase)>())?))
++            .and_then(|n| n.checked_add(self.result_indices.capacity().checked_mul(size_of::<usize>())?))
++            .and_then(|n| n.checked_add(self.external_fns.capacity().checked_mul(size_of::<ExternalFunctionContainer<f64>>())?))
++            .ok_or(OperationError::Overflow)?;
++        for (instruction, _) in &self.instructions {
++            if let Instr::Add(_, args) | Instr::Mul(_, args) | Instr::ExternalFun(_, _, args) = instruction {
++                bytes = bytes.checked_add(args.capacity().checked_mul(size_of::<usize>()).ok_or(OperationError::Overflow)?)
++                    .ok_or(OperationError::Overflow)?;
++            }
++        }
++        for external in &self.external_fns {
++            bytes = bytes.checked_add(external.export_name.capacity())
++                .and_then(|n| n.checked_add(external.stack.capacity().checked_mul(size_of::<f64>())?))
++                .and_then(|n| n.checked_add(external.fixed_args.capacity().checked_mul(size_of::<Complex<Rational>>())?))
++                .ok_or(OperationError::Overflow)?;
++            for value in &external.fixed_args {
++                bytes = bytes.checked_add(super::super::control::payload::<E>(value)?).ok_or(OperationError::Overflow)?;
++            }
++        }
++        Ok(bytes)
++    }
++
++    fn write_checked_cpp(&self, name: &Name<'_>, settings: &ExportSettings, heads: &[CppKnownHead],
++        out: &mut dyn Write, safe_point: &mut impl FnMut() -> std::fmt::Result) -> std::fmt::Result {
++        safe_point()?;
++        if settings.include_header {
++            out.write_str("#include <cmath>\n#include <cstddef>\n")?;
++            out.write_str("template<typename T> T conj(T value) { return value; }\n")?;
++        }
++        if name.profile == CppProfile::X4F64Avx2 {
++            out.write_str("#include \"xsimd/xsimd.hpp\"\nusing simd = xsimd::batch<double, xsimd::avx2>;\nstatic_assert(simd::size == 4);\n")?;
++        }
++        writeln!(out, "namespace {name}_heads {{")?;
++        out.write_str("template<typename T> T pse_integer_power(T base, unsigned int exponent) { T result=T(1); while(exponent) { if(exponent&1u) result=result*base; exponent>>=1; if(exponent) base=base*base; } return result; }\n")?;
++        for (index, external) in self.external_fns.iter().enumerate() {
++            safe_point()?;
++            if external.constant_index.is_some() || self.external_fns[..index].iter()
++                .any(|previous| previous.constant_index.is_none() && previous.symbol == external.symbol) { continue; }
++            let descriptor = heads.iter().find(|head| head.symbol == external.symbol).unwrap();
++            write!(out, "inline double {}(double x", external.export_name())?;
++            if descriptor.arity == 2 { out.write_str(", double y")?; }
++            writeln!(out, ") {{ {} }}", descriptor.body)?;
++            if name.profile == CppProfile::X4F64Avx2 {
++                write!(out, "inline simd {}(simd x", external.export_name())?;
++                if descriptor.arity == 2 { out.write_str(", simd y")?; }
++                writeln!(out, ") {{ {} }}", descriptor.packed_body.unwrap())?;
++            }
++        }
++        out.write_str("}\n")?;
++        writeln!(out, "extern \"C\" unsigned long {name}_get_buffer_len() {{ return {}; }}", self.stack.len())?;
++        writeln!(out, "extern \"C\" std::size_t {name}_get_input_len() {{ return {}; }}", self.param_count)?;
++        writeln!(out, "extern \"C\" std::size_t {name}_get_output_len() {{ return {}; }}", self.result_indices.len())?;
++        writeln!(out, "template<typename T> void {name}_gen(T* params, T* Z, T* out) {{\nusing std::abs;\nusing namespace {name}_heads;")?;
++        self.program().write_cpp_impl(&self.external_fns, "", "T", true, true, out, safe_point)?;
++        for (index, slot) in self.result_indices.iter().enumerate() {
++            safe_point()?;
++            write!(out, "out[{index}] = ")?;
++            self.program().write_cpp_input(*slot, "", "T", true, out)?;
++            out.write_str(";\n")?;
++        }
++        out.write_str("}\n")?;
++        let number = if name.profile == CppProfile::ScalarF64 { "double" } else { "simd" };
++        writeln!(out, "extern \"C\" void {name}({number}* params, {number}* Z, {number}* out) {{ {name}_gen(params, Z, out); }}")
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    #[test]
++    fn checked_cpp_counter_overflow_has_no_partial_extent() {
++        let mut count = Count { bytes: usize::MAX, overflow: false };
++        assert!(count.write_str("x").is_err());
++        assert!(count.overflow);
++        assert_eq!(count.bytes, usize::MAX);
++    }
++    #[test]
++    fn checked_cpp_packed_control_flow_and_oversized_integer_power_refuse() {
++        let mut evaluator = ExpressionEvaluator { stack: vec![0.; 2], param_count: 1,
++            reserved_indices: 1, instructions: vec![(Instr::IfElse(0, Label(0)), ComplexPhase::Any)],
++            result_indices: vec![0], external_fns: vec![], settings: OptimizationSettings::default() };
++        let settings = || ExportSettings::new().inline_asm(InlineASM::None);
++        assert!(matches!(evaluator.try_export_cpp_with("checked", settings(), CppProfile::X4F64Avx2,
++            &[], &mut |_| Ok::<_, &'static str>(())), Err(OperationError::Unsupported("packed control flow"))));
++        evaluator.instructions = vec![(Instr::Pow(1, 0, i64::MAX), ComplexPhase::Any)];
++        assert!(matches!(evaluator.try_export_cpp_with("checked", settings(), CppProfile::ScalarF64,
++            &[], &mut |_| Ok::<_, &'static str>(())), Err(OperationError::Unsupported("integer power exceeds Numerica f64 range"))));
++    }
++}
 diff --git a/src/evaluate/control.rs b/src/evaluate/control.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..5560a104067924a0c9bc91fb10abf23d75d5d6cf
+index 0000000000000000000000000000000000000000..7242af122491dd53374b64df9087879fffab0212
 --- /dev/null
 +++ b/src/evaluate/control.rs
-@@ -0,0 +1,361 @@
+@@ -0,0 +1,470 @@
 +//! Borrowed admission for a single evaluator construction operation.
 +//!
 +//! Extents describe mathematical backing, including vector capacity overlap, rather
@@ -945,6 +1210,8 @@ index 0000000000000000000000000000000000000000..5560a104067924a0c9bc91fb10abf23d
 +    Optimization,
 +    /// Finite scalar native Taylor bodies for qualified local-partial heads.
 +    KnownHeadGeneration,
++    /// Allocation-free source counting or admitted source emission.
++    Export,
 +    /// Complete product, before returning to the caller.
 +    Finalization,
 +}
@@ -954,7 +1221,7 @@ index 0000000000000000000000000000000000000000..5560a104067924a0c9bc91fb10abf23d
 +pub struct OperationExtent {
 +    /// The stage whose growth or completion is being checked.
 +    pub stage: OperationStage,
-+    /// Incremental scalar arithmetic work admitted by this stage.
++    /// Incremental work: scalar arithmetic for Taylor, program records for export.
 +    pub work: usize,
 +    /// Mathematical backing of the immutable input, which remains live.
 +    pub input_bytes: usize,
@@ -997,6 +1264,8 @@ index 0000000000000000000000000000000000000000..5560a104067924a0c9bc91fb10abf23d
 +    Control(E),
 +    /// An extent or shape could not be represented.
 +    Overflow,
++    /// A fallible destination reservation failed after admission.
++    Allocation,
 +    /// This operation has no maintained growth contract for the requested profile.
 +    Unsupported(&'static str),
 +    /// The supplied evaluator or vectorizer has inconsistent structure.
@@ -1010,6 +1279,7 @@ index 0000000000000000000000000000000000000000..5560a104067924a0c9bc91fb10abf23d
 +        match self {
 +            Self::Control(error) => write!(f, "operation refused: {error}"),
 +            Self::Overflow => f.write_str("evaluator operation extent overflow"),
++            Self::Allocation => f.write_str("evaluator operation allocation failed"),
 +            Self::Unsupported(profile) => write!(f, "unsupported checked operation: {profile}"),
 +            Self::InvalidProgram(error) => f.write_str(error),
 +            Self::Interrupted => f.write_str("evaluator operation interrupted"),
@@ -1053,7 +1323,7 @@ index 0000000000000000000000000000000000000000..5560a104067924a0c9bc91fb10abf23d
 +
 +// Count the selected coefficient representation without cloning or formatting it.
 +// GMP is the maintained exact profile; a different backend needs its own backing contract.
-+fn payload<E>(value: &Complex<Rational>) -> Result<usize, OperationError<E>> {
++pub(super) fn payload<E>(value: &Complex<Rational>) -> Result<usize, OperationError<E>> {
 +    let mut bytes = 0;
 +    for value in [&value.re, &value.im] {
 +        for integer in [value.numerator_ref(), value.denominator_ref()] {
@@ -1073,6 +1343,102 @@ index 0000000000000000000000000000000000000000..5560a104067924a0c9bc91fb10abf23d
 +        }
 +    }
 +    Ok(bytes)
++}
++
++// Ordinary Numerica Clone can adopt a cleared cached GMP allocation much
++// larger than its source. Copy canonical limbs through the backend's fresh-copy
++// API instead; no arithmetic, normalization or cache-capacity allowance is needed.
++fn copy_integer(value: &Integer) -> Integer {
++    match value {
++        Integer::Large(value) => Integer::Large(
++            crate::domains::integer::MultiPrecisionInteger::from_raw(value.to_raw())),
++        _ => value.clone(),
++    }
++}
++fn copy_rational(value: &Rational) -> Rational {
++    Rational::from_unchecked(copy_integer(value.numerator_ref()), copy_integer(value.denominator_ref()))
++}
++fn copy_coefficient(value: &Complex<Rational>) -> Complex<Rational> {
++    Complex::new(copy_rational(&value.re), copy_rational(&value.im))
++}
++fn copy_external(external: &ExternalFunctionContainer<Complex<Rational>>)
++    -> ExternalFunctionContainer<Complex<Rational>> {
++    ExternalFunctionContainer {
++        export_name: external.export_name.clone(), symbol: external.symbol, tags: Vec::new(),
++        fixed_args: external.fixed_args.iter().map(copy_coefficient).collect(),
++        imp: None, constant_index: external.constant_index, stack: Vec::new(), body: None,
++    }
++}
++
++#[cfg(all(test, feature = "integer-gmp"))]
++mod tests {
++    use super::*;
++    use crate::domains::{dual::HyperDual, integer::{MultiPrecisionInteger, RawMultiPrecisionInteger}};
++    use std::convert::Infallible;
++
++    #[test]
++    fn checked_known_head_admits_generated_names_before_their_allocation() {
++        let symbol = crate::symbol!("checked_name::value");
++        let derivative = crate::symbol!(format!("checked_name::{}", "d".repeat(32_768)));
++        let source = ExpressionEvaluator {
++            stack: vec![Complex::default(); 2], param_count: 1, reserved_indices: 1,
++            instructions: vec![(Instr::ExternalFun(1, 0, vec![0]), ComplexPhase::Any)],
++            result_indices: vec![1], external_fns: vec![ExternalFunctionContainer::new(symbol, vec![], vec![])],
++            settings: OptimizationSettings::default(),
++        };
++        let heads = [
++            KnownHead { symbol, arity: 1, first: [Some(derivative), None], second: [None; 3] },
++            KnownHead { symbol: derivative, arity: 1, first: [None; 2], second: [None; 3] },
++        ];
++        let dual = Dualizer::new(HyperDual::<Complex<Rational>>::new(vec![vec![0], vec![1]]), vec![]);
++        let mut admitted = 0;
++        let product = source.try_vectorize_known_with(&dual, &heads, &mut |extent: OperationExtent| {
++            if extent.stage == OperationStage::KnownHeadGeneration {
++                assert!(extent.output_bytes >= derivative.get_name().len());
++            }
++            admitted = admitted.max(extent.output_bytes);
++            Ok::<_, Infallible>(())
++        }).unwrap();
++        let retained_names = product.external_fns.iter().map(|external| external.export_name.capacity()).sum::<usize>();
++        assert!(retained_names > 32_768);
++        assert!(retained_names <= admitted);
++    }
++
++    #[test]
++    fn checked_taylor_copies_do_not_adopt_unadmitted_cached_limb_capacity() {
++        let integer = Integer::Large(MultiPrecisionInteger::from_raw(RawMultiPrecisionInteger::from(1) << 129_u32));
++        let coefficient = Complex::from(Rational::from_unchecked(integer, Integer::one()));
++        let source = ExpressionEvaluator {
++            stack: vec![Complex::default(), coefficient, Complex::default()], param_count: 1,
++            reserved_indices: 2, instructions: vec![(Instr::Add(2, vec![0, 1]), ComplexPhase::Any)],
++            result_indices: vec![2], external_fns: vec![], settings: OptimizationSettings::default(),
++        };
++        let source_payload = payload::<Infallible>(&source.stack[1]).unwrap();
++        // Exercise the selected backend's real cache, including a witness that
++        // ordinary Clone adopts its larger capacity. The source remains small.
++        let cache = (0..32).map(|_| MultiPrecisionInteger::from_raw(
++            RawMultiPrecisionInteger::from(1) << 1_000_000_u32)).collect::<Vec<_>>();
++        drop(cache);
++        let witness = source.stack[1].clone();
++        assert!(payload::<Infallible>(&witness).unwrap() > source_payload * 100);
++        drop(witness);
++        let dual = Dualizer::new(HyperDual::<Complex<Rational>>::new(vec![vec![0], vec![1], vec![2]]), vec![]);
++        let mut extent = OperationExtent::default();
++        let product = source.try_vectorize_with(&dual, &mut |reported: OperationExtent| {
++            if reported.output_bytes > 0 { extent = reported; }
++            Ok::<_, Infallible>(())
++        }).unwrap();
++        assert!(payload::<Infallible>(&product.get_constants()[0]).unwrap() <= source_payload);
++        let numeric = product.stack.capacity() * size_of::<Complex<Rational>>()
++            + product.stack.iter().map(|value| payload::<Infallible>(value).unwrap()).sum::<usize>();
++        let instruction_bytes = product.instructions.capacity() * size_of::<(Instr, ComplexPhase)>()
++            + product.instructions.iter().map(|(instruction, _)| match instruction {
++                Instr::Add(_, args) | Instr::Mul(_, args) => args.capacity() * size_of::<usize>(),
++                _ => 0,
++            }).sum::<usize>() + product.result_indices.capacity() * size_of::<usize>();
++        assert!(numeric + instruction_bytes <= extent.output_bytes,
++            "all realized returned backing fits the pre-growth extent");
++    }
 +}
 +
 +impl ExpressionEvaluator<Complex<Rational>> {
@@ -1129,12 +1495,12 @@ index 0000000000000000000000000000000000000000..5560a104067924a0c9bc91fb10abf23d
 +            direct_translation: self.settings.direct_translation,
 +        };
 +        let evaluator = Self {
-+            stack: self.stack.clone(),
++            stack: self.stack.iter().map(copy_coefficient).collect(),
 +            param_count: self.param_count,
 +            reserved_indices: self.reserved_indices,
 +            instructions: self.instructions.clone(),
 +            result_indices: self.result_indices.clone(),
-+            external_fns: self.external_fns.clone(),
++            external_fns: self.external_fns.iter().map(copy_external).collect(),
 +            settings,
 +        };
 +        let mut error = None;
@@ -1147,7 +1513,7 @@ index 0000000000000000000000000000000000000000..5560a104067924a0c9bc91fb10abf23d
 +                    false
 +                }
 +            }
-+        });
++        }, &copy_coefficient, &copy_external);
 +        if let Some(error) = error {
 +            return Err(OperationError::Control(error));
 +        }
@@ -1167,7 +1533,9 @@ index 0000000000000000000000000000000000000000..5560a104067924a0c9bc91fb10abf23d
 +            return Err(OperationError::Unsupported("invalid evaluator stack"));
 +        }
 +        for external in &self.external_fns {
-+            if external.body.is_some() || !external.tags.is_empty() {
++            if external.body.is_some() || !external.tags.is_empty() || external.imp.is_some()
++                || !external.stack.is_empty()
++                || (external.constant_index.is_none() && !external.fixed_args.is_empty()) {
 +                return Err(OperationError::Unsupported("retained body or tagged external head"));
 +            }
 +            let head = KnownHead::find::<E>(heads, external.symbol)?;
@@ -1191,6 +1559,13 @@ index 0000000000000000000000000000000000000000..5560a104067924a0c9bc91fb10abf23d
 +        let table = dualizer.dual.get_multiplication_table();
 +        if table.iter().any(|&(a, b, c)| a >= width || b >= width || c >= width) {
 +            return Err(OperationError::Unsupported("invalid Taylor multiplication table"));
++        }
++        let mut generated_names = 0;
++        for external in &self.external_fns {
++            if external.constant_index.is_none() {
++                generated_names = add(generated_names,
++                    KnownHead::find::<E>(heads, external.symbol)?.name_bytes(depth, heads)?)?;
++            }
 +        }
 +        // mul emits W initial products and a product/add pair for each table entry.
 +        // Unary kernels add at most two W-sized setup/final maps and, per Taylor
@@ -1232,7 +1607,6 @@ index 0000000000000000000000000000000000000000..5560a104067924a0c9bc91fb10abf23d
 +                    if args.len() != head.arity {
 +                        return Err(OperationError::Unsupported("qualified head arity"));
 +                    }
-+                    head.demand(depth, heads)?;
 +                    operand_capacity = add(operand_capacity, args.capacity())?;
 +                    (head.instruction_bound(width, table.len())?, 1, 1)
 +                },
@@ -1268,8 +1642,8 @@ index 0000000000000000000000000000000000000000..5560a104067924a0c9bc91fb10abf23d
 +                mul(add(operand_capacity, self.result_indices.capacity())?, size_of::<usize>())?)?,
 +        )?)?;
 +        let outputs = mul(self.result_indices.len(), width)?;
-+        let head_bytes = mul(mul(6, self.external_fns.len())?,
-+            add(size_of::<ExternalFunctionContainer<Complex<Rational>>>(), 2 * size_of::<usize>())?)?;
++        let head_bytes = add(generated_names, mul(mul(6, self.external_fns.len())?,
++            add(size_of::<ExternalFunctionContainer<Complex<Rational>>>(), 2 * size_of::<usize>())?)?)?;
 +        let output_bytes = add(add(external_bytes, head_bytes)?, add(
 +            add(mul(entries, size_of::<Complex<Rational>>())?, coefficients)?,
 +            add(mul(instructions, add(size_of::<(Instr, ComplexPhase)>(), 2 * size_of::<usize>())?)?,
@@ -1281,26 +1655,109 @@ index 0000000000000000000000000000000000000000..5560a104067924a0c9bc91fb10abf23d
 +        // linear in emitted instruction count, not in an application-side source
 +        // predictor. 64 machine words per instruction covers the simultaneous
 +        // maps, per-key table metadata, vectors and geometric capacity overlap.
-+        let temporary_bytes = add(
++        let temporary_bytes = add(generated_names, add(
 +            add(input_bytes, mul(2, output_bytes)?)?,
 +            mul(add(add(emitted, self.reserved_indices)?, outputs)?, 64 * size_of::<usize>())?,
-+        )?;
++        )?)?;
 +        let extent = OperationExtent { stage: OperationStage::Vectorization, work, input_bytes, temporary_bytes, output_bytes, output_entries: entries };
 +        extent.peak_bytes().ok_or(OperationError::Overflow)?;
 +        Ok(extent)
 +    }
 +}
 diff --git a/src/evaluate/dual.rs b/src/evaluate/dual.rs
-index 0b33aa61e586a3a78a83197eb96afbb57e405506..450549e2e7c82eb78eaaec33b5565c73af62bcf2 100644
+index 0b33aa61e586a3a78a83197eb96afbb57e405506..8443ebf1a8d25abcb6cfbd588f195ccbcc6723fd 100644
 --- a/src/evaluate/dual.rs
 +++ b/src/evaluate/dual.rs
-@@ -124,7 +124,20 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
+@@ -2,14 +2,48 @@ use super::*;
+ 
+ impl<T: Default + Clone> ExpressionEvaluator<T> {
+     /// Inline generated scalar instructions without dualizing them again.
+-    fn inline_vector_components(
++    fn inline_vector_components<V: Vectorize<T>>(
+         &self,
+         args: &[Slot],
++        vectorizer: &V,
+         ins: &mut InstructionList<T>,
+         external_functions: &mut Vec<ExternalFunctionContainer<T>>,
+         next_label: &mut usize,
+     ) -> Vec<Slot> {
+         let mut slots = args.to_vec();
++        // Qualified generated heads are pure. Specialize their scalar DAG against
++        // original structural zeros before emitting any local-partial call: a
++        // zero multiplier must not cause an unrequested singular partial to run.
++        let mut zeros = vec![None; self.stack.len()];
++        let mut needed = vec![true; self.stack.len()];
++        if vectorizer.simplify_generated_function() {
++            for (index, slot) in args.iter().enumerate() {
++                if vectorizer.is_zero_slot(slot, ins) { zeros[index] = Some(*slot); }
++            }
++            for (instruction, _) in &self.instructions {
++                match instruction {
++                    Instr::Mul(output, args) => zeros[*output] = args.iter().find_map(|arg| zeros[*arg]),
++                    Instr::Add(output, args) if args.iter().all(|arg| zeros[*arg].is_some()) =>
++                        zeros[*output] = args.first().and_then(|arg| zeros[*arg]),
++                    _ => {}
++                }
++            }
++            needed.fill(false);
++            for output in &self.result_indices { needed[*output] = true; }
++            for (instruction, _) in self.instructions.iter().rev() {
++                let (output, args) = match instruction {
++                    Instr::Add(output, args) | Instr::Mul(output, args) | Instr::ExternalFun(output, _, args) => (*output, args),
++                    _ => continue, // The closed generator emits only these three operations.
++                };
++                if needed[output] && zeros[output].is_none() {
++                    for arg in args {
++                        if !matches!(instruction, Instr::Add(..)) || zeros[*arg].is_none() {
++                            needed[*arg] = true;
++                        }
++                    }
++                }
++            }
++        }
+         let mut constants = Vec::new();
+         for value in &self.stack[self.param_count..self.reserved_indices] {
+             constants.push(ins.constants.len());
+@@ -46,8 +80,11 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
+         for (instr, _) in &self.instructions {
+             let (output, instr) = match instr {
+                 Instr::Add(output, args) | Instr::Mul(output, args) => {
+-                    let mut value = slots[args[0]];
+-                    for arg in &args[1..] {
++                    if let Some(zero) = zeros[*output] { slots[*output] = zero; continue; }
++                    if !needed[*output] { continue; }
++                    let mut nonzero = args.iter().filter(|arg| zeros[**arg].is_none());
++                    let mut value = slots[*nonzero.next().expect("nonzero scalar instruction has an operand")];
++                    for arg in nonzero {
+                         value = ins.add(if matches!(instr, Instr::Add(..)) {
+                             VectorInstruction::Add(value, slots[*arg])
+                         } else {
+@@ -60,13 +97,11 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
+                 Instr::Pow(o, a, p) => (*o, VectorInstruction::Pow(slots[*a], *p)),
+                 Instr::Powf(o, a, b) => (*o, VectorInstruction::Powf(slots[*a], slots[*b])),
+                 Instr::BuiltinFun(o, f, a) => (*o, VectorInstruction::BuiltinFun(*f, slots[*a])),
+-                Instr::ExternalFun(o, f, args) => (
+-                    *o,
+-                    VectorInstruction::ExternalFun(
+-                        functions[*f],
+-                        args.iter().map(|a| slots[*a]).collect(),
+-                    ),
+-                ),
++                Instr::ExternalFun(o, f, args) => {
++                    if !needed[*o] { continue; }
++                    (*o, VectorInstruction::ExternalFun(
++                        functions[*f], args.iter().map(|a| slots[*a]).collect()))
++                },
+                 Instr::Join(o, c, a, b) => {
+                     (*o, VectorInstruction::Join(slots[*c], slots[*a], slots[*b]))
+                 }
+@@ -124,7 +159,22 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
      ///
      /// assert!(dest.iter().all(|x| x.abs() < 1e-10));
      /// ```
 -    pub fn vectorize<V: Vectorize<T>>(mut self, v: &V) -> Result<ExpressionEvaluator<T>, String> {
 +    pub fn vectorize<V: Vectorize<T>>(self, v: &V) -> Result<ExpressionEvaluator<T>, String> {
-+        self.vectorize_impl(v, &mut |_| true)
++        self.vectorize_impl(v, &mut |_| true, &|value: &T| value.clone(), &|external| external.clone())
 +    }
 +
 +    // The checked and ordinary entry points use exactly the same expansion engine.
@@ -1309,6 +1766,8 @@ index 0b33aa61e586a3a78a83197eb96afbb57e405506..450549e2e7c82eb78eaaec33b5565c73
 +        mut self,
 +        v: &V,
 +        safe_point: &mut impl FnMut(OperationStage) -> bool,
++        copy_coefficient: &impl Fn(&T) -> T,
++        copy_external: &impl Fn(&ExternalFunctionContainer<T>) -> ExternalFunctionContainer<T>,
 +    ) -> Result<ExpressionEvaluator<T>, String> {
 +        if !safe_point(OperationStage::Vectorization) {
 +            return Err("Vectorization interrupted".into());
@@ -1316,7 +1775,15 @@ index 0b33aa61e586a3a78a83197eb96afbb57e405506..450549e2e7c82eb78eaaec33b5565c73
          let mut new_external_fns = vec![];
          let mut external_fn_index_map = HashMap::default();
          let mut unknown_constants = vec![false; self.reserved_indices - self.param_count];
-@@ -151,6 +164,9 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
+@@ -144,13 +194,16 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
+                     1
+                 };
+                 for i in 0..d {
+-                    let mut e = external_fn.clone();
++                    let mut e = copy_external(external_fn);
+                     e.constant_index = Some(c_index * v.get_dimension() + i);
+                     new_external_fns.push(e);
+                 }
                  continue;
              }
  
@@ -1326,7 +1793,7 @@ index 0b33aa61e586a3a78a83197eb96afbb57e405506..450549e2e7c82eb78eaaec33b5565c73
              let Some(s) = get_symbol!(format!("{}_v", external_fn.symbol.get_name())) else {
                  continue;
              };
-@@ -170,12 +186,20 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
+@@ -170,12 +223,20 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
          for (x, c) in &mut self.instructions {
              match x {
                  Instr::Add(o, a) => {
@@ -1347,7 +1814,20 @@ index 0b33aa61e586a3a78a83197eb96afbb57e405506..450549e2e7c82eb78eaaec33b5565c73
                      new_instr.push((Instr::Mul(*o, vec![a[0], a[1]]), *c));
                      for x in a.iter().skip(2) {
                          new_instr.push((Instr::Mul(*o, vec![*o, *x]), *c));
-@@ -251,7 +275,12 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
+@@ -191,10 +252,10 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
+         for c in &self.stack[self.param_count..self.reserved_indices] {
+             if v.duplicate_constants() {
+                 for _ in 0..v.get_dimension() {
+-                    constants.push(c.clone());
++                    constants.push(copy_coefficient(c));
+                 }
+             } else {
+-                constants.push(c.clone());
++                constants.push(copy_coefficient(c));
+                 for _ in 1..v.get_dimension() {
+                     constants.push(T::default());
+                 }
+@@ -251,7 +312,12 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
              .unwrap_or(0);
  
          for (i, _sc) in self.instructions.drain(..) {
@@ -1360,7 +1840,15 @@ index 0b33aa61e586a3a78a83197eb96afbb57e405506..450549e2e7c82eb78eaaec33b5565c73
                  Instr::Add(o, a) => (
                      o,
                      VectorInstruction::Add(get_slot!(slot_map[&a[0]]), get_slot!(slot_map[&a[1]])),
-@@ -378,6 +407,9 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
+@@ -300,6 +366,7 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
+                             .collect::<Vec<_>>();
+                         let results = generated.inline_vector_components(
+                             &args,
++                            v,
+                             &mut ins,
+                             &mut new_external_fns,
+                             &mut next_label,
+@@ -378,6 +445,9 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
              );
          }
  
@@ -1370,7 +1858,7 @@ index 0b33aa61e586a3a78a83197eb96afbb57e405506..450549e2e7c82eb78eaaec33b5565c73
          self.stack.clear();
          self.stack.resize(self.param_count, T::default());
          self.stack.extend(ins.constants);
-@@ -475,9 +507,18 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
+@@ -475,9 +545,18 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
          );
          self.external_fns = new_external_fns;
  
@@ -1389,17 +1877,24 @@ index 0b33aa61e586a3a78a83197eb96afbb57e405506..450549e2e7c82eb78eaaec33b5565c73
  
          Ok(self)
      }
-@@ -486,6 +527,9 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
+@@ -486,6 +565,16 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
  /// A trait to define how to vectorize coefficients and instructions.
  /// Every slot is mapped to `n` slots and every instruction is mapped to `n` instructions, where `n` is the dimension.
  pub trait Vectorize<T> {
++    /// Whether generated scalar bodies have the closed pure Add/Mul/call profile
++    /// and can discard unneeded local-partial calls after structural specialization.
++    fn simplify_generated_function(&self) -> bool { false }
++
++    /// Recognize an already established zero component without evaluating a head.
++    fn is_zero_slot(&self, _slot: &Slot, _instructions: &InstructionList<T>) -> bool { false }
++
 +    /// Whether independently registered `_v` functions may override generation.
 +    fn allow_explicit_vector_function(&self) -> bool { true }
 +
      /// Return `true` if the constants are duplicated across the vector dimension, and
      /// `false` if each constant only appears in the first slot and has zeros for all other slots.
      fn duplicate_constants(&self) -> bool;
-@@ -519,8 +563,8 @@ pub trait Vectorize<T> {
+@@ -519,8 +608,8 @@ pub trait Vectorize<T> {
  /// You can specify which components of the dual numbers are always zero
  /// by providing a list of `(component index, dual index)` pairs in the constructor.
  pub struct Dualizer<T: DualNumberStructure> {
@@ -1410,25 +1905,364 @@ index 0b33aa61e586a3a78a83197eb96afbb57e405506..450549e2e7c82eb78eaaec33b5565c73
  }
  
  impl<T: DualNumberStructure> Dualizer<T> {
+@@ -535,6 +624,20 @@ impl<T: DualNumberStructure> Dualizer<T> {
+     }
+ }
+ 
++impl<T: DualNumberStructure> Dualizer<T> {
++    pub(super) fn structural_zero(&self, slot: &Slot, instructions: &InstructionList<Complex<Rational>>) -> bool {
++        let slot = match slot {
++            Slot::Temp(index) => match instructions.instructions.get(*index) {
++                Some(VectorInstruction::Assign(source)) => source,
++                _ => slot,
++            },
++            _ => slot,
++        };
++        instructions.is_zero(slot) || matches!(slot, Slot::Param(index)
++            if self.zero_components.contains(&(*index / self.get_dimension(), *index % self.get_dimension())))
++    }
++}
++
+ impl<T: DualNumberStructure> Vectorize<Complex<Rational>> for Dualizer<T> {
+     fn duplicate_constants(&self) -> bool {
+         false
+@@ -630,22 +733,9 @@ impl<T: DualNumberStructure> Vectorize<Complex<Rational>> for Dualizer<T> {
+         i: &VectorInstruction,
+         instrs: &mut InstructionList<Complex<Rational>>,
+     ) -> Vec<VectorInstruction> {
+-        fn is_zero<T: DualNumberStructure>(
+-            a: &Slot,
+-            dualizer: &Dualizer<T>,
+-            instrs: &InstructionList<Complex<Rational>>,
+-        ) -> bool {
+-            if instrs.is_zero(a) {
+-                return true;
+-            }
+-
+-            if let Slot::Param(x) = a {
+-                dualizer
+-                    .zero_components
+-                    .contains(&(*x / dualizer.get_dimension(), *x % dualizer.get_dimension()))
+-            } else {
+-                false
+-            }
++        fn is_zero<T: DualNumberStructure>(a: &Slot, dualizer: &Dualizer<T>,
++            instrs: &InstructionList<Complex<Rational>>) -> bool {
++            dualizer.structural_zero(a, instrs)
+         }
+ 
+         fn scalar_add<T: DualNumberStructure>(
+diff --git a/src/evaluate/export.rs b/src/evaluate/export.rs
+index 4d591671e2548718f7ccc51b64765733bc921cb7..168a91c32be8644798cb0e6eadcd3edeb4650cf2 100644
+--- a/src/evaluate/export.rs
++++ b/src/evaluate/export.rs
+@@ -12,6 +12,11 @@ pub trait ExportNumber {
+     fn export_wrapped_with(&self, wrapper: &str) -> String {
+         format!("{wrapper}({})", self.export())
+     }
++    /// Write a wrapped constant. Concrete bounded exporters override this to
++    /// avoid allocating a temporary formatting string.
++    fn write_wrapped_with(&self, wrapper: &str, out: &mut dyn std::fmt::Write) -> std::fmt::Result {
++        out.write_str(&self.export_wrapped_with(wrapper))
++    }
+     /// Check if the number is real.
+     fn is_real(&self) -> bool;
+ 
+@@ -24,6 +29,10 @@ impl ExportNumber for f64 {
+         format!("{:e}", self)
+     }
+ 
++    fn write_wrapped_with(&self, wrapper: &str, out: &mut dyn std::fmt::Write) -> std::fmt::Result {
++        write!(out, "{wrapper}({self:e})")
++    }
++
+     fn is_real(&self) -> bool {
+         true
+     }
+@@ -1005,132 +1014,96 @@ impl<T: ExportNumber + SingleFloat> ProgramView<'_, T> {
+         tmp_array: bool,
+         out: &mut String,
+     ) {
+-        macro_rules! get_input {
+-            ($i:expr) => {
+-                if $i < self.param_count {
+-                    format!("params[{}{}]", param_offset, $i)
+-                } else if $i < self.reserved_indices {
+-                    self.constants[$i - self.param_count].export_wrapped_with(number_wrapper)
+-                } else {
+-                    // TODO: subtract reserved indices
+-                    if tmp_array {
+-                        format!("Z[{}]", $i)
+-                    } else {
+-                        format!("Z{}", $i)
+-                    }
+-                }
+-            };
+-        }
++        self.write_cpp_impl(external_fns, param_offset, number_wrapper, tmp_array,
++            false, out, &mut || Ok(())).expect("writing to a String is infallible");
++    }
+ 
+-        macro_rules! get_output {
+-            ($i:expr) => {
+-                if tmp_array {
+-                    format!("Z[{}]", $i)
+-                } else {
+-                    format!("Z{}", $i)
+-                }
+-            };
+-        }
++    fn write_cpp_input(&self, slot: usize, param_offset: &str, number_wrapper: &str,
++        tmp_array: bool, out: &mut dyn std::fmt::Write) -> std::fmt::Result {
++        if slot < self.param_count { write!(out, "params[{param_offset}{slot}]") }
++        else if slot < self.reserved_indices {
++            self.constants[slot - self.param_count].write_wrapped_with(number_wrapper, out)
++        } else if tmp_array { write!(out, "Z[{slot}]") }
++        else { write!(out, "Z{slot}") }
++    }
+ 
++    // Shared streaming instruction emission. The f64 implementation formats
++    // constants straight into a counting or preallocated sink; no operand-string
++    // vector, joined expression or formatted assignment is materialized.
++    fn write_cpp_impl(&self, external_fns: &[ExternalFunctionContainer<T>],
++        param_offset: &str, number_wrapper: &str, tmp_array: bool, checked_profile: bool,
++        out: &mut dyn std::fmt::Write, safe_point: &mut impl FnMut() -> std::fmt::Result)
++        -> std::fmt::Result {
++        macro_rules! input { ($slot:expr) => {
++            self.write_cpp_input($slot, param_offset, number_wrapper, tmp_array, out)?
++        }; }
++        macro_rules! output { ($slot:expr) => {
++            if tmp_array { write!(out, "Z[{}]", $slot)?; }
++            else { write!(out, "Z{}", $slot)?; }
++        }; }
+         let mut close_else_branch = 0;
+-        for (ins, _c) in self.instructions {
+-            match ins {
+-                Instr::Add(o, a) => {
+-                    let args = a
+-                        .iter()
+-                        .map(|x| get_input!(*x))
+-                        .collect::<Vec<_>>()
+-                        .join("+");
+-
+-                    *out += format!("\t{} = {args};\n", get_output!(o)).as_str();
+-                }
+-                Instr::Mul(o, a) => {
+-                    let args = a
+-                        .iter()
+-                        .map(|x| get_input!(*x))
+-                        .collect::<Vec<_>>()
+-                        .join("*");
+-
+-                    *out += format!("\t{} = {args};\n", get_output!(o)).as_str();
+-                }
+-                Instr::Pow(o, b, e) => {
+-                    let base = get_input!(*b);
+-                    if *e == -1 {
+-                        *out += format!("\t{} = {number_wrapper}(1) / {base};\n", get_output!(o))
+-                            .as_str();
++        for (instruction, _) in self.instructions {
++            safe_point()?;
++            match instruction {
++                Instr::Add(destination, args) | Instr::Mul(destination, args) => {
++                    out.write_str("\t")?; output!(destination); out.write_str(" = ")?;
++                    for (index, arg) in args.iter().enumerate() {
++                        if index != 0 { out.write_str(if matches!(instruction, Instr::Add(..)) { "+" } else { "*" })?; }
++                        input!(*arg);
++                    }
++                    out.write_str(";\n")?;
++                }
++                Instr::Pow(destination, base, exponent) => {
++                    out.write_str("\t")?; output!(destination); out.write_str(" = ")?;
++                    if *exponent == -1 {
++                        write!(out, "{number_wrapper}(1) / ")?; input!(*base);
++                    } else if checked_profile {
++                        if *exponent < 0 { write!(out, "{number_wrapper}(1) / ")?; }
++                        out.write_str("pse_integer_power(")?; input!(*base);
++                        write!(out, ", {}u)", exponent.unsigned_abs())?;
+                     } else {
+-                        *out += format!("\t{} = pow({base}, {e});\n", get_output!(o)).as_str();
++                        out.write_str("pow(")?; input!(*base); write!(out, ", {exponent})")?;
+                     }
++                    out.write_str(";\n")?;
+                 }
+-                Instr::Powf(o, b, e) => {
+-                    let base = get_input!(*b);
+-                    let exp = get_input!(*e);
+-                    *out += format!("\t{} = pow({base}, {exp});\n", get_output!(o)).as_str();
++                Instr::Powf(destination, base, exponent) => {
++                    out.write_str("\t")?; output!(destination); out.write_str(" = pow(")?;
++                    input!(*base); out.write_str(", ")?; input!(*exponent); out.write_str(");\n")?;
+                 }
+-                Instr::BuiltinFun(o, s, a) => match s.get_id() {
+-                    Symbol::EXP_ID => {
+-                        let arg = get_input!(*a);
+-                        *out += format!("\t{} = exp({arg});\n", get_output!(o)).as_str();
+-                    }
+-                    Symbol::LOG_ID => {
+-                        let arg = get_input!(*a);
+-                        *out += format!("\t{} = log({arg});\n", get_output!(o)).as_str();
+-                    }
+-                    Symbol::SIN_ID => {
+-                        let arg = get_input!(*a);
+-                        *out += format!("\t{} = sin({arg});\n", get_output!(o)).as_str();
+-                    }
+-                    Symbol::COS_ID => {
+-                        let arg = get_input!(*a);
+-                        *out += format!("\t{} = cos({arg});\n", get_output!(o)).as_str();
+-                    }
+-                    Symbol::SQRT_ID => {
+-                        let arg = get_input!(*a);
+-                        *out += format!("\t{} = sqrt({arg});\n", get_output!(o)).as_str();
+-                    }
+-                    Symbol::ABS_ID => {
+-                        let arg = get_input!(*a);
+-                        *out += format!("\t{} = std::abs({arg});\n", get_output!(o)).as_str();
+-                    }
+-                    Symbol::CONJ_ID => {
+-                        let arg = get_input!(*a);
+-                        *out += format!("\t{} = conj({arg});\n", get_output!(o)).as_str();
+-                    }
+-                    _ => unreachable!(),
+-                },
+-                Instr::ExternalFun(o, s, a) => {
+-                    let name = ExpressionEvaluator::<T>::external_cpp_name(external_fns, *s);
+-                    let args = a.iter().map(|x| get_input!(*x)).collect::<Vec<_>>();
+-
+-                    *out +=
+-                        format!("\t{} = {}({});\n", get_output!(o), name, args.join(", ")).as_str();
++                Instr::BuiltinFun(destination, symbol, arg) => {
++                    let name = match symbol.get_id() {
++                        Symbol::EXP_ID => "exp", Symbol::LOG_ID => "log", Symbol::SIN_ID => "sin",
++                        Symbol::COS_ID => "cos", Symbol::SQRT_ID => "sqrt", Symbol::ABS_ID => if checked_profile { "abs" } else { "std::abs" },
++                        Symbol::CONJ_ID => "conj", _ => unreachable!(),
++                    };
++                    out.write_str("\t")?; output!(destination); write!(out, " = {name}(")?;
++                    input!(*arg); out.write_str(");\n")?;
+                 }
+-                Instr::IfElse(cond, _label) => {
+-                    *out += &format!("\tif ({} != 0.) {{\n", get_input!(*cond));
++                Instr::ExternalFun(destination, function, args) => {
++                    let external = &external_fns[*function];
++                    let name = if external.body.is_some() {
++                        std::borrow::Cow::Owned(ExpressionEvaluator::<T>::external_cpp_name(external_fns, *function))
++                    } else { std::borrow::Cow::Borrowed(external.export_name()) };
++                    out.write_str("\t")?; output!(destination); write!(out, " = {name}(")?;
++                    for (index, arg) in args.iter().enumerate() {
++                        if index != 0 { out.write_str(", ")?; } input!(*arg);
++                    }
++                    out.write_str(");\n")?;
+                 }
+-                Instr::Goto(..) => {
+-                    *out += "\t} else {\n";
+-                    close_else_branch += 1;
++                Instr::IfElse(condition, _) => {
++                    out.write_str("\tif (")?; input!(*condition); out.write_str(" != 0.) {\n")?;
+                 }
++                Instr::Goto(..) => { out.write_str("\t} else {\n")?; close_else_branch += 1; }
+                 Instr::Label(..) => {}
+-                Instr::Join(o, cond, a, b) => {
+-                    if close_else_branch > 0 {
+-                        close_else_branch -= 1;
+-                        *out += "\t}\n";
+-                    }
+-                    let arg_a = get_input!(*a);
+-                    let arg_b = get_input!(*b);
+-                    *out += format!(
+-                        "\t{} = ({} != 0.) ? {} : {};\n",
+-                        get_output!(o),
+-                        get_input!(*cond),
+-                        arg_a,
+-                        arg_b
+-                    )
+-                    .as_str();
++                Instr::Join(destination, condition, left, right) => {
++                    if close_else_branch > 0 { close_else_branch -= 1; out.write_str("\t}\n")?; }
++                    out.write_str("\t")?; output!(destination); out.write_str(" = (")?;
++                    input!(*condition); out.write_str(" != 0.) ? ")?; input!(*left);
++                    out.write_str(" : ")?; input!(*right); out.write_str(";\n")?;
+                 }
+             }
+         }
++        Ok(())
+     }
+ 
+     fn export_asm_double_impl(
+@@ -3162,3 +3135,7 @@ impl<T: ExportNumber + SingleFloat> ProgramView<'_, T> {
+         in_asm_block
+     }
+ }
++
++#[path = "checked_export.rs"]
++mod checked_export;
++pub use checked_export::*;
 diff --git a/src/evaluate/f64_transfer.rs b/src/evaluate/f64_transfer.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db610585a149b5b
+index 0000000000000000000000000000000000000000..fd8b22984993bd61bd21655ec31b22ed51692c2b
 --- /dev/null
 +++ b/src/evaluate/f64_transfer.rs
-@@ -0,0 +1,774 @@
+@@ -0,0 +1,919 @@
 +//! Checked transfer of the existing straight-line binary64 interpreter program.
 +//!
 +//! This is execution correspondence, not symbolic/preparation-state serialization.
 +//! Inspection is allocation-free and passive. Restoration asks the caller to admit
 +//! actual requested backing before allocating validation scratch or evaluator storage.
 +use super::{
-+    ComplexPhase, ExpressionEvaluator, Instr, OperationCount, OptimizationSettings, Symbol,
++    ComplexPhase, ExpressionEvaluator, ExternalFunctionContainer, Instr, OperationCount,
++    OptimizationSettings, Symbol,
 +};
 +use std::{collections::TryReserveError, error::Error, fmt};
 +
 +const MAGIC: &[u8; 8] = b"SYMEVF64";
-+const VERSION: u16 = 1;
++const VERSION: u16 = 2;
 +const HEADER: usize = 8 + 2 + 2 + 5 * 8;
++
++/// A caller-qualified, versioned numerical operation. This table belongs to the
++/// trusted execution profile, never to the encoded program. The caller must
++/// establish that the symbol and fixed implementation have the same semantics.
++/// Restoration installs only these fixed function pointers, without registering
++/// symbols or invoking tag/source/derivative generators.
++#[derive(Clone, Copy, Debug)]
++pub struct F64KnownHead {
++    /// Stable nonzero operation tag within the selected profile.
++    pub tag: u32,
++    /// Exact nonzero numerical implementation version.
++    pub version: u32,
++    /// Already registered source/native-export identity.
++    pub symbol: Symbol,
++    /// Fixed numerical argument population.
++    pub arity: usize,
++    /// Fixed valid ASCII C++ identifier, retained only from the trusted profile.
++    pub export_name: &'static str,
++    /// Closed implementation; no callable or address is encoded.
++    pub evaluate: fn(&[f64]) -> f64,
++}
++impl F64KnownHead {
++    fn key(self) -> u64 {
++        u64::from(self.tag) | (u64::from(self.version) << 32)
++    }
++}
++fn check_heads(heads: &[F64KnownHead]) -> Result<(), F64TransferError> {
++    for (index, head) in heads.iter().enumerate() {
++        if head.tag == 0 || head.version == 0 || !(1..=2).contains(&head.arity)
++            || head.export_name.is_empty()
++            || !head.export_name.bytes().enumerate().all(|(i, byte)| {
++                byte == b'_' || byte.is_ascii_alphabetic() || (i > 0 && byte.is_ascii_digit())
++            })
++            || heads[..index].iter().any(|previous| {
++                previous.tag == head.tag || previous.symbol == head.symbol
++                    || previous.export_name == head.export_name
++            })
++        {
++            return Err(F64TransferError::Unsupported("invalid known-head profile"));
++        }
++    }
++    Ok(())
++}
++fn head_by_key(heads: &[F64KnownHead], key: u64) -> Result<usize, F64TransferError> {
++    heads.iter().position(|head| head.key() == key)
++        .ok_or(F64TransferError::Unsupported("unknown head tag/version"))
++}
 +
 +/// Actual populations and requested Rust backing for one inspected program.
 +///
@@ -1453,6 +2287,10 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +    pub instructions: usize,
 +    /// All Add/Mul operand entries, in their original order and multiplicity.
 +    pub nary_operands: usize,
++    /// Fixed destination profile entries retained when any known head is used.
++    pub external_functions: usize,
++    /// Complete requested descriptor/name/callable/argument backing for those heads.
++    pub external_bytes: usize,
 +    /// Requested f64 stack backing.
 +    pub stack_bytes: usize,
 +    /// Requested instruction-vector and nested operand-vector backing.
@@ -1570,6 +2408,8 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +        results,
 +        instructions,
 +        nary_operands: 0,
++        external_functions: 0,
++        external_bytes: 0,
 +        stack_bytes,
 +        instruction_bytes,
 +        result_bytes,
@@ -1586,11 +2426,11 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +            backing::<usize>(self.nary_operands, "operand backing")?,
 +            "instruction backing",
 +        )?;
-+        self.retained_bytes = add(
++        self.retained_bytes = add(add(
 +            add(self.stack_bytes, self.instruction_bytes, "retained backing")?,
 +            self.result_bytes,
 +            "retained backing",
-+        )?;
++        )?, self.external_bytes, "known-head backing")?;
 +        self.peak_bytes = self.retained_bytes.max(self.validation_bytes);
 +        Ok(self)
 +    }
@@ -1601,6 +2441,7 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +pub struct F64ProgramRef<'a> {
 +    evaluator: &'a ExpressionEvaluator<f64>,
 +    extents: F64ProgramExtents,
++    heads: &'a [F64KnownHead],
 +}
 +impl fmt::Debug for F64ProgramRef<'_> {
 +    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -1616,6 +2457,33 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +        if !self.external_fns.is_empty() {
 +            return Err(F64TransferError::Unsupported("external function state"));
 +        }
++        self.f64_transfer_with_heads(&[])
++    }
++    /// Borrow a program under an explicit trusted closed numerical-head profile.
++    /// Materialized constant bits are copied; hidden bodies, tags, fixed argument
++    /// generators and unknown numerical heads are not transferable.
++    pub fn f64_transfer_with_heads<'a>(
++        &'a self, heads: &'a [F64KnownHead],
++    ) -> Result<F64ProgramRef<'a>, F64TransferError> {
++        check_heads(heads)?;
++        for external in &self.external_fns {
++            if external.body.is_some() || !external.tags.is_empty() {
++                return Err(F64TransferError::Unsupported("external body/tags"));
++            }
++            let head = heads.iter().find(|head| head.symbol == external.symbol)
++                .ok_or(F64TransferError::Unsupported("unqualified external implementation"))?;
++            if let Some(index) = external.constant_index {
++                let index = add(self.param_count, index, "constant index")?;
++                if index >= self.reserved_indices {
++                    return Err(F64TransferError::Index("external constant", index));
++                }
++                if external.fixed_args.len() != head.arity {
++                    return Err(F64TransferError::Unsupported("known constant arity"));
++                }
++            } else if !external.fixed_args.is_empty() || external.imp.is_none() {
++                return Err(F64TransferError::Unsupported("unqualified external implementation"));
++            }
++        }
 +        let mut extents = shape(
 +            self.param_count,
 +            self.reserved_indices,
@@ -1627,8 +2495,8 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +            check_index(*index, extents.stack, "result")?;
 +        }
 +        for (instruction, phase) in &self.instructions {
-+            let wire = NativeInstruction::from_instr(instruction, *phase)?;
-+            validate_instruction(wire, &mut extents)?;
++            let wire = NativeInstruction::from_instr(instruction, *phase, &self.external_fns, heads)?;
++            validate_instruction(wire, &mut extents, heads)?;
 +            extents.encoded_bytes = add(
 +                extents.encoded_bytes,
 +                wire.encoded_len()?,
@@ -1638,6 +2506,7 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +        Ok(F64ProgramRef {
 +            evaluator: self,
 +            extents: extents.finish()?,
++            heads,
 +        })
 +    }
 +}
@@ -1646,7 +2515,7 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +    pub fn operation_count(&self) -> Result<OperationCount, F64TransferError> {
 +        let mut count = OperationCount::default();
 +        for (instruction, phase) in &self.evaluator.instructions {
-+            NativeInstruction::from_instr(instruction, *phase)?.count_into(&mut count)?;
++            NativeInstruction::from_instr(instruction, *phase, &self.evaluator.external_fns, self.heads)?.count_into(&mut count)?;
 +        }
 +        Ok(count)
 +    }
@@ -1689,7 +2558,7 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +            writer.index(*result);
 +        }
 +        for (instruction, phase) in &self.evaluator.instructions {
-+            NativeInstruction::from_instr(instruction, *phase)?.write(&mut writer);
++            NativeInstruction::from_instr(instruction, *phase, &self.evaluator.external_fns, self.heads)?.write(&mut writer);
 +        }
 +        debug_assert_eq!(writer.position, self.extents.encoded_bytes);
 +        Ok(())
@@ -1725,6 +2594,7 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +    first: usize,
 +    second: usize,
 +    power: i64,
++    head: u64,
 +    operands: Operands<'a>,
 +}
 +impl<'a> NativeInstruction<'a> {
@@ -1757,7 +2627,9 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +        }
 +        Ok(())
 +    }
-+    fn from_instr(instruction: &'a Instr, phase: ComplexPhase) -> Result<Self, F64TransferError> {
++    fn from_instr(instruction: &'a Instr, phase: ComplexPhase,
++        externals: &[ExternalFunctionContainer<f64>], heads: &[F64KnownHead],
++    ) -> Result<Self, F64TransferError> {
 +        let mut result = Self {
 +            opcode: 0,
 +            phase,
@@ -1765,6 +2637,7 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +            first: 0,
 +            second: 0,
 +            power: 0,
++            head: 0,
 +            operands: Operands::Native(&[]),
 +        };
 +        match instruction {
@@ -1790,6 +2663,19 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +                result.destination = *destination;
 +                result.first = *argument;
 +            }
++            Instr::ExternalFun(destination, index, arguments) => {
++                let external = externals.get(*index)
++                    .ok_or(F64TransferError::Index("external function", *index))?;
++                let head = heads.iter().find(|head| head.symbol == external.symbol)
++                    .ok_or(F64TransferError::Unsupported("unknown source head"))?;
++                if external.constant_index.is_some() || arguments.len() != head.arity {
++                    return Err(F64TransferError::Unsupported("known-head arity/constant call"));
++                }
++                result.opcode = 11;
++                result.destination = *destination;
++                result.operands = Operands::Native(arguments);
++                result.head = head.key();
++            }
 +            _ => {
 +                return Err(F64TransferError::Unsupported(
 +                    "control flow or external instruction",
@@ -1805,8 +2691,8 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +            1
 +        };
 +        let payload = match self.opcode {
-+            0 | 1 => add(
-+                16,
++            0 | 1 | 11 => add(
++                if self.opcode == 11 { 24 } else { 16 },
 +                backing::<u64>(self.operands.len(), "operand encoding")?,
 +                "operand encoding",
 +            )?,
@@ -1828,7 +2714,8 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +        }
 +        writer.index(self.destination);
 +        match self.opcode {
-+            0 | 1 => {
++            0 | 1 | 11 => {
++                if self.opcode == 11 { writer.bytes(&self.head.to_le_bytes()); }
 +                writer.index(self.operands.len());
 +                for index in 0..self.operands.len() {
 +                    writer.index(self.operands.get(index));
@@ -1882,6 +2769,7 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +fn validate_instruction(
 +    instruction: NativeInstruction<'_>,
 +    extents: &mut F64ProgramExtents,
++    heads: &[F64KnownHead],
 +) -> Result<(), F64TransferError> {
 +    check_index(instruction.destination, extents.stack, "destination")?;
 +    if instruction.destination < extents.reserved {
@@ -1907,7 +2795,23 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +        }
 +    }
 +    match instruction.opcode {
-+        0 | 1 => {
++        0 | 1 | 11 => {
++            if instruction.opcode == 11 {
++                let head = &heads[head_by_key(heads, instruction.head)?];
++                if instruction.operands.len() != head.arity {
++                    return Err(F64TransferError::Unsupported("known-head arity"));
++                }
++                if extents.external_functions == 0 {
++                    extents.external_functions = heads.len();
++                    let mut bytes = backing::<ExternalFunctionContainer<f64>>(heads.len(), "known-head descriptors")?;
++                    for head in heads {
++                        bytes = add(bytes, add(head.export_name.len(),
++                            add(size_of::<fn(&[f64]) -> f64>(), backing::<f64>(head.arity, "known-head arguments")?, "known-head callable")?,
++                            "known-head name")?, "known-head backing")?;
++                    }
++                    extents.external_bytes = bytes;
++                }
++            }
 +            if instruction.operands.len() == 0 {
 +                return Err(F64TransferError::Encoding("empty Add/Mul"));
 +            }
@@ -1969,7 +2873,7 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +    }
 +    fn instruction(&mut self) -> Result<NativeInstruction<'a>, F64TransferError> {
 +        let opcode = self.byte()?;
-+        if opcode > 10 {
++        if opcode > 11 {
 +            return Err(F64TransferError::Unsupported("opcode"));
 +        }
 +        let phase = match self.byte()? {
@@ -1987,10 +2891,12 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +            first: 0,
 +            second: 0,
 +            power: 0,
++            head: 0,
 +            operands: Operands::Encoded(&[]),
 +        };
 +        match opcode {
-+            0 | 1 => {
++            0 | 1 | 11 => {
++                if opcode == 11 { result.head = self.u64()?; }
 +                let count = self.index()?;
 +                let bytes = self.take(backing::<u64>(count, "operand encoding")?)?;
 +                // Validate every encoded usize conversion before the borrowed fast accessor.
@@ -2021,6 +2927,7 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +    bytes: &'a [u8],
 +    extents: F64ProgramExtents,
 +    instruction_start: usize,
++    heads: &'a [F64KnownHead],
 +}
 +impl<'a> F64ProgramView<'a> {
 +    /// Count the inspected supplier instruction stream without restoring or allocating.
@@ -2039,6 +2946,12 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +    /// Inspect the supported header, exact populations, indices and complete encoding.
 +    /// No symbolic state or allocation is restored, and the bytes grant no allowance.
 +    pub fn inspect(bytes: &'a [u8]) -> Result<Self, F64TransferError> {
++        Self::inspect_with_heads(bytes, &[])
++    }
++    /// Inspect against a trusted local operation table. Unknown operation
++    /// tags/versions and arities refuse before any evaluator allocation.
++    pub fn inspect_with_heads(bytes: &'a [u8], heads: &'a [F64KnownHead]) -> Result<Self, F64TransferError> {
++        check_heads(heads)?;
 +        let mut cursor = Cursor { bytes, position: 0 };
 +        if cursor.take(8)? != MAGIC
 +            || cursor.take(2)? != VERSION.to_le_bytes()
@@ -2060,7 +2973,7 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +        let instruction_start = cursor.position;
 +        for _ in 0..extents.instructions {
 +            let instruction = cursor.instruction()?;
-+            validate_instruction(instruction, &mut extents)?;
++            validate_instruction(instruction, &mut extents, heads)?;
 +        }
 +        if cursor.position != bytes.len() {
 +            return Err(F64TransferError::Encoding("unconsumed encoding"));
@@ -2070,6 +2983,7 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +            bytes,
 +            extents: extents.finish()?,
 +            instruction_start,
++            heads,
 +        })
 +    }
 +    /// Actual derived populations and requested backing, never native admission.
@@ -2100,7 +3014,7 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +                Ok(())
 +            };
 +            match instruction.opcode {
-+                0 | 1 => {
++                0 | 1 | 11 => {
 +                    for index in 0..instruction.operands.len() {
 +                        check(instruction.operands.get(index))?;
 +                    }
@@ -2138,13 +3052,16 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +        for _ in 0..self.extents.instructions {
 +            let wire = cursor.instruction()?;
 +            let instruction = match wire.opcode {
-+                0 | 1 => {
++                0 | 1 | 11 => {
 +                    let mut operands =
 +                        reserve(wire.operands.len()).map_err(F64RestoreError::Allocation)?;
 +                    for index in 0..wire.operands.len() {
 +                        operands.push(wire.operands.get(index));
 +                    }
-+                    if wire.opcode == 0 {
++                    if wire.opcode == 11 {
++                        Instr::ExternalFun(wire.destination,
++                            head_by_key(self.heads, wire.head)?, operands)
++                    } else if wire.opcode == 0 {
 +                        Instr::Add(wire.destination, operands)
 +                    } else {
 +                        Instr::Mul(wire.destination, operands)
@@ -2156,13 +3073,27 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +            };
 +            instructions.push((instruction, wire.phase));
 +        }
++        let mut external_fns = reserve(self.extents.external_functions)
++            .map_err(F64RestoreError::Allocation)?;
++        for head in self.heads.iter().take(self.extents.external_functions) {
++            let mut name = String::new();
++            name.try_reserve_exact(head.export_name.len()).map_err(F64RestoreError::Allocation)?;
++            name.push_str(head.export_name);
++            let mut arguments = reserve(head.arity).map_err(F64RestoreError::Allocation)?;
++            arguments.resize(head.arity, f64::NAN);
++            external_fns.push(ExternalFunctionContainer {
++                export_name: name, symbol: head.symbol, tags: Vec::new(),
++                fixed_args: Vec::new(), imp: Some(Box::new(head.evaluate)),
++                constant_index: None, stack: arguments, body: None,
++            });
++        }
 +        Ok(ExpressionEvaluator {
 +            stack,
 +            param_count: self.extents.parameters,
 +            reserved_indices: self.extents.reserved,
 +            instructions,
 +            result_indices,
-+            external_fns: Vec::new(),
++            external_fns,
 +            settings: OptimizationSettings::default(),
 +        })
 +    }
@@ -2192,11 +3123,67 @@ index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db61058
 +mod tests;
 diff --git a/src/evaluate/f64_transfer/tests.rs b/src/evaluate/f64_transfer/tests.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..528dd057c6b175e6f9772a65dc5c69929fa1b3a9
+index 0000000000000000000000000000000000000000..8ff1b4eedcdf04360a3600c9042e6207e54b31f7
 --- /dev/null
 +++ b/src/evaluate/f64_transfer/tests.rs
-@@ -0,0 +1,556 @@
+@@ -0,0 +1,612 @@
 +use super::*;
++
++#[test]
++fn closed_known_head_profile_refuses_foreign_tags_and_restores_without_source_callbacks() {
++    use crate::symbol;
++    let symbol = symbol!("fixed_f64_transfer_magnitude_v1");
++    let head = F64KnownHead {
++        tag: 71, version: 1, symbol, arity: 2,
++        export_name: "fixed_f64_transfer_magnitude_v1",
++        evaluate: |args| args[0].hypot(args[1]),
++    };
++    let heads = [head];
++    let mut external = ExternalFunctionContainer::new(symbol, vec![], vec![]);
++    external.imp = Some(Box::new(head.evaluate));
++    let source = ExpressionEvaluator {
++        stack: vec![f64::NAN; 5], param_count: 2, reserved_indices: 2,
++        instructions: vec![(Instr::ExternalFun(2, 0, vec![0, 1]), ComplexPhase::Any)],
++        result_indices: vec![2, 2], external_fns: vec![external],
++        settings: OptimizationSettings::default(),
++    };
++    assert!(source.f64_transfer().is_err());
++    let borrowed = source.f64_transfer_with_heads(&heads).unwrap();
++    let facts = borrowed.extents();
++    assert_eq!(facts.external_functions, 1);
++    assert!(facts.external_bytes >= size_of::<ExternalFunctionContainer<f64>>() + 16);
++    let mut bytes = vec![0; borrowed.encoded_len()];
++    borrowed.write_into(&mut bytes).unwrap();
++    let view = F64ProgramView::inspect_with_heads(&bytes, &heads).unwrap();
++    assert_eq!(view.extents(), facts);
++    assert!(F64ProgramView::inspect(&bytes).is_err());
++    assert!(matches!(view.restore_with(|_| Err("original head backing denial")),
++        Err(F64RestoreError::Admission("original head backing denial"))));
++    drop(source);
++    let mut restored = view.restore_with(|_| Ok::<_, std::convert::Infallible>(())).unwrap();
++    let mut output = [0.; 2];
++    restored.evaluate(&[3., 4.], &mut output);
++    assert_eq!(output, [5., 5.]);
++    restored.evaluate(&[5., 12.], &mut output);
++    assert_eq!(output, [13., 13.]);
++    let mut incompatible = heads;
++    incompatible[0].version = 2;
++    assert!(F64ProgramView::inspect_with_heads(&bytes, &incompatible).is_err());
++    let mut corrupt = bytes.clone();
++    let instruction = HEADER + 8 * facts.results;
++    corrupt[instruction + 10..instruction + 18].copy_from_slice(&99_u64.to_le_bytes());
++    assert!(F64ProgramView::inspect_with_heads(&corrupt, &heads).is_err());
++    let mut arity = bytes.clone();
++    arity[instruction + 18..instruction + 26].copy_from_slice(&1_u64.to_le_bytes());
++    assert!(F64ProgramView::inspect_with_heads(&arity, &heads).is_err());
++    let mut undefined = bytes;
++    undefined[instruction + 26..instruction + 34].copy_from_slice(&4_u64.to_le_bytes());
++    assert!(matches!(
++        F64ProgramView::inspect_with_heads(&undefined, &heads).unwrap()
++            .restore_with(|_| Ok::<_, std::convert::Infallible>(())),
++        Err(F64RestoreError::Program(F64TransferError::Undefined(4)))
++    ));
++}
 +use crate::{
 +    atom::{Atom, AtomCore},
 +    parse, symbol,
@@ -2248,7 +3235,7 @@ index 0000000000000000000000000000000000000000..528dd057c6b175e6f9772a65dc5c6992
 +    let mut count = OperationCount::new(usize::MAX, 0, 0, 0);
 +    // Keep the borrowed instruction alive while testing the shared counter.
 +    let raw = Instr::Add(4, vec![0, 1]);
-+    let instruction = NativeInstruction::from_instr(&raw, ComplexPhase::Any).unwrap();
++    let instruction = NativeInstruction::from_instr(&raw, ComplexPhase::Any, &[], &[]).unwrap();
 +    assert_eq!(
 +        instruction.count_into(&mut count),
 +        Err(F64TransferError::Overflow("operation count"))
@@ -2256,14 +3243,14 @@ index 0000000000000000000000000000000000000000..528dd057c6b175e6f9772a65dc5c6992
 +    count = OperationCount::new(0, usize::MAX, 0, 0);
 +    let raw = Instr::Pow(4, 0, -2);
 +    assert_eq!(
-+        NativeInstruction::from_instr(&raw, ComplexPhase::Any)
++        NativeInstruction::from_instr(&raw, ComplexPhase::Any, &[], &[])
 +            .unwrap()
 +            .count_into(&mut count),
 +        Err(F64TransferError::Overflow("operation count"))
 +    );
 +    count = OperationCount::new(0, 0, usize::MAX, 0);
 +    assert_eq!(
-+        NativeInstruction::from_instr(&raw, ComplexPhase::Any)
++        NativeInstruction::from_instr(&raw, ComplexPhase::Any, &[], &[])
 +            .unwrap()
 +            .count_into(&mut count),
 +        Err(F64TransferError::Overflow("operation count"))
@@ -2271,7 +3258,7 @@ index 0000000000000000000000000000000000000000..528dd057c6b175e6f9772a65dc5c6992
 +    count = OperationCount::new(0, 0, 0, usize::MAX);
 +    let raw = Instr::Powf(4, 0, 1);
 +    assert_eq!(
-+        NativeInstruction::from_instr(&raw, ComplexPhase::Any)
++        NativeInstruction::from_instr(&raw, ComplexPhase::Any, &[], &[])
 +            .unwrap()
 +            .count_into(&mut count),
 +        Err(F64TransferError::Overflow("operation count"))
@@ -2524,7 +3511,7 @@ index 0000000000000000000000000000000000000000..528dd057c6b175e6f9772a65dc5c6992
 +    let mut bad = original.clone();
 +    bad.push(0);
 +    cases.push(bad);
-+    for (offset, value) in [(0, 0), (8, 2), (10, 1), (start, 11), (start + 1, 9)] {
++    for (offset, value) in [(0, 0), (8, 1), (10, 1), (start, 12), (start + 1, 9)] {
 +        let mut bad = original.clone();
 +        bad[offset] = value;
 +        cases.push(bad);
@@ -2752,12 +3739,34 @@ index 0000000000000000000000000000000000000000..528dd057c6b175e6f9772a65dc5c6992
 +    }
 +    assert_eq!(encode(&source), bytes);
 +}
+diff --git a/src/evaluate/instruction.rs b/src/evaluate/instruction.rs
+index dce794cd08bb6e3aebbac2decfeabb1317ed6964..06a33bc8a384393629af30cbffee49e2b891b6eb 100644
+--- a/src/evaluate/instruction.rs
++++ b/src/evaluate/instruction.rs
+@@ -457,7 +457,16 @@ pub struct InstructionList<T> {
+ 
+ impl<T> InstructionList<T> {
+     /// Append an instruction and return the temporary slot containing its result.
+-    pub fn add(&mut self, instr: VectorInstruction) -> Slot {
++    pub fn add(&mut self, mut instr: VectorInstruction) -> Slot {
++        // Slots form an append-only SSA program. Preserve a direct source for
++        // copies so structural zeros survive generated/primitive boundaries.
++        if let VectorInstruction::Assign(source) = &mut instr {
++            while let Slot::Temp(index) = *source {
++                let Some(VectorInstruction::Assign(previous)) = self.instructions.get(index) else { break; };
++                if matches!(previous, Slot::Temp(previous) if *previous >= index) { break; }
++                *source = *previous;
++            }
++        }
+         self.instructions.push(instr);
+         Slot::Temp(self.instructions.len() - 1)
+     }
 diff --git a/src/evaluate/known_head.rs b/src/evaluate/known_head.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..002f687a8942ca6fea661b70a155a89cdf2df844
+index 0000000000000000000000000000000000000000..99804cff1fcae0d0f54b0fe13467d232f0abd29d
 --- /dev/null
 +++ b/src/evaluate/known_head.rs
-@@ -0,0 +1,144 @@
+@@ -0,0 +1,166 @@
 +//! Finite Taylor composition of closed local-partial descriptions.
 +use super::*;
 +
@@ -2783,6 +3792,24 @@ index 0000000000000000000000000000000000000000..002f687a8942ca6fea661b70a155a89c
 +        Ok(())
 +    }
 +
++    // ExternalFunctionContainer::new allocates get_ascii_name(). Match its
++    // borrowed name/alias selection without constructing the replacement String.
++    pub(super) fn name_bytes<E>(&self, depth: usize, heads: &[Self]) -> Result<usize, OperationError<E>> {
++        self.demand(depth, heads)?;
++        let first = if depth > 0 { self.arity } else { 0 };
++        let second = if depth > 1 { self.arity * (self.arity + 1) / 2 } else { 0 };
++        let mut bytes = 0usize;
++        for symbol in std::iter::once(self.symbol).chain(self.first[..first].iter().flatten().copied())
++            .chain(self.second[..second].iter().flatten().copied()) {
++            let name = if symbol.get_name().is_ascii() { Some(symbol.get_name()) }
++                else { symbol.get_aliases().iter().find(|name| name.is_ascii()).map(String::as_str) }
++                .ok_or(OperationError::Unsupported("known head has no ASCII export name"))?;
++            // Replacing :: with _ cannot increase the allocation's input length.
++            bytes = bytes.checked_add(name.len()).ok_or(OperationError::Overflow)?;
++        }
++        Ok(bytes)
++    }
++
 +    // Upper bound on scalar instructions in the finite generated evaluator. Its
 +    // parameter and constant backing is counted separately by the operation owner.
 +    pub(super) fn instruction_bound<E>(&self, width: usize, table: usize) -> Result<usize, OperationError<E>> {
@@ -2801,6 +3828,10 @@ index 0000000000000000000000000000000000000000..002f687a8942ca6fea661b70a155a89c
 +}
 +
 +impl<D: DualNumberStructure> Vectorize<Complex<Rational>> for KnownDualizer<'_, D> {
++    fn simplify_generated_function(&self) -> bool { true }
++    fn is_zero_slot(&self, slot: &Slot, instructions: &InstructionList<Complex<Rational>>) -> bool {
++        self.dualizer.structural_zero(slot, instructions)
++    }
 +    fn duplicate_constants(&self) -> bool { self.dualizer.duplicate_constants() }
 +    fn get_dimension(&self) -> usize { self.dualizer.get_dimension() }
 +    fn allow_explicit_vector_function(&self) -> bool { false }

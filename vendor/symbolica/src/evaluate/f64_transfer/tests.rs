@@ -1,4 +1,60 @@
 use super::*;
+
+#[test]
+fn closed_known_head_profile_refuses_foreign_tags_and_restores_without_source_callbacks() {
+    use crate::symbol;
+    let symbol = symbol!("fixed_f64_transfer_magnitude_v1");
+    let head = F64KnownHead {
+        tag: 71, version: 1, symbol, arity: 2,
+        export_name: "fixed_f64_transfer_magnitude_v1",
+        evaluate: |args| args[0].hypot(args[1]),
+    };
+    let heads = [head];
+    let mut external = ExternalFunctionContainer::new(symbol, vec![], vec![]);
+    external.imp = Some(Box::new(head.evaluate));
+    let source = ExpressionEvaluator {
+        stack: vec![f64::NAN; 5], param_count: 2, reserved_indices: 2,
+        instructions: vec![(Instr::ExternalFun(2, 0, vec![0, 1]), ComplexPhase::Any)],
+        result_indices: vec![2, 2], external_fns: vec![external],
+        settings: OptimizationSettings::default(),
+    };
+    assert!(source.f64_transfer().is_err());
+    let borrowed = source.f64_transfer_with_heads(&heads).unwrap();
+    let facts = borrowed.extents();
+    assert_eq!(facts.external_functions, 1);
+    assert!(facts.external_bytes >= size_of::<ExternalFunctionContainer<f64>>() + 16);
+    let mut bytes = vec![0; borrowed.encoded_len()];
+    borrowed.write_into(&mut bytes).unwrap();
+    let view = F64ProgramView::inspect_with_heads(&bytes, &heads).unwrap();
+    assert_eq!(view.extents(), facts);
+    assert!(F64ProgramView::inspect(&bytes).is_err());
+    assert!(matches!(view.restore_with(|_| Err("original head backing denial")),
+        Err(F64RestoreError::Admission("original head backing denial"))));
+    drop(source);
+    let mut restored = view.restore_with(|_| Ok::<_, std::convert::Infallible>(())).unwrap();
+    let mut output = [0.; 2];
+    restored.evaluate(&[3., 4.], &mut output);
+    assert_eq!(output, [5., 5.]);
+    restored.evaluate(&[5., 12.], &mut output);
+    assert_eq!(output, [13., 13.]);
+    let mut incompatible = heads;
+    incompatible[0].version = 2;
+    assert!(F64ProgramView::inspect_with_heads(&bytes, &incompatible).is_err());
+    let mut corrupt = bytes.clone();
+    let instruction = HEADER + 8 * facts.results;
+    corrupt[instruction + 10..instruction + 18].copy_from_slice(&99_u64.to_le_bytes());
+    assert!(F64ProgramView::inspect_with_heads(&corrupt, &heads).is_err());
+    let mut arity = bytes.clone();
+    arity[instruction + 18..instruction + 26].copy_from_slice(&1_u64.to_le_bytes());
+    assert!(F64ProgramView::inspect_with_heads(&arity, &heads).is_err());
+    let mut undefined = bytes;
+    undefined[instruction + 26..instruction + 34].copy_from_slice(&4_u64.to_le_bytes());
+    assert!(matches!(
+        F64ProgramView::inspect_with_heads(&undefined, &heads).unwrap()
+            .restore_with(|_| Ok::<_, std::convert::Infallible>(())),
+        Err(F64RestoreError::Program(F64TransferError::Undefined(4)))
+    ));
+}
 use crate::{
     atom::{Atom, AtomCore},
     parse, symbol,
@@ -50,7 +106,7 @@ fn checked_operation_population_overflow() {
     let mut count = OperationCount::new(usize::MAX, 0, 0, 0);
     // Keep the borrowed instruction alive while testing the shared counter.
     let raw = Instr::Add(4, vec![0, 1]);
-    let instruction = NativeInstruction::from_instr(&raw, ComplexPhase::Any).unwrap();
+    let instruction = NativeInstruction::from_instr(&raw, ComplexPhase::Any, &[], &[]).unwrap();
     assert_eq!(
         instruction.count_into(&mut count),
         Err(F64TransferError::Overflow("operation count"))
@@ -58,14 +114,14 @@ fn checked_operation_population_overflow() {
     count = OperationCount::new(0, usize::MAX, 0, 0);
     let raw = Instr::Pow(4, 0, -2);
     assert_eq!(
-        NativeInstruction::from_instr(&raw, ComplexPhase::Any)
+        NativeInstruction::from_instr(&raw, ComplexPhase::Any, &[], &[])
             .unwrap()
             .count_into(&mut count),
         Err(F64TransferError::Overflow("operation count"))
     );
     count = OperationCount::new(0, 0, usize::MAX, 0);
     assert_eq!(
-        NativeInstruction::from_instr(&raw, ComplexPhase::Any)
+        NativeInstruction::from_instr(&raw, ComplexPhase::Any, &[], &[])
             .unwrap()
             .count_into(&mut count),
         Err(F64TransferError::Overflow("operation count"))
@@ -73,7 +129,7 @@ fn checked_operation_population_overflow() {
     count = OperationCount::new(0, 0, 0, usize::MAX);
     let raw = Instr::Powf(4, 0, 1);
     assert_eq!(
-        NativeInstruction::from_instr(&raw, ComplexPhase::Any)
+        NativeInstruction::from_instr(&raw, ComplexPhase::Any, &[], &[])
             .unwrap()
             .count_into(&mut count),
         Err(F64TransferError::Overflow("operation count"))
@@ -326,7 +382,7 @@ fn structurally_malformed_bytes_never_invoke_admission() {
     let mut bad = original.clone();
     bad.push(0);
     cases.push(bad);
-    for (offset, value) in [(0, 0), (8, 2), (10, 1), (start, 11), (start + 1, 9)] {
+    for (offset, value) in [(0, 0), (8, 1), (10, 1), (start, 12), (start + 1, 9)] {
         let mut bad = original.clone();
         bad[offset] = value;
         cases.push(bad);

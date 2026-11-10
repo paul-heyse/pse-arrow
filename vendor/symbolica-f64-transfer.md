@@ -8,7 +8,7 @@ program, not symbolic preparation or a project-owned arithmetic interpreter. The
 The native delegation contract and activation status belong to Plan65k E03 and
 proposed ADR-0246.
 
-`ExpressionEvaluator<f64>::f64_transfer` borrows native instructions and their actual
+`ExpressionEvaluator<f64>::f64_transfer` borrows native builtin instructions and their actual
 stack boundaries. `F64ProgramRef::extents` and `encoded_len` allocate nothing;
 `write_into` requires an exactly caller-provisioned byte slice. Constants retain their
 original binary64 bits, including signed zero and NaN payloads. Parameters and mutable
@@ -40,17 +40,36 @@ released before final exact-reservation vectors are materialized. Fresh paramete
 and intermediate stack slots contain NaN; constants keep their original bits. The
 restored evaluator uses its existing instruction implementation. No Atom, coefficient
 conversion, symbol registration, normalization, differentiation, hot-start tree,
-optimization setting, external function, callback or warmed worker value is restored.
-Default preparation settings are inert for this execution profile. Later preparation,
-complex evaluation, vectorization and native compilation equivalence are not promised.
+optimization setting or warmed worker value is restored. Default preparation settings
+are inert for this execution profile. Later symbolic preparation, complex evaluation
+and vectorization eligibility are not supplied by numerical transfer.
 
-The initial profile supports Add, Mul, integer Pow, Powf and the existing unary
+The current wire version is **2**; old versions refuse explicitly. The builtin profile
+supports Add, Mul, integer Pow, Powf and the existing unary
 EXP/LOG/SIN/COS/SQRT/ABS/CONJ builtins. Builtins use fixed profile discriminants, not
-serialized Symbols or tags. All external-function state and all control-flow
-instructions refuse, including unused external state. The f64 execution loop and its
+serialized Symbols or tags. The convenience builtin-only entry refuses all external
+state, including unused state. All control-flow instructions refuse. The f64 execution loop and its
 operation counter ignore `ComplexPhase`; the scalar flags are preserved as metadata.
 The supplier emits `PartialReal` only for Add/Mul, where inspection checks its prefix
 count against the actual operand population.
+
+`f64_transfer_with_heads` and `inspect_with_heads` additionally accept a trusted local
+`F64KnownHead` table. A descriptor supplies a nonzero operation tag/version, fixed arity,
+already registered Symbol, fixed ASCII export name and a closed function pointer. The
+table is an application execution-profile premise: the caller establishes matching source
+and destination semantics. It is never decoded from the program. The encoding carries
+only the tag/version and ordered argument indices. Unknown tags/versions, wrong arity,
+duplicate descriptors, tagged functions, hidden retained bodies and unqualified implementations
+refuse before restoration. Known constants already materialized in the protected f64 prefix
+transfer as their exact bits; their generators and fixed symbolic arguments are discarded.
+
+Restoration admits descriptor-vector, fixed name, function-pointer box and private argument
+buffer backing together with instructions and the main stack. It then installs only the
+trusted destination table's fixed function pointers. It registers no symbol and invokes no
+source, tag, derivative or implementation generator. These callbacks hold no producer control
+or warmed values. Repeated outputs and source instruction order remain unchanged. The enclosing
+mathematical owner still qualifies original guards, physical/source custody, demand and layout;
+the table and numerical bytes grant no symbolic or scientific publication authority.
 
 Integer Pow has an additional exact-source restriction: Numerica **3.0.1** native f64
 `Real::pow(u64)` debug-asserts `e <= i32::MAX`, then casts to i32. Symbolica handles a
@@ -68,6 +87,17 @@ the evaluator value itself, outer Arcs/native templates, gather/scatter buffers 
 native frames remain the consumer's accounting responsibility. A tiny valid encoding
 can request a large stack: successful passive inspection never grants that allocation.
 Every native scientific caller retains its own admission, context and permission checks.
+
+**Tested, targeted, 2026-11-10:** `scripts/pse-env -- cargo test --manifest-path
+vendor/symbolica/Cargo.toml --locked --no-default-features --features
+integer-gmp,float-mpfr,native_code_generation --lib evaluate::f64_transfer::tests::`
+passed 14/14 under the pinned toolchain and configured unbounded execution, zero failures
+against baseline zero. The new independent 3–4–5/5–12–13 magnitude control covers repeated
+outputs after producer retirement, exact backing admission refusal, foreign versions/arity
+and definition-before-read. The first attempts exposed four private test-helper call sites
+requiring the new profile arguments and one historical corruption test that wrote the now
+valid version 2; both were corrected. This supplier result does not establish production
+canonical receiving, compiled stable execution or whole-series qualification.
 
 **Tested, targeted:** the pinned-toolchain, configured-unbounded command
 `cargo test --manifest-path vendor/symbolica/Cargo.toml --locked --no-default-features

@@ -1,6 +1,6 @@
 {
   "archive_sha256": "0965398bbe5063c00b3a0d078d7d3dc57b61819b97e960b73e9a7e9602662795",
-  "delta_sha256": "6154cb9f6e832d7e9e7fc5613b85e5247dcbcc277e41d88cb827fae175c46c85",
+  "delta_sha256": "5bf51fd7cc8bbbf10d8dacbe2d23e0fa364e17c8b7e47fa39b8f8cb5a23ea695",
   "files": {
     ".cargo_vcs_info.json": {
       "mode": "100644",
@@ -406,9 +406,13 @@
       "mode": "100644",
       "sha256": "f04d1bc45a8d50793f6ba6804fdb0ccfb6363bac2072636412ebbc0c64b93768"
     },
+    "src/evaluate/checked_export.rs": {
+      "mode": "100644",
+      "sha256": "ee6b062cae8f760f57379ef6277682dba894c5f83954eb171065770977d6359a"
+    },
     "src/evaluate/control.rs": {
       "mode": "100644",
-      "sha256": "6d2528297a1876ec4571936c897c9752798dd37c05040d82ac58f9d3fe4637d5"
+      "sha256": "72c1d1a91dd9bcdcf30b20423ff82d7ef3726fc8c2d8666911b8d0b2b7c4afff"
     },
     "src/evaluate/domain.rs": {
       "mode": "100644",
@@ -416,7 +420,7 @@
     },
     "src/evaluate/dual.rs": {
       "mode": "100644",
-      "sha256": "817cf3a743a83b384a43cadc91bfe0b97f6a66190acb50ea0ff4ef0b1cdcc41f"
+      "sha256": "dfa3a0727b279b01241f3709dde727f947b22e1db4fbb98ccc851995b4289d79"
     },
     "src/evaluate/evaluator.rs": {
       "mode": "100644",
@@ -424,7 +428,7 @@
     },
     "src/evaluate/export.rs": {
       "mode": "100644",
-      "sha256": "e900325f3f2fdf0510e13cc05c440d80e98b9b1eb4b4ac565f237424735c6f2c"
+      "sha256": "82a202647cc93fa519ab00cc4e130dfe5f59580e7cabaaa4b2dabcff8b19bd58"
     },
     "src/evaluate/external.rs": {
       "mode": "100644",
@@ -432,11 +436,11 @@
     },
     "src/evaluate/f64_transfer.rs": {
       "mode": "100644",
-      "sha256": "31d48af22eb4f57f38b3fc225accbecea1065c7c329f7c4036df4f21bbd71f8b"
+      "sha256": "65436911aaa84b1ddce9c09041703d39e0251f1627ce5cc1269ebf62107d60ec"
     },
     "src/evaluate/f64_transfer/tests.rs": {
       "mode": "100644",
-      "sha256": "cf602b248cdb2cd68a5f7a0f3671101a52bb9bb014f39fd48c321dd7cc7e479a"
+      "sha256": "dc060b2cdf7307e5981876c7830fb5ab5d7bc7543f51df58396fd6348878e641"
     },
     "src/evaluate/function_map.rs": {
       "mode": "100644",
@@ -444,11 +448,11 @@
     },
     "src/evaluate/instruction.rs": {
       "mode": "100644",
-      "sha256": "4f6b10ad349d3f9e3f25355b2b572390fd61c90c13e1ed16349c77c9f652d7f5"
+      "sha256": "6c8535d28247d5be99e4aa8d10f6b0cbb45dfa33264753b3c71ddb79b595e18b"
     },
     "src/evaluate/known_head.rs": {
       "mode": "100644",
-      "sha256": "f8f1af029523e8059f2fed3f303e25121dad3cddb42ac2fb0f8785e3f924d3dd"
+      "sha256": "541dad202c77d4459610861fc260e12d2b56116d82cb0ce8ee07820335b8b290"
     },
     "src/evaluate/optimize.rs": {
       "mode": "100644",
