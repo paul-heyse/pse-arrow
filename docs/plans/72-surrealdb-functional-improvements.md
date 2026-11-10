@@ -38,6 +38,11 @@ scope and supplies test infrastructure, original-attempt evidence and diagnostic
 Neither series is superseded or amended here.
 Plan72 owns only the SurrealDB improvements and receiving obligations described below.
 
+The 72b/72c implementation is committed. Their companions retain open verification/repair
+and closeout obligations at the maintainer's request to move on; implementation is not
+completed acceptance. Resume from those owning checkpoints rather than reopening library
+selection or inferring completion from the commits.
+
 ## Baseline and focused foundation assessment
 
 **Interface-checked.** Authoring uses the review publication and current working tree, including

@@ -81,6 +81,15 @@ work: use of Tokio alone does not establish dependency on product runtime code o
 of product execution responsibilities. No library split or rule change follows from the
 transitive package name alone.
 
+Final receiving at handoff is **not complete**. The unchanged 69-case command finished
+with 67 passes and two 360-second timeouts in the 10,000-member capture cases; the three
+earlier initialization failures passed. Its fixture settled. Final pure module tests passed
+10/10. The native six-case rerun did not start: discovery compilation found the new bootstrap
+parser test referencing optional `surrealdb_expr` without enabling it in a `native-service`-only
+selection. Correct that test/dependency configuration before rerunning. These are remaining
+verification/repair obligations, not passing evidence. The maintainer requested no further
+investigation or new runs in this engagement.
+
 A repeated default-concurrency selection exposed
 the engine's global index-build barrier: schema setup in one logical database can wait
 behind long writes in another. The initialization owner is being corrected to submit
@@ -241,6 +250,7 @@ correctness routes with explicit force-validation where applicable. The target i
 | --- | --- |
 | `scripts/pse test pse-codegen --lib` | 107 passed, 0 failed; generation, native projections, source layout/kind checks and deterministic full-registry lowering. |
 | `scripts/pse test pse-study-module --lib` | 10 passed, 0 failed; native/WASI shared policy, aggregate limits, opaque input refusal and exact typed products. |
+| `scripts/pse test pse-operations --lib --features canonical-maintenance -E 'test(~atomic_capture::) or test(~canonical_control::tests) or test(~canonical_script::tests) or test(~canonical::transport::tests) or test(~operation_return_checks_all_errors) or test(~native_sql_serializable)'` | **Failed:** 67 passed, 2 timed out at the unchanged 360-second limit. Default 16 lanes, unbounded placement, prepared module `bb7ddaed…`; actual fixture settled. Both large capture cases remain unresolved. |
 | `scripts/pse test pse-operations --lib --features canonical-maintenance -E 'test(~canonical::bootstrap::tests)'` | 5 passed, 0 failed; actual closed bootstrap reentry keeps issuer/epoch and blocks ordinary opening, missing index remains closed, changed/failed/pending inventory refuses readiness, and the complete generated observation parses. |
 | `scripts/pse test pse-operations --lib --features canonical-maintenance -E 'test(~canonical_server_unit_exact_conflicts)'` | 20 passed, 0 failed; real native serializable point/range/absence races, protected reads, snapshot observations, whole-decision retry and disjoint writers. |
 | `scripts/pse test pse-operations:native_service --features canonical-maintenance -E 'test(~native_control_http_actor_grants_original_receipts_and_raw_envelopes)'` | 1 passed, 0 failed; direct/API original receipts, grants, denied/malformed/revoked authority and raw envelopes. |
