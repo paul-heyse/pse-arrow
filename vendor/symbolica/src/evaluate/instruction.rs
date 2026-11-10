@@ -248,24 +248,21 @@ impl<T: Clone> ExpressionEvaluator<T> {
         bodies: &[Option<ExportedSubEvaluator<T>>],
     ) -> ExportedInstructions<T> {
         let mut exported = self.program().export_instructions(external_fns, bodies);
-        exported.constant_functions = self
-            .external_fns
-            .iter()
-            .filter_map(|external| {
-                external
-                    .constant_index
-                    .map(|index| ExportedConstantFunction {
-                        index,
-                        symbol: external.symbol,
-                        tags: external
-                            .tags
-                            .iter()
-                            .map(|tag| tag.to_canonical_string())
-                            .collect(),
-                        fixed_args: external.fixed_args.clone(),
-                    })
-            })
-            .collect();
+        exported.constant_functions = Vec::with_capacity(self.external_fns.len());
+        for external in &self.external_fns {
+            if let Some(index) = external.constant_index {
+                exported.constant_functions.push(ExportedConstantFunction {
+                    index,
+                    symbol: external.symbol,
+                    tags: external
+                        .tags
+                        .iter()
+                        .map(|tag| tag.to_canonical_string())
+                        .collect(),
+                    fixed_args: external.fixed_args.clone(),
+                });
+            }
+        }
         exported
     }
 }
@@ -276,21 +273,16 @@ impl<T: Clone> ProgramView<'_, T> {
         external_fns: &[ExternalFunctionContainer<T>],
         bodies: &[Option<ExportedSubEvaluator<T>>],
     ) -> ExportedInstructions<T> {
-        let mut instr = vec![];
+        let mut instr = Vec::with_capacity(self.instructions.len() + self.result_indices.len());
         let constants: Vec<_> = self.constants.to_vec();
-        let mut calls = self
-            .instructions
-            .iter()
-            .filter_map(|(instruction, _)| {
-                if !bodies.is_empty()
-                    && let Instr::ExternalFun(_, index, _) = instruction
-                {
-                    Some(*index)
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<_>>();
+        let mut calls = Vec::with_capacity(self.instructions.len());
+        for (instruction, _) in self.instructions {
+            if !bodies.is_empty()
+                && let Instr::ExternalFun(_, index, _) = instruction
+            {
+                calls.push(*index);
+            }
+        }
         calls.sort_unstable();
         calls.dedup();
         let sub_evaluators = calls
@@ -462,8 +454,12 @@ impl<T> InstructionList<T> {
         // copies so structural zeros survive generated/primitive boundaries.
         if let VectorInstruction::Assign(source) = &mut instr {
             while let Slot::Temp(index) = *source {
-                let Some(VectorInstruction::Assign(previous)) = self.instructions.get(index) else { break; };
-                if matches!(previous, Slot::Temp(previous) if *previous >= index) { break; }
+                let Some(VectorInstruction::Assign(previous)) = self.instructions.get(index) else {
+                    break;
+                };
+                if matches!(previous, Slot::Temp(previous) if *previous >= index) {
+                    break;
+                }
                 *source = *previous;
             }
         }

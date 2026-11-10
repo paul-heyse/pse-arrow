@@ -1582,6 +1582,9 @@ impl Workspace {
     /// Return a recycled atom from this workspace. The atom may have the same value as before.
     #[inline]
     pub fn new_atom(&self) -> RecycledAtom {
+        if numerica::domains::backend::integer::IntegerAllocationContext::capture().is_fresh() {
+            return Atom::default().into();
+        }
         if let Ok(mut a) = self.atom_buffer.try_borrow_mut() {
             if let Some(b) = a.pop() {
                 b.into()
@@ -1612,6 +1615,9 @@ impl Workspace {
     /// Return an atom's allocation to this workspace for reuse. If the pool is
     /// already borrowed, the atom is dropped instead.
     pub fn return_atom(&self, atom: Atom) {
+        if numerica::domains::backend::integer::IntegerAllocationContext::capture().is_fresh() {
+            return;
+        }
         if let Ok(mut a) = self.atom_buffer.try_borrow_mut() {
             a.push(atom);
         }
@@ -1698,6 +1704,9 @@ impl AsRef<Atom> for RecycledAtom {
 impl Drop for RecycledAtom {
     #[inline]
     fn drop(&mut self) {
+        if numerica::domains::backend::integer::IntegerAllocationContext::capture().is_fresh() {
+            return;
+        }
         if let Atom::Zero = self.0 {
             return;
         }
@@ -1729,6 +1738,53 @@ mod tests {
     };
 
     use super::{CustomFunctionDefinitionKeys, State};
+
+    #[test]
+    fn fresh_workspace_policy_bypasses_all_recycling_entries() {
+        use super::{RecycledAtom, Workspace};
+        use numerica::domains::backend::integer::IntegerAllocationContext;
+        Workspace::get_local().with(|ws| {
+            let saved = std::mem::take(&mut *ws.atom_buffer.borrow_mut());
+            let mut large = parse!("fresh_workspace_x+fresh_workspace_y");
+            if let Atom::Add(add) = &mut large {
+                add.grow_capacity(1_000_000);
+            }
+            assert!(large.get_capacity() >= 900_000);
+            // Public return_atom has no ordinary pool-count cap. Fresh policy
+            // must bypass it as well as the bounded RecycledAtom Drop path.
+            for _ in 0..40 {
+                let mut copy = large.clone();
+                if let Atom::Add(add) = &mut copy {
+                    add.grow_capacity(1_000_000);
+                }
+                ws.return_atom(copy);
+            }
+            let capacities = ws
+                .atom_buffer
+                .borrow()
+                .iter()
+                .map(Atom::get_capacity)
+                .collect::<Vec<_>>();
+            IntegerAllocationContext::fresh().run(|| {
+                let atom = ws.new_num(1);
+                assert!(atom.get_capacity() < 1_000);
+                drop(atom);
+                ws.return_atom(large.clone());
+                drop(RecycledAtom::wrap(large.clone()));
+                assert_eq!(
+                    ws.atom_buffer
+                        .borrow()
+                        .iter()
+                        .map(Atom::get_capacity)
+                        .collect::<Vec<_>>(),
+                    capacities
+                );
+            });
+            let ordinary = ws.new_atom().into_inner();
+            assert!(ordinary.get_capacity() >= 900_000);
+            *ws.atom_buffer.borrow_mut() = saved;
+        });
+    }
 
     fn test_print_function() -> PrintFunction {
         Box::new(|_, _, _| Some("test".into()))

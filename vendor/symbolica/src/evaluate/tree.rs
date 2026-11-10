@@ -454,6 +454,8 @@ impl<'a> AtomView<'a> {
 
         let n_cores = LicenseManager::max_threads(settings.n_cores).min(n_iterations);
         let inherited_unlock = crate::license::InheritedLibraryUnlock::capture();
+        let integer_context =
+            numerica::domains::backend::integer::IntegerAllocationContext::capture();
 
         std::thread::scope(|s| {
             let abort = Arc::new(AtomicBool::new(false));
@@ -470,109 +472,113 @@ impl<'a> AtomView<'a> {
                 let abort = abort.clone();
 
                 let mut op = move || {
-                    let _unlock = inherited_unlock.activate();
-                    for j in 0..n_iterations / n_cores {
-                        if abort.load(Ordering::Relaxed) {
-                            return;
-                        }
-
-                        if i == n_cores - 1
-                            && let Some(a) = &settings.abort_check
-                            && a()
-                        {
-                            abort.store(true, Ordering::Relaxed);
-
-                            if settings.verbose {
-                                info!(
-                                    "Aborting Horner optimization at step {}/{}.",
-                                    j,
-                                    settings.horner_iterations / n_cores
-                                );
+                    integer_context.run(|| {
+                        let _unlock = inherited_unlock.activate();
+                        for j in 0..n_iterations / n_cores {
+                            if abort.load(Ordering::Relaxed) {
+                                return;
                             }
 
-                            return;
-                        }
-
-                        // try a random swap
-                        let mut t1 = 0;
-                        let mut t2 = 0;
-
-                        if let Some(p) = p_ref {
-                            if j >= p.len() / n_cores {
-                                break;
-                            }
-
-                            let perm = &p[i * (p.len() / n_cores) + j];
-                            cvars = perm.iter().map(|x| vars[*x].clone()).collect();
-                        } else {
-                            t1 = rng.random_range(0..cvars.len());
-                            t2 = rng.random_range(0..cvars.len() - 1);
-
-                            cvars.swap(t1, t2);
-                        }
-
-                        let horner: Vec<_> = expressions
-                            .iter()
-                            .map(|x| x.horner_scheme(Some(&cvars), true, true))
-                            .collect();
-                        let mut subexpr = HashSet::default();
-                        let mut cur_ops = OperationCount::default();
-
-                        for h in &horner {
-                            let ops = h
-                                .as_view()
-                                .count_operations_with_subexpressions(&mut subexpr);
-                            cur_ops += ops;
-                        }
-
-                        // prefer fewer multiplications
-                        if cur_ops.multiplications <= last_mul
-                            || cur_ops.multiplications == last_mul && cur_ops.additions <= last_add
-                        {
-                            if settings.verbose {
-                                info!(
-                                    "Accept move at step {}/{}: {}",
-                                    j,
-                                    settings.horner_iterations / n_cores,
-                                    cur_ops
-                                );
-                            }
-
-                            last_add = cur_ops.additions;
-                            last_mul = cur_ops.multiplications;
-
-                            if cur_ops.multiplications <= best_mul.load(Ordering::Relaxed)
-                                || cur_ops.multiplications == best_mul.load(Ordering::Relaxed)
-                                    && cur_ops.additions <= best_add.load(Ordering::Relaxed)
+                            if i == n_cores - 1
+                                && let Some(a) = &settings.abort_check
+                                && a()
                             {
-                                let mut best_scheme = best_scheme.lock().unwrap();
+                                abort.store(true, Ordering::Relaxed);
 
-                                // check again if it is the best now that we have locked
-                                let best_mul_l = best_mul.load(Ordering::Relaxed);
-                                let best_add_l = best_add.load(Ordering::Relaxed);
-                                if cur_ops.multiplications <= best_mul_l
-                                    || cur_ops.multiplications == best_mul_l
-                                        && cur_ops.additions <= best_add_l
+                                if settings.verbose {
+                                    info!(
+                                        "Aborting Horner optimization at step {}/{}.",
+                                        j,
+                                        settings.horner_iterations / n_cores
+                                    );
+                                }
+
+                                return;
+                            }
+
+                            // try a random swap
+                            let mut t1 = 0;
+                            let mut t2 = 0;
+
+                            if let Some(p) = p_ref {
+                                if j >= p.len() / n_cores {
+                                    break;
+                                }
+
+                                let perm = &p[i * (p.len() / n_cores) + j];
+                                cvars = perm.iter().map(|x| vars[*x].clone()).collect();
+                            } else {
+                                t1 = rng.random_range(0..cvars.len());
+                                t2 = rng.random_range(0..cvars.len() - 1);
+
+                                cvars.swap(t1, t2);
+                            }
+
+                            let horner: Vec<_> = expressions
+                                .iter()
+                                .map(|x| x.horner_scheme(Some(&cvars), true, true))
+                                .collect();
+                            let mut subexpr = HashSet::default();
+                            let mut cur_ops = OperationCount::default();
+
+                            for h in &horner {
+                                let ops = h
+                                    .as_view()
+                                    .count_operations_with_subexpressions(&mut subexpr);
+                                cur_ops += ops;
+                            }
+
+                            // prefer fewer multiplications
+                            if cur_ops.multiplications <= last_mul
+                                || cur_ops.multiplications == last_mul
+                                    && cur_ops.additions <= last_add
+                            {
+                                if settings.verbose {
+                                    info!(
+                                        "Accept move at step {}/{}: {}",
+                                        j,
+                                        settings.horner_iterations / n_cores,
+                                        cur_ops
+                                    );
+                                }
+
+                                last_add = cur_ops.additions;
+                                last_mul = cur_ops.multiplications;
+
+                                if cur_ops.multiplications <= best_mul.load(Ordering::Relaxed)
+                                    || cur_ops.multiplications == best_mul.load(Ordering::Relaxed)
+                                        && cur_ops.additions <= best_add.load(Ordering::Relaxed)
                                 {
-                                    if cur_ops.additions == best_add_l
-                                        && cur_ops.multiplications == best_mul_l
+                                    let mut best_scheme = best_scheme.lock().unwrap();
+
+                                    // check again if it is the best now that we have locked
+                                    let best_mul_l = best_mul.load(Ordering::Relaxed);
+                                    let best_add_l = best_add.load(Ordering::Relaxed);
+                                    if cur_ops.multiplications <= best_mul_l
+                                        || cur_ops.multiplications == best_mul_l
+                                            && cur_ops.additions <= best_add_l
                                     {
-                                        if *best_scheme < cvars {
-                                            // on a draw, accept the lexicographical minimum
-                                            // to get a deterministic scheme
+                                        if cur_ops.additions == best_add_l
+                                            && cur_ops.multiplications == best_mul_l
+                                        {
+                                            if *best_scheme < cvars {
+                                                // on a draw, accept the lexicographical minimum
+                                                // to get a deterministic scheme
+                                                *best_scheme = cvars.clone();
+                                            }
+                                        } else {
+                                            best_mul
+                                                .store(cur_ops.multiplications, Ordering::Relaxed);
+                                            best_add.store(cur_ops.additions, Ordering::Relaxed);
                                             *best_scheme = cvars.clone();
                                         }
-                                    } else {
-                                        best_mul.store(cur_ops.multiplications, Ordering::Relaxed);
-                                        best_add.store(cur_ops.additions, Ordering::Relaxed);
-                                        *best_scheme = cvars.clone();
                                     }
                                 }
+                            } else {
+                                cvars.swap(t1, t2);
                             }
-                        } else {
-                            cvars.swap(t1, t2);
                         }
-                    }
+                    })
                 };
 
                 if i + 1 < n_cores {
@@ -3166,6 +3172,8 @@ impl Expression<Complex<Rational>> {
 
         let n_cores = LicenseManager::max_threads(settings.n_cores).min(n_iterations);
         let inherited_unlock = crate::license::InheritedLibraryUnlock::capture();
+        let integer_context =
+            numerica::domains::backend::integer::IntegerAllocationContext::capture();
 
         std::thread::scope(|s| {
             let abort = Arc::new(AtomicBool::new(false));
@@ -3182,112 +3190,116 @@ impl Expression<Complex<Rational>> {
                 let abort = abort.clone();
 
                 let mut op = move || {
-                    let _unlock = inherited_unlock.activate();
-                    for j in 0..n_iterations / n_cores {
-                        if abort.load(Ordering::Relaxed) {
-                            return;
-                        }
-
-                        if i == n_cores - 1
-                            && let Some(a) = &settings.abort_check
-                            && a()
-                        {
-                            abort.store(true, Ordering::Relaxed);
-
-                            if settings.verbose {
-                                info!(
-                                    "Aborting Horner optimization at step {}/{}.",
-                                    j,
-                                    settings.horner_iterations / n_cores
-                                );
+                    integer_context.run(|| {
+                        let _unlock = inherited_unlock.activate();
+                        for j in 0..n_iterations / n_cores {
+                            if abort.load(Ordering::Relaxed) {
+                                return;
                             }
 
-                            return;
-                        }
-
-                        // try a random swap
-                        let mut t1 = 0;
-                        let mut t2 = 0;
-
-                        if let Some(p) = p_ref {
-                            if j >= p.len() / n_cores {
-                                break;
-                            }
-
-                            let perm = &p[i * (p.len() / n_cores) + j];
-                            cvars = perm.iter().map(|x| vars[*x].clone()).collect();
-                        } else {
-                            t1 = rng.random_range(0..cvars.len());
-                            t2 = rng.random_range(0..cvars.len() - 1);
-
-                            cvars.swap(t1, t2);
-                        }
-
-                        let horner: Vec<_> = expressions
-                            .iter()
-                            .map(|x| {
-                                let mut h = x.clone();
-                                h.apply_horner_scheme(&cvars);
-                                h.rehash(true);
-                                h
-                            })
-                            .collect();
-                        let mut subexpr = HashMap::default();
-                        let mut cur_ops = OperationCount::default();
-
-                        for h in &horner {
-                            let ops = h.count_operations_with_subexpression(&mut subexpr);
-                            cur_ops += ops;
-                        }
-
-                        // prefer fewer multiplications
-                        if cur_ops.multiplications <= last_mul
-                            || cur_ops.multiplications == last_mul && cur_ops.additions <= last_add
-                        {
-                            if settings.verbose {
-                                info!(
-                                    "Accept move at step {}/{}: {}",
-                                    j,
-                                    settings.horner_iterations / n_cores,
-                                    cur_ops
-                                );
-                            }
-
-                            last_add = cur_ops.additions;
-                            last_mul = cur_ops.multiplications;
-
-                            if cur_ops.multiplications <= best_mul.load(Ordering::Relaxed)
-                                || cur_ops.multiplications == best_mul.load(Ordering::Relaxed)
-                                    && cur_ops.additions <= best_add.load(Ordering::Relaxed)
+                            if i == n_cores - 1
+                                && let Some(a) = &settings.abort_check
+                                && a()
                             {
-                                let mut best_scheme = best_scheme.lock().unwrap();
+                                abort.store(true, Ordering::Relaxed);
 
-                                // check again if it is the best now that we have locked
-                                let best_mul_l = best_mul.load(Ordering::Relaxed);
-                                let best_add_l = best_add.load(Ordering::Relaxed);
-                                if cur_ops.multiplications <= best_mul_l
-                                    || cur_ops.multiplications == best_mul_l
-                                        && cur_ops.additions <= best_add_l
+                                if settings.verbose {
+                                    info!(
+                                        "Aborting Horner optimization at step {}/{}.",
+                                        j,
+                                        settings.horner_iterations / n_cores
+                                    );
+                                }
+
+                                return;
+                            }
+
+                            // try a random swap
+                            let mut t1 = 0;
+                            let mut t2 = 0;
+
+                            if let Some(p) = p_ref {
+                                if j >= p.len() / n_cores {
+                                    break;
+                                }
+
+                                let perm = &p[i * (p.len() / n_cores) + j];
+                                cvars = perm.iter().map(|x| vars[*x].clone()).collect();
+                            } else {
+                                t1 = rng.random_range(0..cvars.len());
+                                t2 = rng.random_range(0..cvars.len() - 1);
+
+                                cvars.swap(t1, t2);
+                            }
+
+                            let horner: Vec<_> = expressions
+                                .iter()
+                                .map(|x| {
+                                    let mut h = x.clone();
+                                    h.apply_horner_scheme(&cvars);
+                                    h.rehash(true);
+                                    h
+                                })
+                                .collect();
+                            let mut subexpr = HashMap::default();
+                            let mut cur_ops = OperationCount::default();
+
+                            for h in &horner {
+                                let ops = h.count_operations_with_subexpression(&mut subexpr);
+                                cur_ops += ops;
+                            }
+
+                            // prefer fewer multiplications
+                            if cur_ops.multiplications <= last_mul
+                                || cur_ops.multiplications == last_mul
+                                    && cur_ops.additions <= last_add
+                            {
+                                if settings.verbose {
+                                    info!(
+                                        "Accept move at step {}/{}: {}",
+                                        j,
+                                        settings.horner_iterations / n_cores,
+                                        cur_ops
+                                    );
+                                }
+
+                                last_add = cur_ops.additions;
+                                last_mul = cur_ops.multiplications;
+
+                                if cur_ops.multiplications <= best_mul.load(Ordering::Relaxed)
+                                    || cur_ops.multiplications == best_mul.load(Ordering::Relaxed)
+                                        && cur_ops.additions <= best_add.load(Ordering::Relaxed)
                                 {
-                                    if cur_ops.additions == best_add_l
-                                        && cur_ops.multiplications == best_mul_l
+                                    let mut best_scheme = best_scheme.lock().unwrap();
+
+                                    // check again if it is the best now that we have locked
+                                    let best_mul_l = best_mul.load(Ordering::Relaxed);
+                                    let best_add_l = best_add.load(Ordering::Relaxed);
+                                    if cur_ops.multiplications <= best_mul_l
+                                        || cur_ops.multiplications == best_mul_l
+                                            && cur_ops.additions <= best_add_l
                                     {
-                                        if *best_scheme < cvars {
-                                            // on a draw, accept the lexicographical minimum
-                                            // to get a deterministic scheme
+                                        if cur_ops.additions == best_add_l
+                                            && cur_ops.multiplications == best_mul_l
+                                        {
+                                            if *best_scheme < cvars {
+                                                // on a draw, accept the lexicographical minimum
+                                                // to get a deterministic scheme
+                                                *best_scheme = cvars.clone();
+                                            }
+                                        } else {
+                                            best_mul
+                                                .store(cur_ops.multiplications, Ordering::Relaxed);
+                                            best_add.store(cur_ops.additions, Ordering::Relaxed);
                                             *best_scheme = cvars.clone();
                                         }
-                                    } else {
-                                        best_mul.store(cur_ops.multiplications, Ordering::Relaxed);
-                                        best_add.store(cur_ops.additions, Ordering::Relaxed);
-                                        *best_scheme = cvars.clone();
                                     }
                                 }
+                            } else {
+                                cvars.swap(t1, t2);
                             }
-                        } else {
-                            cvars.swap(t1, t2);
                         }
-                    }
+                    })
                 };
 
                 if i + 1 < n_cores {

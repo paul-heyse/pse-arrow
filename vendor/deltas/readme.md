@@ -53,7 +53,7 @@ categories describe the diff and do not assert semantic equivalence.
 | `diffsol-nl` | 1 | 0 | 0 | 0 | [diffsol-nl.patch](diffsol-nl.patch) |
 | `faer` | 3 | 0 | 0 | 0 | [faer.patch](faer.patch) |
 | `faer-traits` | 1 | 0 | 0 | 0 | [faer-traits.patch](faer-traits.patch) |
-| `symbolica` | 13 | 0 | 7 | 0 | [symbolica.patch](symbolica.patch) |
+| `symbolica` | 15 | 0 | 8 | 0 | [symbolica.patch](symbolica.patch) |
 | `numerica` | 1 | 0 | 1 | 0 | [numerica.patch](numerica.patch) |
 
 SuiteSparse adds `.gitattributes` to retain its two published CRLF files. The SUNDIALS release

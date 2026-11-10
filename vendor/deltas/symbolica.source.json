@@ -1,6 +1,6 @@
 {
   "archive_sha256": "0965398bbe5063c00b3a0d078d7d3dc57b61819b97e960b73e9a7e9602662795",
-  "delta_sha256": "1267c1456af1c6eac1d096be69bf14a6b93dd2804ea45686dd5c5fda04b0ffdc",
+  "delta_sha256": "961116897b4feb170da76b96a366b81cbbc5d1d49c801f0408263b2fc0070cf9",
   "files": {
     ".cargo_vcs_info.json": {
       "mode": "100644",
@@ -396,7 +396,7 @@
     },
     "src/evaluate.rs": {
       "mode": "100644",
-      "sha256": "177ccb9b8a694a511829b5db41517659eaff5fef3aba0f00b23c995bcbac3767"
+      "sha256": "f928e355d3f41b67af1636fca0ed4dbb2588f8716baa5bcaa0a5173a2cbd9e67"
     },
     "src/evaluate/backend.rs": {
       "mode": "100644",
@@ -406,13 +406,17 @@
       "mode": "100644",
       "sha256": "f04d1bc45a8d50793f6ba6804fdb0ccfb6363bac2072636412ebbc0c64b93768"
     },
+    "src/evaluate/checked_copy.rs": {
+      "mode": "100644",
+      "sha256": "a8c0c47e90dc9146db96e1d732e5a8525784e9a837eedfac90cf182e812788d0"
+    },
     "src/evaluate/checked_export.rs": {
       "mode": "100644",
       "sha256": "21a52911c64fe11a45312bbca88fd074bc39082b15a49a1c1decb70280da24f9"
     },
     "src/evaluate/control.rs": {
       "mode": "100644",
-      "sha256": "72c1d1a91dd9bcdcf30b20423ff82d7ef3726fc8c2d8666911b8d0b2b7c4afff"
+      "sha256": "d7b9ff359049ca2e4ee5e881c84039b8ab28f31030f62f505b944493c3552bb8"
     },
     "src/evaluate/domain.rs": {
       "mode": "100644",
@@ -448,7 +452,7 @@
     },
     "src/evaluate/instruction.rs": {
       "mode": "100644",
-      "sha256": "6c8535d28247d5be99e4aa8d10f6b0cbb45dfa33264753b3c71ddb79b595e18b"
+      "sha256": "866959fb319802aeb06b9aeef39ea5ecf27b7a4bb4dae94a7b58b5dda3dbbba2"
     },
     "src/evaluate/known_head.rs": {
       "mode": "100644",
@@ -460,7 +464,7 @@
     },
     "src/evaluate/tree.rs": {
       "mode": "100644",
-      "sha256": "7b5e7e358bce1f30c2ed696ff25ffc48448544004d3b96de7c38304045ad0952"
+      "sha256": "5de2da21f7b4763a20eac4513b74253ea57cfb7dbea1a39fd6d3e927ee388fc2"
     },
     "src/expand.rs": {
       "mode": "100644",
@@ -560,7 +564,7 @@
     },
     "src/state.rs": {
       "mode": "100644",
-      "sha256": "0635ce16ad670e57d8b9761163bdaf31eab64413810cd1d7731c93793c874a1c"
+      "sha256": "e41aa6acf9d959f5af6169a506418b069ddb770f6c4f7917e663c6ab9c7237a3"
     },
     "src/streaming.rs": {
       "mode": "100644",

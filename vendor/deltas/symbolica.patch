@@ -913,14 +913,16 @@ index 8c90a1dd6de9c14c3d47c945b75f0a5a595c8008..36fd188de3ea15c67789dc379b7e8b5e
  const ZERO_DATA: [u8; 3] = [NUM_ID, 1, 0];
  
 diff --git a/src/evaluate.rs b/src/evaluate.rs
-index 565f85db38bdb56e0eaa14e4a6d703a88b26dd51..92df3891d525b40450bb09351d5df1b148dde502 100644
+index 565f85db38bdb56e0eaa14e4a6d703a88b26dd51..f58b94f2584cf473228866ab0006c68a3215c707 100644
 --- a/src/evaluate.rs
 +++ b/src/evaluate.rs
-@@ -27,24 +27,29 @@ use symjit::{Applet, Composer, Config, Defuns, Storage, Translator};
+@@ -26,25 +26,31 @@ use symjit::{Applet, Composer, Config, Defuns, Storage, Translator};
+ 
  #[cfg(feature = "native_code_generation")]
  mod backend;
- mod domain;
++mod checked_copy;
 +mod control;
+ mod domain;
  mod dual;
  mod evaluator;
  #[cfg(feature = "native_code_generation")]
@@ -935,8 +937,8 @@ index 565f85db38bdb56e0eaa14e4a6d703a88b26dd51..92df3891d525b40450bb09351d5df1b1
  
  #[cfg(feature = "native_code_generation")]
  pub use backend::*;
- pub use domain::*;
 +pub use control::*;
+ pub use domain::*;
  pub use dual::*;
  pub use evaluator::*;
  #[cfg(feature = "native_code_generation")]
@@ -1022,6 +1024,283 @@ index 1fad7aac401041e024cd169e0fe0c824bc47545a..f842990feabadd5ffdc62c45971a0606
      /// Number of scalar inputs per evaluation (independent of SIMD width or CUDA batch size).
      pub fn get_input_len(&self) -> usize {
          self.library.borrow_dependent().dimensions.input_len
+diff --git a/src/evaluate/checked_copy.rs b/src/evaluate/checked_copy.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..fdb02dd8f333f2e4e6fd1684ee3c619b97454d80
+--- /dev/null
++++ b/src/evaluate/checked_copy.rs
+@@ -0,0 +1,271 @@
++//! Passive admission of the public instruction representation's actual widening.
++use super::*;
++use numerica::domains::backend::integer::IntegerAllocationContext;
++
++fn add<E>(a: usize, b: usize) -> Result<usize, OperationError<E>> {
++    a.checked_add(b).ok_or(OperationError::Overflow)
++}
++fn bytes<E, T>(n: usize) -> Result<usize, OperationError<E>> {
++    n.checked_mul(size_of::<T>())
++        .ok_or(OperationError::Overflow)
++}
++
++// No owned Atom is formatted here: a canonical tag can invoke a custom printer.
++// Retained bodies likewise need a separate recursive sharing/backing contract.
++fn extent<T, E>(
++    evaluator: &ExpressionEvaluator<T>,
++    payload: impl Fn(&T) -> Result<usize, OperationError<E>>,
++) -> Result<OperationExtent, OperationError<E>> {
++    let e = evaluator;
++    if e.param_count > e.reserved_indices || e.reserved_indices > e.stack.len() {
++        return Err(OperationError::Unsupported("invalid evaluator stack"));
++    }
++    if e.settings.hot_start.is_some() {
++        return Err(OperationError::Unsupported("retained Horner hot start"));
++    }
++    let mut input = bytes::<E, T>(e.stack.capacity())?;
++    for value in &e.stack {
++        input = add(input, payload(value)?)?;
++    }
++    input = add(
++        input,
++        bytes::<E, (Instr, ComplexPhase)>(e.instructions.capacity())?,
++    )?;
++    input = add(input, bytes::<E, usize>(e.result_indices.capacity())?)?;
++    input = add(
++        input,
++        bytes::<E, ExternalFunctionContainer<T>>(e.external_fns.capacity())?,
++    )?;
++    let mut output = bytes::<E, Instruction>(add(e.instructions.len(), e.result_indices.len())?)?;
++    output = add(output, bytes::<E, T>(e.reserved_indices - e.param_count)?)?;
++    for value in &e.stack[e.param_count..e.reserved_indices] {
++        output = add(output, payload(value)?)?;
++    }
++    output = add(
++        output,
++        bytes::<E, ExportedConstantFunction>(e.external_fns.len())?,
++    )?;
++    for external in &e.external_fns {
++        if external.body.is_some() || !external.tags.is_empty() {
++            return Err(OperationError::Unsupported(
++                "tagged or retained-body instruction export",
++            ));
++        }
++        input = add(input, external.export_name.capacity())?;
++        input = add(input, bytes::<E, T>(external.stack.capacity())?)?;
++        for value in &external.stack {
++            input = add(input, payload(value)?)?;
++        }
++        input = add(
++            input,
++            bytes::<E, Complex<Rational>>(external.fixed_args.capacity())?,
++        )?;
++        for value in &external.fixed_args {
++            input = add(input, control::payload(value)?)?;
++        }
++        if let Some(implementation) = &external.imp {
++            input = add(input, size_of_val(implementation.as_ref()))?;
++        }
++        if external.constant_index.is_some() {
++            output = add(
++                output,
++                bytes::<E, Complex<Rational>>(external.fixed_args.len())?,
++            )?;
++            for value in &external.fixed_args {
++                output = add(output, control::payload(value)?)?;
++            }
++        }
++    }
++    for (instruction, _) in &e.instructions {
++        let arguments = match instruction {
++            Instr::Add(_, arguments) | Instr::Mul(_, arguments) => {
++                input = add(input, bytes::<E, usize>(arguments.capacity())?)?;
++                arguments.len()
++            }
++            Instr::ExternalFun(_, index, arguments) => {
++                if *index >= e.external_fns.len() {
++                    return Err(OperationError::Unsupported("external function index"));
++                }
++                input = add(input, bytes::<E, usize>(arguments.capacity())?)?;
++                output = add(output, size_of::<(Symbol, Vec<String>, Vec<Slot>)>())?;
++                arguments.len()
++            }
++            Instr::BuiltinFun(..) => {
++                output = add(output, size_of::<(Symbol, Vec<String>, Vec<Slot>)>())?;
++                1
++            }
++            _ => 0,
++        };
++        output = add(output, bytes::<E, Slot>(arguments)?)?;
++    }
++    // The shared exporter preallocates its public instruction list and constant
++    // metadata. Calls and the outer body table coexist with the final product.
++    // Exact Clone uses fresh GMP allocations; one limb of backend rounding per
++    // copied integer plus one complete payload overlap bounds the fresh copy.
++    let copies = add(
++        e.reserved_indices - e.param_count,
++        e.external_fns
++            .iter()
++            .try_fold(0, |n, f| add(n, f.fixed_args.len()))?,
++    )?;
++    let rounding = copies
++        .checked_mul(4 * size_of::<u64>())
++        .ok_or(OperationError::Overflow)?;
++    output = add(output, rounding)?;
++    let temporary = add(
++        output,
++        add(
++            bytes::<E, Option<ExportedSubEvaluator<T>>>(e.external_fns.len())?,
++            bytes::<E, usize>(e.instructions.len())?,
++        )?,
++    )?;
++    let extent = OperationExtent {
++        stage: OperationStage::Export,
++        work: e.instructions.len(),
++        input_bytes: input,
++        temporary_bytes: temporary,
++        output_bytes: output,
++        output_entries: e.stack.len(),
++    };
++    extent.peak_bytes().ok_or(OperationError::Overflow)?;
++    Ok(extent)
++}
++
++fn export<T: Clone, C: OperationControl>(
++    evaluator: &ExpressionEvaluator<T>,
++    control: &mut C,
++    payload: impl Fn(&T) -> Result<usize, OperationError<C::Error>>,
++) -> Result<ExportedInstructions<T>, OperationError<C::Error>> {
++    control
++        .check(OperationExtent {
++            stage: OperationStage::Export,
++            ..OperationExtent::default()
++        })
++        .map_err(OperationError::Control)?;
++    let extent = extent(evaluator, payload)?;
++    control.check(extent).map_err(OperationError::Control)?;
++    let product = IntegerAllocationContext::fresh().run(|| evaluator.export_instructions());
++    control
++        .check(OperationExtent {
++            stage: OperationStage::Finalization,
++            work: 0,
++            ..extent
++        })
++        .map_err(OperationError::Control)?;
++    Ok(product)
++}
++
++impl ExpressionEvaluator<Complex<Rational>> {
++    /// Export the widened public instruction/slot representation after passive
++    /// backing admission. Tagged calls and retained bodies refuse before copying.
++    /// Exact copies use fresh allocation policy; no caller control is retained.
++    pub fn try_export_instructions_with<C: OperationControl>(
++        &self,
++        control: &mut C,
++    ) -> Result<ExportedInstructions<Complex<Rational>>, OperationError<C::Error>> {
++        export(self, control, control::payload)
++    }
++}
++
++impl ExpressionEvaluator<f64> {
++    /// Export a native numerical program with borrowed admission before widening.
++    /// Registered numerical callbacks are never invoked or cloned by the export.
++    pub fn try_export_instructions_with<C: OperationControl>(
++        &self,
++        control: &mut C,
++    ) -> Result<ExportedInstructions<f64>, OperationError<C::Error>> {
++        export(self, control, |_| Ok(0))
++    }
++}
++
++#[cfg(all(test, feature = "integer-gmp"))]
++mod tests {
++    use super::*;
++    use crate::{
++        domains::integer::{MultiPrecisionInteger, RawMultiPrecisionInteger},
++        parse,
++    };
++    use std::convert::Infallible;
++
++    fn exported_backing(e: &ExportedInstructions<Complex<Rational>>) -> usize {
++        let mut bytes = e.instructions.capacity() * size_of::<Instruction>()
++            + e.constants.capacity() * size_of::<Complex<Rational>>()
++            + e.constant_functions.capacity() * size_of::<ExportedConstantFunction>()
++            + e.sub_evaluators.capacity() * size_of::<ExportedSubEvaluator<Complex<Rational>>>();
++        for value in &e.constants {
++            bytes += control::payload::<Infallible>(value).unwrap();
++        }
++        for instruction in &e.instructions {
++            bytes += match instruction {
++                Instruction::Add(_, args, _) | Instruction::Mul(_, args, _) => {
++                    args.capacity() * size_of::<Slot>()
++                }
++                Instruction::Fun(_, body, _) => {
++                    size_of_val(body.as_ref()) + body.2.capacity() * size_of::<Slot>()
++                }
++                _ => 0,
++            };
++        }
++        bytes
++    }
++
++    #[test]
++    fn checked_public_export_admits_widening_and_fresh_exact_copies() {
++        let x = parse!("checked_copy_x");
++        let source = parse!("checked_copy_x + 1361129467683753853853498429727072845824");
++        let evaluator = source.evaluator(&[x]).horner_iterations(0).build().unwrap();
++        let warmed = (0..32)
++            .map(|_| {
++                MultiPrecisionInteger::from_raw(RawMultiPrecisionInteger::from(1) << 1_000_000_u32)
++            })
++            .collect::<Vec<_>>();
++        drop(warmed);
++        let mut admitted = 0;
++        let exported = evaluator
++            .try_export_instructions_with(&mut |extent: OperationExtent| {
++                admitted = admitted.max(extent.output_bytes);
++                Ok::<_, Infallible>(())
++            })
++            .unwrap();
++        assert!(exported_backing(&exported) <= admitted);
++        assert!(
++            admitted < 32_768,
++            "public widening does not adopt the warmed limb pool"
++        );
++        assert_eq!(
++            exported.instructions.len(),
++            evaluator.export_instructions().instructions.len()
++        );
++        let numeric = evaluator.map_coeff(&|c| c.re.to_f64());
++        assert_eq!(
++            numeric
++                .try_export_instructions_with(&mut |_: OperationExtent| Ok::<_, Infallible>(()))
++                .unwrap()
++                .input_count,
++            1
++        );
++    }
++
++    #[test]
++    fn checked_public_export_preserves_original_refusal_and_final_stop() {
++        #[derive(Debug, PartialEq, Eq)]
++        struct Refused(u64);
++        let evaluator = parse!("1").evaluator(&[] as &[Atom]).build().unwrap();
++        let refusal = evaluator.try_export_instructions_with(&mut |extent: OperationExtent| {
++            if extent.output_bytes > 0 {
++                Err(Refused(73))
++            } else {
++                Ok(())
++            }
++        });
++        assert_eq!(refusal.unwrap_err(), OperationError::Control(Refused(73)));
++        let stopped = evaluator.try_export_instructions_with(&mut |extent: OperationExtent| {
++            if extent.stage == OperationStage::Finalization {
++                Err(Refused(91))
++            } else {
++                Ok(())
++            }
++        });
++        assert_eq!(stopped.unwrap_err(), OperationError::Control(Refused(91)));
++    }
++}
 diff --git a/src/evaluate/checked_export.rs b/src/evaluate/checked_export.rs
 new file mode 100644
 index 0000000000000000000000000000000000000000..3a7bc6d1972e50cc08fb417fea93e6451e27b2e5
@@ -1533,10 +1812,10 @@ index 0000000000000000000000000000000000000000..3a7bc6d1972e50cc08fb417fea93e645
 +}
 diff --git a/src/evaluate/control.rs b/src/evaluate/control.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..7242af122491dd53374b64df9087879fffab0212
+index 0000000000000000000000000000000000000000..3f543118441179acb5539ae4609daf25edbde218
 --- /dev/null
 +++ b/src/evaluate/control.rs
-@@ -0,0 +1,470 @@
+@@ -0,0 +1,676 @@
 +//! Borrowed admission for a single evaluator construction operation.
 +//!
 +//! Extents describe mathematical backing, including vector capacity overlap, rather
@@ -1694,29 +1973,42 @@ index 0000000000000000000000000000000000000000..7242af122491dd53374b64df9087879f
 +fn copy_integer(value: &Integer) -> Integer {
 +    match value {
 +        Integer::Large(value) => Integer::Large(
-+            crate::domains::integer::MultiPrecisionInteger::from_raw(value.to_raw())),
++            crate::domains::integer::MultiPrecisionInteger::from_raw(value.to_raw()),
++        ),
 +        _ => value.clone(),
 +    }
 +}
 +fn copy_rational(value: &Rational) -> Rational {
-+    Rational::from_unchecked(copy_integer(value.numerator_ref()), copy_integer(value.denominator_ref()))
++    Rational::from_unchecked(
++        copy_integer(value.numerator_ref()),
++        copy_integer(value.denominator_ref()),
++    )
 +}
 +fn copy_coefficient(value: &Complex<Rational>) -> Complex<Rational> {
 +    Complex::new(copy_rational(&value.re), copy_rational(&value.im))
 +}
-+fn copy_external(external: &ExternalFunctionContainer<Complex<Rational>>)
-+    -> ExternalFunctionContainer<Complex<Rational>> {
++fn copy_external(
++    external: &ExternalFunctionContainer<Complex<Rational>>,
++) -> ExternalFunctionContainer<Complex<Rational>> {
 +    ExternalFunctionContainer {
-+        export_name: external.export_name.clone(), symbol: external.symbol, tags: Vec::new(),
++        export_name: external.export_name.clone(),
++        symbol: external.symbol,
++        tags: Vec::new(),
 +        fixed_args: external.fixed_args.iter().map(copy_coefficient).collect(),
-+        imp: None, constant_index: external.constant_index, stack: Vec::new(), body: None,
++        imp: None,
++        constant_index: external.constant_index,
++        stack: Vec::new(),
++        body: None,
 +    }
 +}
 +
 +#[cfg(all(test, feature = "integer-gmp"))]
 +mod tests {
 +    use super::*;
-+    use crate::domains::{dual::HyperDual, integer::{MultiPrecisionInteger, RawMultiPrecisionInteger}};
++    use crate::domains::{
++        dual::HyperDual,
++        integer::{MultiPrecisionInteger, RawMultiPrecisionInteger},
++    };
 +    use std::convert::Infallible;
 +
 +    #[test]
@@ -1724,63 +2016,115 @@ index 0000000000000000000000000000000000000000..7242af122491dd53374b64df9087879f
 +        let symbol = crate::symbol!("checked_name::value");
 +        let derivative = crate::symbol!(format!("checked_name::{}", "d".repeat(32_768)));
 +        let source = ExpressionEvaluator {
-+            stack: vec![Complex::default(); 2], param_count: 1, reserved_indices: 1,
++            stack: vec![Complex::default(); 2],
++            param_count: 1,
++            reserved_indices: 1,
 +            instructions: vec![(Instr::ExternalFun(1, 0, vec![0]), ComplexPhase::Any)],
-+            result_indices: vec![1], external_fns: vec![ExternalFunctionContainer::new(symbol, vec![], vec![])],
++            result_indices: vec![1],
++            external_fns: vec![ExternalFunctionContainer::new(symbol, vec![], vec![])],
 +            settings: OptimizationSettings::default(),
 +        };
 +        let heads = [
-+            KnownHead { symbol, arity: 1, first: [Some(derivative), None], second: [None; 3] },
-+            KnownHead { symbol: derivative, arity: 1, first: [None; 2], second: [None; 3] },
++            KnownHead {
++                symbol,
++                arity: 1,
++                first: [Some(derivative), None],
++                second: [None; 3],
++            },
++            KnownHead {
++                symbol: derivative,
++                arity: 1,
++                first: [None; 2],
++                second: [None; 3],
++            },
 +        ];
-+        let dual = Dualizer::new(HyperDual::<Complex<Rational>>::new(vec![vec![0], vec![1]]), vec![]);
++        let dual = Dualizer::new(
++            HyperDual::<Complex<Rational>>::new(vec![vec![0], vec![1]]),
++            vec![],
++        );
 +        let mut admitted = 0;
-+        let product = source.try_vectorize_known_with(&dual, &heads, &mut |extent: OperationExtent| {
-+            if extent.stage == OperationStage::KnownHeadGeneration {
-+                assert!(extent.output_bytes >= derivative.get_name().len());
-+            }
-+            admitted = admitted.max(extent.output_bytes);
-+            Ok::<_, Infallible>(())
-+        }).unwrap();
-+        let retained_names = product.external_fns.iter().map(|external| external.export_name.capacity()).sum::<usize>();
++        let product = source
++            .try_vectorize_known_with(&dual, &heads, &mut |extent: OperationExtent| {
++                if extent.stage == OperationStage::KnownHeadGeneration {
++                    assert!(extent.output_bytes >= derivative.get_name().len());
++                }
++                admitted = admitted.max(extent.output_bytes);
++                Ok::<_, Infallible>(())
++            })
++            .unwrap();
++        let retained_names = product
++            .external_fns
++            .iter()
++            .map(|external| external.export_name.capacity())
++            .sum::<usize>();
 +        assert!(retained_names > 32_768);
 +        assert!(retained_names <= admitted);
 +    }
 +
 +    #[test]
 +    fn checked_taylor_copies_do_not_adopt_unadmitted_cached_limb_capacity() {
-+        let integer = Integer::Large(MultiPrecisionInteger::from_raw(RawMultiPrecisionInteger::from(1) << 129_u32));
++        let integer = Integer::Large(MultiPrecisionInteger::from_raw(
++            RawMultiPrecisionInteger::from(1) << 129_u32,
++        ));
 +        let coefficient = Complex::from(Rational::from_unchecked(integer, Integer::one()));
 +        let source = ExpressionEvaluator {
-+            stack: vec![Complex::default(), coefficient, Complex::default()], param_count: 1,
-+            reserved_indices: 2, instructions: vec![(Instr::Add(2, vec![0, 1]), ComplexPhase::Any)],
-+            result_indices: vec![2], external_fns: vec![], settings: OptimizationSettings::default(),
++            stack: vec![Complex::default(), coefficient, Complex::default()],
++            param_count: 1,
++            reserved_indices: 2,
++            instructions: vec![(Instr::Add(2, vec![0, 1]), ComplexPhase::Any)],
++            result_indices: vec![2],
++            external_fns: vec![],
++            settings: OptimizationSettings::default(),
 +        };
 +        let source_payload = payload::<Infallible>(&source.stack[1]).unwrap();
 +        // Exercise the selected backend's real cache, including a witness that
 +        // ordinary Clone adopts its larger capacity. The source remains small.
-+        let cache = (0..32).map(|_| MultiPrecisionInteger::from_raw(
-+            RawMultiPrecisionInteger::from(1) << 1_000_000_u32)).collect::<Vec<_>>();
++        let cache = (0..32)
++            .map(|_| {
++                MultiPrecisionInteger::from_raw(RawMultiPrecisionInteger::from(1) << 1_000_000_u32)
++            })
++            .collect::<Vec<_>>();
 +        drop(cache);
 +        let witness = source.stack[1].clone();
 +        assert!(payload::<Infallible>(&witness).unwrap() > source_payload * 100);
 +        drop(witness);
-+        let dual = Dualizer::new(HyperDual::<Complex<Rational>>::new(vec![vec![0], vec![1], vec![2]]), vec![]);
++        let dual = Dualizer::new(
++            HyperDual::<Complex<Rational>>::new(vec![vec![0], vec![1], vec![2]]),
++            vec![],
++        );
 +        let mut extent = OperationExtent::default();
-+        let product = source.try_vectorize_with(&dual, &mut |reported: OperationExtent| {
-+            if reported.output_bytes > 0 { extent = reported; }
-+            Ok::<_, Infallible>(())
-+        }).unwrap();
++        let product = source
++            .try_vectorize_with(&dual, &mut |reported: OperationExtent| {
++                if reported.output_bytes > 0 {
++                    extent = reported;
++                }
++                Ok::<_, Infallible>(())
++            })
++            .unwrap();
 +        assert!(payload::<Infallible>(&product.get_constants()[0]).unwrap() <= source_payload);
 +        let numeric = product.stack.capacity() * size_of::<Complex<Rational>>()
-+            + product.stack.iter().map(|value| payload::<Infallible>(value).unwrap()).sum::<usize>();
-+        let instruction_bytes = product.instructions.capacity() * size_of::<(Instr, ComplexPhase)>()
-+            + product.instructions.iter().map(|(instruction, _)| match instruction {
-+                Instr::Add(_, args) | Instr::Mul(_, args) => args.capacity() * size_of::<usize>(),
-+                _ => 0,
-+            }).sum::<usize>() + product.result_indices.capacity() * size_of::<usize>();
-+        assert!(numeric + instruction_bytes <= extent.output_bytes,
-+            "all realized returned backing fits the pre-growth extent");
++            + product
++                .stack
++                .iter()
++                .map(|value| payload::<Infallible>(value).unwrap())
++                .sum::<usize>();
++        let instruction_bytes = product.instructions.capacity()
++            * size_of::<(Instr, ComplexPhase)>()
++            + product
++                .instructions
++                .iter()
++                .map(|(instruction, _)| match instruction {
++                    Instr::Add(_, args) | Instr::Mul(_, args) => {
++                        args.capacity() * size_of::<usize>()
++                    }
++                    _ => 0,
++                })
++                .sum::<usize>()
++            + product.result_indices.capacity() * size_of::<usize>();
++        assert!(
++            numeric + instruction_bytes <= extent.output_bytes,
++            "all realized returned backing fits the pre-growth extent"
++        );
 +    }
 +}
 +
@@ -1811,60 +2155,83 @@ index 0000000000000000000000000000000000000000..7242af122491dd53374b64df9087879f
 +        heads: &[KnownHead],
 +        control: &mut C,
 +    ) -> Result<Self, OperationError<C::Error>> {
-+        control.check(OperationExtent::default()).map_err(OperationError::Control)?;
-+        let extent = self.vectorization_extent(dualizer, heads)?;
-+        control.check(extent).map_err(OperationError::Control)?;
-+        let mut generated = HashMap::default();
-+        for external in &self.external_fns {
-+            if external.constant_index.is_some() || generated.contains_key(&external.symbol) { continue; }
-+            control.check(OperationExtent { work: 0, stage: OperationStage::KnownHeadGeneration, ..extent })
++        numerica::domains::backend::integer::IntegerAllocationContext::fresh().run(|| {
++            control
++                .check(OperationExtent::default())
 +                .map_err(OperationError::Control)?;
-+            let head = KnownHead::find(heads, external.symbol)?;
-+            generated.insert(external.symbol, super::known_head::generate_known(head, dualizer, control, extent)?);
-+        }
-+        let vectorizer = super::known_head::KnownDualizer { dualizer, generated };
-+        // Producer callbacks never remain installed in the new product.
-+        let settings = OptimizationSettings {
-+            abort_check: None,
-+            abort_level: 0,
-+            hot_start: None,
-+            horner_iterations: self.settings.horner_iterations,
-+            n_cores: self.settings.n_cores,
-+            cpe_iterations: self.settings.cpe_iterations,
-+            max_horner_scheme_variables: self.settings.max_horner_scheme_variables,
-+            max_common_pair_cache_entries: self.settings.max_common_pair_cache_entries,
-+            max_common_pair_distance: self.settings.max_common_pair_distance,
-+            verbose: self.settings.verbose,
-+            direct_translation: self.settings.direct_translation,
-+        };
-+        let evaluator = Self {
-+            stack: self.stack.iter().map(copy_coefficient).collect(),
-+            param_count: self.param_count,
-+            reserved_indices: self.reserved_indices,
-+            instructions: self.instructions.clone(),
-+            result_indices: self.result_indices.clone(),
-+            external_fns: self.external_fns.iter().map(copy_external).collect(),
-+            settings,
-+        };
-+        let mut error = None;
-+        let stopped_extent = OperationExtent { work: 0, ..extent };
-+        let result = evaluator.vectorize_impl(&vectorizer, &mut |stage| {
-+            match control.check(OperationExtent { stage, ..stopped_extent }) {
-+                Ok(()) => true,
-+                Err(refusal) => {
-+                    error = Some(refusal);
-+                    false
++            let extent = self.vectorization_extent(dualizer, heads)?;
++            control.check(extent).map_err(OperationError::Control)?;
++            let mut generated = HashMap::default();
++            for external in &self.external_fns {
++                if external.constant_index.is_some() || generated.contains_key(&external.symbol) {
++                    continue;
 +                }
++                control
++                    .check(OperationExtent {
++                        work: 0,
++                        stage: OperationStage::KnownHeadGeneration,
++                        ..extent
++                    })
++                    .map_err(OperationError::Control)?;
++                let head = KnownHead::find(heads, external.symbol)?;
++                generated.insert(
++                    external.symbol,
++                    super::known_head::generate_known(head, dualizer, control, extent)?,
++                );
 +            }
-+        }, &copy_coefficient, &copy_external);
-+        if let Some(error) = error {
-+            return Err(OperationError::Control(error));
-+        }
-+        let result = result.map_err(OperationError::InvalidProgram)?;
-+        if result.settings.abort_level != 0 {
-+            return Err(OperationError::Interrupted);
-+        }
-+        Ok(result)
++            let vectorizer = super::known_head::KnownDualizer {
++                dualizer,
++                generated,
++            };
++            // Producer callbacks never remain installed in the new product.
++            let settings = OptimizationSettings {
++                abort_check: None,
++                abort_level: 0,
++                hot_start: None,
++                horner_iterations: self.settings.horner_iterations,
++                n_cores: self.settings.n_cores,
++                cpe_iterations: self.settings.cpe_iterations,
++                max_horner_scheme_variables: self.settings.max_horner_scheme_variables,
++                max_common_pair_cache_entries: self.settings.max_common_pair_cache_entries,
++                max_common_pair_distance: self.settings.max_common_pair_distance,
++                verbose: self.settings.verbose,
++                direct_translation: self.settings.direct_translation,
++            };
++            let evaluator = Self {
++                stack: self.stack.iter().map(copy_coefficient).collect(),
++                param_count: self.param_count,
++                reserved_indices: self.reserved_indices,
++                instructions: self.instructions.clone(),
++                result_indices: self.result_indices.clone(),
++                external_fns: self.external_fns.iter().map(copy_external).collect(),
++                settings,
++            };
++            let mut error = None;
++            let stopped_extent = OperationExtent { work: 0, ..extent };
++            let result = evaluator.vectorize_impl(
++                &vectorizer,
++                &mut |stage| match control.check(OperationExtent {
++                    stage,
++                    ..stopped_extent
++                }) {
++                    Ok(()) => true,
++                    Err(refusal) => {
++                        error = Some(refusal);
++                        false
++                    }
++                },
++                &copy_coefficient,
++                &copy_external,
++            );
++            if let Some(error) = error {
++                return Err(OperationError::Control(error));
++            }
++            let result = result.map_err(OperationError::InvalidProgram)?;
++            if result.settings.abort_level != 0 {
++                return Err(OperationError::Interrupted);
++            }
++            Ok(result)
++        })
 +    }
 +
 +    fn vectorization_extent<E, D: DualNumberStructure>(
@@ -1876,10 +2243,15 @@ index 0000000000000000000000000000000000000000..7242af122491dd53374b64df9087879f
 +            return Err(OperationError::Unsupported("invalid evaluator stack"));
 +        }
 +        for external in &self.external_fns {
-+            if external.body.is_some() || !external.tags.is_empty() || external.imp.is_some()
++            if external.body.is_some()
++                || !external.tags.is_empty()
++                || external.imp.is_some()
 +                || !external.stack.is_empty()
-+                || (external.constant_index.is_none() && !external.fixed_args.is_empty()) {
-+                return Err(OperationError::Unsupported("retained body or tagged external head"));
++                || (external.constant_index.is_none() && !external.fixed_args.is_empty())
++            {
++                return Err(OperationError::Unsupported(
++                    "retained body or tagged external head",
++                ));
 +            }
 +            let head = KnownHead::find::<E>(heads, external.symbol)?;
 +            if external.constant_index.is_some() && external.fixed_args.len() != head.arity {
@@ -1892,22 +2264,37 @@ index 0000000000000000000000000000000000000000..7242af122491dd53374b64df9087879f
 +        let width = dualizer.dual.get_len();
 +        let depth = dualizer.dual.get_max_depth();
 +        if width == 0 || depth > 2 {
-+            return Err(OperationError::Unsupported("Taylor depth greater than two or empty shape"));
++            return Err(OperationError::Unsupported(
++                "Taylor depth greater than two or empty shape",
++            ));
 +        }
-+        if dualizer.zero_components.iter().any(|&(parameter, component)| {
-+            parameter >= self.param_count || component >= width || component == 0
-+        }) {
-+            return Err(OperationError::Unsupported("invalid structural zero component"));
++        if dualizer
++            .zero_components
++            .iter()
++            .any(|&(parameter, component)| {
++                parameter >= self.param_count || component >= width || component == 0
++            })
++        {
++            return Err(OperationError::Unsupported(
++                "invalid structural zero component",
++            ));
 +        }
 +        let table = dualizer.dual.get_multiplication_table();
-+        if table.iter().any(|&(a, b, c)| a >= width || b >= width || c >= width) {
-+            return Err(OperationError::Unsupported("invalid Taylor multiplication table"));
++        if table
++            .iter()
++            .any(|&(a, b, c)| a >= width || b >= width || c >= width)
++        {
++            return Err(OperationError::Unsupported(
++                "invalid Taylor multiplication table",
++            ));
 +        }
 +        let mut generated_names = 0;
 +        for external in &self.external_fns {
 +            if external.constant_index.is_none() {
-+                generated_names = add(generated_names,
-+                    KnownHead::find::<E>(heads, external.symbol)?.name_bytes(depth, heads)?)?;
++                generated_names = add(
++                    generated_names,
++                    KnownHead::find::<E>(heads, external.symbol)?.name_bytes(depth, heads)?,
++                )?;
 +            }
 +        }
 +        // mul emits W initial products and a product/add pair for each table entry.
@@ -1917,13 +2304,18 @@ index 0000000000000000000000000000000000000000..7242af122491dd53374b64df9087879f
 +        // zeros only remove work. These are the shared map_instruction kernels.
 +        let convolution = add(width, mul(2, table.len())?)?;
 +        let unary = add(
-+            add(mul(depth, add(add(convolution, mul(2, width)?)?, 1)?)?, mul(2, width)?)?,
++            add(
++                mul(depth, add(add(convolution, mul(2, width)?)?, 1)?)?,
++                mul(2, width)?,
++            )?,
 +            2,
 +        )?;
 +        let power = add(mul(2, unary)?, convolution)?;
 +        let mut work = 0;
 +        let mut unfolded = 0;
-+        let mut constant_vectors = self.reserved_indices.checked_sub(self.param_count)
++        let mut constant_vectors = self
++            .reserved_indices
++            .checked_sub(self.param_count)
 +            .ok_or_else(|| OperationError::InvalidProgram("invalid reserved indices".into()))?;
 +        let mut operand_capacity = 0;
 +        for (instruction, _) in &self.instructions {
@@ -1934,17 +2326,47 @@ index 0000000000000000000000000000000000000000..7242af122491dd53374b64df9087879f
 +                    }
 +                    operand_capacity = add(operand_capacity, args.capacity())?;
 +                    let count = args.len().saturating_sub(1);
-+                    (mul(count, if matches!(instruction, Instr::Add(..)) { width } else { convolution })?, count.max(1), 0)
++                    (
++                        mul(
++                            count,
++                            if matches!(instruction, Instr::Add(..)) {
++                                width
++                            } else {
++                                convolution
++                            },
++                        )?,
++                        count.max(1),
++                        0,
++                    )
 +                }
 +                Instr::Pow(_, _, -1) => (unary, 1, 3),
-+                Instr::Pow(..) => return Err(OperationError::Unsupported("integer power other than inversion")),
++                Instr::Pow(..) => {
++                    return Err(OperationError::Unsupported(
++                        "integer power other than inversion",
++                    ));
++                }
 +                Instr::Powf(..) => (power, 1, 7),
-+                Instr::BuiltinFun(_, symbol, _) if [Symbol::EXP_ID, Symbol::LOG_ID,
-+                    Symbol::SQRT_ID, Symbol::SIN_ID, Symbol::COS_ID, Symbol::ABS_ID,
-+                    Symbol::CONJ_ID].contains(&symbol.get_id()) => (unary, 1, 7),
-+                Instr::BuiltinFun(..) => return Err(OperationError::Unsupported("unknown builtin")),
++                Instr::BuiltinFun(_, symbol, _)
++                    if [
++                        Symbol::EXP_ID,
++                        Symbol::LOG_ID,
++                        Symbol::SQRT_ID,
++                        Symbol::SIN_ID,
++                        Symbol::COS_ID,
++                        Symbol::ABS_ID,
++                        Symbol::CONJ_ID,
++                    ]
++                    .contains(&symbol.get_id()) =>
++                {
++                    (unary, 1, 7)
++                }
++                Instr::BuiltinFun(..) => {
++                    return Err(OperationError::Unsupported("unknown builtin"));
++                }
 +                Instr::ExternalFun(_, index, args) => {
-+                    let external = self.external_fns.get(*index)
++                    let external = self
++                        .external_fns
++                        .get(*index)
 +                        .ok_or(OperationError::Unsupported("external function index"))?;
 +                    let head = KnownHead::find::<E>(heads, external.symbol)?;
 +                    if args.len() != head.arity {
@@ -1952,8 +2374,10 @@ index 0000000000000000000000000000000000000000..7242af122491dd53374b64df9087879f
 +                    }
 +                    operand_capacity = add(operand_capacity, args.capacity())?;
 +                    (head.instruction_bound(width, table.len())?, 1, 1)
-+                },
-+                Instr::Join(..) | Instr::IfElse(..) | Instr::Goto(..) | Instr::Label(..) => (0, 1, 0),
++                }
++                Instr::Join(..) | Instr::IfElse(..) | Instr::Goto(..) | Instr::Label(..) => {
++                    (0, 1, 0)
++                }
 +            };
 +            work = add(work, operations)?;
 +            unfolded = add(unfolded, count)?;
@@ -1968,41 +2392,102 @@ index 0000000000000000000000000000000000000000..7242af122491dd53374b64df9087879f
 +        // and final pair extraction therefore fit the doubled instruction extent.
 +        let instructions = mul(2, emitted)?;
 +        let entries = add(add(mul(self.param_count, width)?, constants)?, instructions)?;
-+        let mut coefficients = self.stack.iter().try_fold(0, |bytes, value| add(bytes, payload(value)?))?;
-+        let mut external_bytes = mul(self.external_fns.capacity(), size_of::<ExternalFunctionContainer<Complex<Rational>>>())?;
++        let mut coefficients = self
++            .stack
++            .iter()
++            .try_fold(0, |bytes, value| add(bytes, payload(value)?))?;
++        let mut external_bytes = mul(
++            self.external_fns.capacity(),
++            size_of::<ExternalFunctionContainer<Complex<Rational>>>(),
++        )?;
 +        for external in &self.external_fns {
 +            external_bytes = add(external_bytes, external.export_name.capacity())?;
-+            external_bytes = add(external_bytes, mul(add(external.fixed_args.capacity(), external.stack.capacity())?, size_of::<Complex<Rational>>())?)?;
++            external_bytes = add(
++                external_bytes,
++                mul(
++                    add(external.fixed_args.capacity(), external.stack.capacity())?,
++                    size_of::<Complex<Rational>>(),
++                )?,
++            )?;
 +            if let Some(implementation) = &external.imp {
 +                external_bytes = add(external_bytes, size_of_val(implementation.as_ref()))?;
 +            }
-+            coefficients = external.stack.iter().try_fold(coefficients, |bytes, value| add(bytes, payload(value)?))?;
-+            coefficients = external.fixed_args.iter().try_fold(coefficients, |bytes, value| add(bytes, payload(value)?))?;
++            coefficients = external
++                .stack
++                .iter()
++                .try_fold(coefficients, |bytes, value| add(bytes, payload(value)?))?;
++            coefficients = external
++                .fixed_args
++                .iter()
++                .try_fold(coefficients, |bytes, value| add(bytes, payload(value)?))?;
 +        }
-+        let input_bytes = add(external_bytes, add(
-+            add(mul(self.stack.capacity(), size_of::<Complex<Rational>>())?, coefficients)?,
-+            add(mul(self.instructions.capacity(), size_of::<(Instr, ComplexPhase)>())?,
-+                mul(add(operand_capacity, self.result_indices.capacity())?, size_of::<usize>())?)?,
-+        )?)?;
++        let input_bytes = add(
++            external_bytes,
++            add(
++                add(
++                    mul(self.stack.capacity(), size_of::<Complex<Rational>>())?,
++                    coefficients,
++                )?,
++                add(
++                    mul(
++                        self.instructions.capacity(),
++                        size_of::<(Instr, ComplexPhase)>(),
++                    )?,
++                    mul(
++                        add(operand_capacity, self.result_indices.capacity())?,
++                        size_of::<usize>(),
++                    )?,
++                )?,
++            )?,
++        )?;
 +        let outputs = mul(self.result_indices.len(), width)?;
-+        let head_bytes = add(generated_names, mul(mul(6, self.external_fns.len())?,
-+            add(size_of::<ExternalFunctionContainer<Complex<Rational>>>(), 2 * size_of::<usize>())?)?)?;
-+        let output_bytes = add(add(external_bytes, head_bytes)?, add(
-+            add(mul(entries, size_of::<Complex<Rational>>())?, coefficients)?,
-+            add(mul(instructions, add(size_of::<(Instr, ComplexPhase)>(), 2 * size_of::<usize>())?)?,
-+                mul(outputs, size_of::<usize>())?)?,
-+        )?)?;
++        let head_bytes = add(
++            generated_names,
++            mul(
++                mul(6, self.external_fns.len())?,
++                add(
++                    size_of::<ExternalFunctionContainer<Complex<Rational>>>(),
++                    2 * size_of::<usize>(),
++                )?,
++            )?,
++        )?;
++        let output_bytes = add(
++            add(external_bytes, head_bytes)?,
++            add(
++                add(mul(entries, size_of::<Complex<Rational>>())?, coefficients)?,
++                add(
++                    mul(
++                        instructions,
++                        add(size_of::<(Instr, ComplexPhase)>(), 2 * size_of::<usize>())?,
++                    )?,
++                    mul(outputs, size_of::<usize>())?,
++                )?,
++            )?,
++        )?;
 +        // Capacity doubling, simultaneous VectorInstruction/Instr representations,
 +        // slot maps, unfold maps, branch/label maps and pair-extraction maps/lists.
 +        // Binary instructions have at most one pair: all optimizer records are
 +        // linear in emitted instruction count, not in an application-side source
 +        // predictor. 64 machine words per instruction covers the simultaneous
 +        // maps, per-key table metadata, vectors and geometric capacity overlap.
-+        let temporary_bytes = add(generated_names, add(
-+            add(input_bytes, mul(2, output_bytes)?)?,
-+            mul(add(add(emitted, self.reserved_indices)?, outputs)?, 64 * size_of::<usize>())?,
-+        )?)?;
-+        let extent = OperationExtent { stage: OperationStage::Vectorization, work, input_bytes, temporary_bytes, output_bytes, output_entries: entries };
++        let temporary_bytes = add(
++            generated_names,
++            add(
++                add(input_bytes, mul(2, output_bytes)?)?,
++                mul(
++                    add(add(emitted, self.reserved_indices)?, outputs)?,
++                    64 * size_of::<usize>(),
++                )?,
++            )?,
++        )?;
++        let extent = OperationExtent {
++            stage: OperationStage::Vectorization,
++            work,
++            input_bytes,
++            temporary_bytes,
++            output_bytes,
++            output_entries: entries,
++        };
 +        extent.peak_bytes().ok_or(OperationError::Overflow)?;
 +        Ok(extent)
 +    }
@@ -4083,10 +4568,81 @@ index 0000000000000000000000000000000000000000..8ff1b4eedcdf04360a3600c9042e6207
 +    assert_eq!(encode(&source), bytes);
 +}
 diff --git a/src/evaluate/instruction.rs b/src/evaluate/instruction.rs
-index dce794cd08bb6e3aebbac2decfeabb1317ed6964..06a33bc8a384393629af30cbffee49e2b891b6eb 100644
+index dce794cd08bb6e3aebbac2decfeabb1317ed6964..723c2481f953037da500967d84cceba83bf35e65 100644
 --- a/src/evaluate/instruction.rs
 +++ b/src/evaluate/instruction.rs
-@@ -457,7 +457,16 @@ pub struct InstructionList<T> {
+@@ -248,24 +248,21 @@ impl<T: Clone> ExpressionEvaluator<T> {
+         bodies: &[Option<ExportedSubEvaluator<T>>],
+     ) -> ExportedInstructions<T> {
+         let mut exported = self.program().export_instructions(external_fns, bodies);
+-        exported.constant_functions = self
+-            .external_fns
+-            .iter()
+-            .filter_map(|external| {
+-                external
+-                    .constant_index
+-                    .map(|index| ExportedConstantFunction {
+-                        index,
+-                        symbol: external.symbol,
+-                        tags: external
+-                            .tags
+-                            .iter()
+-                            .map(|tag| tag.to_canonical_string())
+-                            .collect(),
+-                        fixed_args: external.fixed_args.clone(),
+-                    })
+-            })
+-            .collect();
++        exported.constant_functions = Vec::with_capacity(self.external_fns.len());
++        for external in &self.external_fns {
++            if let Some(index) = external.constant_index {
++                exported.constant_functions.push(ExportedConstantFunction {
++                    index,
++                    symbol: external.symbol,
++                    tags: external
++                        .tags
++                        .iter()
++                        .map(|tag| tag.to_canonical_string())
++                        .collect(),
++                    fixed_args: external.fixed_args.clone(),
++                });
++            }
++        }
+         exported
+     }
+ }
+@@ -276,21 +273,16 @@ impl<T: Clone> ProgramView<'_, T> {
+         external_fns: &[ExternalFunctionContainer<T>],
+         bodies: &[Option<ExportedSubEvaluator<T>>],
+     ) -> ExportedInstructions<T> {
+-        let mut instr = vec![];
++        let mut instr = Vec::with_capacity(self.instructions.len() + self.result_indices.len());
+         let constants: Vec<_> = self.constants.to_vec();
+-        let mut calls = self
+-            .instructions
+-            .iter()
+-            .filter_map(|(instruction, _)| {
+-                if !bodies.is_empty()
+-                    && let Instr::ExternalFun(_, index, _) = instruction
+-                {
+-                    Some(*index)
+-                } else {
+-                    None
+-                }
+-            })
+-            .collect::<Vec<_>>();
++        let mut calls = Vec::with_capacity(self.instructions.len());
++        for (instruction, _) in self.instructions {
++            if !bodies.is_empty()
++                && let Instr::ExternalFun(_, index, _) = instruction
++            {
++                calls.push(*index);
++            }
++        }
+         calls.sort_unstable();
+         calls.dedup();
+         let sub_evaluators = calls
+@@ -457,7 +449,20 @@ pub struct InstructionList<T> {
  
  impl<T> InstructionList<T> {
      /// Append an instruction and return the temporary slot containing its result.
@@ -4096,8 +4652,12 @@ index dce794cd08bb6e3aebbac2decfeabb1317ed6964..06a33bc8a384393629af30cbffee49e2
 +        // copies so structural zeros survive generated/primitive boundaries.
 +        if let VectorInstruction::Assign(source) = &mut instr {
 +            while let Slot::Temp(index) = *source {
-+                let Some(VectorInstruction::Assign(previous)) = self.instructions.get(index) else { break; };
-+                if matches!(previous, Slot::Temp(previous) if *previous >= index) { break; }
++                let Some(VectorInstruction::Assign(previous)) = self.instructions.get(index) else {
++                    break;
++                };
++                if matches!(previous, Slot::Temp(previous) if *previous >= index) {
++                    break;
++                }
 +                *source = *previous;
 +            }
 +        }
@@ -4276,6 +4836,428 @@ index 0000000000000000000000000000000000000000..99804cff1fcae0d0f54b0fe13467d232
 +    Ok(ExpressionEvaluator { stack, param_count: params, reserved_indices: reserved,
 +        instructions, result_indices: results, external_fns, settings: OptimizationSettings::default() })
 +}
+diff --git a/src/evaluate/tree.rs b/src/evaluate/tree.rs
+index 02180c95399cea01594839c404e5787ea0e07e72..143a5c1febc5486e4e08c113edbd98d82e500506 100644
+--- a/src/evaluate/tree.rs
++++ b/src/evaluate/tree.rs
+@@ -454,6 +454,8 @@ impl<'a> AtomView<'a> {
+ 
+         let n_cores = LicenseManager::max_threads(settings.n_cores).min(n_iterations);
+         let inherited_unlock = crate::license::InheritedLibraryUnlock::capture();
++        let integer_context =
++            numerica::domains::backend::integer::IntegerAllocationContext::capture();
+ 
+         std::thread::scope(|s| {
+             let abort = Arc::new(AtomicBool::new(false));
+@@ -470,109 +472,113 @@ impl<'a> AtomView<'a> {
+                 let abort = abort.clone();
+ 
+                 let mut op = move || {
+-                    let _unlock = inherited_unlock.activate();
+-                    for j in 0..n_iterations / n_cores {
+-                        if abort.load(Ordering::Relaxed) {
+-                            return;
+-                        }
+-
+-                        if i == n_cores - 1
+-                            && let Some(a) = &settings.abort_check
+-                            && a()
+-                        {
+-                            abort.store(true, Ordering::Relaxed);
+-
+-                            if settings.verbose {
+-                                info!(
+-                                    "Aborting Horner optimization at step {}/{}.",
+-                                    j,
+-                                    settings.horner_iterations / n_cores
+-                                );
++                    integer_context.run(|| {
++                        let _unlock = inherited_unlock.activate();
++                        for j in 0..n_iterations / n_cores {
++                            if abort.load(Ordering::Relaxed) {
++                                return;
+                             }
+ 
+-                            return;
+-                        }
+-
+-                        // try a random swap
+-                        let mut t1 = 0;
+-                        let mut t2 = 0;
++                            if i == n_cores - 1
++                                && let Some(a) = &settings.abort_check
++                                && a()
++                            {
++                                abort.store(true, Ordering::Relaxed);
++
++                                if settings.verbose {
++                                    info!(
++                                        "Aborting Horner optimization at step {}/{}.",
++                                        j,
++                                        settings.horner_iterations / n_cores
++                                    );
++                                }
+ 
+-                        if let Some(p) = p_ref {
+-                            if j >= p.len() / n_cores {
+-                                break;
++                                return;
+                             }
+ 
+-                            let perm = &p[i * (p.len() / n_cores) + j];
+-                            cvars = perm.iter().map(|x| vars[*x].clone()).collect();
+-                        } else {
+-                            t1 = rng.random_range(0..cvars.len());
+-                            t2 = rng.random_range(0..cvars.len() - 1);
++                            // try a random swap
++                            let mut t1 = 0;
++                            let mut t2 = 0;
+ 
+-                            cvars.swap(t1, t2);
+-                        }
++                            if let Some(p) = p_ref {
++                                if j >= p.len() / n_cores {
++                                    break;
++                                }
+ 
+-                        let horner: Vec<_> = expressions
+-                            .iter()
+-                            .map(|x| x.horner_scheme(Some(&cvars), true, true))
+-                            .collect();
+-                        let mut subexpr = HashSet::default();
+-                        let mut cur_ops = OperationCount::default();
+-
+-                        for h in &horner {
+-                            let ops = h
+-                                .as_view()
+-                                .count_operations_with_subexpressions(&mut subexpr);
+-                            cur_ops += ops;
+-                        }
++                                let perm = &p[i * (p.len() / n_cores) + j];
++                                cvars = perm.iter().map(|x| vars[*x].clone()).collect();
++                            } else {
++                                t1 = rng.random_range(0..cvars.len());
++                                t2 = rng.random_range(0..cvars.len() - 1);
+ 
+-                        // prefer fewer multiplications
+-                        if cur_ops.multiplications <= last_mul
+-                            || cur_ops.multiplications == last_mul && cur_ops.additions <= last_add
+-                        {
+-                            if settings.verbose {
+-                                info!(
+-                                    "Accept move at step {}/{}: {}",
+-                                    j,
+-                                    settings.horner_iterations / n_cores,
+-                                    cur_ops
+-                                );
++                                cvars.swap(t1, t2);
+                             }
+ 
+-                            last_add = cur_ops.additions;
+-                            last_mul = cur_ops.multiplications;
++                            let horner: Vec<_> = expressions
++                                .iter()
++                                .map(|x| x.horner_scheme(Some(&cvars), true, true))
++                                .collect();
++                            let mut subexpr = HashSet::default();
++                            let mut cur_ops = OperationCount::default();
++
++                            for h in &horner {
++                                let ops = h
++                                    .as_view()
++                                    .count_operations_with_subexpressions(&mut subexpr);
++                                cur_ops += ops;
++                            }
+ 
+-                            if cur_ops.multiplications <= best_mul.load(Ordering::Relaxed)
+-                                || cur_ops.multiplications == best_mul.load(Ordering::Relaxed)
+-                                    && cur_ops.additions <= best_add.load(Ordering::Relaxed)
++                            // prefer fewer multiplications
++                            if cur_ops.multiplications <= last_mul
++                                || cur_ops.multiplications == last_mul
++                                    && cur_ops.additions <= last_add
+                             {
+-                                let mut best_scheme = best_scheme.lock().unwrap();
+-
+-                                // check again if it is the best now that we have locked
+-                                let best_mul_l = best_mul.load(Ordering::Relaxed);
+-                                let best_add_l = best_add.load(Ordering::Relaxed);
+-                                if cur_ops.multiplications <= best_mul_l
+-                                    || cur_ops.multiplications == best_mul_l
+-                                        && cur_ops.additions <= best_add_l
++                                if settings.verbose {
++                                    info!(
++                                        "Accept move at step {}/{}: {}",
++                                        j,
++                                        settings.horner_iterations / n_cores,
++                                        cur_ops
++                                    );
++                                }
++
++                                last_add = cur_ops.additions;
++                                last_mul = cur_ops.multiplications;
++
++                                if cur_ops.multiplications <= best_mul.load(Ordering::Relaxed)
++                                    || cur_ops.multiplications == best_mul.load(Ordering::Relaxed)
++                                        && cur_ops.additions <= best_add.load(Ordering::Relaxed)
+                                 {
+-                                    if cur_ops.additions == best_add_l
+-                                        && cur_ops.multiplications == best_mul_l
++                                    let mut best_scheme = best_scheme.lock().unwrap();
++
++                                    // check again if it is the best now that we have locked
++                                    let best_mul_l = best_mul.load(Ordering::Relaxed);
++                                    let best_add_l = best_add.load(Ordering::Relaxed);
++                                    if cur_ops.multiplications <= best_mul_l
++                                        || cur_ops.multiplications == best_mul_l
++                                            && cur_ops.additions <= best_add_l
+                                     {
+-                                        if *best_scheme < cvars {
+-                                            // on a draw, accept the lexicographical minimum
+-                                            // to get a deterministic scheme
++                                        if cur_ops.additions == best_add_l
++                                            && cur_ops.multiplications == best_mul_l
++                                        {
++                                            if *best_scheme < cvars {
++                                                // on a draw, accept the lexicographical minimum
++                                                // to get a deterministic scheme
++                                                *best_scheme = cvars.clone();
++                                            }
++                                        } else {
++                                            best_mul
++                                                .store(cur_ops.multiplications, Ordering::Relaxed);
++                                            best_add.store(cur_ops.additions, Ordering::Relaxed);
+                                             *best_scheme = cvars.clone();
+                                         }
+-                                    } else {
+-                                        best_mul.store(cur_ops.multiplications, Ordering::Relaxed);
+-                                        best_add.store(cur_ops.additions, Ordering::Relaxed);
+-                                        *best_scheme = cvars.clone();
+                                     }
+                                 }
++                            } else {
++                                cvars.swap(t1, t2);
+                             }
+-                        } else {
+-                            cvars.swap(t1, t2);
+                         }
+-                    }
++                    })
+                 };
+ 
+                 if i + 1 < n_cores {
+@@ -3166,6 +3172,8 @@ impl Expression<Complex<Rational>> {
+ 
+         let n_cores = LicenseManager::max_threads(settings.n_cores).min(n_iterations);
+         let inherited_unlock = crate::license::InheritedLibraryUnlock::capture();
++        let integer_context =
++            numerica::domains::backend::integer::IntegerAllocationContext::capture();
+ 
+         std::thread::scope(|s| {
+             let abort = Arc::new(AtomicBool::new(false));
+@@ -3182,112 +3190,116 @@ impl Expression<Complex<Rational>> {
+                 let abort = abort.clone();
+ 
+                 let mut op = move || {
+-                    let _unlock = inherited_unlock.activate();
+-                    for j in 0..n_iterations / n_cores {
+-                        if abort.load(Ordering::Relaxed) {
+-                            return;
+-                        }
+-
+-                        if i == n_cores - 1
+-                            && let Some(a) = &settings.abort_check
+-                            && a()
+-                        {
+-                            abort.store(true, Ordering::Relaxed);
+-
+-                            if settings.verbose {
+-                                info!(
+-                                    "Aborting Horner optimization at step {}/{}.",
+-                                    j,
+-                                    settings.horner_iterations / n_cores
+-                                );
++                    integer_context.run(|| {
++                        let _unlock = inherited_unlock.activate();
++                        for j in 0..n_iterations / n_cores {
++                            if abort.load(Ordering::Relaxed) {
++                                return;
+                             }
+ 
+-                            return;
+-                        }
+-
+-                        // try a random swap
+-                        let mut t1 = 0;
+-                        let mut t2 = 0;
++                            if i == n_cores - 1
++                                && let Some(a) = &settings.abort_check
++                                && a()
++                            {
++                                abort.store(true, Ordering::Relaxed);
++
++                                if settings.verbose {
++                                    info!(
++                                        "Aborting Horner optimization at step {}/{}.",
++                                        j,
++                                        settings.horner_iterations / n_cores
++                                    );
++                                }
+ 
+-                        if let Some(p) = p_ref {
+-                            if j >= p.len() / n_cores {
+-                                break;
++                                return;
+                             }
+ 
+-                            let perm = &p[i * (p.len() / n_cores) + j];
+-                            cvars = perm.iter().map(|x| vars[*x].clone()).collect();
+-                        } else {
+-                            t1 = rng.random_range(0..cvars.len());
+-                            t2 = rng.random_range(0..cvars.len() - 1);
+-
+-                            cvars.swap(t1, t2);
+-                        }
++                            // try a random swap
++                            let mut t1 = 0;
++                            let mut t2 = 0;
+ 
+-                        let horner: Vec<_> = expressions
+-                            .iter()
+-                            .map(|x| {
+-                                let mut h = x.clone();
+-                                h.apply_horner_scheme(&cvars);
+-                                h.rehash(true);
+-                                h
+-                            })
+-                            .collect();
+-                        let mut subexpr = HashMap::default();
+-                        let mut cur_ops = OperationCount::default();
++                            if let Some(p) = p_ref {
++                                if j >= p.len() / n_cores {
++                                    break;
++                                }
+ 
+-                        for h in &horner {
+-                            let ops = h.count_operations_with_subexpression(&mut subexpr);
+-                            cur_ops += ops;
+-                        }
++                                let perm = &p[i * (p.len() / n_cores) + j];
++                                cvars = perm.iter().map(|x| vars[*x].clone()).collect();
++                            } else {
++                                t1 = rng.random_range(0..cvars.len());
++                                t2 = rng.random_range(0..cvars.len() - 1);
+ 
+-                        // prefer fewer multiplications
+-                        if cur_ops.multiplications <= last_mul
+-                            || cur_ops.multiplications == last_mul && cur_ops.additions <= last_add
+-                        {
+-                            if settings.verbose {
+-                                info!(
+-                                    "Accept move at step {}/{}: {}",
+-                                    j,
+-                                    settings.horner_iterations / n_cores,
+-                                    cur_ops
+-                                );
++                                cvars.swap(t1, t2);
+                             }
+ 
+-                            last_add = cur_ops.additions;
+-                            last_mul = cur_ops.multiplications;
++                            let horner: Vec<_> = expressions
++                                .iter()
++                                .map(|x| {
++                                    let mut h = x.clone();
++                                    h.apply_horner_scheme(&cvars);
++                                    h.rehash(true);
++                                    h
++                                })
++                                .collect();
++                            let mut subexpr = HashMap::default();
++                            let mut cur_ops = OperationCount::default();
++
++                            for h in &horner {
++                                let ops = h.count_operations_with_subexpression(&mut subexpr);
++                                cur_ops += ops;
++                            }
+ 
+-                            if cur_ops.multiplications <= best_mul.load(Ordering::Relaxed)
+-                                || cur_ops.multiplications == best_mul.load(Ordering::Relaxed)
+-                                    && cur_ops.additions <= best_add.load(Ordering::Relaxed)
++                            // prefer fewer multiplications
++                            if cur_ops.multiplications <= last_mul
++                                || cur_ops.multiplications == last_mul
++                                    && cur_ops.additions <= last_add
+                             {
+-                                let mut best_scheme = best_scheme.lock().unwrap();
+-
+-                                // check again if it is the best now that we have locked
+-                                let best_mul_l = best_mul.load(Ordering::Relaxed);
+-                                let best_add_l = best_add.load(Ordering::Relaxed);
+-                                if cur_ops.multiplications <= best_mul_l
+-                                    || cur_ops.multiplications == best_mul_l
+-                                        && cur_ops.additions <= best_add_l
++                                if settings.verbose {
++                                    info!(
++                                        "Accept move at step {}/{}: {}",
++                                        j,
++                                        settings.horner_iterations / n_cores,
++                                        cur_ops
++                                    );
++                                }
++
++                                last_add = cur_ops.additions;
++                                last_mul = cur_ops.multiplications;
++
++                                if cur_ops.multiplications <= best_mul.load(Ordering::Relaxed)
++                                    || cur_ops.multiplications == best_mul.load(Ordering::Relaxed)
++                                        && cur_ops.additions <= best_add.load(Ordering::Relaxed)
+                                 {
+-                                    if cur_ops.additions == best_add_l
+-                                        && cur_ops.multiplications == best_mul_l
++                                    let mut best_scheme = best_scheme.lock().unwrap();
++
++                                    // check again if it is the best now that we have locked
++                                    let best_mul_l = best_mul.load(Ordering::Relaxed);
++                                    let best_add_l = best_add.load(Ordering::Relaxed);
++                                    if cur_ops.multiplications <= best_mul_l
++                                        || cur_ops.multiplications == best_mul_l
++                                            && cur_ops.additions <= best_add_l
+                                     {
+-                                        if *best_scheme < cvars {
+-                                            // on a draw, accept the lexicographical minimum
+-                                            // to get a deterministic scheme
++                                        if cur_ops.additions == best_add_l
++                                            && cur_ops.multiplications == best_mul_l
++                                        {
++                                            if *best_scheme < cvars {
++                                                // on a draw, accept the lexicographical minimum
++                                                // to get a deterministic scheme
++                                                *best_scheme = cvars.clone();
++                                            }
++                                        } else {
++                                            best_mul
++                                                .store(cur_ops.multiplications, Ordering::Relaxed);
++                                            best_add.store(cur_ops.additions, Ordering::Relaxed);
+                                             *best_scheme = cvars.clone();
+                                         }
+-                                    } else {
+-                                        best_mul.store(cur_ops.multiplications, Ordering::Relaxed);
+-                                        best_add.store(cur_ops.additions, Ordering::Relaxed);
+-                                        *best_scheme = cvars.clone();
+                                     }
+                                 }
++                            } else {
++                                cvars.swap(t1, t2);
+                             }
+-                        } else {
+-                            cvars.swap(t1, t2);
+                         }
+-                    }
++                    })
+                 };
+ 
+                 if i + 1 < n_cores {
 diff --git a/src/poly/univariate.rs b/src/poly/univariate.rs
 index ea11041071da2240d1d097f0bd9f0ef2d9ab7f23..fab6c117a4920a354ded673f3e20a7c2873f138f 100644
 --- a/src/poly/univariate.rs
@@ -4608,6 +5590,94 @@ index 7fac867d337cb888371313162b1b6d976ab350a3..730cf12253f607f9299ffdd959fc415b
      /// Approximate the single root of the polynomial in the interval (lower, higher) with a given tolerance
      /// using bisection.
      pub fn refine_root_interval(
+diff --git a/src/state.rs b/src/state.rs
+index 4838620edb1c61a5ea59943e306377a6daa2d7f4..56b6cce52fc70b4951854b7b879d9a28317dffb0 100644
+--- a/src/state.rs
++++ b/src/state.rs
+@@ -1582,6 +1582,9 @@ impl Workspace {
+     /// Return a recycled atom from this workspace. The atom may have the same value as before.
+     #[inline]
+     pub fn new_atom(&self) -> RecycledAtom {
++        if numerica::domains::backend::integer::IntegerAllocationContext::capture().is_fresh() {
++            return Atom::default().into();
++        }
+         if let Ok(mut a) = self.atom_buffer.try_borrow_mut() {
+             if let Some(b) = a.pop() {
+                 b.into()
+@@ -1612,6 +1615,9 @@ impl Workspace {
+     /// Return an atom's allocation to this workspace for reuse. If the pool is
+     /// already borrowed, the atom is dropped instead.
+     pub fn return_atom(&self, atom: Atom) {
++        if numerica::domains::backend::integer::IntegerAllocationContext::capture().is_fresh() {
++            return;
++        }
+         if let Ok(mut a) = self.atom_buffer.try_borrow_mut() {
+             a.push(atom);
+         }
+@@ -1698,6 +1704,9 @@ impl AsRef<Atom> for RecycledAtom {
+ impl Drop for RecycledAtom {
+     #[inline]
+     fn drop(&mut self) {
++        if numerica::domains::backend::integer::IntegerAllocationContext::capture().is_fresh() {
++            return;
++        }
+         if let Atom::Zero = self.0 {
+             return;
+         }
+@@ -1730,6 +1739,53 @@ mod tests {
+ 
+     use super::{CustomFunctionDefinitionKeys, State};
+ 
++    #[test]
++    fn fresh_workspace_policy_bypasses_all_recycling_entries() {
++        use super::{RecycledAtom, Workspace};
++        use numerica::domains::backend::integer::IntegerAllocationContext;
++        Workspace::get_local().with(|ws| {
++            let saved = std::mem::take(&mut *ws.atom_buffer.borrow_mut());
++            let mut large = parse!("fresh_workspace_x+fresh_workspace_y");
++            if let Atom::Add(add) = &mut large {
++                add.grow_capacity(1_000_000);
++            }
++            assert!(large.get_capacity() >= 900_000);
++            // Public return_atom has no ordinary pool-count cap. Fresh policy
++            // must bypass it as well as the bounded RecycledAtom Drop path.
++            for _ in 0..40 {
++                let mut copy = large.clone();
++                if let Atom::Add(add) = &mut copy {
++                    add.grow_capacity(1_000_000);
++                }
++                ws.return_atom(copy);
++            }
++            let capacities = ws
++                .atom_buffer
++                .borrow()
++                .iter()
++                .map(Atom::get_capacity)
++                .collect::<Vec<_>>();
++            IntegerAllocationContext::fresh().run(|| {
++                let atom = ws.new_num(1);
++                assert!(atom.get_capacity() < 1_000);
++                drop(atom);
++                ws.return_atom(large.clone());
++                drop(RecycledAtom::wrap(large.clone()));
++                assert_eq!(
++                    ws.atom_buffer
++                        .borrow()
++                        .iter()
++                        .map(Atom::get_capacity)
++                        .collect::<Vec<_>>(),
++                    capacities
++                );
++            });
++            let ordinary = ws.new_atom().into_inner();
++            assert!(ordinary.get_capacity() >= 900_000);
++            *ws.atom_buffer.borrow_mut() = saved;
++        });
++    }
++
+     fn test_print_function() -> PrintFunction {
+         Box::new(|_, _, _| Some("test".into()))
+     }
 diff --git a/tests/packing.rs b/tests/packing.rs
 new file mode 100644
 index 0000000000000000000000000000000000000000..6996ed119f23f5c2377446b1377722cbae347f52
