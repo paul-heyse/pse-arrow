@@ -61,6 +61,18 @@ independently, without introducing cross-database atomicity.
 
 ## Packages
 
+### Execution checkpoint — 2026-11-09
+
+Execution is authorized under proposed ADR-0262. The shared target is one combined
+72b/72c schema/module cutover. B01 extends exact frozen effects and passive original
+intent; B02 consumes the actual stopped service through isolated maintenance, with
+separate data/index validation and B03 activation/readmission. Supplier execution uses
+the prepared CLI with bounded private output and retained process ownership. No current
+configured target has been selected for migration/reset. A scalar ordinal conversion
+does not establish a complete historical-schema transition. Plan71 is complete and its
+fixture/result custody is consumed. B01–B03 remain open until their real data-effect,
+physical handoff and recovery controls pass.
+
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | B01 | Planned | Current frozen input and preview owners; selected 72a contract as needed | Typed effect-bearing transition preview, identity and admission model ready for intended issuer; reconstruction/native/backfill choice explicit. |

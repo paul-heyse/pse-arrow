@@ -62,6 +62,18 @@ ABI-5 `BINDINGS` do not own durable state. [Extension architecture](https://surr
 
 ## Packages
 
+### Execution checkpoint — 2026-11-09
+
+Execution is authorized under proposed ADR-0262. Explicit transaction rendering and
+transport-owned single-result projection are being integrated before broad-guard
+retirement. The native readiness backend consumes source projection graphs supplied
+by the composing owner; the generator retains its existing dependency ceiling. Native
+read/mutation carriers can differ from portable Arrow rows without another editable
+model. C02 includes stored metadata and every affected policy consumer; a generated
+adapter alone is insufficient. C03 requires actual SSI races and C04 retains the
+constrained definer API and runtime patches. C01–C04 remain open until receiving tests
+and consumer/deletion obligations are complete.
+
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | C01 | Planned | Actual operation/protection/read owners; required contract decisions | Typed intent-level procedures and explicit isolation used by affected canonical callers; replaced framing and incidental result interpretation removed. |
