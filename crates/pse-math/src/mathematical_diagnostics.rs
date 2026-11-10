@@ -168,7 +168,7 @@ pub struct DiagnosticRequest {
     /// Actual mathematical assurance requested or delivered.
     pub claim: DiagnosticClaim => { tag: 5, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Requested or actual binary arithmetic precision.
-    pub precision: u32 => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 1, max: u64::MAX }] };
+    pub precision: u32 => { tag: 6, direction: pse_contract::boundary_projection::Direction::Both, rules: [pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 1, max: u32::MAX as u64 }] };
     /// Explicit mathematical workload admission.
     pub limits: DiagnosticLimits => { tag: 7, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Ordered first/second derivative coordinate sequences; empty requests values only.
@@ -585,8 +585,13 @@ impl CasePlan {
             || request.rows.iter().collect::<BTreeSet<_>>().len() != request.rows.len()
             || coordinates.iter().collect::<BTreeSet<_>>().len() != coordinates.len()
             || coordinates.iter().any(|id| !declared.contains(id))
-            || request.unknowns.iter().any(|id| !self.structure().variables().iter()
-                .any(|variable| variable.port.id == *id && !variable.fixed))
+            || request.unknowns.iter().any(|id| {
+                !self
+                    .structure()
+                    .variables()
+                    .iter()
+                    .any(|variable| variable.port.id == *id && !variable.fixed)
+            })
             || request
                 .rows
                 .iter()
@@ -763,8 +768,15 @@ impl CasePlan {
                     };
                     slots.insert(
                         slot,
-                        value * crate::class_evidence::exact_binary64_atom(binding.scale(), limits.coefficient_bits)?
-                            + crate::class_evidence::exact_binary64_atom(binding.offset(), limits.coefficient_bits)?,
+                        value
+                            * crate::class_evidence::exact_binary64_atom(
+                                binding.scale(),
+                                limits.coefficient_bits,
+                            )?
+                            + crate::class_evidence::exact_binary64_atom(
+                                binding.offset(),
+                                limits.coefficient_bits,
+                            )?,
                     );
                 }
                 for stage in stages {
@@ -1196,7 +1208,7 @@ impl PreparedDiagnostic {
                     .collect::<Vec<_>>();
                 for guard in &self.guards {
                     let guard_product = library::admission::diagnostic_product(
-                        &[guard.expression.clone()],
+                        std::slice::from_ref(&guard.expression),
                         &self.formals,
                         Optimization::default(),
                         scope,
@@ -2068,7 +2080,8 @@ mod tests {
     #[test]
     fn exact_diagnostic_accounting_specializations_and_original_row_witnesses() {
         let plan = plan_bounded(4, true, |_, input| {
-            let [x, y, p, q] = input else { unreachable!() };
+            assert_eq!(input.len(), 4);
+            let (x, y, p, q) = (&input[0], &input[1], &input[2], &input[3]);
             vec![
                 expression(
                     x.atom.as_ref().unwrap() + y.atom.as_ref().unwrap() - Atom::num(1),
@@ -2225,11 +2238,11 @@ mod tests {
             plan.mathematical_diagnostics(&CaseValues::default(), request.clone(), None, &scope())
                 .is_err()
         );
-        // SAFETY: this fixture owns precisely the original basic arithmetic expression.
         #[allow(
             unsafe_code,
             reason = "test fixture owns the entire admitted arithmetic source"
         )]
+        // SAFETY: this fixture owns precisely the original basic arithmetic expression.
         let admission = unsafe {
             ArithmeticSourceAdmission::issue(plan.structure().key(), request.rows.clone())
         };
@@ -2242,8 +2255,8 @@ mod tests {
             Rational::new(n.parse::<Integer>().unwrap(), d.parse::<Integer>().unwrap())
         };
         // x^2+2x has analytic extrema -1 and 15 on [-2,3].
-        assert!(ratio(ball.lower.as_ref().unwrap()) <= Rational::from(-1));
-        assert!(ratio(ball.upper.as_ref().unwrap()) >= Rational::from(15));
+        assert!(ratio(ball.lower.as_ref().unwrap()) <= -1);
+        assert!(ratio(ball.upper.as_ref().unwrap()) >= 15);
         assert!(ball.value.is_none() && ball.absolute_error.is_none());
     }
     #[test]
@@ -2430,12 +2443,27 @@ mod tests {
         let mut wrongly_bound = request(DiagnosticClaim::ChosenPrecision, 1, 1, 0);
         wrongly_bound.unknowns = vec![id(3)];
         wrongly_bound.inputs = vec![point(3, 2)];
-        assert!(parameter_plan.prepare_mathematical_diagnostic(&CaseValues::default(), wrongly_bound.clone(), None, &scope()).is_err());
+        assert!(
+            parameter_plan
+                .prepare_mathematical_diagnostic(
+                    &CaseValues::default(),
+                    wrongly_bound.clone(),
+                    None,
+                    &scope()
+                )
+                .is_err()
+        );
         wrongly_bound.unknowns.clear();
         wrongly_bound.parameters = vec![id(3)];
-        assert!(parameter_plan.mathematical_diagnostics(&CaseValues::default(), wrongly_bound, None, &scope()).is_ok());
-        let mut limits = DiagnosticLimits::default();
-        limits.coefficient_bits = 16;
+        assert!(
+            parameter_plan
+                .mathematical_diagnostics(&CaseValues::default(), wrongly_bound, None, &scope())
+                .is_ok()
+        );
+        let limits = DiagnosticLimits {
+            coefficient_bits: 16,
+            ..DiagnosticLimits::default()
+        };
         let large = ExactValue {
             numerator: "1".repeat(1_000),
             denominator: "1".into(),
@@ -2469,7 +2497,7 @@ mod tests {
         ] {
             let product = library::admission::diagnostic_product(
                 &[expression],
-                &[formal.clone()],
+                std::slice::from_ref(&formal),
                 Optimization::default(),
                 &scope(),
                 EvaluationLimits::default(),

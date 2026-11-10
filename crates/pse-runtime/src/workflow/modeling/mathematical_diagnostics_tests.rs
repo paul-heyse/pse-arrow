@@ -250,13 +250,7 @@ async fn mathematical_diagnostic_authored_exact_and_enclosure_producers_deliver_
     let services = runtime.preparation_services();
     let cancel = crate::CancelSource::new();
     let bindings = Bindings {
-        demand: vec![
-            "x".into(),
-            "y".into(),
-            "p".into(),
-            "q".into(),
-            "h".into(),
-        ],
+        demand: vec!["x".into(), "y".into(), "p".into(), "q".into(), "h".into()],
         ..Default::default()
     };
     let model = package
@@ -275,9 +269,18 @@ async fn mathematical_diagnostic_authored_exact_and_enclosure_producers_deliver_
     let y = paths["y"];
     let p = paths["p"];
     let q = paths["q"];
-    let row = |name: &str| model.compiled().model.equations.iter()
-        .find(|row| row.lineage.path.ends_with(&format!(".{name}"))).map(|row| row.id)
-        .unwrap_or_else(|| pse_compiler::workspace::ModelingOutput::Member(paths[name]).row_id());
+    let row = |name: &str| {
+        model
+            .compiled()
+            .model
+            .equations
+            .iter()
+            .find(|row| row.lineage.path.ends_with(&format!(".{name}")))
+            .map(|row| row.id)
+            .unwrap_or_else(|| {
+                pse_compiler::workspace::ModelingOutput::Member(paths[name]).row_id()
+            })
+    };
     let point = |coordinate, value| DiagnosticInput {
         coordinate,
         lower: ExactValue::integer(value),

@@ -965,7 +965,8 @@ fn aggregate_expressions_with_coordinates(
                 };
                 let replacement = if let Some(column) = column {
                     if let Some((_, bits)) = coordinates {
-                        formals.get(column, allowance)? * exact_binary64_atom(binding.scale(), bits)?
+                        formals.get(column, allowance)?
+                            * exact_binary64_atom(binding.scale(), bits)?
                             + exact_binary64_atom(binding.offset(), bits)?
                     } else {
                         formals.get(column, allowance)? * Atom::num(binding.scale())
@@ -977,7 +978,8 @@ fn aggregate_expressions_with_coordinates(
                         .get(&binding.source())
                         .ok_or_else(|| MathError::Contract("missing class assumption".into()))?;
                     if let Some((_, bits)) = coordinates {
-                        exact_binary64_atom(binding.scale(), bits)? * exact_binary64_atom(*value, bits)?
+                        exact_binary64_atom(binding.scale(), bits)?
+                            * exact_binary64_atom(*value, bits)?
                             + exact_binary64_atom(binding.offset(), bits)?
                     } else {
                         Atom::num(binding.scale() * value + binding.offset())
@@ -1040,7 +1042,9 @@ fn aggregate_expressions_with_coordinates(
 /// Preserve the exact original binary64 datum before diagnostic arithmetic.
 pub(crate) fn exact_binary64_atom(value: f64, coefficient_bits: usize) -> Result<Atom, MathError> {
     let value = Rational::try_from(value).map_err(|error| MathError::Library(error.to_string()))?;
-    if crate::rational_binary64::bits(&value)? > coefficient_bits { return Err(MathError::Limit("diagnostic fixed coefficient bits")); }
+    if crate::rational_binary64::bits(&value)? > coefficient_bits {
+        return Err(MathError::Limit("diagnostic fixed coefficient bits"));
+    }
     Ok(Atom::num(value))
 }
 

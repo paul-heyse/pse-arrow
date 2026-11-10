@@ -33,50 +33,27 @@ impl ModelingPackage {
         settings: &crate::workflow::PreparationSettings,
         cancel: &crate::CancelSource,
     ) -> Result<Arc<pse_columnar::Leased<DiagnosticResult>>, WorkflowError> {
-        self.diagnose_mathematics(
-            services,
-            operation.root,
-            operation.instance,
-            operation.bindings.clone(),
-            settings.limits,
-            &pse_compiler::workspace::ModelingCaseBindings {
-                members: operation.case_members.clone(),
-                ..Default::default()
-            },
-            operation.request.clone(),
-            cancel,
-        )
-        .await
-    }
-
-    /// Resolve authored sources and physical bindings, then execute the native
-    /// diagnostic. Durable publication/readback belongs to the shared operation owner.
-    #[expect(
-        clippy::too_many_arguments,
-        reason = "original specialization, physical values and selected mathematical demand remain separate"
-    )]
-    pub async fn diagnose_mathematics(
-        &self,
-        services: &crate::workflow::PreparationServices,
-        root: DeclarationId,
-        instance: InstanceId,
-        bindings: Bindings,
-        limits: Limits,
-        case: &pse_compiler::workspace::ModelingCaseBindings,
-        request: DiagnosticRequest,
-        cancel: &crate::CancelSource,
-    ) -> Result<Arc<pse_columnar::Leased<DiagnosticResult>>, WorkflowError> {
         self.check_service_bindings(services)?;
         let model = self
-            .prepare(services, root, instance, bindings, limits, cancel)
+            .prepare(
+                services,
+                operation.root,
+                operation.instance,
+                operation.bindings.clone(),
+                settings.limits,
+                cancel,
+            )
             .await?;
         let values = model
             .compiled()
-            .case_values(case)
+            .case_values(&pse_compiler::workspace::ModelingCaseBindings {
+                members: operation.case_members.clone(),
+                ..Default::default()
+            })
             .map_err(crate::math::MathRuntimeError::from)?;
         Ok(services
             .math()
-            .diagnose_modeling(model, values, request, cancel)
+            .diagnose_modeling(model, values, operation.request.clone(), cancel)
             .await?)
     }
 }
