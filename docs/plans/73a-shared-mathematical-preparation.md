@@ -54,11 +54,11 @@ Definition-led mappings are selected first. For independently authored equivalen
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | [A01](#A01) | in-progress | Coordinator scope and current source | Product/demand/binding contract and actual remaining consumer migrations/deletions identified; function/profile/receiving implications reconciled with B/C/D/E. |
-| [A02](#A02) | open | A01 and working B controls where construction changes | Named definitions and selected products reach fitting/solver/exact consumers; replaced repeated construction removed. |
-| [A03](#A03) | in-progress | A01/A02 binding/product contract | Definition-led repeated physical instances share preparation with complete axis/output transport and distinct original results. |
-| [A04](#A04) | open | A01 module scenario and B04 compatibility outcome | Joint/host/composed route selected and implemented in actual independent consumers, with replaced preparation removed. |
-| [A05](#A05) | open | A03 and current structural/physical interpretation | Independent-motif graph matching decision closed and selected result integrated; no unused canonical-cache framework. |
-| [A06](#A06) | open | A02–A05 and relevant numerical/exact consumers | Actual consumers and retirement reconciled; independent actions, invalidation and interruption journeys ready for H. |
+| [A02](#A02) | in-progress | A01 and working B controls where construction changes | Named definitions and selected products reach fitting/solver/exact consumers; replaced repeated construction removed. |
+| [A03](#A03) | complete | A01/A02 binding/product contract | Definition-led repeated physical instances share preparation with complete axis/output transport and distinct original results. |
+| [A04](#A04) | in-progress | A01 module scenario and B04 compatibility outcome | Joint/host/composed route selected and implemented in actual independent consumers, with replaced preparation removed. |
+| [A05](#A05) | in-progress | A03 and current structural/physical interpretation | Independent-motif graph matching decision closed and selected result integrated; no unused canonical-cache framework. |
+| [A06](#A06) | in-progress | A02–A05 and relevant numerical/exact consumers | Actual consumers and retirement reconciled; independent actions, invalidation and interruption journeys ready for H. |
 
 ## Implementation scope and package detail
 
@@ -147,3 +147,22 @@ Exercise a repeated fitting/residual assembly through the runtime owner with ent
 ## Execution checkpoint — 2026-11-10
 
 Execution of the integrated A/B/C scope began at `d2302f32a` with a clean checkout. The selected first assignments are shared transport consolidation, checked supplier construction and stable primitives. A01/B01/C01 are coordinated prerequisite contracts; A03 proceeds within existing binding semantics. Required new kernel/primitive decisions precede dependent implementation. All other scope remains open until its actual production cutover and targeted evidence; broader Plan73/Plan66 completion is not claimed.
+
+**A03 — Implemented, Tested.** Commit `d3b6fefc3` replaces separate gradient coordinates,
+entry source/scale interpretation and action destination interpretation with one immutable
+`BindingTransport` per physical instance. Demands share admitted `EvalBindings` addresses with
+compact ordered views. Selected entries, gradient/Jacobian/Hessian and all three action routes
+use the projection. Original instance guards and source/member attribution remain separate.
+
+`scripts/pse test pse-math --lib -E 'test(shared_transport_preserves_affine_aliases_reordered_entries_and_all_actions) | test(shared_body_guard_refusal_retains_the_actual_receiver_instance) | test(equal_normalized_gathers_reuse_arithmetic_but_keep_each_instance_scatter_and_bits) | test(receiver_context_guards_are_excluded_from_instance_donation_and_value_does_not_grant_first) | test(aliases_repeated_rows_isolates_and_stable_refill) | test(demanded_directional_case_actions) | test(weighted_case_hessian_actions) | test(constraint_cotangents_use_direct_products) | test(assembly::entries::tests) | test(compiled_gathers_refuse) | test(symbolic_definition_regions_compose_mixed_partials_without_flattening_lets)'`
+passed 14/14 in the default Nextest profile, zero failures against baseline zero, on 2026-11-10.
+The shared `scripts/pse check pse-math --all-targets` also passed with zero failures.
+This establishes the scoped transport contract; it does not qualify an end-to-end fitting
+journey or close A06/H.
+
+A01/A02/A06 are integrating named local-partial retention into the existing scalar family,
+artifact flights and leases. The obsolete per-compilation pointer cache is being removed.
+The bounded Direct route remains required for finite weighted results with overflowing
+unrequested intermediates. A04/A05 are comparing actual caloric and independently authored
+heater consumers against existing joint aliases and canonical physical/formal correspondence;
+no composer or graph cache has been adopted.

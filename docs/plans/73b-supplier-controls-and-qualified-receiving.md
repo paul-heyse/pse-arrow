@@ -66,10 +66,10 @@ Preserve [maintained bounded roots](../../vendor/symbolica-bounded-roots.md), pa
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | [B01](#B01) | in-progress | A01/C01 design slices and existing callers | Checked operation extents, overflow/refusal, temporary overlap, safe points and per-call control settled through applicable decisions. |
-| [B02](#B02) | open | B01 implemented control interface | Checked construction/vectorization/optimization consumed; corresponding expansion mirrors/rebinding removed. |
-| [B03](#B03) | open | B01 interface; C01 supported-head descriptors | Checked scalar/x4 C++ export and native caller migration cover stable heads/source overlap; replaced exporter predictors removed. |
+| [B02](#B02) | in-progress | B01 implemented control interface | Checked construction/vectorization/optimization consumed; corresponding expansion mirrors/rebinding removed. |
+| [B03](#B03) | in-progress | B01 interface; C01 supported-head descriptors | Checked scalar/x4 C++ export and native caller migration cover stable heads/source overlap; replaced exporter predictors removed. |
 | [B04](#B04) | open | A01 module scenario; B01 preservation contract | Composer backport/rebase versus no-adoption decision implemented with A04, preserving maintained source contracts/provenance. |
-| [B05](#B05) | open | A01 binding/custody slice; working C02 interpreted products; C01 identities | Numerical-only production receiver includes stable Value/First/Second cold after producer retirement; replaced consumer encoding/replay retired. |
+| [B05](#B05) | in-progress | A01 binding/custody slice; working C02 interpreted products; C01 identities | Numerical-only production receiver includes stable Value/First/Second cold after producer retirement; replaced consumer encoding/replay retired. |
 | [B06](#B06) | open | A01 source/guard contract; B05 early custody conventions | Guarded symbolic production continuation or justified single typed-replay branch delivered with actual later-symbolic consumer and retired replaced path. |
 | [B07](#B07) | open | B02–B06 actual caller deliveries | Adversarial receiving/control integration and source-level retirement complete; evidence handed to H. |
 
@@ -435,3 +435,20 @@ on an old plan or a benchmark promised solely to quantify an expected simplifica
 ## Execution checkpoint — 2026-11-10
 
 Execution of the integrated A/B/C scope began at `d2302f32a` with a clean checkout. The selected first assignments are shared transport consolidation, checked supplier construction and stable primitives. A01/B01/C01 are coordinated prerequisite contracts; A03 proceeds within existing binding semantics. Required new kernel/primitive decisions precede dependent implementation. All other scope remains open until its actual production cutover and targeted evidence; broader Plan73/Plan66 completion is not claimed.
+
+The checked supplier Taylor boundary is committed in `6dbd74418`, including borrowed typed
+control, overflow/overlap facts and closed known-head local-partial composition. The application
+non-Value construction route now consumes it. The focused default-profile math selection
+passed 8/8, zero failures against baseline zero, including independent mixed-axis Second
+factorials, typed admission refusal, overflow, nested/staged stop and producer retirement.
+The shared all-targets math compile check passed. These results do not close B02: exact
+builder/Horner/constant-folding construction still needs before-growth control, so its existing
+source guards and builder abort protection remain. Checked scalar/x4 export is in progress.
+
+The numerical prerequisite now separates a restored immutable template from fresh independently
+admitted workers. Selected Second layout/pair transfer has been added; its scoped transfer
+suite passed 19/19 with zero failures against baseline zero after correcting one new test's
+invalid repeated demand ordinal. Closed stable-head transfer is being integrated next.
+These are math-owned prerequisites only. B05 remains open for its durable interpretation,
+compiler-sealed request/custody, actual publication/acquisition and observation caller cutover;
+no source-independent production receiving claim follows from the transfer tests alone.

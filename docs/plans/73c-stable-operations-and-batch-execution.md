@@ -54,11 +54,11 @@ Use scalar realization explicitly for small/unsupported work, selected before ef
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | [C01](#C01) | in-progress | Joint A01/B01 design slices | Stable primitive/signature/domain/derivative formulas, registration, scalar/x4 profiles and receiving identities settled; builtin alternative closed before representation freezes. |
-| [C02](#C02) | open | C01/A01 contracts; B02 checked known-head derivative slice | Scalar interpreted stable Value/First/Second and an actual authored scientific consumer implemented with original guards/source reporting. |
+| [C02](#C02) | in-progress | C01/A01 contracts; B02 checked known-head derivative slice | Scalar interpreted stable Value/First/Second and an actual authored scientific consumer implemented with original guards/source reporting. |
 | [C03](#C03) | open | C02; working B03 scalar export and B05 numerical receiving | Compiled scalar stable products and portable receiving delivered; replaced consumer numerical tricks removed. |
-| [C04](#C04) | open | A02 working demanded-product slice; C01 layout/profile contract | Ordered batch request/outcomes and private reusable worker scratch delivered, initially explicit scalar realization. |
+| [C04](#C04) | in-progress | A02 working demanded-product slice; C01 layout/profile contract | Ordered batch request/outcomes and private reusable worker scratch delivered, initially explicit scalar realization. |
 | [C05](#C05) | open | C03/C04; working B02/B03 checked x4 operations | x4 C++ batches use supplier packing/scattering, stable realizations and scalar tails. |
-| [C06](#C06) | open | C02–C05 capabilities; actual repeated property/residual/fitting/study callers | Consumers migrated, compatible preparation reused and duplicate per-point/output preparation or packing removed. |
+| [C06](#C06) | in-progress | C02–C05 capabilities; actual repeated property/residual/fitting/study callers | Consumers migrated, compatible preparation reused and duplicate per-point/output preparation or packing removed. |
 | [C07](#C07) | open | C04/C05 named workload; H01 dependency/build observations | Packed interpreter/JIT/device/fixed-shape decisions closed, selected implementations integrated or reasoned no-adoption outcomes recorded. |
 
 <a id="C01"></a>
