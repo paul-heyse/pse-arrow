@@ -61,6 +61,13 @@ Semantic owners emit readiness projections. Native and WASI callers share genera
 adapters through the existing module library. Aggregate admission precedes nested owned
 decoding. Exact native U64 encoding and checked wire widening preserve numerical meaning.
 
+The maintainer clarified that existing scientific results need not survive the design-phase
+cutover. Select fresh reconstruction of explicitly disposable/reproducible state into the
+clean v12 target, with fresh issuer and credentials. Authored source inputs remain outside
+reset authority. Do not build a v11 compatibility reader or retained-results backfill estate
+for this cutover. Native migration mechanisms remain available for separately admitted useful
+transitions; they do not delay current fresh-state adoption.
+
 Transition intent binds issuer, predecessor, frozen effective inputs, original/target
 module artifacts, effects and preservation policy. The actual lifecycle owner closes and
 drains ordinary participants/server before isolated maintenance. Exclusion lasts through

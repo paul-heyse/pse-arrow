@@ -64,14 +64,15 @@ independently, without introducing cross-database atomicity.
 ### Execution checkpoint — 2026-11-09
 
 Execution is authorized under proposed ADR-0262. The shared target is one combined
-72b/72c schema/module cutover. B01 extends exact frozen effects and passive original
-intent; B02 consumes the actual stopped service through isolated maintenance, with
-separate data/index validation and B03 activation/readmission. Supplier execution uses
-the prepared CLI with bounded private output and retained process ownership. No current
-configured target has been selected for migration/reset. A scalar ordinal conversion
-does not establish a complete historical-schema transition. Plan71 is complete and its
-fixture/result custody is consumed. B01–B03 remain open until their real data-effect,
-physical handoff and recovery controls pass.
+72b/72c schema/module cutover. The maintainer clarified during execution that existing
+scientific results need not survive: select fresh reconstruction into v12 rather than
+a retained-v11 backfill estate. The original stopped state remains owned until the
+validated fresh target and actual authored-input obligations are accepted; disposal
+is explicit. No arbitrary configured target has been selected for reset. Authored
+source files/workspaces remain outside replacement authority. B01 exact frozen effect
+preview remains observational; unselected native conversions grant no execution capability.
+Plan71 is complete and its fixture/result custody is consumed. B01–B03 remain open until
+the selected reconstruction, physical handoff and original-operation recovery controls pass.
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |

@@ -873,6 +873,13 @@ exclusion; supplier history is distinct from independent data conformance, ready
 and native activation. Ordinary readmission follows complete physical handoff. No implicit
 upgrade or arbitrary configured-store reset follows from this target.
 
+The Plan72b/72c clean target is `pse.substrate.v12`. The maintainer selected fresh
+reconstruction of explicitly disposable/reproducible design-phase state and does not
+require preservation of existing scientific results. Authored source inputs remain
+outside reset authority. No v11 compatibility reader or retained-results backfill estate
+is introduced for this cutover. Ordinary opening still refuses unsupported stores;
+reconstruction is explicit and physically owned, with fresh issuer and credentials.
+
 > Decision: [ADR-0261](../../adr/0261-native-operation-contracts.md) (proposed),
 > maintainer-authorized Plan72a target.
 
