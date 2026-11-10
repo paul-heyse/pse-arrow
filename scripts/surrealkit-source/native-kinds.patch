@@ -1,0 +1,139 @@
+--- a/crates/surrealkit/src/typegen/document.rs
++++ b/crates/surrealkit/src/typegen/document.rs
+@@ -147,6 +147,10 @@
+ 	Null,
+ 	Bool,
+ 	Int,
++	/// Exact v4 unsigned integer domain.
++	U64,
++	/// Generated native reference; body requires native witness.
++	Named { name: String },
+ 	Float,
+ 	Decimal,
+ 	Number,
+--- a/crates/surrealkit/src/typegen/kind_v2.rs
++++ b/crates/surrealkit/src/typegen/kind_v2.rs
+@@ -30,7 +30,8 @@
+ /// Parse `text` as a kind in a top-level position (field, literal-object field, function
+ /// argument): a `none` variant becomes `optional`.
+ pub(super) fn parse_top(text: &str) -> ParsedKind {
+-	let (parsed, problems) = parse_type_checked(text);
++	let (parsed, mut problems) = parse_type_checked(text);
++	problems.retain(|problem| native_kind(&text[problem.span.clone()]).is_none());
+ 	let (kind, optional) = top(&parsed);
+ 	ParsedKind {
+ 		kind,
+@@ -185,11 +186,7 @@
+ 				fields,
+ 			}
+ 		}
+-		FieldType::Unknown {
+-			source,
+-		} => Kind::Unknown {
+-			source: source.clone(),
+-		},
++		FieldType::Unknown { source } => native_kind(source).unwrap_or_else(|| Kind::Unknown { source: source.clone() }),
+ 		// Handled by `collect`; lowering them on their own still has to mean something.
+ 		FieldType::Union {
+ 			..
+@@ -198,6 +195,16 @@
+ 			..
+ 		} => nested(ty),
+ 	}
++}
++
++// Admit only the application's generated naming domain.
++fn native_kind(source: &str) -> Option<Kind> {
++    if source == "u64" { return Some(Kind::U64); }
++    if source.starts_with("pse_") && source.len() > 4
++        && source.bytes().all(|byte| byte.is_ascii_alphanumeric() || byte == b'_') {
++        return Some(Kind::Named { name: source.to_owned() });
++    }
++    None
+ }
+ 
+ fn primitive(name: PrimitiveType) -> Kind {
+@@ -374,3 +381,21 @@
+ 		);
+ 	}
+ }
++
++#[cfg(test)]
++mod native_projection_tests {
++    use super::*;
++    #[test]
++    fn native_unsigned_and_generated_names_retain_exact_kind() {
++        let unsigned = parse_top("option<u64>");
++        assert_eq!(unsigned.kind, Kind::U64);
++        assert!(unsigned.optional && unsigned.problems.is_empty());
++        let named = parse_top("array<pse_state>");
++        assert_eq!(named.kind, Kind::Array {
++            item: Box::new(Kind::Named { name: "pse_state".into() }), length: None,
++        });
++        assert!(named.problems.is_empty());
++        assert!(!parse_top("array<frob>").problems.is_empty());
++        assert!(!parse_top("pse_state<int>").problems.is_empty());
++    }
++}
+--- a/crates/surrealkit/schema/schema-document-v2.schema.json
++++ b/crates/surrealkit/schema/schema-document-v2.schema.json
+@@ -178,6 +178,7 @@
+ 				{ "$ref": "#/$defs/kindLiteral" },
+ 				{ "$ref": "#/$defs/kindOption" },
+ 				{ "$ref": "#/$defs/kindUnion" },
++				{ "$ref": "#/$defs/kindNamed" },
+ 				{ "$ref": "#/$defs/kindUnknown" }
+ 			]
+ 		},
+@@ -193,6 +194,7 @@
+ 						"null",
+ 						"bool",
+ 						"int",
++						"u64",
+ 						"float",
+ 						"decimal",
+ 						"number",
+@@ -346,6 +348,11 @@
+ 				"variants": { "type": "array", "minItems": 2, "items": { "$ref": "#/$defs/kind" } }
+ 			}
+ 		},
++		"kindNamed": {
++            "type": "object", "additionalProperties": false,
++            "required": ["kind", "name"],
++            "properties": { "kind": { "const": "named" }, "name": { "type": "string", "pattern": "^pse_[A-Za-z0-9_]+$" } }
++        },
+ 		"kindUnknown": {
+ 			"description": "Kind text the parser could not structure. Always paired with an error diagnostic `kind-unrecognized`.",
+ 			"type": "object",
+--- a/crates/surrealkit/src/typegen/structure.rs
++++ b/crates/surrealkit/src/typegen/structure.rs
+@@ -85,6 +85,8 @@
+ 	("db", "types"),
+ 	("bucket", "presign_nonce"),
+ 	("tableInfo", "migrations"),
++	("table", "inline_edges_cap"),
++	("table", "inline_refs_cap"),
+ ];
+ 
+ /// What one introspection read: `INFO FOR DB STRUCTURE`, and per table `INFO FOR TABLE
+@@ -533,6 +535,20 @@
+ 	)?;
+ 	let name = r.string(map, "name", "table", None).unwrap_or_default();
+ 	let t = Some(name.as_str());
++    if r.adapter.is_40() {
++        for key in ["inline_edges_cap", "inline_refs_cap"] {
++            if let Some(value) = map.get(key).filter(|value| !value.is_null()) {
++                if !value.as_u64().is_some_and(|value| value <= u32::MAX as u64) {
++                    r.shape(&format!("table.{key}"), value, "a u32 inline cap", t);
++                } else {
++                    r.diagnostics.push(Diagnostic::new(Severity::Warning,
++                        codes::DEFINITION_UNSUPPORTED, format!("table {name} {key}={value}"),
++                        format!("{key} is not carried by schema document v2; compare the native table definition"))
++                        .on_table(&name));
++                }
++            }
++        }
++    }
+ 
+ 	let kind = map.get("kind").and_then(|k| {
+ 		r.object(k, "table.kind", &["kind", "in", "out", "enforced"], &["lightweight"], t)

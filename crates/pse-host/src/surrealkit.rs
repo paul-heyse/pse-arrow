@@ -2,6 +2,8 @@
 // Copyright (c) 2026 Paul Heyse
 //! Explicit source preparation for the standalone gRPC schema test tool.
 
+pub mod schema;
+
 use crate::{
     HostError,
     diagnostic_tools::{digest, no_symlinks},
@@ -20,9 +22,13 @@ use std::{
 
 const PIN: &str = ".config/surrealkit.toml";
 const LOCK_PATCH: &str = "scripts/surrealkit-source/grpc-lock.patch";
+const NATIVE_KINDS_PATCH: &str = "scripts/surrealkit-source/native-kinds.patch";
+const EMBEDDED_DEPENDENCY_PATCH: &str = "scripts/surrealdb-source/surrealdb-diskann-0.61.0.patch";
+const EMBEDDED_COMPILER_PATCH: &str = "scripts/surrealdb-source/surrealdb-v4-pinned-compiler.patch";
 const BINARY: &str = "surrealkit";
 const RECEIPT: &str = "release.json";
 const MAX_RECEIPT: u64 = 16 << 10;
+const BUILD_FEATURES: &str = "cli,kv-mem";
 
 /// Refusal from the selected SurrealKit preparation owner.
 #[derive(Debug, thiserror::Error)]
@@ -216,7 +222,15 @@ impl Selection {
             return Err(invalid("SurrealKit requires the pinned remote gRPC SDK"));
         }
         let mut identity = Sha256::new();
-        for input in [PIN, LOCK_PATCH, "rust-toolchain.toml", ".cargo/config.toml"] {
+        for input in [
+            PIN,
+            LOCK_PATCH,
+            NATIVE_KINDS_PATCH,
+            EMBEDDED_DEPENDENCY_PATCH,
+            EMBEDDED_COMPILER_PATCH,
+            "rust-toolchain.toml",
+            ".cargo/config.toml",
+        ] {
             identity.update(input.as_bytes());
             identity.update(digest(&root.join(input))?.as_bytes());
         }
@@ -226,7 +240,8 @@ impl Selection {
             identity.update(feature.as_bytes());
             identity.update([0]);
         }
-        identity.update(b"surrealkit-grpc-locked-v2");
+        identity.update(b"surrealkit-grpc-embedded-locked-v3");
+        identity.update(BUILD_FEATURES.as_bytes());
         let inputs = identity
             .finalize()
             .iter()
@@ -375,6 +390,116 @@ fn run(command: &mut Command, stage: &'static str) -> Result<(), HostError> {
     Ok(())
 }
 
+fn prepare_embedded_dependency(root: &Path, source: &Path) -> Result<(), HostError> {
+    // Reuse the selected server's pinned-nightly fixes. Source archives are verified
+    // against the original pinned tool lock; shared registry sources stay untouched.
+    let lock_path = source.join("Cargo.lock");
+    let mut lock = fs::read_to_string(&lock_path)?;
+    let parsed: toml::Value =
+        toml::from_str(&lock).map_err(|_| invalid("invalid standalone dependency lock"))?;
+    let packages = parsed
+        .get("package")
+        .and_then(toml::Value::as_array)
+        .ok_or_else(|| invalid("standalone dependency lock has no packages"))?;
+    let manifest = source.join("Cargo.toml");
+    let mut bytes = fs::read_to_string(&manifest)?;
+    if bytes.contains("[patch.crates-io]") {
+        return Err(invalid(
+            "standalone source already selects a dependency patch owner",
+        ));
+    }
+    bytes.push_str("\n[patch.crates-io]\n");
+    for (name, version, directory, patch, strip) in [
+        (
+            "surrealdb-diskann",
+            "0.61.0",
+            "diskann",
+            EMBEDDED_DEPENDENCY_PATCH,
+            "-p1",
+        ),
+        (
+            "surrealdb-core",
+            "4.0.0",
+            "core",
+            EMBEDDED_COMPILER_PATCH,
+            "-p3",
+        ),
+    ] {
+        let matching = packages
+            .iter()
+            .filter(|package| package.get("name").and_then(toml::Value::as_str) == Some(name))
+            .collect::<Vec<_>>();
+        if matching.len() != 1
+            || matching[0].get("version").and_then(toml::Value::as_str) != Some(version)
+        {
+            return Err(invalid(
+                "embedded patch requires its exact selected dependency source",
+            ));
+        }
+        let checksum = matching[0]
+            .get("checksum")
+            .and_then(toml::Value::as_str)
+            .filter(|value| hexadecimal(value, 64))
+            .ok_or_else(|| invalid("embedded dependency archive checksum absent"))?;
+        let archive = source.join(format!("{directory}.crate"));
+        run(
+            Command::new("curl")
+                .args(["--fail", "--location", "--proto", "=https", "--output"])
+                .arg(&archive)
+                .arg(format!(
+                    "https://static.crates.io/crates/{name}/{name}-{version}.crate"
+                )),
+            "embedded dependency acquisition",
+        )?;
+        if digest(&archive)? != checksum {
+            return Err(invalid(
+                "embedded dependency archive checksum differs from pinned lock",
+            ));
+        }
+        let dependency = source.join(".pse-deps").join(directory);
+        fs::create_dir_all(&dependency)?;
+        run(
+            Command::new("tar")
+                .args(["-xzf"])
+                .arg(&archive)
+                .args([
+                    "--no-same-owner",
+                    "--no-same-permissions",
+                    "--strip-components=1",
+                    "-C",
+                ])
+                .arg(&dependency),
+            "embedded dependency extraction",
+        )?;
+        run(
+            Command::new("git")
+                .arg("-C")
+                .arg(source)
+                .args(["apply", strip])
+                .arg(format!("--directory=.pse-deps/{directory}"))
+                .arg(root.join(patch)),
+            "embedded dependency integration",
+        )?;
+        let marker = format!(
+            "name = \"{name}\"\nversion = \"{version}\"\nsource = \"registry+https://github.com/rust-lang/crates.io-index\"\nchecksum = \"{checksum}\"\n"
+        );
+        if lock.matches(&marker).count() != 1 {
+            return Err(invalid("embedded dependency lock entry changed"));
+        }
+        lock = lock.replacen(
+            &marker,
+            &format!("name = \"{name}\"\nversion = \"{version}\"\n"),
+            1,
+        );
+        bytes.push_str(&format!(
+            "{name} = {{ path = \".pse-deps/{directory}\" }}\n"
+        ));
+    }
+    fs::write(&lock_path, lock)?;
+    fs::write(manifest, bytes)?;
+    Ok(())
+}
+
 /// Build and atomically publish the exact locked gRPC tool in a private generation.
 /// # Errors
 /// The source, build inputs, locked compilation or immutable release cannot be verified.
@@ -449,7 +574,12 @@ pub fn install(root: &Path, environment: &Environment) -> Result<PathBuf, HostEr
         git().arg("apply").arg(root.join(LOCK_PATCH)),
         "locked SDK integration",
     )?;
+    run(
+        git().arg("apply").arg(root.join(NATIVE_KINDS_PATCH)),
+        "native contract projection integration",
+    )?;
     build_sources(&source, &selected.sdk)?;
+    prepare_embedded_dependency(root, &source)?;
     let lock_sha256 = digest(&lock)?;
     let mut cargo = Command::new("cargo");
     cargo.current_dir(root).env_clear().envs(environment);
@@ -469,7 +599,7 @@ pub fn install(root: &Path, environment: &Environment) -> Result<PathBuf, HostEr
                 "--release",
                 "--no-default-features",
                 "--features",
-                "cli",
+                BUILD_FEATURES,
                 "-p",
                 BINARY,
                 "--manifest-path",

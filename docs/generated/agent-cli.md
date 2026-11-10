@@ -5423,6 +5423,7 @@ Explicit captured development-tool preparation, discovery and managed native for
 Usage: pse tools [OPTIONS] <COMMAND>
 
 Commands:
+  schema-feedback        Compare strict compiler and installed schema documents without preparing or querying
   retire-host            Preview or release one completed checkout-local host tool generation
   retire-result          Preview or release one settled compact developer result
   export-result          Export a compact result or one committed workflow file to a fresh destination
@@ -5454,6 +5455,49 @@ Options:
 
       --fields <FIELDS>
           Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse tools schema-feedback`
+
+~~~~text
+Compare strict compiler and installed schema documents without preparing or querying
+
+Usage: pse tools schema-feedback [OPTIONS] --compiled <COMPILED> --installed <INSTALLED>
+
+Options:
+  -C <checkout>
+
+
+      --compiled <COMPILED>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --installed <INSTALLED>
+
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --limit <LIMIT>
+          [default: 100]
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts

@@ -21,6 +21,16 @@ use std::{
 
 #[derive(Debug, Subcommand)]
 pub(super) enum Action {
+    /// Compare strict compiler and installed schema documents without preparing or querying.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
+    SchemaFeedback {
+        #[arg(long)]
+        compiled: PathBuf,
+        #[arg(long)]
+        installed: PathBuf,
+        #[arg(long, default_value_t = 100, value_parser = clap::value_parser!(u16).range(1..=1000))]
+        limit: u16,
+    },
     /// Preview or release one completed checkout-local host tool generation.
     RetireHost {
         generation: String,
@@ -222,6 +232,34 @@ pub(super) fn dispatch(
     let root = checkout_root(selected)?;
     let environment = std::env::vars_os().collect();
     match action {
+        Action::SchemaFeedback {
+            compiled,
+            installed,
+            limit,
+        } => {
+            let resolve = |path: PathBuf| {
+                if path.is_absolute() {
+                    path
+                } else {
+                    root.join(path)
+                }
+            };
+            let compiled = crate::surrealkit::schema::read_document(&resolve(compiled))
+                .map_err(|error| HostError::SchemaFeedback(Box::new(error)))?;
+            let installed = crate::surrealkit::schema::read_document(&resolve(installed))
+                .map_err(|error| HostError::SchemaFeedback(Box::new(error)))?;
+            let report = compiled.compare(installed, usize::from(limit));
+            let matched = report.represented_match;
+            let mut response = Envelope::response(
+                "tools schema-feedback",
+                "represented schema correspondence with explicit native witness obligations",
+                report,
+            );
+            if !matched {
+                response.outcome = crate::envelope::CommandOutcome::Failure;
+            }
+            Ok(output.emit_observation(response)?)
+        }
         Action::RetireHost {
             generation,
             release,

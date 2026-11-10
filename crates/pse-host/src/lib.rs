@@ -121,6 +121,9 @@ pub enum HostError {
     /// Standalone SurrealKit release selection and recovery refusal.
     #[error(transparent)]
     SurrealKit(Box<surrealkit::PreparationError>),
+    /// Strict compiler/live schema feedback refusal.
+    #[error(transparent)]
+    SchemaFeedback(Box<surrealkit::schema::FeedbackError>),
     /// Scratch authored input, resolution or disposal failure.
     #[error(transparent)]
     Probe(Box<probe::ProbeError>),
@@ -223,6 +226,7 @@ pse_diagnostics::impl_diagnostic! {
         Self::ProductReader(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::PreparedNativeTool(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::RuntimeInfrastructure),
         Self::SurrealKit(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
+        Self::SchemaFeedback(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
         Self::Probe(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
         Self::Api(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error.as_ref()).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),
         Self::Schema(error) => pse_diagnostics::TypedDiagnostic::diagnostic_code(error).unwrap_or(pse_diagnostics::DiagnosticCode::HostOwnership),

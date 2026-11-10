@@ -578,13 +578,209 @@ fn verify_rollout_report(
     Ok(())
 }
 
-async fn exercise_suite(tool: &SuiteTool<'_>, root: &Path) -> Result<usize, NativeServiceError> {
+async fn exercise_schema_feedback(
+    tool: &SuiteTool<'_>,
+    root: &Path,
+    options: &CanonicalOptions,
+) -> Result<(), NativeServiceError> {
+    use pse_host::surrealkit::schema::{self, LiveSelection};
+    let deadline = (Instant::now() + Duration::from_secs(90)).min(tool.work_end);
+    let address = owned_address(tool.endpoint, &options.endpoint)?;
+    let client = Client::connect(address, MESSAGE_BYTES)
+        .await
+        .map_err(pse_operations::canonical::CanonicalError::from)?;
+    let installed = async {
+        request(
+            client
+                .signin(Root {
+                    username: options.username.clone(),
+                    password: options.password.clone(),
+                })
+                .request_context(RequestContext::control(deadline)),
+        )
+        .await?;
+        bounded_query(client.query(format!(
+            "USE NS {NAMESPACE}; DEFINE DATABASE schema_feedback; USE DB schema_feedback; {SCHEMA}"
+        )).request_context(RequestContext::control(deadline))).await
+    }
+    .await;
+    let drained = client.disconnect().await;
+    match (installed, drained) {
+        (Ok(_), Ok(())) => {}
+        (Err(work), Ok(())) => return Err(work.into()),
+        (Ok(_), Err(drain)) => {
+            return Err(pse_operations::canonical::CanonicalError::from(drain).into());
+        }
+        (Err(work), Err(drain)) => {
+            return Err(NativeServiceError::Settlement {
+                state: root.to_owned(),
+                failures: vec![
+                    work.into(),
+                    pse_operations::canonical::CanonicalError::from(drain).into(),
+                ],
+            });
+        }
+    }
+    let repository = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()?;
+    let release =
+        pse_host::surrealkit::verify_release(&repository, &std::env::vars_os().collect())?;
+    let directory = root.join("schema-feedback");
+    schema::stage(&directory, SCHEMA.as_bytes())
+        .map_err(|error| pse_host::HostError::SchemaFeedback(Box::new(error)))?;
+    let endpoint = tool.endpoint.to_owned();
+    let password = tool.inspection_password.to_owned();
+    let pending = tool.child_pending.clone();
+    let comparison = tokio::task::spawn_blocking(move || {
+        feedback_owner(&pending, || {
+            let compiled = schema::compile(
+                &release,
+                &directory,
+                &directory.join("compiled.json"),
+                deadline,
+            )?;
+            let installed = schema::inspect(
+                &release,
+                &directory,
+                &directory.join("installed.json"),
+                LiveSelection {
+                    endpoint: &endpoint,
+                    namespace: NAMESPACE,
+                    database: "schema_feedback",
+                    username: INSPECTOR,
+                    password: &password,
+                },
+                deadline,
+            )?;
+            Ok::<_, schema::FeedbackError>(compiled.compare(installed, 32))
+        })
+    })
+    .await
+    .map_err(|_| NativeServiceError::Refused("schema feedback owner task failed"))?
+    .map_err(|error| pse_host::HostError::SchemaFeedback(Box::new(error)))?;
+    fs::write(
+        root.join("schema-feedback-comparison.json"),
+        serde_json::to_vec(&comparison).map_err(|_| {
+            NativeServiceError::Refused("schema feedback comparison serialization failed")
+        })?,
+    )?;
+    if !comparison.represented_match || !comparison.native_witness_required {
+        return Err(NativeServiceError::Refused(
+            "compiled and installed represented contracts disagree",
+        ));
+    }
+    let client = Client::connect(address, MESSAGE_BYTES)
+        .await
+        .map_err(pse_operations::canonical::CanonicalError::from)?;
+    let altered = async {
+        request(
+            client
+                .signin(Root {
+                    username: options.username.clone(),
+                    password: options.password.clone(),
+                })
+                .request_context(RequestContext::control(deadline)),
+        )
+        .await?;
+        bounded_query(
+            client
+                .query(format!(
+                    "USE NS {NAMESPACE}; USE DB schema_feedback; \
+            DEFINE FIELD OVERWRITE generation ON canonical_guards TYPE int PERMISSIONS NONE;"
+                ))
+                .request_context(RequestContext::control(deadline)),
+        )
+        .await
+    }
+    .await;
+    let drained = client.disconnect().await;
+    match (altered, drained) {
+        (Ok(_), Ok(())) => {}
+        (Err(work), Ok(())) => return Err(work.into()),
+        (Ok(_), Err(drain)) => {
+            return Err(pse_operations::canonical::CanonicalError::from(drain).into());
+        }
+        (Err(work), Err(drain)) => {
+            return Err(NativeServiceError::Settlement {
+                state: root.to_owned(),
+                failures: vec![
+                    work.into(),
+                    pse_operations::canonical::CanonicalError::from(drain).into(),
+                ],
+            });
+        }
+    }
+    let release =
+        pse_host::surrealkit::verify_release(&repository, &std::env::vars_os().collect())?;
+    let directory = root.join("schema-feedback");
+    let endpoint = tool.endpoint.to_owned();
+    let password = tool.inspection_password.to_owned();
+    let compiled = comparison.compiled;
+    let pending = tool.child_pending.clone();
+    let drift = tokio::task::spawn_blocking(move || {
+        feedback_owner(&pending, || {
+            let installed = schema::inspect(
+                &release,
+                &directory,
+                &directory.join("installed-drift.json"),
+                LiveSelection {
+                    endpoint: &endpoint,
+                    namespace: NAMESPACE,
+                    database: "schema_feedback",
+                    username: INSPECTOR,
+                    password: &password,
+                },
+                deadline,
+            )?;
+            Ok::<_, schema::FeedbackError>(compiled.compare(installed, 32))
+        })
+    })
+    .await
+    .map_err(|_| NativeServiceError::Refused("schema drift owner task failed"))?
+    .map_err(|error| pse_host::HostError::SchemaFeedback(Box::new(error)))?;
+    if drift.represented_match
+        || !drift.differences.iter().any(|path| path.contains("/kind"))
+        || !drift
+            .differences
+            .iter()
+            .any(|path| path.contains("/permissions/"))
+    {
+        return Err(NativeServiceError::Refused(
+            "schema feedback missed changed kind or permission",
+        ));
+    }
+    Ok(())
+}
+
+fn feedback_owner<T>(
+    pending: &AtomicBool,
+    operation: impl FnOnce() -> Result<T, pse_host::surrealkit::schema::FeedbackError>,
+) -> Result<T, pse_host::surrealkit::schema::FeedbackError> {
+    use pse_host::surrealkit::schema::FeedbackError;
+    pending.store(true, Ordering::Release);
+    let outcome = operation();
+    if !matches!(
+        &outcome,
+        Err(FeedbackError::Settlement { .. } | FeedbackError::Supervision(_))
+    ) {
+        pending.store(false, Ordering::Release);
+    }
+    outcome
+}
+
+async fn exercise_suite(
+    tool: &SuiteTool<'_>,
+    root: &Path,
+    options: &CanonicalOptions,
+) -> Result<usize, NativeServiceError> {
     let passing = root.join("passing");
     stage_project(&passing, SCHEMA, Some(SEED))?;
     let (status, _) = tool
         .run(&passing, SuiteSelection::CurrentSchema, None)
         .await?;
     let passed = verify_report(&passing.join("result.json"), status, None)?;
+    exercise_schema_feedback(tool, root, options).await?;
 
     let assertion_failure = root.join("assertion-failure");
     stage_project(
@@ -751,7 +947,7 @@ async fn surrealkit_generated_contract_uses_owned_service_and_disposes() {
                     settlement_end,
                     child_pending: pending,
                 };
-                exercise_suite(&tool, &service.state().join("surrealkit")).await
+                exercise_suite(&tool, &service.state().join("surrealkit"), &options).await
             })
         })
         .await;

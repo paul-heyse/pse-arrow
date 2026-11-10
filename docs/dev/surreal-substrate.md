@@ -314,6 +314,27 @@ module/schema and physical ownership. Existing installations and unrelated servi
 
 ## Standalone beta tooling fixtures
 
+For strict compiler/live schema feedback, explicitly prepare the embedded-capable release with
+`pse diagnostic-tools install surrealkit`; verification never prepares it. Preparation binds
+the pinned source, native-kind and compiler compatibility patches, build features and executable
+bytes. Use isolated staging with v2, strict, engine `4.0` and Surrealism configuration, exact
+generated definitions and fresh explicit `--out` files. The host schema adapter supervises
+compile/introspection and admits diagnostics independently of the subprocess exit status.
+
+`pse tools schema-feedback --compiled FILE --installed FILE` passively admits two bounded
+supplier documents and emits represented correspondence, bounded difference pointers,
+diagnostics and engine provenance. It does not compile, query, install or grant activation.
+An engine mismatch or represented difference fails the comparison. Matching documents still
+require the native installed type/extension/issuer and codec interpretation witnesses; unsupported
+coverage remains visible. Passive input files carry no verified preparation association. Host
+compile/introspection results additionally bind the verified release input and executable digests.
+
+Existing closed vocabularies use named constrained strings, preserving spelling and string
+ordering. Generated create inputs borrow values; merge inputs distinguish unchanged, set and
+removal. These contracts serve canonical and private knowledge/evidence families. Current native
+unsigned storage uses exact U64 coercion with checked Int/Decimal Proto widening. Ordinary open
+remains validation-only; retained-state transition and activation have their maintenance owner.
+
 Pinned native schema tooling and Rust fixture sources retain their producer-specific interfaces.
 The SurrealKit generated-schema suite runs as an explicit selection in the native-service test
 target. Explicit installation builds the source revision selected by
