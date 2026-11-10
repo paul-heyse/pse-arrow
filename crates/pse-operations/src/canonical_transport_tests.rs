@@ -64,6 +64,11 @@ async fn canonical_schema_wrapping_preserves_the_original_body_result_slot() {
         .await
         .unwrap();
     assert_eq!(response.num_statements(), 1);
+    assert_eq!(
+        response.server_version(),
+        Some("4.0.0"),
+        "version belongs to the generation executing the framed native query"
+    );
     assert_eq!(response.take::<Option<bool>>(0).unwrap(), Some(true));
     let sql = peer.received.recv().await.unwrap();
     assert!(sql.starts_with("BEGIN ISOLATION LEVEL SERIALIZABLE;"));
@@ -1660,10 +1665,13 @@ async fn grpc_abandoned_close_joins_one_detach_round_under_its_original_clock() 
             .is_err()
     );
     assert_eq!(request.dispatch_state(), DispatchState::NotDispatched);
-    tokio::time::timeout(Duration::from_secs(1), db.disconnect())
-        .await
-        .unwrap()
-        .unwrap();
+    assert!(
+        tokio::time::timeout(Duration::from_secs(1), db.disconnect())
+            .await
+            .unwrap()
+            .is_err(),
+        "the original detach deadline failed even though physical drain settled"
+    );
     while let Ok(method) = peer.methods.try_recv() {
         assert_ne!(
             method, "DetachSession",
@@ -2159,4 +2167,103 @@ async fn grpc_incremental_frame_bound_refuses_before_the_consumer_sees_values() 
         .await
         .unwrap()
         .unwrap();
+}
+
+#[tokio::test]
+async fn grpc_projected_batches_remain_tentative_when_the_commit_slot_fails() {
+    struct Seen(Arc<std::sync::atomic::AtomicUsize>);
+    impl crate::transport::client::BatchConsumer for Seen {
+        fn consume<'a>(
+            &'a mut self,
+            batch: crate::transport::client::TentativeBatch<'a>,
+        ) -> crate::transport::client::BatchFuture<'a> {
+            Box::pin(async move {
+                self.0
+                    .fetch_add(batch.values.len(), std::sync::atomic::Ordering::AcqRel);
+                Ok(())
+            })
+        }
+    }
+    for marker in ["LATE_COMMIT", "LATE_TRAILER"] {
+        let peer = peer::start().await;
+        let db = connect(&peer).await;
+        let seen = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let query = db
+            .query(format!("RETURN '{marker}';"))
+            .request_context(context());
+        let query = if marker == "LATE_COMMIT" {
+            query.operation_return()
+        } else {
+            query
+        };
+        let completed = query.consume_batches(Seen(seen.clone())).await;
+        assert_eq!(
+            seen.load(std::sync::atomic::Ordering::Acquire),
+            1,
+            "body was delivered tentatively before the later failure"
+        );
+        assert!(
+            completed.is_err(),
+            "a delivered body cannot publish completion after {marker}"
+        );
+        db.disconnect().await.unwrap();
+        tokio::time::timeout(Duration::from_secs(2), peer.server)
+            .await
+            .unwrap()
+            .unwrap();
+    }
+}
+
+#[tokio::test]
+async fn grpc_subscription_continuity_and_cleanup_have_independent_outcomes() {
+    use crate::transport::client::{Root, SubscriptionNotice};
+    for marker in ["CONTINUITY_EOF", "CLEANUP_REFUSED", "NO_BEGIN"] {
+        let peer = peer::start_generations(2).await;
+        let db = connect(&peer).await;
+        // The scripted peer accepts generations sequentially; its second
+        // connection is the dedicated subscription generation under test.
+        db.disconnect().await.unwrap();
+        let opening = db
+            .subscribe_fixed_viewer(
+                Root {
+                    username: "viewer".into(),
+                    password: "test".into(),
+                }
+                .into(),
+                "namespace".into(),
+                "database".into(),
+                format!("LIVE SELECT VALUE id FROM {marker};"),
+                surrealdb_types::Object::new(),
+                context(),
+            )
+            .await;
+        if marker == "NO_BEGIN" {
+            assert!(
+                opening.unwrap_err().to_string().contains("Begin"),
+                "pre-attachment protocol failure remains the opening error"
+            );
+        } else {
+            let mut subscription = opening.unwrap();
+            tokio::time::timeout(Duration::from_secs(2), async {
+                while matches!(subscription.notice(), SubscriptionNotice::Active { .. }) {
+                    subscription.changed().await;
+                }
+            })
+            .await
+            .unwrap();
+            assert_eq!(subscription.notice(), SubscriptionNotice::Unavailable);
+            let closed = subscription.close().await;
+            if marker == "CONTINUITY_EOF" {
+                closed.unwrap();
+            } else {
+                let message = closed.unwrap_err().to_string();
+                assert!(message.contains("fixture Kill refusal"), "{message}");
+                assert!(message.contains("fixture Detach refusal"), "{message}");
+            }
+        }
+        tokio::time::timeout(Duration::from_secs(2), peer.server)
+            .await
+            .unwrap()
+            .unwrap();
+    }
 }

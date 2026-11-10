@@ -197,6 +197,47 @@ fn source_stage_acknowledgement_frames(value: proto::Value) -> Vec<u8> {
     }));
     bytes
 }
+fn late_commit_frames() -> Vec<u8> {
+    let mut bytes = frame(rpc::QueryResponse {
+        frame: Some(rpc::query_response::Frame::Begin(rpc::QueryBegin {
+            query_id: Some(proto::Uuid::from_uuid(uuid::Uuid::new_v4())),
+            statement_count: 3,
+        })),
+    });
+    for index in 0..3 {
+        bytes.extend(frame(rpc::QueryResponse {
+            frame: Some(rpc::query_response::Frame::Batch(rpc::QueryBatchFrame {
+                query_index: index,
+                kind: rpc::QueryResponseKind::Single as i32,
+                payload: if index == 2 {
+                    None
+                } else {
+                    Some(rpc::query_batch_frame::Payload::Values(rpc::ValueBatch {
+                        values: vec![proto::Value {
+                            value: Some(if index == 1 {
+                                proto::value::Value::String("tentative".into())
+                            } else {
+                                proto::value::Value::None(proto::NoneValue {})
+                            }),
+                        }],
+                    }))
+                },
+                error: (index == 2).then(|| {
+                    proto::SurrealError::new(proto::ErrorKind::Query, "late commit conflict")
+                        .with_details("TransactionConflict", None)
+                }),
+                ..Default::default()
+            })),
+        }));
+    }
+    bytes.extend(frame(rpc::QueryResponse {
+        frame: Some(rpc::query_response::Frame::End(rpc::QueryEnd {
+            result_count: 3,
+            ..Default::default()
+        })),
+    }));
+    bytes
+}
 fn multiple_error_frames() -> Vec<u8> {
     let mut bytes = frame(rpc::QueryResponse {
         frame: Some(rpc::query_response::Frame::Begin(rpc::QueryBegin {
@@ -307,6 +348,7 @@ async fn start_scripted(
             let barrier = barrier.clone();
             let read_conflicts = read_conflicts.clone();
             let receipt_reads = receipt_reads.clone();
+            let failed_subscription_cleanup = Arc::new(std::sync::atomic::AtomicBool::new(false));
             let service = hyper::service::service_fn(
                 move |request: http::Request<hyper::body::Incoming>| {
                     let methods_sent = methods_sent.clone();
@@ -316,6 +358,7 @@ async fn start_scripted(
                     let barrier = barrier.clone();
                     let read_conflicts = read_conflicts.clone();
                     let receipt_reads = receipt_reads.clone();
+                    let failed_subscription_cleanup = failed_subscription_cleanup.clone();
                     async move {
                         let method = request.uri().path().rsplit('/').next().unwrap().to_owned();
                         let _ = methods_sent.send(method.clone());
@@ -407,6 +450,18 @@ async fn start_scripted(
                                     unsupported_statement_frames(true)
                                 } else if query.contains("SPARSE_WITH_KILL") {
                                     sparse_kill_frames()
+                                } else if query.contains("LATE_TRAILER") {
+                                    status = "14";
+                                    query_frames(
+                                        proto::Value {
+                                            value: Some(proto::value::Value::String(
+                                                "tentative".into(),
+                                            )),
+                                        },
+                                        true,
+                                    )
+                                } else if query.contains("LATE_COMMIT") {
+                                    late_commit_frames()
                                 } else if query.contains("MULTIPLE_STATEMENT_ERRORS") {
                                     multiple_error_frames()
                                 } else if query.contains("READ_ALWAYS_CONFLICT")
@@ -643,11 +698,71 @@ async fn start_scripted(
                                 );
                                 Vec::new()
                             }
+                            "Subscribe" => {
+                                let request = rpc::SubscribeRequest::decode(payload).unwrap();
+                                let query = match request.subscribe_to {
+                                    Some(rpc::subscribe_request::SubscribeTo::Query(query)) => {
+                                        query.query
+                                    }
+                                    _ => String::new(),
+                                };
+                                let refused = query.contains("CLEANUP_REFUSED");
+                                failed_subscription_cleanup
+                                    .store(refused, std::sync::atomic::Ordering::Release);
+                                if query.contains("NO_BEGIN") {
+                                    Vec::new()
+                                } else {
+                                    frame(rpc::SubscribeResponse {
+                                        frame: Some(rpc::subscribe_response::Frame::Begin(
+                                            rpc::SubscribeBegin {
+                                                subscription_id: Some(proto::Uuid::from_uuid(
+                                                    uuid::Uuid::new_v4(),
+                                                )),
+                                                live_query_id: Some(proto::Uuid::from_uuid(
+                                                    uuid::Uuid::new_v4(),
+                                                )),
+                                                cursor: None,
+                                            },
+                                        )),
+                                    })
+                                }
+                            }
+                            "Kill" => {
+                                if failed_subscription_cleanup
+                                    .load(std::sync::atomic::Ordering::Acquire)
+                                {
+                                    status = "7";
+                                    native_error = Some(
+                                        proto::SurrealError::new(
+                                            proto::ErrorKind::Query,
+                                            "fixture Kill refusal",
+                                        )
+                                        .encode_to_vec(),
+                                    );
+                                    Vec::new()
+                                } else {
+                                    frame(rpc::KillResponse {})
+                                }
+                            }
                             "DetachSession" => {
                                 if hold_detach {
                                     release.acquire().await.unwrap().forget();
                                 }
-                                frame(rpc::DetachSessionResponse {})
+                                if failed_subscription_cleanup
+                                    .load(std::sync::atomic::Ordering::Acquire)
+                                {
+                                    status = "7";
+                                    native_error = Some(
+                                        proto::SurrealError::new(
+                                            proto::ErrorKind::Query,
+                                            "fixture Detach refusal",
+                                        )
+                                        .encode_to_vec(),
+                                    );
+                                    Vec::new()
+                                } else {
+                                    frame(rpc::DetachSessionResponse {})
+                                }
                             }
                             "SetVariable" | "UnsetVariable" | "Health" => {
                                 frame(rpc::HealthResponse {})

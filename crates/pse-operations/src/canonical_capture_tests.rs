@@ -445,3 +445,171 @@ async fn capture_controlled_lost_cleanup_ack_recovers_the_original_release() {
         .unwrap();
     assert!(pse_model::SemanticEq::semantic_eq(&before, &after));
 }
+
+#[tokio::test]
+async fn current_summary_and_fixed_viewer_follow_preserve_scientific_classification() {
+    use crate::canonical_study_workbench::{CurrentSnapshot, FollowSelection, FollowUpdate};
+    let (store, _, revision) = fixture().await;
+    let study = "native-summary-follow";
+    let points = (0..65)
+        .map(|n| occurrence(&revision, n, vec![]))
+        .collect::<Vec<_>>();
+    store
+        .create_study(
+            study,
+            &request(&revision, "native-summary-parent"),
+            &[],
+            &points,
+            &|| false,
+        )
+        .await
+        .unwrap();
+    let summary = store.study_summary(study).await.unwrap().unwrap();
+    assert_eq!(summary.header.point_count, 65);
+    assert_eq!(
+        summary.groups.iter().map(|group| group.count).sum::<u64>(),
+        65
+    );
+    assert!(
+        summary
+            .groups
+            .iter()
+            .all(|group| !group.usable && !group.settled)
+    );
+    assert!(
+        store
+            .study_summary("absent-summary")
+            .await
+            .unwrap()
+            .is_none()
+    );
+    #[derive(Default)]
+    struct Members(
+        Vec<
+            crate::canonical_study_workbench::CapturedStudyRow<
+                crate::canonical_study_workbench::StudyCohortMember,
+            >,
+        >,
+    );
+    impl crate::canonical_study_workbench::CaptureMemberConsumer for Members {
+        fn consume(
+            &mut self,
+            rows: Vec<
+                crate::canonical_study_workbench::CapturedStudyRow<
+                    crate::canonical_study_workbench::StudyCohortMember,
+                >,
+            >,
+        ) -> Result<(), CanonicalError> {
+            self.0.extend(rows);
+            Ok(())
+        }
+    }
+    let captured = store
+        .capture_study_workbench(
+            "native-streamed-capture",
+            &crate::canonical_study_workbench::StudyWorkbenchFilter {
+                study: Some(study.into()),
+                ..Default::default()
+            },
+            1,
+            65,
+        )
+        .await
+        .unwrap();
+    let streamed = captured
+        .capture
+        .stream_members(65, 1 << 20, Members::default())
+        .await
+        .unwrap();
+    assert_eq!(streamed.0.len(), 65);
+    assert_eq!(streamed.0[64].position, 64);
+    assert!(streamed.0.iter().all(|row| !row.value.settled));
+    drop(captured);
+    let mut follow = store
+        .follow_current(
+            FollowSelection::Study {
+                study: study.into(),
+            },
+            std::time::Instant::now() + Duration::from_secs(20),
+        )
+        .await
+        .unwrap();
+    let FollowUpdate::Snapshot {
+        snapshot: CurrentSnapshot::Study(initial),
+        next_revalidation_at,
+        ..
+    } = follow.next().await.unwrap()
+    else {
+        panic!("initial identified snapshot missing")
+    };
+    assert!(!initial.header.cancelled);
+    assert!(next_revalidation_at > initial.observed_as_of);
+    assert!(bounded_query(store.db.query("UPDATE ONLY type::record('canonical_studies',$study) SET cancelled=true; THROW 'rollback';").bind(("study",study.to_owned()))).await.is_err());
+    assert!(
+        tokio::time::timeout(Duration::from_millis(150), follow.next())
+            .await
+            .is_err(),
+        "rolled-back writes must not invalidate the selected root"
+    );
+    let boundary = std::time::Instant::now();
+    follow.cross_principal_boundary_after_next_read(
+        boundary + Duration::from_secs(1),
+        boundary + Duration::from_millis(1100),
+    );
+    // This fixture changes only the joined run header. No study/point row is
+    // touched, so its exact indirect dependency must supply the invalidation.
+    bounded_query(
+        store
+            .db
+            .query(
+                "UPDATE ONLY type::record('canonical_runs',$run) SET terminal_class='cancelled';",
+            )
+            .bind(("run", initial.header.run.clone())),
+    )
+    .await
+    .unwrap();
+    assert!(
+        matches!(follow.next().await.unwrap(), FollowUpdate::Unavailable),
+        "a fully received snapshot crossing its principal boundary must be discarded before publication"
+    );
+    tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            if let FollowUpdate::Snapshot {
+                snapshot: CurrentSnapshot::Study(current),
+                ..
+            } = follow.next().await.unwrap()
+            {
+                if current.header.outcome
+                    == Some(pse_model::generated::enums::CanonicalTerminalOutcome::Cancelled)
+                {
+                    assert!(!current.header.cancelled);
+                    break;
+                }
+            }
+        }
+    })
+    .await
+    .expect("exact linked run transition must invalidate study header");
+    store.cancel_study(study).await.unwrap();
+    let observed = tokio::time::timeout(Duration::from_secs(3), async {
+        loop {
+            if let FollowUpdate::Snapshot {
+                snapshot: CurrentSnapshot::Study(current),
+                ..
+            } = follow.next().await.unwrap()
+            {
+                if current.header.cancelled {
+                    break;
+                }
+            }
+        }
+    })
+    .await;
+    assert!(
+        observed.is_ok(),
+        "stable root invalidation should wake the follow"
+    );
+    follow.close().await.unwrap();
+    drop(follow);
+    store.remove_isolated_fixture().await.unwrap();
+}

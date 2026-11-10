@@ -9,6 +9,12 @@ use crate::{
 };
 use std::sync::Arc;
 use surrealdb_types::{Bytes, Object, Value};
+#[path = "canonical_study_observation.rs"]
+mod observation;
+pub use observation::{
+    CurrentFollow, CurrentSnapshot, FollowSelection, FollowUpdate, RunSummary, StudySummary,
+    StudySummaryGroup,
+};
 
 pse_contract::projection_struct! {
 /// Indexed predicates over actual original scientific and engineering owners.
@@ -302,6 +308,106 @@ impl StudyCapture {
         maximum: usize,
     ) -> Result<NativeStudyPage<StudyCohortMember>, CanonicalError> {
         self.page("members", after, maximum, member).await
+    }
+}
+
+/// A tentative bounded member batch. The consumer is returned only after complete native success.
+/// Consumers must stage externally visible output until `stream_members` returns successfully.
+pub trait CaptureMemberConsumer: Send + 'static {
+    /// Consume at most 64 original immutable members in capture order.
+    fn consume(
+        &mut self,
+        rows: Vec<CapturedStudyRow<StudyCohortMember>>,
+    ) -> Result<(), CanonicalError>;
+}
+struct MemberBatches<C> {
+    consumer: C,
+    expected: u64,
+    next: u64,
+}
+impl<C: CaptureMemberConsumer> crate::transport::client::BatchConsumer for MemberBatches<C> {
+    fn consume<'a>(
+        &'a mut self,
+        batch: crate::transport::client::TentativeBatch<'a>,
+    ) -> crate::transport::client::BatchFuture<'a> {
+        Box::pin(async move {
+            let decoded = (|| -> Result<_, CanonicalError> {
+                if batch.values.len() > 64 {
+                    return Err(CanonicalError::PayloadLimit);
+                }
+                let mut rows = Vec::with_capacity(batch.values.len());
+                for value in batch.values {
+                    if matches!(value, Value::None | Value::Null) {
+                        continue;
+                    }
+                    let Value::Object(mut row) = value.clone() else {
+                        return Err(CanonicalError::IncompleteResponse);
+                    };
+                    let position = codec::decode_uint(codec::required(&mut row, "ordinal")?)?;
+                    if position != self.next || position >= self.expected {
+                        return Err(CanonicalError::IncompleteResponse);
+                    }
+                    let Value::Object(body) = codec::required(&mut row, "body")? else {
+                        return Err(CanonicalError::IncompleteResponse);
+                    };
+                    rows.push(CapturedStudyRow {
+                        position,
+                        value: member(body)?,
+                    });
+                    self.next = self
+                        .next
+                        .checked_add(1)
+                        .ok_or(CanonicalError::PayloadLimit)?;
+                }
+                Ok(rows)
+            })()
+            .and_then(|rows| {
+                if rows.is_empty() {
+                    Ok(())
+                } else {
+                    self.consumer.consume(rows)
+                }
+            });
+            decoded.map_err(|error| surrealdb_types::Error::internal(error.to_string()))
+        })
+    }
+}
+impl StudyCapture {
+    /// Stream frozen original facts through one readonly snapshot and one owned query.
+    /// The original unforgeable capture and actual file owner are checked in that snapshot.
+    /// `maximum_bytes` bounds cumulative work; a separate 64-row frame grant bounds retained memory.
+    pub async fn stream_members<C: CaptureMemberConsumer>(
+        &self,
+        expected: u64,
+        maximum_bytes: usize,
+        consumer: C,
+    ) -> Result<C, CanonicalError> {
+        if expected > pse_schema::catalog::study_workbench::STUDY_COHORT_MAX_MEMBERS as u64
+            || maximum_bytes == 0
+        {
+            return Err(CanonicalError::PayloadLimit);
+        }
+        let (store, key, owner, request) = self.authority();
+        store.files.require_current()?;
+        let activity = store.admit_activity()?;
+        let capture = self.clone();
+        activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async move {
+            let rows=usize::try_from(expected).map_err(|_|CanonicalError::PayloadLimit)?;
+            let mut batch=crate::canonical::MetadataResponse::StudyPage.limits();
+            batch.container_items=64;
+            let mut total=batch;
+            total.wire_bytes=maximum_bytes;
+            total.nodes=512usize.checked_add(rows.checked_mul(256).ok_or(CanonicalError::PayloadLimit)?).ok_or(CanonicalError::PayloadLimit)?;
+            total.string_bytes=maximum_bytes;total.blob_bytes=maximum_bytes;
+            let query=store.db.metadata_read_query(crate::canonical::MetadataResponse::StudyPage,
+                "LET $capture=SELECT * FROM ONLY type::record('canonical_study_captures',$key); IF $capture=NONE OR $capture.owner!=$owner OR $capture.request!=$request OR $capture.state!='frozen' {THROW 'PSE_REFUSAL:study_capture_original_owner_closed';}; LET $process=SELECT * FROM ONLY type::record('canonical_file_owners',$owner); IF $process=NONE OR $process.drained OR $process.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store {THROW 'PSE_REFUSAL:study_capture_actual_owner_unavailable';}; SELECT ordinal,encoding::cbor::decode(body) AS body FROM canonical_study_capture_members WHERE capture=$key ORDER BY ordinal;")
+                .bind(("key",key.to_owned())).bind(("owner",owner.to_owned())).bind(("request",Bytes::from(request.to_vec())))
+                .response_limits(total).batch_response_limits(batch).retained_request(capture).into_owned();
+            let completed=query.consume_batches(MemberBatches{consumer,expected,next:0}).await?;
+            let consumer=completed.into_consumer();
+            if consumer.next!=expected {return Err(CanonicalError::IncompleteResponse);}
+            Ok(consumer.consumer)
+        })).await
     }
 }
 impl Drop for CaptureOwner {

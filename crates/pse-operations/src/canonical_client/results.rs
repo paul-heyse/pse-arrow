@@ -29,11 +29,20 @@ pub trait QueryStatisticsObserver: Send + Sync {
 #[derive(Debug, Default)]
 pub struct IndexedResults {
     values: BTreeMap<usize, (Stats, EngineResult<Value>)>,
+    server_version: Option<String>,
 }
 impl IndexedResults {
     /// Number of remaining statement slots, including failed slots.
     pub fn num_statements(&self) -> usize {
         self.values.len()
+    }
+    /// Capability version advertised by the exact native generation that executed this query.
+    pub fn server_version(&self) -> Option<&str> {
+        self.server_version.as_deref()
+    }
+    pub(super) fn with_server_version(mut self, version: Option<String>) -> Self {
+        self.server_version = version;
+        self
     }
     /// Statistics from this completely received result, using its published compact statement slots.
     pub fn statement_statistics(&self) -> impl Iterator<Item = (usize, Stats, bool)> + '_ {
@@ -74,7 +83,10 @@ impl IndexedResults {
                 (index >= prefix && index < end).then(|| (index - prefix, value))
             })
             .collect();
-        Ok(Self { values })
+        Ok(Self {
+            values,
+            server_version: checked.server_version,
+        })
     }
     /// Remove errors in original compacted statement order.
     pub fn take_errors(&mut self) -> BTreeMap<usize, Error> {
@@ -478,7 +490,13 @@ async fn collect_internal<C: super::batches::BatchConsumer>(
         }
         values.insert(index, statement.finish()?);
     }
-    Ok((IndexedResults { values }, rows))
+    Ok((
+        IndexedResults {
+            values,
+            server_version: None,
+        },
+        rows,
+    ))
 }
 
 #[cfg(test)]
@@ -487,6 +505,7 @@ mod tests {
     fn result(value: Value) -> IndexedResults {
         IndexedResults {
             values: BTreeMap::from([(0, (Stats::default(), Ok(value)))]),
+            server_version: None,
         }
     }
     fn envelope(body: EngineResult<Value>, commit: EngineResult<Value>) -> IndexedResults {
@@ -497,7 +516,43 @@ mod tests {
                 (2, (Stats::default(), body)),
                 (3, (Stats::default(), commit)),
             ]),
+            server_version: None,
         }
+    }
+    #[test]
+    fn native_explanation_statistics_are_captured_before_consuming_the_plan_slot() {
+        use crate::query_explanation::{NativeExplanationResponse, NativeExplanationResponseKind};
+        let plan = Value::String("original native plan".into());
+        let mut response = IndexedResults {
+            values: BTreeMap::from([(
+                0,
+                (
+                    Stats {
+                        execution_time: Some(Duration::from_nanos(123)),
+                    },
+                    Ok(plan.clone()),
+                ),
+            )]),
+            server_version: None,
+        };
+        let captured = NativeExplanationResponse::capture(
+            &response,
+            NativeExplanationResponseKind::Inspection,
+        )
+        .unwrap();
+        assert_eq!(response.take::<Value>(0).unwrap(), plan);
+        assert_eq!(response.num_statements(), 0);
+        assert_eq!(captured.statements.len(), 1);
+        assert_eq!(captured.statements[0].statement, 0);
+        assert!(captured.statements[0].succeeded);
+        assert_eq!(captured.statements[0].database_execution_ns, Some(123));
+        assert!(
+            NativeExplanationResponse::capture(
+                &response,
+                NativeExplanationResponseKind::Inspection
+            )
+            .is_err()
+        );
     }
     #[test]
     fn operation_return_checks_all_errors_and_normalizes_one_result() {

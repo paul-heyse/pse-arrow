@@ -124,6 +124,7 @@ struct Generation {
     driver: Arc<Driver>,
     session: uuid::Uuid,
     request_bytes: usize,
+    server_version: Option<String>,
     users: AtomicUsize,
     idle: Notify,
 }
@@ -155,6 +156,13 @@ impl Generation {
                 .into_inner()
                 .capabilities
                 .ok_or_else(|| connection("Server omitted capabilities"))?;
+            if capabilities.server_version.len() > 256 {
+                return Err(connection(
+                    "Server version exceeds capability identity bound",
+                ));
+            }
+            let server_version = (!capabilities.server_version.is_empty())
+                .then_some(capabilities.server_version.clone());
             let advertised = capabilities
                 .limits
                 .and_then(|limits| usize::try_from(limits.max_message_bytes).ok())
@@ -175,6 +183,7 @@ impl Generation {
                 driver: driver.clone(),
                 session,
                 request_bytes,
+                server_version,
                 users: AtomicUsize::new(0),
                 idle: Notify::new(),
             }))
@@ -339,6 +348,7 @@ struct State {
     setup: Arc<tokio::sync::Mutex<()>>,
     admission: Mutex<bool>,
     close_drained: AtomicBool,
+    close_result: Mutex<Option<EngineResult<()>>>,
     close_wake: Notify,
     active: AtomicUsize,
     idle: Notify,
@@ -509,6 +519,7 @@ impl Client {
                     setup: Arc::new(tokio::sync::Mutex::new(())),
                     admission: Mutex::new(false),
                     close_drained: AtomicBool::new(false),
+                    close_result: Mutex::new(None),
                     close_wake: Notify::new(),
                     active: AtomicUsize::new(0),
                     idle: Notify::new(),
@@ -687,6 +698,9 @@ impl Client {
     }
     /// Seal new requests and join one retained close round. Abandoning a waiter
     /// cannot restart its original detach clock or strand physical driver shutdown.
+    /// # Errors
+    /// Native detach failed or its original deadline expired; physical shutdown
+    /// is still joined before the retained result is returned to every waiter.
     pub async fn disconnect(&self) -> EngineResult<()> {
         self.disconnect_at(super::original_deadline(Duration::from_secs(5)).into_std())
             .await
@@ -709,14 +723,18 @@ impl Client {
             let state = self.state.clone();
             tokio::spawn(owned::observe("disconnect", async move {
                 let generation = state.generation.lock().await.clone();
-                if generation.driver.begin_close() && !generation.driver.closed() {
+                let detached = if generation.driver.begin_close() && !generation.driver.closed() {
                     // A failed or expired detach never prevents actual socket drain.
-                    let _ = tokio::time::timeout_at(
+                    tokio::time::timeout_at(
                         deadline.into(),
                         REQUEST.scope(RequestContext::control(deadline), generation.detach()),
                     )
-                    .await;
-                }
+                    .await
+                    .map_err(|_| connection("Canonical detach deadline expired"))
+                    .and_then(|result| result)
+                } else {
+                    Ok(())
+                };
                 generation.driver.shutdown().await;
                 loop {
                     let wake = state.idle.notified();
@@ -727,6 +745,10 @@ impl Client {
                     }
                     wake.await;
                 }
+                *state
+                    .close_result
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(detached);
                 state.close_drained.store(true, Ordering::Release);
                 state.close_wake.notify_waiters();
             }));
@@ -736,7 +758,15 @@ impl Client {
             tokio::pin!(wake);
             wake.as_mut().enable();
             if self.state.close_drained.load(Ordering::Acquire) {
-                return Ok(());
+                return self
+                    .state
+                    .close_result
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .clone()
+                    .unwrap_or_else(|| {
+                        Err(connection("Canonical close omitted its settlement outcome"))
+                    });
             }
             wake.await;
         }
@@ -1140,7 +1170,11 @@ impl<'a> IntoFuture for Query<'a> {
                         .await
                         .map_err(errors::status_to_error)?
                         .into_inner();
-                    results::collect(stream, statement_limit).await
+                    results::collect(stream, statement_limit)
+                        .await
+                        .map(|response| {
+                            response.with_server_version(generation.server_version.clone())
+                        })
                 })
                 .await;
             if let Some(observer) = observer {

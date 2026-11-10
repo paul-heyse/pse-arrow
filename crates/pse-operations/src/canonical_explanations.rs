@@ -14,6 +14,11 @@ use pse_model::study::{ActionKind, PointAction, Refusal, WaitReason};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use surrealdb_types::{Object, Value};
+#[path = "canonical_graph_paths.rs"]
+mod paths;
+pub use paths::{
+    CanonicalGraphPathsDocument, CanonicalGraphPathsRequest, GraphPath, GraphPathsRead,
+};
 
 /// The exact selected graph owner and revision, never a moving current pointer.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
@@ -272,116 +277,7 @@ impl CanonicalGraphRequest {
     }
 }
 
-/// Project native operator facts without turning missing positive-only counters into zeroes.
-fn graph_plan_observations(value: &Value) -> Vec<serde_json::Value> {
-    fn visit(value: &Value, depth: usize, output: &mut Vec<serde_json::Value>) {
-        if depth > 64 || output.len() >= 256 {
-            return;
-        }
-        match value {
-            Value::Array(items) => {
-                for item in items.iter() {
-                    visit(item, depth + 1, output);
-                }
-            }
-            Value::Object(object) => {
-                if let Some(Value::String(operator)) = object.get("operator") {
-                    let attributes = match object.get("attributes") {
-                        Some(Value::Object(attributes)) => Some(attributes),
-                        _ => None,
-                    };
-                    let metrics = match object.get("metrics") {
-                        Some(Value::Object(metrics)) => Some(metrics),
-                        _ => None,
-                    };
-                    let selected = attributes
-                        .map(|attrs| {
-                            [
-                                "direction",
-                                "index",
-                                "access",
-                                "offset",
-                                "tables",
-                                "output",
-                                "limit",
-                                "order_pushdown",
-                                "predicate",
-                                "predicate_scope",
-                            ]
-                            .into_iter()
-                            .filter_map(|key| {
-                                attrs
-                                    .get(key)
-                                    .map(|value| (key, value.clone().into_json_value()))
-                            })
-                            .collect::<BTreeMap<_, _>>()
-                        })
-                        .unwrap_or_default();
-                    let counters = metrics
-                        .map(|metrics| {
-                            [
-                                "output_rows",
-                                "output_batches",
-                                "elapsed_ns",
-                                "skipped_rows",
-                                "edges_scanned",
-                                "cache_hits",
-                                "cache_misses",
-                                "block_hits",
-                                "delta_hits",
-                                "records_fetched",
-                                "props_evals",
-                                "props_fallbacks",
-                            ]
-                            .into_iter()
-                            .filter_map(|key| {
-                                metrics
-                                    .get(key)
-                                    .map(|value| (key, value.clone().into_json_value()))
-                            })
-                            .collect::<BTreeMap<_, _>>()
-                        })
-                        .unwrap_or_default();
-                    let graph_counters_observed = [
-                        "edges_scanned",
-                        "cache_hits",
-                        "cache_misses",
-                        "block_hits",
-                        "delta_hits",
-                        "records_fetched",
-                        "props_evals",
-                        "props_fallbacks",
-                    ]
-                    .into_iter()
-                    .any(|key| counters.contains_key(key));
-                    if operator.contains("Graph")
-                        || matches!(
-                            operator.as_str(),
-                            "IndexScan" | "Filter" | "Sort" | "TopK" | "Limit"
-                        )
-                        || !selected.is_empty()
-                        || (operator == "Values" && graph_counters_observed)
-                    {
-                        output.push(serde_json::json!({"operator":operator,"attributes":selected,"observed_counters":counters,
-                            "folded_blocks_observed":counters.contains_key("block_hits"),"delta_entries_observed":counters.contains_key("delta_hits"),
-                            "predicate_interpretation":if operator=="Filter" {"downstream Filter; predicate not pushed into graph scan"} else {match attributes.and_then(|attrs|attrs.get("predicate_scope")) {
-                                Some(Value::String(scope)) if scope=="key"=>"key predicate before edge record fetch",
-                                Some(Value::String(scope)) if scope=="payload"=>"inline payload predicate with record fallback when payload is unusable",
-                                Some(Value::String(scope)) if scope=="record"=>"predicate requires edge record evaluation",
-                                _=>"no native predicate placement observation"}}}));
-                    }
-                }
-                for child in object.values() {
-                    visit(child, depth + 1, output);
-                }
-            }
-            _ => {}
-        }
-    }
-    let mut output = Vec::new();
-    visit(value, 0, &mut output);
-    output
-}
+use crate::query_explanation::native_plan_observations as graph_plan_observations;
 
 impl CanonicalStore {
     async fn graph_anchor(
@@ -499,17 +395,24 @@ impl CanonicalStore {
             let before=self.graph_anchor(&request.anchor).await?.0;
             let mut plans=BTreeMap::new();
             let mut observations=BTreeMap::new();
+            let mut explanations=BTreeMap::new();
             let mut modes=vec![("static","EXPLAIN FORMAT JSON")];
             if experiment {modes.push(("analyze","EXPLAIN ANALYZE FORMAT JSON"));}
             for (name,prefix) in modes {
                 let sql=format!("{prefix} {}",request.sql());
                 let mut response=protected_query("canonical_explanations::plan",||Ok(self.db.metadata_query(MetadataResponse::DiagnosticPlan,sql.clone()).bind(request.bindings(after)))).await?;
+                let server_version=response.server_version().map(str::to_owned);
+                let captured=crate::query_explanation::NativeExplanationResponse::capture(&response,if name=="analyze" {crate::query_explanation::NativeExplanationResponseKind::ProfiledOperation}else{crate::query_explanation::NativeExplanationResponseKind::Inspection})?;
                 let plan=response.take::<Value>(0)?;
+                let mut explanation=crate::query_explanation::NativeQueryExplanation::new(
+                    crate::query_explanation::NativeExplanationIdentity {issuer:self.issuing_store()?.to_owned(),data_cut:serde_json::json!({"anchor":request.anchor,"continuation":request.continuation}),server_version,server_recipe:None,server_invocation:None},request.description()?,&plan,name=="analyze")?;
+                explanation.response=Some(captured);
+                explanations.insert(name,explanation);
                 observations.insert(name,graph_plan_observations(&plan));
                 plans.insert(name,plan);
             }
             if self.graph_anchor(&request.anchor).await?.0!=before {return Err(invalid("graph selection changed during explanation"));}
-            Ok(serde_json::json!({"query":request.description()?,"namespace":self.namespace(),"database":self.database(),"experimental_execution":experiment,"raw_plans":plans,"operator_observations":observations,"operator_projection_limits":{"operators":256,"nesting":64},
+            Ok(serde_json::json!({"query":request.description()?,"namespace":self.namespace(),"database":self.database(),"experimental_execution":experiment,"raw_plans":plans,"explanations":explanations,"operator_observations":observations,"operator_projection_limits":{"operators":256,"nesting":64},
                 "scope":"outer operator evidence only; missing cache counters do not establish an instrumentation gap or a miss; no scientific or result-completeness inference"}))
         })).await
     }
@@ -1711,6 +1614,217 @@ mod server_tests {
                 .collect();
             qualify_graph_seek_pages(&store, &request, expected).await;
         }
+        let mut path_analysis = store
+            .new_analysis(
+                &revision,
+                "graph-path-cycles",
+                vec![],
+                "path-cycles".into(),
+                3,
+                3,
+            )
+            .await
+            .unwrap();
+        let path_nodes = (0..3)
+            .map(|index| AnalysisNode {
+                key: format!("path-node-{index}"),
+                analysis: path_analysis.key.clone(),
+                semantic: format!("path-semantic-{index}"),
+                kind: "variable".into(),
+            })
+            .collect::<Vec<_>>();
+        let path_edges = [(0, 1), (0, 1), (1, 0)]
+            .into_iter()
+            .enumerate()
+            .map(|(index, (from, to))| AnalysisEdge {
+                key: format!("path-edge-{index}"),
+                analysis: path_analysis.key.clone(),
+                source: path_nodes[from].key.clone(),
+                target: path_nodes[to].key.clone(),
+                kind: "incidence".into(),
+                evidence_artifact: Some(artifact.key.clone()),
+                evidence_block: Some(0),
+                evidence_row: Some(0),
+                evidence_field: Some("field".into()),
+            })
+            .collect::<Vec<_>>();
+        seal_analysis_request(
+            &mut path_analysis,
+            std::slice::from_ref(&revision),
+            std::slice::from_ref(&read),
+            &path_nodes,
+            &path_edges,
+        );
+        store
+            .persist_analysis(
+                &path_analysis,
+                std::slice::from_ref(&revision),
+                std::slice::from_ref(&read),
+                &path_nodes,
+                &path_edges,
+            )
+            .await
+            .unwrap();
+        let mut paths_request = CanonicalGraphPathsRequest {
+            version: pse_model::document::Version,
+            anchor: GraphAnchor::AnalysisNode {
+                analysis: path_analysis.key.clone(),
+                node: path_nodes[0].key.clone(),
+                revision: revision.key.clone(),
+            },
+            scope: GraphScope::RetainedConsumers,
+            depth: 8,
+            work: 64,
+            limit: 64,
+        };
+        let paths = store.graph_paths(&paths_request).await.unwrap();
+        let path_plan = store
+            .inspect_graph_paths(&paths_request, false)
+            .await
+            .unwrap();
+        assert_eq!(path_plan["explanation"]["analyzed"], false);
+        assert!(paths.complete);
+        assert_eq!(paths.paths.len(), 4);
+        assert_eq!(paths.paths.iter().filter(|path| path.cycle).count(), 2);
+        assert!(
+            paths
+                .paths
+                .iter()
+                .all(|path| path.edges.iter().all(|edge| edge.evidence.is_some()))
+        );
+        paths_request.limit = 1;
+        assert_eq!(
+            store
+                .graph_paths(&paths_request)
+                .await
+                .unwrap()
+                .incomplete_reason
+                .as_deref(),
+            Some("result_limit")
+        );
+        let mut frozen = store.begin_graph_paths(&paths_request).await.unwrap();
+        crate::canonical::bounded_query(
+            store
+                .db
+                .query("DELETE type::record('canonical_analysis_edges',$key) RETURN NONE;")
+                .bind(("key", path_edges[0].key.clone())),
+        )
+        .await
+        .unwrap();
+        let mut frozen_paths = Vec::new();
+        while let Some(page) = frozen.next_page().unwrap() {
+            assert_eq!(page.page_offset as usize, frozen_paths.len());
+            assert_eq!(
+                page.remaining_paths + page.page_offset + page.paths.len() as u32,
+                4
+            );
+            frozen_paths.extend(page.paths);
+        }
+        assert_eq!(
+            frozen_paths.len(),
+            4,
+            "continuation retains the original snapshot across later graph changes"
+        );
+        assert!(frozen_paths.iter().any(|path| {
+            path.edges
+                .iter()
+                .any(|edge| edge.identity.ends_with(&path_edges[0].key))
+        }));
+        paths_request.limit = 64;
+        paths_request.work = 1;
+        assert_eq!(
+            store
+                .graph_paths(&paths_request)
+                .await
+                .unwrap()
+                .incomplete_reason
+                .as_deref(),
+            Some("work_limit")
+        );
+        paths_request.work = 64;
+        if let GraphAnchor::AnalysisNode { node, .. } = &mut paths_request.anchor {
+            node.clone_from(&path_nodes[2].key);
+        }
+        let isolated = store.graph_paths(&paths_request).await.unwrap();
+        assert!(isolated.complete && isolated.paths.is_empty());
+        let mut hub_analysis = store
+            .new_analysis(
+                &revision,
+                "graph-path-budget",
+                vec![],
+                "path-budget".into(),
+                3,
+                130,
+            )
+            .await
+            .unwrap();
+        let hub_nodes = (0..3)
+            .map(|index| AnalysisNode {
+                key: format!("hub-node-{index}"),
+                analysis: hub_analysis.key.clone(),
+                semantic: format!("hub-semantic-{index}"),
+                kind: "variable".into(),
+            })
+            .collect::<Vec<_>>();
+        let hub_edges = (0..130)
+            .map(|index| {
+                let (from, to) = if index < 65 { (0, 1) } else { (1, 2) };
+                AnalysisEdge {
+                    key: format!("hub-edge-{index:03}"),
+                    analysis: hub_analysis.key.clone(),
+                    source: hub_nodes[from].key.clone(),
+                    target: hub_nodes[to].key.clone(),
+                    kind: "incidence".into(),
+                    evidence_artifact: Some(artifact.key.clone()),
+                    evidence_block: Some(0),
+                    evidence_row: Some(0),
+                    evidence_field: Some("field".into()),
+                }
+            })
+            .collect::<Vec<_>>();
+        seal_analysis_request(
+            &mut hub_analysis,
+            std::slice::from_ref(&revision),
+            std::slice::from_ref(&read),
+            &hub_nodes,
+            &hub_edges,
+        );
+        store
+            .persist_analysis(
+                &hub_analysis,
+                std::slice::from_ref(&revision),
+                std::slice::from_ref(&read),
+                &hub_nodes,
+                &hub_edges,
+            )
+            .await
+            .unwrap();
+        let mut hub_request = CanonicalGraphPathsRequest {
+            version: pse_model::document::Version,
+            anchor: GraphAnchor::AnalysisNode {
+                analysis: hub_analysis.key.clone(),
+                node: hub_nodes[0].key.clone(),
+                revision: revision.key.clone(),
+            },
+            scope: GraphScope::RetainedConsumers,
+            depth: 2,
+            work: 128,
+            limit: 64,
+        };
+        assert_eq!(
+            store
+                .graph_paths(&hub_request)
+                .await
+                .unwrap()
+                .incomplete_reason
+                .as_deref(),
+            Some("work_limit")
+        );
+        hub_request.work = 4096;
+        assert!(
+            store.begin_graph_paths(&hub_request).await.is_err(),
+            "high multiplicity cannot exceed the finite retained/wire snapshot budget"
+        );
         let mut input_consumers = vec![analysis.key.clone()];
         // Populate enough genuine immutable consumers to cross the maximum page size.
         for ordinal in 0..65 {

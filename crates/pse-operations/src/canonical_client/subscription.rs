@@ -79,7 +79,8 @@ impl Subscription {
     }
     /// Mark the current local dirty revision seen immediately before an authoritative read.
     pub fn acknowledge(&mut self) -> SubscriptionNotice {
-        self.state.borrow_and_update().clone()
+        let _ = self.state.borrow_and_update();
+        self.notice()
     }
     /// Read an identified snapshot on this exact fixed principal/session.
     /// SQL comes from the caller's checked query owner; the explicit readonly
@@ -141,6 +142,24 @@ impl Drop for Opening {
     }
 }
 
+fn append_cleanup_failure(
+    error: surrealdb_types::Error,
+    cleanup: surrealdb_types::Error,
+) -> surrealdb_types::Error {
+    match error.cause().cloned() {
+        Some(cause) => error.with_cause(append_cleanup_failure(cause, cleanup)),
+        None => error.with_cause(cleanup),
+    }
+}
+fn cleanup_outcome(killed: EngineResult<()>, disconnected: EngineResult<()>) -> EngineResult<()> {
+    match (killed, disconnected) {
+        (Ok(()), result) | (result, Ok(())) => result,
+        (Err(kill), Err(disconnect)) => Err(connection(format!(
+            "Subscription Kill failed: {kill}; detach/physical close failed: {disconnect}"
+        ))),
+    }
+}
+
 impl Client {
     /// Open a fixed Viewer generation; callers retain no mutable session handle.
     /// Register before reading the identified snapshot and continuously drain thereafter.
@@ -179,6 +198,8 @@ impl Client {
             blob_bytes: 0,
             blob_length: 0,
         };
+        let attached = Arc::new(AtomicBool::new(false));
+        let cleanup = Arc::new(std::sync::Mutex::new(None::<EngineResult<()>>));
         let task = context.clone().with_response_limits(limits);
         tokio::spawn(owned::observe("subscription", async move {
             let lifetime = task.lifetime_owner().map(|owner| owner.retain());
@@ -193,18 +214,23 @@ impl Client {
                     client.use_ns(&namespace).use_db(&database).request_context(RequestContext::control(task.deadline())).await?;
                     let operation_context=task.clone();
                     let snapshot_client=client.clone();
+                    let registered=attached.clone();
+                    let native_cleanup=cleanup.clone();
+                    let notifications=state_send.clone();
                     client.execute(task.clone(),move|generation| async move {
                         let variables:proto::Variables=variables.into_iter().map(|(key,value)|proto::Value::try_from(value).map(|value|(key,value)).map_err(connection)).collect::<EngineResult<Vec<_>>>()?.into_iter().collect();
                         let request=generation.checked(rpc::SubscribeRequest{context:Some(generation.context()?),resume_from:None,subscribe_to:Some(rpc::subscribe_request::SubscribeTo::Query(rpc::LiveQueryRegistration{query,variables:Some(variables)}))})?;
                         let mut stream=generation.client.clone().subscribe(request).await.map_err(errors::status_to_error)?.into_inner();
                         let begin=match stream.message().await.map_err(errors::status_to_error)?.and_then(|value|value.frame) {
                             Some(rpc::subscribe_response::Frame::Begin(begin))=>begin,
+                            Some(rpc::subscribe_response::Frame::Error(error))=>return Err(errors::proto_error(error)),
                             _=>return Err(connection("Subscription omitted its Begin frame")),
                         };
                         let live=begin.live_query_id.ok_or_else(||connection("Subscription omitted live query identity"))?;
                         let _subscription=begin.subscription_id.ok_or_else(||connection("Subscription omitted attached identity"))?.to_uuid().map_err(connection)?;
                         live.to_uuid().map_err(connection)?;
-                        state_send.send_replace(SubscriptionNotice::Active{revision:0});
+                        registered.store(true,Ordering::Release);
+                        notifications.send_replace(SubscriptionNotice::Active{revision:0});
                         if begin_send.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take().is_some_and(|send|send.send(Ok(snapshot_client)).is_err()) {owner_close.request();}
                         let mut revision=0u64;
                         let outcome=loop {
@@ -217,14 +243,14 @@ impl Client {
                                 Ok(Some(rpc::SubscribeResponse{frame:Some(rpc::subscribe_response::Frame::Notification(notification))}))=>{
                                     if notification.live_query_id.as_ref()!=Some(&live) {break Err(connection("Notification belongs to another registration"));}
                                     revision=revision.checked_add(1).ok_or_else(||connection("Subscription revision overflow"))?;
-                                    state_send.send_replace(SubscriptionNotice::Active{revision});
+                                    notifications.send_replace(SubscriptionNotice::Active{revision});
                                 },
                                 Ok(Some(rpc::SubscribeResponse{frame:Some(rpc::subscribe_response::Frame::Error(error))}))=>break Err(errors::proto_error(error)),
                                 Ok(_)=>break Err(connection("Subscription continuity ended")),
                                 Err(error)=>break Err(error),
                             }
                         };
-                        state_send.send_replace(if owner_close.requested.load(Ordering::Acquire){SubscriptionNotice::Closed}else{SubscriptionNotice::Unavailable});
+                        notifications.send_replace(if owner_close.requested.load(Ordering::Acquire){SubscriptionNotice::Closed}else{SubscriptionNotice::Unavailable});
                         // A new bounded control context retains the same original
                         // deadline; cancellation never renews observation authority.
                         let close_deadline=operation_context.deadline().min(Instant::now()+Duration::from_secs(5));
@@ -233,14 +259,23 @@ impl Client {
                             tokio::time::timeout_at(close_deadline.into(),generation.client.clone().kill(generation.checked(rpc::KillRequest{context:Some(generation.context()?),live_query_id:Some(live)})?)).await.map_err(|_|connection("Subscription kill deadline expired"))?.map_err(errors::status_to_error)?;
                             Ok(())
                         }).await;
+                        // Continuity loss is represented by the notice above. The
+                        // close acknowledgement reports only actual cleanup work.
+                        let _continuity=outcome;
+                        *native_cleanup.lock().unwrap_or_else(std::sync::PoisonError::into_inner)=Some(killed.clone());
                         drop(stream);
-                        outcome.and(killed)
+                        killed
                     }).await
                 }.await;
                 // Always join the dedicated physical generation, including setup,
                 // Begin, Kill and permission failures. No ordinary sibling is cut.
                 let disconnected=client.disconnect_at(task.deadline()).await;
-                result.and(disconnected)
+                if attached.load(Ordering::Acquire) {
+                    let was_active=matches!(*state_send.borrow(),SubscriptionNotice::Active{..});
+                    if result.is_err() && was_active {state_send.send_replace(SubscriptionNotice::Unavailable);}
+                    let killed=cleanup.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take().unwrap_or_else(||Err(connection("Subscription Kill did not settle before physical disconnect")));
+                    cleanup_outcome(killed,disconnected)
+                } else {match (result,disconnected) {(Err(original),Err(cleanup))=>Err(append_cleanup_failure(original,cleanup)),(Ok(()),outcome)|(outcome,Ok(()))=>outcome}}
             }.await;
             if let Some(send) = ready_send
                 .lock()

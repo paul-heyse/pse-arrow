@@ -30,6 +30,8 @@ pub enum MetadataResponse {
     OutputPage,
     /// A compact byte-bound study workbench or immutable cohort page, without descriptors.
     StudyPage,
+    /// Native counts over lifecycle and three boolean scientific/operational dimensions.
+    StudySummary,
     /// A byte-bound settled outcome page with typed attempt and diagnostic history.
     StudyOutcomePage,
     /// One capture locator page: at most 64 sources and, cumulatively, 64 blocks
@@ -37,11 +39,38 @@ pub enum MetadataResponse {
     CaptureLocators,
     /// Native diagnostic plans and structured schema/module metadata; no payload bytes.
     DiagnosticPlan,
+    /// Bounded paths with attributed edges repeated along each selected path.
+    GraphPaths,
 }
 impl MetadataResponse {
     /// Limits include 32 statement envelopes of at most eight fields, errors,
     /// and the root envelope. Keys are counted separately from their values.
     pub fn limits(self) -> crate::transport::client::ResponseLimits {
+        if matches!(self, Self::StudySummary) {
+            let groups = pse_model::generated::enums::StudyPointState::ALL.len() * 8;
+            return crate::transport::client::ResponseLimits {
+                wire_bytes: wire::RESULT_MESSAGE_BYTES,
+                nodes: 512 + groups * 6 * 8,
+                depth: 20,
+                container_items: groups.max(32),
+                string_bytes: wire::RESULT_MESSAGE_BYTES,
+                string_length: wire::METADATA_ID_BYTES,
+                blob_bytes: 0,
+                blob_length: 0,
+            };
+        }
+        if matches!(self, Self::GraphPaths) {
+            return crate::transport::client::ResponseLimits {
+                wire_bytes: wire::RESULT_MESSAGE_BYTES,
+                nodes: 512 + 2 * 65 * 8 * 128,
+                depth: 64,
+                container_items: 4096,
+                string_bytes: wire::RESULT_MESSAGE_BYTES,
+                string_length: wire::METADATA_ID_BYTES,
+                blob_bytes: 0,
+                blob_length: 0,
+            };
+        }
         if matches!(self, Self::Bootstrap) {
             let indexes = crate::generated::surreal::BOOTSTRAP_INDEX_DEFINITIONS.len();
             return crate::transport::client::ResponseLimits {
@@ -143,7 +172,9 @@ impl MetadataResponse {
             Self::JoinedBlockPage => 2 * crate::canonical_results::PAGE,
             Self::OutputPage => 3 * crate::canonical_results::PAGE,
             Self::DiagnosticPlan
+            | Self::GraphPaths
             | Self::StudyPage
+            | Self::StudySummary
             | Self::StudyOutcomePage
             | Self::CaptureLocators
             | Self::Bootstrap => 0,
@@ -155,8 +186,10 @@ impl MetadataResponse {
             Self::Protection
             | Self::Page
             | Self::DiagnosticPlan
+            | Self::GraphPaths
             | Self::InlinePayload
             | Self::StudyPage
+            | Self::StudySummary
             | Self::StudyOutcomePage
             | Self::CaptureLocators => 0,
             Self::Bootstrap => 0,
