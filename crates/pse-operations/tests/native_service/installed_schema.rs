@@ -123,6 +123,25 @@ async fn installed_schema_cli_observes_only_the_original_v4_issuer()
                 assert_eq!(observation["marker"]["issuing_store"], issuer);
                 assert_eq!(observation["marker"]["schema_digest"], SCHEMA_DIGEST);
                 let comparison = &observation["comparison"];
+                if let Some(name) = comparison["changed"]
+                    .as_array()
+                    .and_then(|items| items.iter().find(|item| item["kind"] == "type"))
+                    .and_then(|item| item["name"].as_str())
+                {
+                    let prefix = format!("DEFINE TYPE {name} ");
+                    let expected = pse_operations::generated::surreal::SCHEMA
+                        .lines()
+                        .find(|line| line.starts_with(&prefix));
+                    let observed = match catalog.get("types") {
+                        Some(SqlValue::Object(types)) => types.get(name),
+                        _ => None,
+                    };
+                    assert_eq!(
+                        comparison["changed"],
+                        serde_json::json!([]),
+                        "type {name} drift; expected {expected:?}; observed {observed:?}"
+                    );
+                }
                 assert!(
                     comparison["installed"]
                         .as_array()

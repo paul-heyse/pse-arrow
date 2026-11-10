@@ -1,6 +1,6 @@
 ---
 title: "Plan72a: Native contracts and schema interpretation"
-status: draft
+status: complete
 date: 2026-11-09
 adrs: [ADR-0261]
 doc_role: plan
@@ -73,9 +73,9 @@ is convenient. [Tagged conversion](https://github.com/surrealdb/surrealdb/blob/v
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
 | A01 | Implemented | Current declaration, codec and installed-interpretation owners | Shared contract/projection boundary and consumer footprint recorded below; proposed ADR-0261 and blueprint §4.1/§20.5 amendments precede dependent changes. |
-| A02 | Planned | A01 meaning and relevant decision route | Named vocabulary and operation-shaped generated conversions used by selected producers and all affected consumers; duplicate rendering/mapping removed. |
-| A03 | Planned | A01 value requirements; 72f transport owner participates | Full native unsigned/temporal representation choice settled and selected end-to-end path integrated, or exact current representation deliberately retained with the unsupported native condition recorded. |
-| A04 | Planned | A01; A02 definitions as each family becomes available | Strict engine-normalized schema feedback and live correspondence for represented contracts; unsupported coverage explicit; superseded normalization/publication removed. |
+| A02 | Implemented | A01 meaning and relevant decision route | Native vocabulary/shapes and producers integrated in d9e82627f; parser/generation/input/live merge and original-issuer catalog controls pass. Native stored-expression normalization preserves meaningful drift checks. |
+| A03 | Implemented | A01 value requirements; 72f transport owner participates | Native U64 and exact digit projections integrated in d9e82627f; source review, codec/metadata/sequence and full indexed/native boundary controls pass. |
+| A04 | Implemented | A01; A02 definitions as each family becomes available | Embedded tool prepared with bound source fixes; strict compact feedback and passive comparison implemented; six host controls, ready and owned full-schema compiler/live/drift/disposal receiving pass. |
 
 <a id="A01"></a>
 ### A01 — Declare the native contract and projection boundary
@@ -216,3 +216,100 @@ remaining receiving. Disposable native fixtures use fresh owned state. Ordinary 
 validation-only; configured retained-state transition belongs to 72b, with historical reader
 obligations received jointly with 72f before activation where applicable. No compatibility shim
 or reset is implied by a new interpretation.
+
+G03 can enrich unsupported-definition display names from the original supplier diagnostic's
+JSON `source.name`. Compact feedback retains category, reason and source hash; it deliberately
+does not republish raw definition bodies. Caller-owned supplier files retain the original
+context. This presentation work grants no new schema or activation authority.
+
+The generated API names are `Runtime<Table>Create<'a>`, `Runtime<Table>Merge` and
+`Runtime<Table>Replace`, with `create_<table>`, `merge_<table>` and `replace_<table>` native
+conversions. Create borrows row values; optional/defaulted omission is explicit. `NativeUpdate`
+exposes Keep/Set; optional mutable `NativeMerge` also exposes Remove. Named merge constraints
+preserve object membership and reject required-field removal. Read-row encoders remain useful
+for independent readback/equality observations. Research write procedures consume named create
+shapes; staging casts at its existing operation boundary. Existing research-role membership is
+an operation-owned text policy and remains with 72c's operation contract, rather than inventing
+a registry vocabulary from one guard.
+
+72b must receive a concrete lifecycle limit: native type definition/inspection support does not
+widen frozen rollout removal authority. `RemoveEntities` currently admits table/field/event/index
+only. Any selected type/function/module removal needs explicit typed effect handling and
+dependent-definition/data policy under B01–B03. 72a fresh fixtures establish no retained-store
+migration or implicit removal obligation.
+
+Unsigned text used in keys and receipts retains plain decimal digits. V4 U64 SQL text rendering
+includes a type suffix, so selected SQL key/string projections deliberately use an exact Decimal
+formatting cast. This is a presentation projection of native U64, not dual storage. Native
+boundary controls cover those spellings and indexed lookup across Proto widening.
+
+## Outcome
+
+**Implemented, 2026-11-09.** A01–A04's selected foundation is delivered. `ce3a6bbe7`
+records the contract and handoffs; `cb081fa74` derives input policy; `d9e82627f` integrates
+native vocabulary, operation inputs, exact unsigned values and canonical/private producers;
+`924b0c3b2` supplies embedded compilation and strict compact live feedback. The final catalog
+receiving correction normalizes Type ASSERT expressions through native stored-text rendering.
+ADR-0261 remains proposed; implementation is not formal ADR acceptance or series qualification.
+
+**Tested.** All final selected functional controls passed against the zero-failure baseline,
+on Linux with the pinned compiler, selected source-built v4 server and explicit Arrow validation
+through the native correctness routes. Selections below retain their actual boundaries:
+
+| Command / selected scope | Final evidence |
+| --- | --- |
+| `pse test pse-schema --lib -E 'test(canonical_input::tests)'` | 2 passed; initial/default/readonly and optional removal semantics. |
+| `pse test pse-codegen --lib -E 'test(native_vocabulary_tests)'` | 3 passed; selected-family and full-DDL parsing plus type-name collision refusal. |
+| `pse test pse-codegen:native_field_declarations pse-codegen:codegen_determinism` | 18 passed; independent declarations and deterministic generation. |
+| `pse test pse-operations --lib --features canonical-maintenance` with the named-type/input controls | 2 passed; native Type constraints/order and generated create/merge/replace semantics. |
+| Same maintenance route with `test(named_type_assertions_compare_stored_grouping_without_losing_meaning)` and `test(catalog_named_types_preserve_constraints_and_order)` | 2 passed; harmless grouping normalization and counterexamples for casts, operands, comparison, assertion order, mixed precedence and permissions. |
+| Same maintenance route selecting catalog assertions/permissions/numeric meaning, data-effect refusal/function semantics, event semantics, required installed events and rollout digest | 5 passed; existing catalog protections remain. |
+| `pse test xtask:xtask --target-kind bin --no-default-features -E 'test(knowledge_schema_is_tooling_only_with_declared_fulltext_and_native_graph)'` | 1 passed; private family isolation and native vocabulary survive policy lowering. |
+| `pse test pse-operations --lib --features native-service` selecting unsigned codec/Proto, metadata bound, ordered sequence and storage/query/wire boundaries | All 5 controls passed; the failed boundary control's corrected focused rerun passed. Full domain, indexed lookup, formatting, merge membership and overflow rollback are exercised. |
+| `pse test pse-host --lib -E 'test(native_schema_feedback_) \| test(preparation_refusals_preserve_selection_and_recover_only_with_matching_bytes)'` | 6 passed; version/digest/error/coverage/provenance, source redaction, file admission, failed child and timeout/drain controls. |
+| `pse test pse-operations:native_service --features native-service,canonical-maintenance --ignored only -E 'test(=surrealkit::surrealkit_generated_contract_uses_owned_service_and_disposes)'` | 1 passed; untouched full generated schema compiles, represented live semantics match, kind/permission drift is detected, and the original fixture is disposed. |
+| Explicit fresh `pse observe prepare --installed-schema`, then the same native-service route selecting `installed_schema_cli_observes_only_the_original_v4_issuer` with its exact reader ID | 1 passed; no false merge-type drift, foreign issuer refused, state unchanged and no implicit post-stop startup. |
+| `pse check pse-operations pse-codegen pse-runtime pse-host xtask --all-targets --features pse-operations/canonical-maintenance,pse-operations/native-service,xtask/evidence-tools` | Passed, zero compiler failures; changed canonical/private consumers compile together. |
+| `just codegen` | Passed all 16 schema targets through the staged owning generators. |
+| `just ready` | Skills sync and doctor passed for the final embedded tool inputs. |
+
+Native service receiving completed with no pending native lifetime. Host bootstrap/lock and
+discovery failures were repaired before rerunning affected work; they are not passing evidence.
+One interrupted discovery frontend retained unknown original metadata without a launch record;
+no test result was inferred, and a fresh selection followed confirmation that its owner was gone.
+
+### Mistakes made and corrected
+
+The initial merge renderer used an unsupported operator spelling; full native parser coverage
+was added and the spelling corrected. The first unsigned boundary test used reserved
+`SELECT VALUE` syntax; selecting complete records corrected that test. Actual full-schema
+receiving exposed pinned-tool gaps for U64/named references/inline caps, insufficient diagnostic
+capture, and an evidence-private reader applied to ordinary supplier output modes. Narrow
+source-bound preparation and data-file admission fixes preserve strict refusal and coverage.
+Independent review found a settled timeout was retaining the fixture's pending-child fence;
+work and settlement failures are now distinct. Final issuer-bound observation exposed native
+Boolean grouping materialization; supplier normalization now removes that false drift while
+counterexamples protect meaningful differences.
+
+### Deliberate choices and remaining receiving
+
+**Implemented.** Named constrained strings preserve current ordering; native ordered enums
+require separately declared rank. Signed microsecond time and authoritative IEEE bits remain.
+Exact Decimal conversion remains only where plain-digit SQL formatting requires it. Read-row
+encoders retain readback/independent comparison responsibilities. Native AST/module/issuer
+witnesses remain necessary for v2's omitted meanings. No external emitter or second production
+generator was selected.
+
+The standalone tool is prepared with input identity
+`a6b81b7f48b066b83fac5b7bc9ac0a75e822a0eced26a2467c0510b6f8936e80`, exact upstream sources,
+feature selection and the pinned server's existing core/DiskANN compiler fixes. **Implemented
+preparation limitation:** the supplier build succeeded with 13 core warnings (2 unreachable-code and
+11 deprecated `fetch_update`) plus a `nix 0.31.3` future-incompatibility advisory. The supplier
+warning target remains zero and is not met; no warning-free supplier qualification is claimed.
+
+**Proposed receiving.** 72b owns retained-store transition, type-removal effects and activation;
+72c–h consume the concrete handoffs above; 72i owns assembled journeys and scope-end
+hygiene/governance/docs/native qualification. No configured store was reset or migrated.
+Expected reductions in repeated interpretation/conversion are qualitative; no measured speedup
+is claimed or required. Retain this completed companion while the remaining series consumes
+its detailed decisions; 72i owns eventual retirement after enduring meaning has its owner.

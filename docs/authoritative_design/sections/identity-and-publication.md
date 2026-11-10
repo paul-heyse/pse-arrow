@@ -870,9 +870,16 @@ Native vocabulary and mutation projections derive from source registry declarati
 enum spellings retain identity and string ordering; declaration ordinal grants no database rank.
 Creation supply/defaulting, merge unchanged/set/removal and complete replacement are distinct.
 Readonly may admit initial supply and never implies server derivation. Exact unsigned values
-may use native U64 with checked Int/Decimal wire widening; temporal precision and authoritative
+use native U64 with checked Int/Decimal wire widening; temporal precision and authoritative
 IEEE bits retain meaning. Installed native witnesses supplement partial compiler projections.
 Plan72a owns implementation evidence; Plan72b retained-state transitions and Plan72i receiving.
+
+The native target interpretation is `pse.substrate.v11`; private knowledge and evidence use
+`pse-development-knowledge-v3` and `pse-tooling-evidence-v3`. SQL numeric key/text projections
+retain plain decimal spellings through exact formatting conversion. These changes do not alter
+scientific document frames. Prior configured native stores require explicit owned transition
+or reconstruction; ordinary opening performs neither. Fresh fixture acceptance establishes the
+target contract, not survival or migration of retained source data.
 
 > Decision: [ADR-0250](../../adr/0250-source-owned-result-selection.md) (proposed) separates
 > the versioned selected-result Arrow metadata representation from the original native
@@ -883,7 +890,7 @@ Plan72a owns implementation evidence; Plan72b retained-state transitions and Pla
 > Decision: [ADR-0230](../../adr/0230-bounded-study-publication-and-capture.md) (proposed),
 > selected Plan56d target; implementation and qualification remain with its owning packages.
 
-The Plan56d installation/capture change selects `pse.substrate.v10` across
+The earlier Plan56d installation/capture change selected `pse.substrate.v10` across
 all writers/readers, retention and backup classification before fresh owned-state activation.
 Prior selected stores and qualification evidence remain preserved; no compatibility reader or
 backfill is introduced. Protocol changes do not alter scientific Completion/replay body versions

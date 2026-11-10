@@ -254,6 +254,17 @@ fn parse_definition_input(
             }
             DefineStatement::Type(definition) => {
                 definition.kind = DefineKind::Default;
+                for assertion in &mut definition.asserts {
+                    // INFO materializes stored expression text through the native
+                    // formatter. It removes redundant same-operator grouping
+                    // (a OR (b OR c) becomes a OR b OR c). Recover that same
+                    // stored AST without sorting operands or dropping a clause.
+                    assertion.check =
+                        surrealdb_expr::parser::expr_for_definition(&assertion.check.to_sql())
+                            .map_err(|error| {
+                                invalid(format!("named type assertion parse: {error}"))
+                            })?;
+                }
                 ("type".into(), String::new(), definition.name.to_sql())
             }
             _ => return Err(invalid("unsupported generated declaration family")),
@@ -839,6 +850,42 @@ mod tests {
         info.insert("types", types);
         let observed = ManagedCatalog::from_database(&info).unwrap();
         compare(&expected, &observed.definitions).unwrap();
+    }
+
+    #[test]
+    fn named_type_assertions_compare_stored_grouping_without_losing_meaning() {
+        // Captures INFO's actual right-OR grouping normalization for optional merge fields.
+        let source = "DEFINE TYPE pse_probe_merge AS object ASSERT 'optional' NOT IN object::keys($value) OR ($value.optional=NONE OR ((<u64>$value.optional)=$value.optional));";
+        let installed = "DEFINE TYPE pse_probe_merge AS object ASSERT 'optional' NOTINSIDE object::keys($value) OR $value.optional = NONE OR <u64> $value.optional = $value.optional PERMISSIONS FULL;";
+        let expected = parse_definitions(source).unwrap();
+        compare(&expected, &parse_definitions(installed).unwrap()).unwrap();
+        for changed in [
+            installed.replace("<u64>", "<int>"),
+            installed.replace("= NONE OR", "!= NONE OR"),
+            installed.replace("= NONE OR", "= NONE AND"),
+            installed.replace("PERMISSIONS FULL", "PERMISSIONS NONE"),
+            installed.replace(
+                "$value.optional = NONE OR <u64> $value.optional = $value.optional",
+                "<u64> $value.optional = $value.optional OR $value.optional = NONE",
+            ),
+        ] {
+            assert!(
+                compare(&expected, &parse_definitions(&changed).unwrap()).is_err(),
+                "semantic drift must remain visible: {changed}"
+            );
+        }
+        let ordered = parse_definitions("DEFINE TYPE pse_checks AS object CONSTRAINT first ASSERT $value.a OR ($value.b OR $value.c) CONSTRAINT second ASSERT $value.d;").unwrap();
+        let reordered = parse_definitions("DEFINE TYPE pse_checks AS object CONSTRAINT second ASSERT $value.d CONSTRAINT first ASSERT $value.a OR $value.b OR $value.c;").unwrap();
+        assert!(compare(&ordered, &reordered).is_err());
+        let original = parse_definitions(
+            "DEFINE TYPE pse_precedence AS object ASSERT $value.a OR ($value.b AND $value.c);",
+        )
+        .unwrap();
+        let changed = parse_definitions(
+            "DEFINE TYPE pse_precedence AS object ASSERT ($value.a OR $value.b) AND $value.c;",
+        )
+        .unwrap();
+        assert!(compare(&original, &changed).is_err());
     }
 
     #[test]

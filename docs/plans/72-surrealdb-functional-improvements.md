@@ -2,7 +2,7 @@
 title: "Plan72: SurrealDB functional improvements"
 status: draft
 date: 2026-11-09
-adrs: []
+adrs: [ADR-0261]
 doc_role: plan
 doc_owner: docs/plans/72-surrealdb-functional-improvements.md
 doc_topics: [current-work, design, deployment, storage, libraries, validation, diagnostics]
@@ -33,9 +33,9 @@ Plan68 is inactive legacy. Historical citations inside the source review are pro
 not an additional source of work for this series.
 
 [Plan66](66-integrated-simulation-target.md) retains its scientific implementation and assembled
-acceptance. [Plan71](71-workflow-and-simulation-test-feedback.md) is executing under the maintainer's
-direction and retains test infrastructure, original-attempt evidence and diagnostics work, even
-where its index/metadata still says draft. Neither series is superseded or amended here.
+acceptance. [Plan71](71-workflow-and-simulation-test-feedback.md) is complete for its adopted
+scope and supplies test infrastructure, original-attempt evidence and diagnostics.
+Neither series is superseded or amended here.
 Plan72 owns only the SurrealDB improvements and receiving obligations described below.
 
 ## Baseline and focused foundation assessment
@@ -150,7 +150,7 @@ outcome can close that investigation without leaving an unbounded backlog.
 | Opportunity | Disposition | Work owner | Evidence or revisit trigger |
 | --- | --- | --- | --- |
 | [O01](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O01) | Scheduled | 72a A01–A03; 72f transport | Shared named vocabulary and policy-aware mappings; resolve full-range/native-kind risk before representation cutover. |
-| [O02](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O02) | Scheduled | 72a A04 | Strict compiler/live represented-subset agreement; useful mutation generation; external emitter only where it replaces an output owner. |
+| [O02](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O02) | Resolved | [72a A02/A04 Outcome](72a-native-contracts-and-schema-interpretation.md#outcome) | Typed operation inputs, strict full-schema compiler/live represented agreement and drift/coverage controls delivered. Existing generator retained; no disjoint external emitter selected. |
 | [O03](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O03) | Scheduled | 72b B01–B03 | Exact typed transition with data effects and recovery; select reconstruction/native migration/backfill per actual change. |
 | [O04](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O04) | Scheduled | 72c C01/C03 | Explicit complete transactions and one retry owner; independent concurrency/refusal cases protect guard removal. |
 | [O05](../functional_reviews/surrealdb-functional-improvements-2026-11-09.md#O05) | Scheduled | 72c C02; 72a carriers | Typed pure shared readiness with visible acquisition; transaction access/init/bindings selected only for concrete benefit and supported contract. |
