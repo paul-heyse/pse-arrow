@@ -589,16 +589,6 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `shape` | 5 | `Repeated(Named("EntityKindId"))` | `Both` | `[]` | `{}` |
 | `subject_kind` | 6 | `Optional(Named("EntityKindId"))` | `Both` | `[]` | `{}` |
 
-## `ReferenceStateId`
-
-Rust owner: `pse_quantity::ids::ReferenceStateId`. Source: `crates/pse-quantity/src/ids.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `id` | 1 | `Scalar(SemanticId)` | `Both` | `[Required]` | `{}` |
-
 ## `ScaleKind`
 
 Rust owner: `pse_quantity::enums::ScaleKind`. Source: `crates/pse-quantity/src/enums.rs`. Interpretation version: 1. Direction: `Both`.
@@ -610,40 +600,6 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
 
 Allowed canonical members: `["point", "difference"]`.
-
-## `StructuralValue`
-
-Rust owner: `pse_modeling::specialize::value::Value`. Source: `crates/pse-modeling/src/specialize/value.rs`. Interpretation version: 1. Direction: `Both`.
-
-Reserved numbers: `[]`. Reserved names: `[]`.
-
-| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
-| --- | --- | --- | --- | --- | --- |
-| `Boolean (alternative tag 1).value` | 1 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
-| `Integer (alternative tag 2).value` | 1 | `Scalar(I64)` | `Both` | `[]` | `{}` |
-| `Number (alternative tag 3).bits` | 1 | `Scalar(F64Bits)` | `Both` | `[]` | `{}` |
-| `Number (alternative tag 3).quantity` | 2 | `Named("QuantityTypeId")` | `Both` | `[]` | `{}` |
-| `Coordinate (alternative tag 4).id` | 1 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
-| `Coordinate (alternative tag 4).bits` | 2 | `Scalar(F64Bits)` | `Both` | `[]` | `{}` |
-| `Coordinate (alternative tag 4).quantity` | 3 | `Named("QuantityTypeId")` | `Both` | `[]` | `{}` |
-| `Text (alternative tag 5).value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
-| `Entity (alternative tag 6).id` | 1 | `Named("DeclarationId")` | `Both` | `[]` | `{}` |
-| `Entity (alternative tag 6).kind` | 2 | `Named("DeclarationId")` | `Both` | `[]` | `{}` |
-| `Enum (alternative tag 7).enumeration` | 1 | `Named("DeclarationId")` | `Both` | `[]` | `{}` |
-| `Enum (alternative tag 7).member` | 2 | `Scalar(SemanticId)` | `Both` | `[]` | `{}` |
-| `Identifier (alternative tag 8).scheme` | 1 | `Named("DeclarationId")` | `Both` | `[]` | `{}` |
-| `Identifier (alternative tag 8).value` | 2 | `Scalar(String)` | `Both` | `[]` | `{}` |
-| `Definition (alternative tag 9).id` | 1 | `Named("DeclarationId")` | `Both` | `[]` | `{}` |
-| `Definition (alternative tag 9).bindings` | 2 | `Map(Scalar(String), Named("StructuralValue"))` | `Both` | `[]` | `{}` |
-| `Function (alternative tag 10).value` | 1 | `Named("DeclarationId")` | `Both` | `[]` | `{}` |
-| `Row (alternative tag 11).table` | 1 | `Named("DeclarationId")` | `Both` | `[]` | `{}` |
-| `Row (alternative tag 11).names` | 2 | `Repeated(Scalar(String))` | `Both` | `[]` | `{}` |
-| `Row (alternative tag 11).fields` | 3 | `Repeated(Named("StructuralValue"))` | `Both` | `[]` | `{}` |
-| `Set (alternative tag 12).value` | 1 | `Repeated(Named("StructuralValue"))` | `Both` | `[]` | `{}` |
-| `Tuple (alternative tag 13).value` | 1 | `Repeated(Named("StructuralValue"))` | `Both` | `[]` | `{}` |
-| `QuantityType (alternative tag 14).value` | 1 | `Named("QuantityTypeId")` | `Both` | `[]` | `{}` |
-| `ReferenceState (alternative tag 15).value` | 1 | `Named("ReferenceStateId")` | `Both` | `[]` | `{}` |
-| `Missing` | 16 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
 
 ## `Tuple2OfStringAndModelingType`
 

@@ -2732,6 +2732,166 @@
       "contract_sections": [
         "blueprint §4.7"
       ],
+      "declaration_key": "ReferenceStateId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-shared/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/ids.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_quantity::ids::ReferenceStateId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ReferenceStateId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-shared/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/ids.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_quantity::ids::ReferenceStateId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ReferenceStateId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-shared/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/ids.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_quantity::ids::ReferenceStateId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ReferenceStateId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-shared/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/ids.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_quantity::ids::ReferenceStateId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ReferenceStateId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-shared/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/ids.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_quantity::ids::ReferenceStateId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ReferenceStateId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-shared/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/ids.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_quantity::ids::ReferenceStateId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ReferenceStateId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-shared/validation/engineering_shared.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/ids.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_quantity::ids::ReferenceStateId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ReferenceStateId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-shared/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/ids.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_quantity::ids::ReferenceStateId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ReferenceStateId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-shared/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/ids.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_quantity::ids::ReferenceStateId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ReferenceStateId",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "docs/generated/engineering/shared/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-quantity/src/ids.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_quantity::ids::ReferenceStateId"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
       "declaration_key": "ResearchSource",
       "declaration_kind": "rust_projection",
       "direction": "Both",
@@ -3046,6 +3206,166 @@
       "source_path": "crates/pse-ids/src/roles.rs",
       "source_role": "semantic_owner",
       "source_symbol": "pse_ids::roles::SourceRevisionHash"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "StructuralValue",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-shared/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize/value.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::value::Value"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "StructuralValue",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-shared/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize/value.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::value::Value"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "StructuralValue",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-shared/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize/value.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::value::Value"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "StructuralValue",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-shared/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize/value.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::value::Value"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "StructuralValue",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-shared/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize/value.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::value::Value"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "StructuralValue",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-shared/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize/value.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::value::Value"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "StructuralValue",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-shared/validation/engineering_shared.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize/value.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::value::Value"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "StructuralValue",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-shared/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize/value.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::value::Value"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "StructuralValue",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-shared/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize/value.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::value::Value"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "StructuralValue",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "docs/generated/engineering/shared/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize/value.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::value::Value"
     },
     {
       "basis": "declared",

@@ -374,6 +374,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-compiler/src/workspace/modeling/executable/analytical.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-contract/src/boundary_projection/array.rs",
           "kind": "file"
         },
@@ -418,6 +422,14 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-math/src/analytical.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/analytical/relation.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-math/src/assembly.rs",
           "kind": "file"
         },
@@ -431,6 +443,10 @@
         },
         {
           "path": "crates/pse-math/src/library.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/mathematical_diagnostics.rs",
           "kind": "file"
         },
         {
@@ -590,6 +606,14 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-runtime/src/host_operations/engineering_contract/analytical.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/host_operations/engineering_contract/expectation.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-runtime/src/host_operations/engineering_contract/inspection.rs",
           "kind": "file"
         },
@@ -622,6 +646,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-runtime/src/workflow/expectation/declarations.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-runtime/src/workflow/fitting/input_declarations.rs",
           "kind": "file"
         },
@@ -638,6 +666,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-runtime/src/workflow/mathematical_products.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-runtime/src/workflow/modeling/canonical/reload/read.rs",
           "kind": "file"
         },
@@ -647,6 +679,10 @@
         },
         {
           "path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/modeling/mathematical_diagnostics.rs",
           "kind": "file"
         },
         {
@@ -712,6 +748,10 @@
         {
           "path": "crates/pse-schema/src",
           "kind": "tree"
+        },
+        {
+          "path": "crates/pse-schema/src/catalog/expectation_products.rs",
+          "kind": "file"
         },
         {
           "path": "crates/pse-schema/src/catalog/modeling.rs",
@@ -930,6 +970,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-compiler/src/workspace/modeling/executable/analytical.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-contract/src/boundary_projection/array.rs",
           "kind": "file"
         },
@@ -1074,6 +1118,14 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-math/src/analytical.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/analytical/relation.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-math/src/assembly.rs",
           "kind": "file"
         },
@@ -1091,6 +1143,10 @@
         },
         {
           "path": "crates/pse-math/src/library.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-math/src/mathematical_diagnostics.rs",
           "kind": "file"
         },
         {
@@ -1342,6 +1398,14 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-runtime/src/host_operations/engineering_contract/analytical.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/host_operations/engineering_contract/expectation.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-runtime/src/host_operations/engineering_contract/inspection.rs",
           "kind": "file"
         },
@@ -1382,6 +1446,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-runtime/src/workflow/expectation/declarations.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-runtime/src/workflow/fitting/input_declarations.rs",
           "kind": "file"
         },
@@ -1398,6 +1466,10 @@
           "kind": "file"
         },
         {
+          "path": "crates/pse-runtime/src/workflow/mathematical_products.rs",
+          "kind": "file"
+        },
+        {
           "path": "crates/pse-runtime/src/workflow/modeling/canonical/reload/read.rs",
           "kind": "file"
         },
@@ -1407,6 +1479,10 @@
         },
         {
           "path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
+          "kind": "file"
+        },
+        {
+          "path": "crates/pse-runtime/src/workflow/modeling/mathematical_diagnostics.rs",
           "kind": "file"
         },
         {
@@ -1472,6 +1548,10 @@
         {
           "path": "crates/pse-schema/src",
           "kind": "tree"
+        },
+        {
+          "path": "crates/pse-schema/src/catalog/expectation_products.rs",
+          "kind": "file"
         },
         {
           "path": "crates/pse-schema/src/catalog/modeling.rs",

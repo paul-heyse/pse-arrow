@@ -281,6 +281,9 @@ Derived in: pse-runtime.
 | `DurableStudyRequestV2` | `pse.durable.study_request.v2` | Canonical study request including unrestricted submitted numerical settings. |
 | `DurableStudyRequestV3` | `pse.durable.study_request.v3` | Study request with current automatic composition interpretation. |
 | `DurableStudyRequestV5` | `pse.durable.study_request.v5` | Current operation-specific production and consumption contracts; earlier bytes remain frozen. Canonical modeling revision inputs for an immutable study. |
+| `SelectedObservationV1` | `pse.selected.observation.v1` | Original selected physical scalar operation, source context and actual canonical point. |
+| `ExpectationRequestV1` | `pse.expectation.request.v1` | Explicit measure, original selected outputs and sampler controls, excluding coordinator execution identity. |
+| `DurableMathematicalRequestV1` | `pse.durable.mathematical_request.v1` | Original selected analytical or exact/assurance mathematical operation. |
 | `StudyExecutionCoordinateV1` | `pse.study.execution-coordinate.v1` | Original study execution coordinates, framed by study identity, native role and occurrence key. |
 | `DurableStudyRequestV4` | `pse.durable.study_request.v4` | Prior operation-specific study inputs; canonical revisions use V5. |
 | `DurableStudyPointBindingV1` | `pse.durable.study_point_binding.v1` | The value bindings of one durable study point (Plan 22 O7). |

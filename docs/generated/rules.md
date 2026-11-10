@@ -122,6 +122,11 @@
 | `runtime.canonical_draft_diagnostics` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_draft_diagnostics" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_edges` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_edges" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_execution_operations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_execution_operations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_expectation_boundaries` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_expectation_boundaries" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_expectation_finalizations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_expectation_finalizations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_expectation_proposals` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_expectation_proposals" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_expectation_publications` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_expectation_publications" s GROUP BY s."key" HAVING COUNT(*) > 1` |
+| `runtime.canonical_expectations` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_expectations" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_file_admission` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_file_admission" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_file_borrowers` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_file_borrowers" s GROUP BY s."key" HAVING COUNT(*) > 1` |
 | `runtime.canonical_file_instances` | `unique:pk` | `SELECT s."key" FROM "runtime"."canonical_file_instances" s GROUP BY s."key" HAVING COUNT(*) > 1` |
@@ -215,6 +220,9 @@
 | `runtime.diagnostic_samples` | `unique:pk` | `SELECT s."sample_id" FROM "runtime"."diagnostic_samples" s GROUP BY s."sample_id" HAVING COUNT(*) > 1` |
 | `runtime.diagnostics_findings` | `unique:pk` | `SELECT s."finding_id" FROM "runtime"."diagnostics_findings" s GROUP BY s."finding_id" HAVING COUNT(*) > 1` |
 | `runtime.execution_statistics` | `unique:pk` | `SELECT s."name" FROM "runtime"."execution_statistics" s GROUP BY s."name" HAVING COUNT(*) > 1` |
+| `runtime.expectation_estimates` | `unique:pk` | `SELECT s."run_id", s."parent_id", s."output_id" FROM "runtime"."expectation_estimates" s GROUP BY s."run_id", s."parent_id", s."output_id" HAVING COUNT(*) > 1` |
+| `runtime.expectation_samples` | `unique:pk` | `SELECT s."run_id", s."parent_id", s."iteration", s."ordinal" FROM "runtime"."expectation_samples" s GROUP BY s."run_id", s."parent_id", s."iteration", s."ordinal" HAVING COUNT(*) > 1` |
+| `runtime.expectation_summaries` | `unique:pk` | `SELECT s."run_id", s."parent_id" FROM "runtime"."expectation_summaries" s GROUP BY s."run_id", s."parent_id" HAVING COUNT(*) > 1` |
 | `runtime.fit_constraints` | `unique:pk` | `SELECT s."run_id", s."experiment_id", s."row_id" FROM "runtime"."fit_constraints" s GROUP BY s."run_id", s."experiment_id", s."row_id" HAVING COUNT(*) > 1` |
 | `runtime.fit_experiment_assessments` | `unique:pk` | `SELECT s."run_id", s."experiment_id" FROM "runtime"."fit_experiment_assessments" s GROUP BY s."run_id", s."experiment_id" HAVING COUNT(*) > 1` |
 | `runtime.fit_observations` | `unique:pk` | `SELECT s."run_id", s."observation_id" FROM "runtime"."fit_observations" s GROUP BY s."run_id", s."observation_id" HAVING COUNT(*) > 1` |
@@ -226,6 +234,7 @@
 | `runtime.initialization_stages` | `unique:pk` | `SELECT s."stage" FROM "runtime"."initialization_stages" s GROUP BY s."stage" HAVING COUNT(*) > 1` |
 | `runtime.live_simulation_samples` | `unique:pk` | `SELECT s."run_id", s."accuracy_attempt", s."sample", s."symbol_id" FROM "runtime"."live_simulation_samples" s GROUP BY s."run_id", s."accuracy_attempt", s."sample", s."symbol_id" HAVING COUNT(*) > 1` |
 | `runtime.local_validity` | `unique:pk` | `SELECT s."run_id", s."step", s."quantity" FROM "runtime"."local_validity" s GROUP BY s."run_id", s."step", s."quantity" HAVING COUNT(*) > 1` |
+| `runtime.mathematical_products` | `unique:pk` | `SELECT s."run_id", s."ordinal" FROM "runtime"."mathematical_products" s GROUP BY s."run_id", s."ordinal" HAVING COUNT(*) > 1` |
 | `runtime.modeling_checks` | `unique:pk` | `SELECT s."run_id", s."step", s."sample_index", s."target_id", s."source_id", s."kind" FROM "runtime"."modeling_checks" s GROUP BY s."run_id", s."step", s."sample_index", s."target_id", s."source_id", s."kind" HAVING COUNT(*) > 1` |
 | `runtime.modeling_conformance` | `unique:pk` | `SELECT s."run_id", s."fixture_id", s."sample_index", s."target_id", s."source_id", s."kind" FROM "runtime"."modeling_conformance" s GROUP BY s."run_id", s."fixture_id", s."sample_index", s."target_id", s."source_id", s."kind" HAVING COUNT(*) > 1` |
 | `runtime.modeling_diagnostic_samples` | `unique:pk` | `SELECT s."run_id" FROM "runtime"."modeling_diagnostic_samples" s GROUP BY s."run_id" HAVING COUNT(*) > 1` |
@@ -256,6 +265,7 @@
 | `runtime.route_decisions` | `unique:pk` | `SELECT s."request_identity", s."step" FROM "runtime"."route_decisions" s GROUP BY s."request_identity", s."step" HAVING COUNT(*) > 1` |
 | `runtime.run_lineage` | `unique:pk` | `SELECT s."run_id", s."step" FROM "runtime"."run_lineage" s GROUP BY s."run_id", s."step" HAVING COUNT(*) > 1` |
 | `runtime.scientific_contexts` | `unique:pk` | `SELECT s."run_id", s."step" FROM "runtime"."scientific_contexts" s GROUP BY s."run_id", s."step" HAVING COUNT(*) > 1` |
+| `runtime.selected_observations` | `unique:pk` | `SELECT s."run_id", s."ordinal" FROM "runtime"."selected_observations" s GROUP BY s."run_id", s."ordinal" HAVING COUNT(*) > 1` |
 | `runtime.simulation_events` | `unique:pk` | `SELECT s."run_id", s."ordinal", s."symbol_id" FROM "runtime"."simulation_events" s GROUP BY s."run_id", s."ordinal", s."symbol_id" HAVING COUNT(*) > 1` |
 | `runtime.simulation_samples` | `unique:pk` | `SELECT s."run_id", s."sample", s."symbol_id" FROM "runtime"."simulation_samples" s GROUP BY s."run_id", s."sample", s."symbol_id" HAVING COUNT(*) > 1` |
 | `runtime.solution_pool` | `unique:pk` | `SELECT s."run_id", s."step", s."rank", s."symbol_id" FROM "runtime"."solution_pool" s GROUP BY s."run_id", s."step", s."rank", s."symbol_id" HAVING COUNT(*) > 1` |

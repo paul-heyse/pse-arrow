@@ -25388,6 +25388,630 @@
       "contract_sections": [
         "blueprint §4.7"
       ],
+      "declaration_key": "ModelingBindings",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Bindings"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingBindings",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Bindings"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingBindings",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Bindings"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingBindings",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Bindings"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingBindings",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Bindings"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingBindings",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/services/engineering_explicit_study.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Bindings"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingBindings",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/services/engineering_study_control.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Bindings"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingBindings",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Bindings"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingBindings",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Bindings"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingBindings",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/validation/engineering_explicit_study.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Bindings"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingBindings",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Bindings"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingBindings",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Bindings"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingBindings",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "docs/generated/engineering/explicit/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Bindings"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFact",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/analysis.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::analysis::Fact"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFact",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/analysis.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::analysis::Fact"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFact",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/analysis.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::analysis::Fact"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFact",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/analysis.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::analysis::Fact"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFact",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/analysis.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::analysis::Fact"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFact",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/services/engineering_explicit_study.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/analysis.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::analysis::Fact"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFact",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/services/engineering_study_control.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/analysis.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::analysis::Fact"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFact",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/analysis.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::analysis::Fact"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFact",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/analysis.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::analysis::Fact"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFact",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/validation/engineering_explicit_study.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/analysis.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::analysis::Fact"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFact",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/analysis.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::analysis::Fact"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFact",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/analysis.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::analysis::Fact"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFact",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "docs/generated/engineering/explicit/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/analysis.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::analysis::Fact"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFormulation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Formulation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFormulation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Formulation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFormulation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Formulation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFormulation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Formulation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFormulation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Formulation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFormulation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/services/engineering_explicit_study.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Formulation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFormulation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/services/engineering_study_control.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Formulation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFormulation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Formulation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFormulation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Formulation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFormulation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/validation/engineering_explicit_study.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Formulation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFormulation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Formulation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFormulation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Formulation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "ModelingFormulation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "docs/generated/engineering/explicit/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-modeling/src/specialize.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_modeling::specialize::Formulation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
       "declaration_key": "MuStrategy",
       "declaration_kind": "rust_projection",
       "direction": "Both",
@@ -42438,6 +43062,422 @@
       "source_path": "crates/pse-backend-native/src/execution/scip/declarations.rs",
       "source_role": "semantic_owner",
       "source_symbol": "pse_backend_native::execution::scip::Settings"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOperation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOperation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOperation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOperation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOperation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOperation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOperation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOperation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOperation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOperation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOperation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/services/engineering_explicit_study.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOperation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOperation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/services/engineering_study_control.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOperation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOperation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOperation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOperation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOperation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOperation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/validation/engineering_explicit_study.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOperation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOperation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOperation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOperation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOperation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOperation",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "docs/generated/engineering/explicit/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOperation"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOutput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/descriptor-source.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOutput"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOutput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/descriptor.bin",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOutput"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOutput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOutput"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOutput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/native-policy.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOutput"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOutput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/pse.engineering.v1.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOutput"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOutput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/services/engineering_explicit_study.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOutput"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOutput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/services/engineering_study_control.__connect.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOutput"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOutput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/services/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOutput"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOutput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/shared-root.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOutput"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOutput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/validation/engineering_explicit_study.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOutput"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOutput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/validation/mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOutput"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOutput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "crates/pse-host/src/generated/engineering-explicit/validation/pse.engineering.v1.mod.rs",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOutput"
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [
+        "blueprint §4.7"
+      ],
+      "declaration_key": "SelectedObservationOutput",
+      "declaration_kind": "rust_projection",
+      "direction": "Both",
+      "generator_path": "xtask/src/codegen/engineering.rs",
+      "generator_symbol": "compile_selection",
+      "output_path": "docs/generated/engineering/explicit/pse.engineering.v1/index.md",
+      "source_identity": null,
+      "source_path": "crates/pse-runtime/src/workflow/study_operations/declarations.rs",
+      "source_role": "semantic_owner",
+      "source_symbol": "pse_runtime::workflow::study_operations::SelectedObservationOutput"
     },
     {
       "basis": "declared",

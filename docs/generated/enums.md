@@ -2895,6 +2895,7 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `parameter_covariance` | `` | false |
 | `profile_intervals` | `` | false |
 | `horizon_history` | `` | false |
+| `selected_observations` | `` | false |
 
 ## `StudyRetryFailure`
 

@@ -1629,6 +1629,44 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 
 Allowed canonical members: `["picard", "newton", "line_search", "fixed_point"]`.
 
+## `ModelingBindings`
+
+Rust owner: `pse_modeling::specialize::Bindings`. Source: `crates/pse-modeling/src/specialize.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `formulation` | 1 | `Named("ModelingFormulation")` | `Both` | `[Required]` | `{}` |
+| `arguments` | 2 | `Map(Scalar(String), Named("StructuralValue"))` | `Both` | `[]` | `{}` |
+| `scope` | 3 | `Map(Scalar(String), Named("StructuralValue"))` | `Both` | `[]` | `{}` |
+| `facts` | 4 | `Map(Named("ModelingFact"), Named("StructuralValue"))` | `Both` | `[]` | `{}` |
+| `demand` | 5 | `Repeated(Scalar(String))` | `Both` | `[]` | `{}` |
+
+## `ModelingFact`
+
+Rust owner: `pse_modeling::analysis::Fact`. Source: `crates/pse-modeling/src/analysis.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `Route` | 1 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Dynamic` | 2 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `ObjectiveLevel` | 3 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Stage (alternative tag 4).value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
+
+## `ModelingFormulation`
+
+Rust owner: `pse_modeling::specialize::Formulation`. Source: `crates/pse-modeling/src/specialize.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `omitted` | 1 | `Set(Scalar(SemanticId))` | `Both` | `[]` | `{}` |
+| `elastic` | 2 | `Map(Scalar(SemanticId), Named("StructuralValue"))` | `Both` | `[]` | `{}` |
+
 ## `MuStrategy`
 
 Rust owner: `pse_model::generated::enums::MuStrategy`. Source: `crates/pse-model/src/generated/enums.rs`. Interpretation version: 1. Direction: `Both`.
@@ -2277,6 +2315,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `Simulation (alternative tag 2).value` | 1 | `Named("SimulationOperation")` | `Both` | `[]` | `{}` |
 | `Fit (alternative tag 3).value` | 1 | `Named("FitOperation")` | `Both` | `[]` | `{}` |
 | `Horizon (alternative tag 4).value` | 1 | `Named("HorizonOperation")` | `Both` | `[]` | `{}` |
+| `SelectedObservation (alternative tag 5).value` | 1 | `Named("SelectedObservationOperation")` | `Both` | `[]` | `{}` |
 
 ## `PardisoMatching`
 
@@ -2689,6 +2728,31 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `iis` | 5 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
 | `exact` | 6 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
 | `reoptimize` | 7 | `Scalar(Bool)` | `Both` | `[]` | `{}` |
+
+## `SelectedObservationOperation`
+
+Rust owner: `pse_runtime::workflow::study_operations::SelectedObservationOperation`. Source: `crates/pse-runtime/src/workflow/study_operations/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `root` | 1 | `Named("DeclarationId")` | `Both` | `[]` | `{}` |
+| `instance` | 2 | `Named("InstanceId")` | `Both` | `[]` | `{}` |
+| `bindings` | 3 | `Named("ModelingBindings")` | `Both` | `[]` | `{}` |
+| `outputs` | 4 | `Repeated(Named("SelectedObservationOutput"))` | `Both` | `[]` | `{}` |
+
+## `SelectedObservationOutput`
+
+Rust owner: `pse_runtime::workflow::study_operations::SelectedObservationOutput`. Source: `crates/pse-runtime/src/workflow/study_operations/declarations.rs`. Interpretation version: 1. Direction: `Both`.
+
+Reserved numbers: `[]`. Reserved names: `[]`.
+
+| Field or alternative | Stable tag | Actual type | Direction | Local rules | Original named facets |
+| --- | --- | --- | --- | --- | --- |
+| `member` | 1 | `Named("BindingTarget")` | `Both` | `[]` | `{}` |
+| `quantity` | 2 | `Named("QuantityTypeId")` | `Both` | `[]` | `{}` |
+| `unit` | 3 | `Named("UnitId")` | `Both` | `[]` | `{}` |
 
 ## `SensitivityCorrector`
 

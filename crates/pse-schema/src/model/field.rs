@@ -255,7 +255,12 @@ impl FieldContract {
     /// New-batch sort ordinal; dense trajectory fields omit this facet.
     pub fn result_sort_ordinal(&self) -> Option<usize> {
         self.get(super::field_facets::RESULT_SORT)
-            .and_then(|value| value.parse().ok())
+            .and_then(Self::parse_result_sort_ordinal)
+    }
+    /// Parse the owning result-sort ordinal syntax. Boundary annotations use
+    /// this same parser; malformed or platform-unrepresentable ordinals refuse.
+    pub fn parse_result_sort_ordinal(value: &str) -> Option<usize> {
+        value.parse().ok()
     }
     /// Declare the native graph endpoint mechanically derived from this reference.
     #[must_use]

@@ -6827,6 +6827,272 @@ pub const __QUANTITY_TYPE_ID_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::
 #[derive(Clone, PartialEq, Default)]
 #[derive(::serde::Serialize, ::serde::Deserialize)]
 #[serde(default)]
+pub struct ReferenceStateId {
+    /// Field 1: `id`
+    #[serde(
+        rename = "id",
+        with = "::buffa::json_helpers::opt_bytes",
+        skip_serializing_if = "::core::option::Option::is_none"
+    )]
+    pub id: ::core::option::Option<::buffa::alloc::vec::Vec<u8>>,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for ReferenceStateId {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("ReferenceStateId").field("id", &self.id).finish()
+    }
+}
+impl ReferenceStateId {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.ReferenceStateId";
+}
+impl ReferenceStateId {
+    #[must_use = "with_* setters return `self` by value; assign or chain the result"]
+    #[inline]
+    ///Sets [`Self::id`] to `Some(value)`, consuming and returning `self`.
+    pub fn with_id(mut self, value: impl Into<::buffa::alloc::vec::Vec<u8>>) -> Self {
+        self.id = Some(value.into());
+        self
+    }
+}
+::buffa::impl_default_instance!(ReferenceStateId);
+impl ::buffa_descriptor::reflect::ReflectMessage for ReferenceStateId {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => {
+                ::buffa_descriptor::reflect::ValueRef::Bytes(
+                    self.id.as_deref().unwrap_or(&[]),
+                )
+            }
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => self.id.is_some(),
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for ReferenceStateId {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl ReferenceStateId {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for ReferenceStateId {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for ReferenceStateId {
+    const PACKAGE: &'static str = "pse.engineering.v1";
+    const NAME: &'static str = "ReferenceStateId";
+    const FULL_NAME: &'static str = "pse.engineering.v1.ReferenceStateId";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.ReferenceStateId";
+}
+impl ::buffa::Message for ReferenceStateId {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if let Some(ref v) = self.id {
+            size += 1u64 + ::buffa::types::bytes_encoded_len(v) as u64;
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        _cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if let Some(ref v) = self.id {
+            ::buffa::types::put_shared_bytes_field(1u32, v, buf);
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                ::buffa::types::merge_bytes(
+                    self.id.get_or_insert_with(::buffa::alloc::vec::Vec::new),
+                    buf,
+                )?;
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.id = ::core::option::Option::None;
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for ReferenceStateId {
+    const PROTO_FQN: &'static str = "pse.engineering.v1.ReferenceStateId";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for ReferenceStateId {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if let ::core::option::Option::Some(ref __v) = self.id {
+            enc.write_field_name("id")?;
+            enc.write_bytes(__v)?;
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "id" => self.id = ::core::option::Option::Some(dec.read_bytes()?),
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for ReferenceStateId {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __REFERENCE_STATE_ID_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.engineering.v1.ReferenceStateId",
+    to_json: ::buffa::type_registry::any_to_json::<ReferenceStateId>,
+    from_json: ::buffa::type_registry::any_from_json::<ReferenceStateId>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __REFERENCE_STATE_ID_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.engineering.v1.ReferenceStateId",
+    text_encode: ::buffa::type_registry::any_encode_text::<ReferenceStateId>,
+    text_merge: ::buffa::type_registry::any_merge_text::<ReferenceStateId>,
+};
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize, ::serde::Deserialize)]
+#[serde(default)]
 pub struct ResearchSource {
     /// Field 1: `issuing_store`
     #[serde(
@@ -7516,6 +7782,6755 @@ pub const __SOURCE_REVISION_HASH_TEXT_ANY: ::buffa::type_registry::TextAnyEntry 
     text_encode: ::buffa::type_registry::any_encode_text::<SourceRevisionHash>,
     text_merge: ::buffa::type_registry::any_merge_text::<SourceRevisionHash>,
 };
+#[derive(Clone, PartialEq, Default)]
+#[derive(::serde::Serialize)]
+#[serde(default)]
+pub struct StructuralValue {
+    #[serde(flatten)]
+    pub kind: ::core::option::Option<__buffa::oneof::structural_value::Kind>,
+    #[serde(skip)]
+    #[doc(hidden)]
+    pub __buffa_unknown_fields: ::buffa::UnknownFields,
+}
+impl ::core::fmt::Debug for StructuralValue {
+    fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+        f.debug_struct("StructuralValue").field("kind", &self.kind).finish()
+    }
+}
+impl StructuralValue {
+    /// Protobuf type URL for this message, for use with `Any::pack` and
+    /// `Any::unpack_if`.
+    ///
+    /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+    pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue";
+}
+::buffa::impl_default_instance!(StructuralValue);
+impl ::buffa_descriptor::reflect::ReflectMessage for StructuralValue {
+    fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+        __buffa::reflect::descriptor_pool()
+            .message(Self::__buffa_reflect_message_index())
+    }
+    fn pool(&self) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+        __buffa::reflect::descriptor_pool()
+    }
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn get(
+        &self,
+        field: &::buffa_descriptor::FieldDescriptor,
+    ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match field.number() {
+            1u32 => {
+                match &self.kind {
+                    ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Boolean(v),
+                    ) => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(&**v),
+                        )
+                    }
+                    _ => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(
+                                <structural_value::Alternative1 as ::buffa::DefaultInstance>::default_instance(),
+                            ),
+                        )
+                    }
+                }
+            }
+            2u32 => {
+                match &self.kind {
+                    ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Integer(v),
+                    ) => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(&**v),
+                        )
+                    }
+                    _ => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(
+                                <structural_value::Alternative2 as ::buffa::DefaultInstance>::default_instance(),
+                            ),
+                        )
+                    }
+                }
+            }
+            3u32 => {
+                match &self.kind {
+                    ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Number(v),
+                    ) => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(&**v),
+                        )
+                    }
+                    _ => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(
+                                <structural_value::Alternative3 as ::buffa::DefaultInstance>::default_instance(),
+                            ),
+                        )
+                    }
+                }
+            }
+            4u32 => {
+                match &self.kind {
+                    ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Coordinate(v),
+                    ) => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(&**v),
+                        )
+                    }
+                    _ => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(
+                                <structural_value::Alternative4 as ::buffa::DefaultInstance>::default_instance(),
+                            ),
+                        )
+                    }
+                }
+            }
+            5u32 => {
+                match &self.kind {
+                    ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Text(v),
+                    ) => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(&**v),
+                        )
+                    }
+                    _ => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(
+                                <structural_value::Alternative5 as ::buffa::DefaultInstance>::default_instance(),
+                            ),
+                        )
+                    }
+                }
+            }
+            6u32 => {
+                match &self.kind {
+                    ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Entity(v),
+                    ) => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(&**v),
+                        )
+                    }
+                    _ => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(
+                                <structural_value::Alternative6 as ::buffa::DefaultInstance>::default_instance(),
+                            ),
+                        )
+                    }
+                }
+            }
+            7u32 => {
+                match &self.kind {
+                    ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Enum(v),
+                    ) => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(&**v),
+                        )
+                    }
+                    _ => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(
+                                <structural_value::Alternative7 as ::buffa::DefaultInstance>::default_instance(),
+                            ),
+                        )
+                    }
+                }
+            }
+            8u32 => {
+                match &self.kind {
+                    ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Identifier(v),
+                    ) => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(&**v),
+                        )
+                    }
+                    _ => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(
+                                <structural_value::Alternative8 as ::buffa::DefaultInstance>::default_instance(),
+                            ),
+                        )
+                    }
+                }
+            }
+            9u32 => {
+                match &self.kind {
+                    ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Definition(v),
+                    ) => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(&**v),
+                        )
+                    }
+                    _ => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(
+                                <structural_value::Alternative9 as ::buffa::DefaultInstance>::default_instance(),
+                            ),
+                        )
+                    }
+                }
+            }
+            10u32 => {
+                match &self.kind {
+                    ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Function(v),
+                    ) => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(&**v),
+                        )
+                    }
+                    _ => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(
+                                <structural_value::Alternative10 as ::buffa::DefaultInstance>::default_instance(),
+                            ),
+                        )
+                    }
+                }
+            }
+            11u32 => {
+                match &self.kind {
+                    ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Row(v),
+                    ) => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(&**v),
+                        )
+                    }
+                    _ => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(
+                                <structural_value::Alternative11 as ::buffa::DefaultInstance>::default_instance(),
+                            ),
+                        )
+                    }
+                }
+            }
+            12u32 => {
+                match &self.kind {
+                    ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Set(v),
+                    ) => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(&**v),
+                        )
+                    }
+                    _ => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(
+                                <structural_value::Alternative12 as ::buffa::DefaultInstance>::default_instance(),
+                            ),
+                        )
+                    }
+                }
+            }
+            13u32 => {
+                match &self.kind {
+                    ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Tuple(v),
+                    ) => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(&**v),
+                        )
+                    }
+                    _ => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(
+                                <structural_value::Alternative13 as ::buffa::DefaultInstance>::default_instance(),
+                            ),
+                        )
+                    }
+                }
+            }
+            14u32 => {
+                match &self.kind {
+                    ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::QuantityType(v),
+                    ) => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(&**v),
+                        )
+                    }
+                    _ => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(
+                                <structural_value::Alternative14 as ::buffa::DefaultInstance>::default_instance(),
+                            ),
+                        )
+                    }
+                }
+            }
+            15u32 => {
+                match &self.kind {
+                    ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::ReferenceState(v),
+                    ) => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(&**v),
+                        )
+                    }
+                    _ => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(
+                                <structural_value::Alternative15 as ::buffa::DefaultInstance>::default_instance(),
+                            ),
+                        )
+                    }
+                }
+            }
+            16u32 => {
+                match &self.kind {
+                    ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Missing(v),
+                    ) => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(&**v),
+                        )
+                    }
+                    _ => {
+                        ::buffa_descriptor::reflect::ValueRef::Message(
+                            ::buffa_descriptor::reflect::Reflectable::reflect(
+                                <structural_value::Alternative16 as ::buffa::DefaultInstance>::default_instance(),
+                            ),
+                        )
+                    }
+                }
+            }
+            _ => {
+                ::core::debug_assert!(
+                    false,
+                    "field number {} is not a member of this message's reflect get()",
+                    field.number(),
+                );
+                ::buffa_descriptor::reflect::ValueRef::Bool(false)
+            }
+        }
+    }
+    fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+        match field.number() {
+            1u32 => {
+                ::core::matches!(
+                    & self.kind,
+                    ::core::option::Option::Some(__buffa::oneof::structural_value::Kind::Boolean(_))
+                )
+            }
+            2u32 => {
+                ::core::matches!(
+                    & self.kind,
+                    ::core::option::Option::Some(__buffa::oneof::structural_value::Kind::Integer(_))
+                )
+            }
+            3u32 => {
+                ::core::matches!(
+                    & self.kind,
+                    ::core::option::Option::Some(__buffa::oneof::structural_value::Kind::Number(_))
+                )
+            }
+            4u32 => {
+                ::core::matches!(
+                    & self.kind,
+                    ::core::option::Option::Some(__buffa::oneof::structural_value::Kind::Coordinate(_))
+                )
+            }
+            5u32 => {
+                ::core::matches!(
+                    & self.kind,
+                    ::core::option::Option::Some(__buffa::oneof::structural_value::Kind::Text(_))
+                )
+            }
+            6u32 => {
+                ::core::matches!(
+                    & self.kind,
+                    ::core::option::Option::Some(__buffa::oneof::structural_value::Kind::Entity(_))
+                )
+            }
+            7u32 => {
+                ::core::matches!(
+                    & self.kind,
+                    ::core::option::Option::Some(__buffa::oneof::structural_value::Kind::Enum(_))
+                )
+            }
+            8u32 => {
+                ::core::matches!(
+                    & self.kind,
+                    ::core::option::Option::Some(__buffa::oneof::structural_value::Kind::Identifier(_))
+                )
+            }
+            9u32 => {
+                ::core::matches!(
+                    & self.kind,
+                    ::core::option::Option::Some(__buffa::oneof::structural_value::Kind::Definition(_))
+                )
+            }
+            10u32 => {
+                ::core::matches!(
+                    & self.kind,
+                    ::core::option::Option::Some(__buffa::oneof::structural_value::Kind::Function(_))
+                )
+            }
+            11u32 => {
+                ::core::matches!(
+                    & self.kind,
+                    ::core::option::Option::Some(__buffa::oneof::structural_value::Kind::Row(_))
+                )
+            }
+            12u32 => {
+                ::core::matches!(
+                    & self.kind,
+                    ::core::option::Option::Some(__buffa::oneof::structural_value::Kind::Set(_))
+                )
+            }
+            13u32 => {
+                ::core::matches!(
+                    & self.kind,
+                    ::core::option::Option::Some(__buffa::oneof::structural_value::Kind::Tuple(_))
+                )
+            }
+            14u32 => {
+                ::core::matches!(
+                    & self.kind,
+                    ::core::option::Option::Some(__buffa::oneof::structural_value::Kind::QuantityType(_))
+                )
+            }
+            15u32 => {
+                ::core::matches!(
+                    & self.kind,
+                    ::core::option::Option::Some(__buffa::oneof::structural_value::Kind::ReferenceState(_))
+                )
+            }
+            16u32 => {
+                ::core::matches!(
+                    & self.kind,
+                    ::core::option::Option::Some(__buffa::oneof::structural_value::Kind::Missing(_))
+                )
+            }
+            _ => false,
+        }
+    }
+    fn for_each_set(
+        &self,
+        f: &mut dyn ::core::ops::FnMut(
+            &::buffa_descriptor::FieldDescriptor,
+            ::buffa_descriptor::reflect::ValueRef<'_>,
+        ),
+    ) {
+        let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(self);
+        for fd in md.fields() {
+            if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+            }
+        }
+    }
+    fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+        ::buffa_descriptor::reflect::DynamicMessage::from_message(
+            self,
+            ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+            Self::__buffa_reflect_message_index(),
+        )
+    }
+}
+impl ::buffa_descriptor::reflect::ReflectElement for StructuralValue {
+    #[inline]
+    fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+        ::buffa_descriptor::reflect::ValueRef::Message(
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+        )
+    }
+}
+impl StructuralValue {
+    #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+    /// Memoized `MessageIndex` for this message type, resolved once
+    /// against the package's embedded descriptor pool.
+    #[doc(hidden)]
+    fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+        static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+        *IDX
+            .get_or_init(|| {
+                __buffa::reflect::descriptor_pool()
+                    .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                    .expect(
+                        "generated message is registered in the embedded descriptor pool",
+                    )
+            })
+    }
+}
+impl ::buffa_descriptor::reflect::Reflectable for StructuralValue {
+    /// Vtable-mode reflective handle: borrows `self` directly. No
+    /// encode/decode round-trip and no allocation — the reflective
+    /// accessors read this message's fields in place.
+    #[inline]
+    fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+    }
+}
+impl ::buffa::MessageName for StructuralValue {
+    const PACKAGE: &'static str = "pse.engineering.v1";
+    const NAME: &'static str = "StructuralValue";
+    const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue";
+    const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue";
+}
+impl ::buffa::Message for StructuralValue {
+    /// Returns the total encoded size in bytes.
+    ///
+    /// Accumulates in `u64` (which cannot overflow for in-memory
+    /// data) and saturates to `u32` at return, so a message whose
+    /// encoded size exceeds the 2 GiB protobuf limit yields a value
+    /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+    /// points reject, never a silently wrapped size.
+    #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        let mut size = 0u64;
+        if let ::core::option::Option::Some(ref v) = self.kind {
+            match v {
+                __buffa::oneof::structural_value::Kind::Boolean(x) => {
+                    let __slot = __cache.reserve();
+                    let inner = x.compute_size(__cache);
+                    __cache.set(__slot, inner);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                            + inner as u64;
+                }
+                __buffa::oneof::structural_value::Kind::Integer(x) => {
+                    let __slot = __cache.reserve();
+                    let inner = x.compute_size(__cache);
+                    __cache.set(__slot, inner);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                            + inner as u64;
+                }
+                __buffa::oneof::structural_value::Kind::Number(x) => {
+                    let __slot = __cache.reserve();
+                    let inner = x.compute_size(__cache);
+                    __cache.set(__slot, inner);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                            + inner as u64;
+                }
+                __buffa::oneof::structural_value::Kind::Coordinate(x) => {
+                    let __slot = __cache.reserve();
+                    let inner = x.compute_size(__cache);
+                    __cache.set(__slot, inner);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                            + inner as u64;
+                }
+                __buffa::oneof::structural_value::Kind::Text(x) => {
+                    let __slot = __cache.reserve();
+                    let inner = x.compute_size(__cache);
+                    __cache.set(__slot, inner);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                            + inner as u64;
+                }
+                __buffa::oneof::structural_value::Kind::Entity(x) => {
+                    let __slot = __cache.reserve();
+                    let inner = x.compute_size(__cache);
+                    __cache.set(__slot, inner);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                            + inner as u64;
+                }
+                __buffa::oneof::structural_value::Kind::Enum(x) => {
+                    let __slot = __cache.reserve();
+                    let inner = x.compute_size(__cache);
+                    __cache.set(__slot, inner);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                            + inner as u64;
+                }
+                __buffa::oneof::structural_value::Kind::Identifier(x) => {
+                    let __slot = __cache.reserve();
+                    let inner = x.compute_size(__cache);
+                    __cache.set(__slot, inner);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                            + inner as u64;
+                }
+                __buffa::oneof::structural_value::Kind::Definition(x) => {
+                    let __slot = __cache.reserve();
+                    let inner = x.compute_size(__cache);
+                    __cache.set(__slot, inner);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                            + inner as u64;
+                }
+                __buffa::oneof::structural_value::Kind::Function(x) => {
+                    let __slot = __cache.reserve();
+                    let inner = x.compute_size(__cache);
+                    __cache.set(__slot, inner);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                            + inner as u64;
+                }
+                __buffa::oneof::structural_value::Kind::Row(x) => {
+                    let __slot = __cache.reserve();
+                    let inner = x.compute_size(__cache);
+                    __cache.set(__slot, inner);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                            + inner as u64;
+                }
+                __buffa::oneof::structural_value::Kind::Set(x) => {
+                    let __slot = __cache.reserve();
+                    let inner = x.compute_size(__cache);
+                    __cache.set(__slot, inner);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                            + inner as u64;
+                }
+                __buffa::oneof::structural_value::Kind::Tuple(x) => {
+                    let __slot = __cache.reserve();
+                    let inner = x.compute_size(__cache);
+                    __cache.set(__slot, inner);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                            + inner as u64;
+                }
+                __buffa::oneof::structural_value::Kind::QuantityType(x) => {
+                    let __slot = __cache.reserve();
+                    let inner = x.compute_size(__cache);
+                    __cache.set(__slot, inner);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                            + inner as u64;
+                }
+                __buffa::oneof::structural_value::Kind::ReferenceState(x) => {
+                    let __slot = __cache.reserve();
+                    let inner = x.compute_size(__cache);
+                    __cache.set(__slot, inner);
+                    size
+                        += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                            + inner as u64;
+                }
+                __buffa::oneof::structural_value::Kind::Missing(x) => {
+                    let __slot = __cache.reserve();
+                    let inner = x.compute_size(__cache);
+                    __cache.set(__slot, inner);
+                    size
+                        += 2u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                            + inner as u64;
+                }
+            }
+        }
+        size += self.__buffa_unknown_fields.encoded_len() as u64;
+        ::buffa::saturate_size(size)
+    }
+    fn write_to(
+        &self,
+        __cache: &mut ::buffa::SizeCache,
+        buf: &mut impl ::buffa::EncodeSink,
+    ) {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if let ::core::option::Option::Some(ref v) = self.kind {
+            match v {
+                __buffa::oneof::structural_value::Kind::Boolean(x) => {
+                    ::buffa::types::put_len_delimited_header(
+                        1u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    x.write_to(__cache, buf);
+                }
+                __buffa::oneof::structural_value::Kind::Integer(x) => {
+                    ::buffa::types::put_len_delimited_header(
+                        2u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    x.write_to(__cache, buf);
+                }
+                __buffa::oneof::structural_value::Kind::Number(x) => {
+                    ::buffa::types::put_len_delimited_header(
+                        3u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    x.write_to(__cache, buf);
+                }
+                __buffa::oneof::structural_value::Kind::Coordinate(x) => {
+                    ::buffa::types::put_len_delimited_header(
+                        4u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    x.write_to(__cache, buf);
+                }
+                __buffa::oneof::structural_value::Kind::Text(x) => {
+                    ::buffa::types::put_len_delimited_header(
+                        5u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    x.write_to(__cache, buf);
+                }
+                __buffa::oneof::structural_value::Kind::Entity(x) => {
+                    ::buffa::types::put_len_delimited_header(
+                        6u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    x.write_to(__cache, buf);
+                }
+                __buffa::oneof::structural_value::Kind::Enum(x) => {
+                    ::buffa::types::put_len_delimited_header(
+                        7u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    x.write_to(__cache, buf);
+                }
+                __buffa::oneof::structural_value::Kind::Identifier(x) => {
+                    ::buffa::types::put_len_delimited_header(
+                        8u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    x.write_to(__cache, buf);
+                }
+                __buffa::oneof::structural_value::Kind::Definition(x) => {
+                    ::buffa::types::put_len_delimited_header(
+                        9u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    x.write_to(__cache, buf);
+                }
+                __buffa::oneof::structural_value::Kind::Function(x) => {
+                    ::buffa::types::put_len_delimited_header(
+                        10u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    x.write_to(__cache, buf);
+                }
+                __buffa::oneof::structural_value::Kind::Row(x) => {
+                    ::buffa::types::put_len_delimited_header(
+                        11u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    x.write_to(__cache, buf);
+                }
+                __buffa::oneof::structural_value::Kind::Set(x) => {
+                    ::buffa::types::put_len_delimited_header(
+                        12u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    x.write_to(__cache, buf);
+                }
+                __buffa::oneof::structural_value::Kind::Tuple(x) => {
+                    ::buffa::types::put_len_delimited_header(
+                        13u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    x.write_to(__cache, buf);
+                }
+                __buffa::oneof::structural_value::Kind::QuantityType(x) => {
+                    ::buffa::types::put_len_delimited_header(
+                        14u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    x.write_to(__cache, buf);
+                }
+                __buffa::oneof::structural_value::Kind::ReferenceState(x) => {
+                    ::buffa::types::put_len_delimited_header(
+                        15u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    x.write_to(__cache, buf);
+                }
+                __buffa::oneof::structural_value::Kind::Missing(x) => {
+                    ::buffa::types::put_len_delimited_header(
+                        16u32,
+                        u64::from(__cache.consume_next()),
+                        buf,
+                    );
+                    x.write_to(__cache, buf);
+                }
+            }
+        }
+        self.__buffa_unknown_fields.write_to(buf);
+    }
+    fn merge_field(
+        &mut self,
+        tag: ::buffa::encoding::Tag,
+        buf: &mut impl ::buffa::bytes::Buf,
+        ctx: ::buffa::DecodeContext<'_>,
+    ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::bytes::Buf as _;
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        match tag.field_number() {
+            1u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                if let ::core::option::Option::Some(
+                    __buffa::oneof::structural_value::Kind::Boolean(ref mut existing),
+                ) = self.kind
+                {
+                    ::buffa::Message::merge_length_delimited(&mut **existing, buf, ctx)?;
+                } else {
+                    let mut val = ::core::default::Default::default();
+                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
+                    self.kind = ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Boolean(
+                            ::buffa::alloc::boxed::Box::new(val),
+                        ),
+                    );
+                }
+            }
+            2u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                if let ::core::option::Option::Some(
+                    __buffa::oneof::structural_value::Kind::Integer(ref mut existing),
+                ) = self.kind
+                {
+                    ::buffa::Message::merge_length_delimited(&mut **existing, buf, ctx)?;
+                } else {
+                    let mut val = ::core::default::Default::default();
+                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
+                    self.kind = ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Integer(
+                            ::buffa::alloc::boxed::Box::new(val),
+                        ),
+                    );
+                }
+            }
+            3u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                if let ::core::option::Option::Some(
+                    __buffa::oneof::structural_value::Kind::Number(ref mut existing),
+                ) = self.kind
+                {
+                    ::buffa::Message::merge_length_delimited(&mut **existing, buf, ctx)?;
+                } else {
+                    let mut val = ::core::default::Default::default();
+                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
+                    self.kind = ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Number(
+                            ::buffa::alloc::boxed::Box::new(val),
+                        ),
+                    );
+                }
+            }
+            4u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                if let ::core::option::Option::Some(
+                    __buffa::oneof::structural_value::Kind::Coordinate(ref mut existing),
+                ) = self.kind
+                {
+                    ::buffa::Message::merge_length_delimited(&mut **existing, buf, ctx)?;
+                } else {
+                    let mut val = ::core::default::Default::default();
+                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
+                    self.kind = ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Coordinate(
+                            ::buffa::alloc::boxed::Box::new(val),
+                        ),
+                    );
+                }
+            }
+            5u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                if let ::core::option::Option::Some(
+                    __buffa::oneof::structural_value::Kind::Text(ref mut existing),
+                ) = self.kind
+                {
+                    ::buffa::Message::merge_length_delimited(&mut **existing, buf, ctx)?;
+                } else {
+                    let mut val = ::core::default::Default::default();
+                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
+                    self.kind = ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Text(
+                            ::buffa::alloc::boxed::Box::new(val),
+                        ),
+                    );
+                }
+            }
+            6u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                if let ::core::option::Option::Some(
+                    __buffa::oneof::structural_value::Kind::Entity(ref mut existing),
+                ) = self.kind
+                {
+                    ::buffa::Message::merge_length_delimited(&mut **existing, buf, ctx)?;
+                } else {
+                    let mut val = ::core::default::Default::default();
+                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
+                    self.kind = ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Entity(
+                            ::buffa::alloc::boxed::Box::new(val),
+                        ),
+                    );
+                }
+            }
+            7u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                if let ::core::option::Option::Some(
+                    __buffa::oneof::structural_value::Kind::Enum(ref mut existing),
+                ) = self.kind
+                {
+                    ::buffa::Message::merge_length_delimited(&mut **existing, buf, ctx)?;
+                } else {
+                    let mut val = ::core::default::Default::default();
+                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
+                    self.kind = ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Enum(
+                            ::buffa::alloc::boxed::Box::new(val),
+                        ),
+                    );
+                }
+            }
+            8u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                if let ::core::option::Option::Some(
+                    __buffa::oneof::structural_value::Kind::Identifier(ref mut existing),
+                ) = self.kind
+                {
+                    ::buffa::Message::merge_length_delimited(&mut **existing, buf, ctx)?;
+                } else {
+                    let mut val = ::core::default::Default::default();
+                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
+                    self.kind = ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Identifier(
+                            ::buffa::alloc::boxed::Box::new(val),
+                        ),
+                    );
+                }
+            }
+            9u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                if let ::core::option::Option::Some(
+                    __buffa::oneof::structural_value::Kind::Definition(ref mut existing),
+                ) = self.kind
+                {
+                    ::buffa::Message::merge_length_delimited(&mut **existing, buf, ctx)?;
+                } else {
+                    let mut val = ::core::default::Default::default();
+                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
+                    self.kind = ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Definition(
+                            ::buffa::alloc::boxed::Box::new(val),
+                        ),
+                    );
+                }
+            }
+            10u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                if let ::core::option::Option::Some(
+                    __buffa::oneof::structural_value::Kind::Function(ref mut existing),
+                ) = self.kind
+                {
+                    ::buffa::Message::merge_length_delimited(&mut **existing, buf, ctx)?;
+                } else {
+                    let mut val = ::core::default::Default::default();
+                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
+                    self.kind = ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Function(
+                            ::buffa::alloc::boxed::Box::new(val),
+                        ),
+                    );
+                }
+            }
+            11u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                if let ::core::option::Option::Some(
+                    __buffa::oneof::structural_value::Kind::Row(ref mut existing),
+                ) = self.kind
+                {
+                    ::buffa::Message::merge_length_delimited(&mut **existing, buf, ctx)?;
+                } else {
+                    let mut val = ::core::default::Default::default();
+                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
+                    self.kind = ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Row(
+                            ::buffa::alloc::boxed::Box::new(val),
+                        ),
+                    );
+                }
+            }
+            12u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                if let ::core::option::Option::Some(
+                    __buffa::oneof::structural_value::Kind::Set(ref mut existing),
+                ) = self.kind
+                {
+                    ::buffa::Message::merge_length_delimited(&mut **existing, buf, ctx)?;
+                } else {
+                    let mut val = ::core::default::Default::default();
+                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
+                    self.kind = ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Set(
+                            ::buffa::alloc::boxed::Box::new(val),
+                        ),
+                    );
+                }
+            }
+            13u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                if let ::core::option::Option::Some(
+                    __buffa::oneof::structural_value::Kind::Tuple(ref mut existing),
+                ) = self.kind
+                {
+                    ::buffa::Message::merge_length_delimited(&mut **existing, buf, ctx)?;
+                } else {
+                    let mut val = ::core::default::Default::default();
+                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
+                    self.kind = ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Tuple(
+                            ::buffa::alloc::boxed::Box::new(val),
+                        ),
+                    );
+                }
+            }
+            14u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                if let ::core::option::Option::Some(
+                    __buffa::oneof::structural_value::Kind::QuantityType(
+                        ref mut existing,
+                    ),
+                ) = self.kind
+                {
+                    ::buffa::Message::merge_length_delimited(&mut **existing, buf, ctx)?;
+                } else {
+                    let mut val = ::core::default::Default::default();
+                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
+                    self.kind = ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::QuantityType(
+                            ::buffa::alloc::boxed::Box::new(val),
+                        ),
+                    );
+                }
+            }
+            15u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                if let ::core::option::Option::Some(
+                    __buffa::oneof::structural_value::Kind::ReferenceState(
+                        ref mut existing,
+                    ),
+                ) = self.kind
+                {
+                    ::buffa::Message::merge_length_delimited(&mut **existing, buf, ctx)?;
+                } else {
+                    let mut val = ::core::default::Default::default();
+                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
+                    self.kind = ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::ReferenceState(
+                            ::buffa::alloc::boxed::Box::new(val),
+                        ),
+                    );
+                }
+            }
+            16u32 => {
+                ::buffa::encoding::check_wire_type(
+                    tag,
+                    ::buffa::encoding::WireType::LengthDelimited,
+                )?;
+                if let ::core::option::Option::Some(
+                    __buffa::oneof::structural_value::Kind::Missing(ref mut existing),
+                ) = self.kind
+                {
+                    ::buffa::Message::merge_length_delimited(&mut **existing, buf, ctx)?;
+                } else {
+                    let mut val = ::core::default::Default::default();
+                    ::buffa::Message::merge_length_delimited(&mut val, buf, ctx)?;
+                    self.kind = ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Missing(
+                            ::buffa::alloc::boxed::Box::new(val),
+                        ),
+                    );
+                }
+            }
+            _ => {
+                self.__buffa_unknown_fields
+                    .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+    fn clear(&mut self) {
+        self.kind = ::core::option::Option::None;
+        self.__buffa_unknown_fields.clear();
+    }
+}
+impl ::buffa::ExtensionSet for StructuralValue {
+    const PROTO_FQN: &'static str = "pse.engineering.v1.StructuralValue";
+    fn unknown_fields(&self) -> &::buffa::UnknownFields {
+        &self.__buffa_unknown_fields
+    }
+    fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+        &mut self.__buffa_unknown_fields
+    }
+}
+impl ::buffa::text::TextFormat for StructuralValue {
+    fn encode_text(
+        &self,
+        enc: &mut ::buffa::text::TextEncoder<'_>,
+    ) -> ::core::fmt::Result {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        if let ::core::option::Option::Some(ref __v) = self.kind {
+            match __v {
+                __buffa::oneof::structural_value::Kind::Boolean(__v) => {
+                    enc.write_field_name("boolean")?;
+                    enc.write_message(&**__v)?;
+                }
+                __buffa::oneof::structural_value::Kind::Integer(__v) => {
+                    enc.write_field_name("integer")?;
+                    enc.write_message(&**__v)?;
+                }
+                __buffa::oneof::structural_value::Kind::Number(__v) => {
+                    enc.write_field_name("number")?;
+                    enc.write_message(&**__v)?;
+                }
+                __buffa::oneof::structural_value::Kind::Coordinate(__v) => {
+                    enc.write_field_name("coordinate")?;
+                    enc.write_message(&**__v)?;
+                }
+                __buffa::oneof::structural_value::Kind::Text(__v) => {
+                    enc.write_field_name("text")?;
+                    enc.write_message(&**__v)?;
+                }
+                __buffa::oneof::structural_value::Kind::Entity(__v) => {
+                    enc.write_field_name("entity")?;
+                    enc.write_message(&**__v)?;
+                }
+                __buffa::oneof::structural_value::Kind::Enum(__v) => {
+                    enc.write_field_name("enum")?;
+                    enc.write_message(&**__v)?;
+                }
+                __buffa::oneof::structural_value::Kind::Identifier(__v) => {
+                    enc.write_field_name("identifier")?;
+                    enc.write_message(&**__v)?;
+                }
+                __buffa::oneof::structural_value::Kind::Definition(__v) => {
+                    enc.write_field_name("definition")?;
+                    enc.write_message(&**__v)?;
+                }
+                __buffa::oneof::structural_value::Kind::Function(__v) => {
+                    enc.write_field_name("function")?;
+                    enc.write_message(&**__v)?;
+                }
+                __buffa::oneof::structural_value::Kind::Row(__v) => {
+                    enc.write_field_name("row")?;
+                    enc.write_message(&**__v)?;
+                }
+                __buffa::oneof::structural_value::Kind::Set(__v) => {
+                    enc.write_field_name("set")?;
+                    enc.write_message(&**__v)?;
+                }
+                __buffa::oneof::structural_value::Kind::Tuple(__v) => {
+                    enc.write_field_name("tuple")?;
+                    enc.write_message(&**__v)?;
+                }
+                __buffa::oneof::structural_value::Kind::QuantityType(__v) => {
+                    enc.write_field_name("quantity_type")?;
+                    enc.write_message(&**__v)?;
+                }
+                __buffa::oneof::structural_value::Kind::ReferenceState(__v) => {
+                    enc.write_field_name("reference_state")?;
+                    enc.write_message(&**__v)?;
+                }
+                __buffa::oneof::structural_value::Kind::Missing(__v) => {
+                    enc.write_field_name("missing")?;
+                    enc.write_message(&**__v)?;
+                }
+            }
+        }
+        enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+        ::core::result::Result::Ok(())
+    }
+    fn merge_text(
+        &mut self,
+        dec: &mut ::buffa::text::TextDecoder<'_>,
+    ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+        #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        use ::buffa::Enumeration as _;
+        while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+            match __name {
+                "boolean" => {
+                    if let ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Boolean(
+                            ref mut __existing,
+                        ),
+                    ) = self.kind
+                    {
+                        dec.merge_message(&mut **__existing)?;
+                    } else {
+                        let mut __m = ::core::default::Default::default();
+                        dec.merge_message(&mut __m)?;
+                        self.kind = ::core::option::Option::Some(
+                            __buffa::oneof::structural_value::Kind::Boolean(
+                                ::buffa::alloc::boxed::Box::new(__m),
+                            ),
+                        );
+                    }
+                }
+                "integer" => {
+                    if let ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Integer(
+                            ref mut __existing,
+                        ),
+                    ) = self.kind
+                    {
+                        dec.merge_message(&mut **__existing)?;
+                    } else {
+                        let mut __m = ::core::default::Default::default();
+                        dec.merge_message(&mut __m)?;
+                        self.kind = ::core::option::Option::Some(
+                            __buffa::oneof::structural_value::Kind::Integer(
+                                ::buffa::alloc::boxed::Box::new(__m),
+                            ),
+                        );
+                    }
+                }
+                "number" => {
+                    if let ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Number(
+                            ref mut __existing,
+                        ),
+                    ) = self.kind
+                    {
+                        dec.merge_message(&mut **__existing)?;
+                    } else {
+                        let mut __m = ::core::default::Default::default();
+                        dec.merge_message(&mut __m)?;
+                        self.kind = ::core::option::Option::Some(
+                            __buffa::oneof::structural_value::Kind::Number(
+                                ::buffa::alloc::boxed::Box::new(__m),
+                            ),
+                        );
+                    }
+                }
+                "coordinate" => {
+                    if let ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Coordinate(
+                            ref mut __existing,
+                        ),
+                    ) = self.kind
+                    {
+                        dec.merge_message(&mut **__existing)?;
+                    } else {
+                        let mut __m = ::core::default::Default::default();
+                        dec.merge_message(&mut __m)?;
+                        self.kind = ::core::option::Option::Some(
+                            __buffa::oneof::structural_value::Kind::Coordinate(
+                                ::buffa::alloc::boxed::Box::new(__m),
+                            ),
+                        );
+                    }
+                }
+                "text" => {
+                    if let ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Text(ref mut __existing),
+                    ) = self.kind
+                    {
+                        dec.merge_message(&mut **__existing)?;
+                    } else {
+                        let mut __m = ::core::default::Default::default();
+                        dec.merge_message(&mut __m)?;
+                        self.kind = ::core::option::Option::Some(
+                            __buffa::oneof::structural_value::Kind::Text(
+                                ::buffa::alloc::boxed::Box::new(__m),
+                            ),
+                        );
+                    }
+                }
+                "entity" => {
+                    if let ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Entity(
+                            ref mut __existing,
+                        ),
+                    ) = self.kind
+                    {
+                        dec.merge_message(&mut **__existing)?;
+                    } else {
+                        let mut __m = ::core::default::Default::default();
+                        dec.merge_message(&mut __m)?;
+                        self.kind = ::core::option::Option::Some(
+                            __buffa::oneof::structural_value::Kind::Entity(
+                                ::buffa::alloc::boxed::Box::new(__m),
+                            ),
+                        );
+                    }
+                }
+                "enum" => {
+                    if let ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Enum(ref mut __existing),
+                    ) = self.kind
+                    {
+                        dec.merge_message(&mut **__existing)?;
+                    } else {
+                        let mut __m = ::core::default::Default::default();
+                        dec.merge_message(&mut __m)?;
+                        self.kind = ::core::option::Option::Some(
+                            __buffa::oneof::structural_value::Kind::Enum(
+                                ::buffa::alloc::boxed::Box::new(__m),
+                            ),
+                        );
+                    }
+                }
+                "identifier" => {
+                    if let ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Identifier(
+                            ref mut __existing,
+                        ),
+                    ) = self.kind
+                    {
+                        dec.merge_message(&mut **__existing)?;
+                    } else {
+                        let mut __m = ::core::default::Default::default();
+                        dec.merge_message(&mut __m)?;
+                        self.kind = ::core::option::Option::Some(
+                            __buffa::oneof::structural_value::Kind::Identifier(
+                                ::buffa::alloc::boxed::Box::new(__m),
+                            ),
+                        );
+                    }
+                }
+                "definition" => {
+                    if let ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Definition(
+                            ref mut __existing,
+                        ),
+                    ) = self.kind
+                    {
+                        dec.merge_message(&mut **__existing)?;
+                    } else {
+                        let mut __m = ::core::default::Default::default();
+                        dec.merge_message(&mut __m)?;
+                        self.kind = ::core::option::Option::Some(
+                            __buffa::oneof::structural_value::Kind::Definition(
+                                ::buffa::alloc::boxed::Box::new(__m),
+                            ),
+                        );
+                    }
+                }
+                "function" => {
+                    if let ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Function(
+                            ref mut __existing,
+                        ),
+                    ) = self.kind
+                    {
+                        dec.merge_message(&mut **__existing)?;
+                    } else {
+                        let mut __m = ::core::default::Default::default();
+                        dec.merge_message(&mut __m)?;
+                        self.kind = ::core::option::Option::Some(
+                            __buffa::oneof::structural_value::Kind::Function(
+                                ::buffa::alloc::boxed::Box::new(__m),
+                            ),
+                        );
+                    }
+                }
+                "row" => {
+                    if let ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Row(ref mut __existing),
+                    ) = self.kind
+                    {
+                        dec.merge_message(&mut **__existing)?;
+                    } else {
+                        let mut __m = ::core::default::Default::default();
+                        dec.merge_message(&mut __m)?;
+                        self.kind = ::core::option::Option::Some(
+                            __buffa::oneof::structural_value::Kind::Row(
+                                ::buffa::alloc::boxed::Box::new(__m),
+                            ),
+                        );
+                    }
+                }
+                "set" => {
+                    if let ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Set(ref mut __existing),
+                    ) = self.kind
+                    {
+                        dec.merge_message(&mut **__existing)?;
+                    } else {
+                        let mut __m = ::core::default::Default::default();
+                        dec.merge_message(&mut __m)?;
+                        self.kind = ::core::option::Option::Some(
+                            __buffa::oneof::structural_value::Kind::Set(
+                                ::buffa::alloc::boxed::Box::new(__m),
+                            ),
+                        );
+                    }
+                }
+                "tuple" => {
+                    if let ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Tuple(ref mut __existing),
+                    ) = self.kind
+                    {
+                        dec.merge_message(&mut **__existing)?;
+                    } else {
+                        let mut __m = ::core::default::Default::default();
+                        dec.merge_message(&mut __m)?;
+                        self.kind = ::core::option::Option::Some(
+                            __buffa::oneof::structural_value::Kind::Tuple(
+                                ::buffa::alloc::boxed::Box::new(__m),
+                            ),
+                        );
+                    }
+                }
+                "quantity_type" => {
+                    if let ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::QuantityType(
+                            ref mut __existing,
+                        ),
+                    ) = self.kind
+                    {
+                        dec.merge_message(&mut **__existing)?;
+                    } else {
+                        let mut __m = ::core::default::Default::default();
+                        dec.merge_message(&mut __m)?;
+                        self.kind = ::core::option::Option::Some(
+                            __buffa::oneof::structural_value::Kind::QuantityType(
+                                ::buffa::alloc::boxed::Box::new(__m),
+                            ),
+                        );
+                    }
+                }
+                "reference_state" => {
+                    if let ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::ReferenceState(
+                            ref mut __existing,
+                        ),
+                    ) = self.kind
+                    {
+                        dec.merge_message(&mut **__existing)?;
+                    } else {
+                        let mut __m = ::core::default::Default::default();
+                        dec.merge_message(&mut __m)?;
+                        self.kind = ::core::option::Option::Some(
+                            __buffa::oneof::structural_value::Kind::ReferenceState(
+                                ::buffa::alloc::boxed::Box::new(__m),
+                            ),
+                        );
+                    }
+                }
+                "missing" => {
+                    if let ::core::option::Option::Some(
+                        __buffa::oneof::structural_value::Kind::Missing(
+                            ref mut __existing,
+                        ),
+                    ) = self.kind
+                    {
+                        dec.merge_message(&mut **__existing)?;
+                    } else {
+                        let mut __m = ::core::default::Default::default();
+                        dec.merge_message(&mut __m)?;
+                        self.kind = ::core::option::Option::Some(
+                            __buffa::oneof::structural_value::Kind::Missing(
+                                ::buffa::alloc::boxed::Box::new(__m),
+                            ),
+                        );
+                    }
+                }
+                _ => dec.skip_value()?,
+            }
+        }
+        ::core::result::Result::Ok(())
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for StructuralValue {
+    fn deserialize<D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        struct _V;
+        impl<'de> ::serde::de::Visitor<'de> for _V {
+            type Value = StructuralValue;
+            fn expecting(
+                &self,
+                f: &mut ::core::fmt::Formatter<'_>,
+            ) -> ::core::fmt::Result {
+                f.write_str("struct StructuralValue")
+            }
+            #[allow(clippy::field_reassign_with_default, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn visit_map<A: ::serde::de::MapAccess<'de>>(
+                self,
+                mut map: A,
+            ) -> ::core::result::Result<StructuralValue, A::Error> {
+                let mut __oneof_kind: ::core::option::Option<
+                    __buffa::oneof::structural_value::Kind,
+                > = None;
+                while let Some(key) = map.next_key::<::buffa::alloc::string::String>()? {
+                    match key.as_str() {
+                        "boolean" => {
+                            let v: ::core::option::Option<
+                                structural_value::Alternative1,
+                            > = map
+                                .next_value_seed(
+                                    ::buffa::json_helpers::NullableDeserializeSeed(
+                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
+                                            structural_value::Alternative1,
+                                        >::new(),
+                                    ),
+                                )?;
+                            if let Some(v) = v {
+                                if __oneof_kind.is_some() {
+                                    return Err(
+                                        ::serde::de::Error::custom(
+                                            "multiple oneof fields set for 'kind'",
+                                        ),
+                                    );
+                                }
+                                __oneof_kind = Some(
+                                    __buffa::oneof::structural_value::Kind::Boolean(
+                                        ::buffa::alloc::boxed::Box::new(v),
+                                    ),
+                                );
+                            }
+                        }
+                        "integer" => {
+                            let v: ::core::option::Option<
+                                structural_value::Alternative2,
+                            > = map
+                                .next_value_seed(
+                                    ::buffa::json_helpers::NullableDeserializeSeed(
+                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
+                                            structural_value::Alternative2,
+                                        >::new(),
+                                    ),
+                                )?;
+                            if let Some(v) = v {
+                                if __oneof_kind.is_some() {
+                                    return Err(
+                                        ::serde::de::Error::custom(
+                                            "multiple oneof fields set for 'kind'",
+                                        ),
+                                    );
+                                }
+                                __oneof_kind = Some(
+                                    __buffa::oneof::structural_value::Kind::Integer(
+                                        ::buffa::alloc::boxed::Box::new(v),
+                                    ),
+                                );
+                            }
+                        }
+                        "number" => {
+                            let v: ::core::option::Option<
+                                structural_value::Alternative3,
+                            > = map
+                                .next_value_seed(
+                                    ::buffa::json_helpers::NullableDeserializeSeed(
+                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
+                                            structural_value::Alternative3,
+                                        >::new(),
+                                    ),
+                                )?;
+                            if let Some(v) = v {
+                                if __oneof_kind.is_some() {
+                                    return Err(
+                                        ::serde::de::Error::custom(
+                                            "multiple oneof fields set for 'kind'",
+                                        ),
+                                    );
+                                }
+                                __oneof_kind = Some(
+                                    __buffa::oneof::structural_value::Kind::Number(
+                                        ::buffa::alloc::boxed::Box::new(v),
+                                    ),
+                                );
+                            }
+                        }
+                        "coordinate" => {
+                            let v: ::core::option::Option<
+                                structural_value::Alternative4,
+                            > = map
+                                .next_value_seed(
+                                    ::buffa::json_helpers::NullableDeserializeSeed(
+                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
+                                            structural_value::Alternative4,
+                                        >::new(),
+                                    ),
+                                )?;
+                            if let Some(v) = v {
+                                if __oneof_kind.is_some() {
+                                    return Err(
+                                        ::serde::de::Error::custom(
+                                            "multiple oneof fields set for 'kind'",
+                                        ),
+                                    );
+                                }
+                                __oneof_kind = Some(
+                                    __buffa::oneof::structural_value::Kind::Coordinate(
+                                        ::buffa::alloc::boxed::Box::new(v),
+                                    ),
+                                );
+                            }
+                        }
+                        "text" => {
+                            let v: ::core::option::Option<
+                                structural_value::Alternative5,
+                            > = map
+                                .next_value_seed(
+                                    ::buffa::json_helpers::NullableDeserializeSeed(
+                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
+                                            structural_value::Alternative5,
+                                        >::new(),
+                                    ),
+                                )?;
+                            if let Some(v) = v {
+                                if __oneof_kind.is_some() {
+                                    return Err(
+                                        ::serde::de::Error::custom(
+                                            "multiple oneof fields set for 'kind'",
+                                        ),
+                                    );
+                                }
+                                __oneof_kind = Some(
+                                    __buffa::oneof::structural_value::Kind::Text(
+                                        ::buffa::alloc::boxed::Box::new(v),
+                                    ),
+                                );
+                            }
+                        }
+                        "entity" => {
+                            let v: ::core::option::Option<
+                                structural_value::Alternative6,
+                            > = map
+                                .next_value_seed(
+                                    ::buffa::json_helpers::NullableDeserializeSeed(
+                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
+                                            structural_value::Alternative6,
+                                        >::new(),
+                                    ),
+                                )?;
+                            if let Some(v) = v {
+                                if __oneof_kind.is_some() {
+                                    return Err(
+                                        ::serde::de::Error::custom(
+                                            "multiple oneof fields set for 'kind'",
+                                        ),
+                                    );
+                                }
+                                __oneof_kind = Some(
+                                    __buffa::oneof::structural_value::Kind::Entity(
+                                        ::buffa::alloc::boxed::Box::new(v),
+                                    ),
+                                );
+                            }
+                        }
+                        "enum" => {
+                            let v: ::core::option::Option<
+                                structural_value::Alternative7,
+                            > = map
+                                .next_value_seed(
+                                    ::buffa::json_helpers::NullableDeserializeSeed(
+                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
+                                            structural_value::Alternative7,
+                                        >::new(),
+                                    ),
+                                )?;
+                            if let Some(v) = v {
+                                if __oneof_kind.is_some() {
+                                    return Err(
+                                        ::serde::de::Error::custom(
+                                            "multiple oneof fields set for 'kind'",
+                                        ),
+                                    );
+                                }
+                                __oneof_kind = Some(
+                                    __buffa::oneof::structural_value::Kind::Enum(
+                                        ::buffa::alloc::boxed::Box::new(v),
+                                    ),
+                                );
+                            }
+                        }
+                        "identifier" => {
+                            let v: ::core::option::Option<
+                                structural_value::Alternative8,
+                            > = map
+                                .next_value_seed(
+                                    ::buffa::json_helpers::NullableDeserializeSeed(
+                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
+                                            structural_value::Alternative8,
+                                        >::new(),
+                                    ),
+                                )?;
+                            if let Some(v) = v {
+                                if __oneof_kind.is_some() {
+                                    return Err(
+                                        ::serde::de::Error::custom(
+                                            "multiple oneof fields set for 'kind'",
+                                        ),
+                                    );
+                                }
+                                __oneof_kind = Some(
+                                    __buffa::oneof::structural_value::Kind::Identifier(
+                                        ::buffa::alloc::boxed::Box::new(v),
+                                    ),
+                                );
+                            }
+                        }
+                        "definition" => {
+                            let v: ::core::option::Option<
+                                structural_value::Alternative9,
+                            > = map
+                                .next_value_seed(
+                                    ::buffa::json_helpers::NullableDeserializeSeed(
+                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
+                                            structural_value::Alternative9,
+                                        >::new(),
+                                    ),
+                                )?;
+                            if let Some(v) = v {
+                                if __oneof_kind.is_some() {
+                                    return Err(
+                                        ::serde::de::Error::custom(
+                                            "multiple oneof fields set for 'kind'",
+                                        ),
+                                    );
+                                }
+                                __oneof_kind = Some(
+                                    __buffa::oneof::structural_value::Kind::Definition(
+                                        ::buffa::alloc::boxed::Box::new(v),
+                                    ),
+                                );
+                            }
+                        }
+                        "function" => {
+                            let v: ::core::option::Option<
+                                structural_value::Alternative10,
+                            > = map
+                                .next_value_seed(
+                                    ::buffa::json_helpers::NullableDeserializeSeed(
+                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
+                                            structural_value::Alternative10,
+                                        >::new(),
+                                    ),
+                                )?;
+                            if let Some(v) = v {
+                                if __oneof_kind.is_some() {
+                                    return Err(
+                                        ::serde::de::Error::custom(
+                                            "multiple oneof fields set for 'kind'",
+                                        ),
+                                    );
+                                }
+                                __oneof_kind = Some(
+                                    __buffa::oneof::structural_value::Kind::Function(
+                                        ::buffa::alloc::boxed::Box::new(v),
+                                    ),
+                                );
+                            }
+                        }
+                        "row" => {
+                            let v: ::core::option::Option<
+                                structural_value::Alternative11,
+                            > = map
+                                .next_value_seed(
+                                    ::buffa::json_helpers::NullableDeserializeSeed(
+                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
+                                            structural_value::Alternative11,
+                                        >::new(),
+                                    ),
+                                )?;
+                            if let Some(v) = v {
+                                if __oneof_kind.is_some() {
+                                    return Err(
+                                        ::serde::de::Error::custom(
+                                            "multiple oneof fields set for 'kind'",
+                                        ),
+                                    );
+                                }
+                                __oneof_kind = Some(
+                                    __buffa::oneof::structural_value::Kind::Row(
+                                        ::buffa::alloc::boxed::Box::new(v),
+                                    ),
+                                );
+                            }
+                        }
+                        "set" => {
+                            let v: ::core::option::Option<
+                                structural_value::Alternative12,
+                            > = map
+                                .next_value_seed(
+                                    ::buffa::json_helpers::NullableDeserializeSeed(
+                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
+                                            structural_value::Alternative12,
+                                        >::new(),
+                                    ),
+                                )?;
+                            if let Some(v) = v {
+                                if __oneof_kind.is_some() {
+                                    return Err(
+                                        ::serde::de::Error::custom(
+                                            "multiple oneof fields set for 'kind'",
+                                        ),
+                                    );
+                                }
+                                __oneof_kind = Some(
+                                    __buffa::oneof::structural_value::Kind::Set(
+                                        ::buffa::alloc::boxed::Box::new(v),
+                                    ),
+                                );
+                            }
+                        }
+                        "tuple" => {
+                            let v: ::core::option::Option<
+                                structural_value::Alternative13,
+                            > = map
+                                .next_value_seed(
+                                    ::buffa::json_helpers::NullableDeserializeSeed(
+                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
+                                            structural_value::Alternative13,
+                                        >::new(),
+                                    ),
+                                )?;
+                            if let Some(v) = v {
+                                if __oneof_kind.is_some() {
+                                    return Err(
+                                        ::serde::de::Error::custom(
+                                            "multiple oneof fields set for 'kind'",
+                                        ),
+                                    );
+                                }
+                                __oneof_kind = Some(
+                                    __buffa::oneof::structural_value::Kind::Tuple(
+                                        ::buffa::alloc::boxed::Box::new(v),
+                                    ),
+                                );
+                            }
+                        }
+                        "quantity_type" => {
+                            let v: ::core::option::Option<
+                                structural_value::Alternative14,
+                            > = map
+                                .next_value_seed(
+                                    ::buffa::json_helpers::NullableDeserializeSeed(
+                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
+                                            structural_value::Alternative14,
+                                        >::new(),
+                                    ),
+                                )?;
+                            if let Some(v) = v {
+                                if __oneof_kind.is_some() {
+                                    return Err(
+                                        ::serde::de::Error::custom(
+                                            "multiple oneof fields set for 'kind'",
+                                        ),
+                                    );
+                                }
+                                __oneof_kind = Some(
+                                    __buffa::oneof::structural_value::Kind::QuantityType(
+                                        ::buffa::alloc::boxed::Box::new(v),
+                                    ),
+                                );
+                            }
+                        }
+                        "reference_state" => {
+                            let v: ::core::option::Option<
+                                structural_value::Alternative15,
+                            > = map
+                                .next_value_seed(
+                                    ::buffa::json_helpers::NullableDeserializeSeed(
+                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
+                                            structural_value::Alternative15,
+                                        >::new(),
+                                    ),
+                                )?;
+                            if let Some(v) = v {
+                                if __oneof_kind.is_some() {
+                                    return Err(
+                                        ::serde::de::Error::custom(
+                                            "multiple oneof fields set for 'kind'",
+                                        ),
+                                    );
+                                }
+                                __oneof_kind = Some(
+                                    __buffa::oneof::structural_value::Kind::ReferenceState(
+                                        ::buffa::alloc::boxed::Box::new(v),
+                                    ),
+                                );
+                            }
+                        }
+                        "missing" => {
+                            let v: ::core::option::Option<
+                                structural_value::Alternative16,
+                            > = map
+                                .next_value_seed(
+                                    ::buffa::json_helpers::NullableDeserializeSeed(
+                                        ::buffa::json_helpers::DefaultDeserializeSeed::<
+                                            structural_value::Alternative16,
+                                        >::new(),
+                                    ),
+                                )?;
+                            if let Some(v) = v {
+                                if __oneof_kind.is_some() {
+                                    return Err(
+                                        ::serde::de::Error::custom(
+                                            "multiple oneof fields set for 'kind'",
+                                        ),
+                                    );
+                                }
+                                __oneof_kind = Some(
+                                    __buffa::oneof::structural_value::Kind::Missing(
+                                        ::buffa::alloc::boxed::Box::new(v),
+                                    ),
+                                );
+                            }
+                        }
+                        _ => {
+                            map.next_value::<::serde::de::IgnoredAny>()?;
+                        }
+                    }
+                }
+                let mut __r = <StructuralValue as ::core::default::Default>::default();
+                __r.kind = __oneof_kind;
+                Ok(__r)
+            }
+        }
+        d.deserialize_map(_V)
+    }
+}
+impl ::buffa::json_helpers::ProtoElemJson for StructuralValue {
+    fn serialize_proto_json<S: ::serde::Serializer>(
+        v: &Self,
+        s: S,
+    ) -> ::core::result::Result<S::Ok, S::Error> {
+        ::serde::Serialize::serialize(v, s)
+    }
+    fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+        d: D,
+    ) -> ::core::result::Result<Self, D::Error> {
+        <Self as ::serde::Deserialize>::deserialize(d)
+    }
+}
+#[doc(hidden)]
+pub const __STRUCTURAL_VALUE_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+    type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue",
+    to_json: ::buffa::type_registry::any_to_json::<StructuralValue>,
+    from_json: ::buffa::type_registry::any_from_json::<StructuralValue>,
+    is_wkt: false,
+};
+#[doc(hidden)]
+pub const __STRUCTURAL_VALUE_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+    type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue",
+    text_encode: ::buffa::type_registry::any_encode_text::<StructuralValue>,
+    text_merge: ::buffa::type_registry::any_merge_text::<StructuralValue>,
+};
+pub mod structural_value {
+    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+    use super::*;
+    #[derive(Clone, PartialEq, Default)]
+    #[derive(::serde::Serialize, ::serde::Deserialize)]
+    #[serde(default)]
+    pub struct Alternative1 {
+        /// Field 1: `value`
+        #[serde(
+            rename = "value",
+            with = "::buffa::json_helpers::proto_bool",
+            skip_serializing_if = "::buffa::json_helpers::skip_if::is_false"
+        )]
+        pub value: bool,
+        #[serde(skip)]
+        #[doc(hidden)]
+        pub __buffa_unknown_fields: ::buffa::UnknownFields,
+    }
+    impl ::core::fmt::Debug for Alternative1 {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            f.debug_struct("Alternative1").field("value", &self.value).finish()
+        }
+    }
+    impl Alternative1 {
+        /// Protobuf type URL for this message, for use with `Any::pack` and
+        /// `Any::unpack_if`.
+        ///
+        /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+        pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative1";
+    }
+    ::buffa::impl_default_instance!(Alternative1);
+    impl ::buffa_descriptor::reflect::ReflectMessage for Alternative1 {
+        fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+            __buffa::reflect::descriptor_pool()
+                .message(Self::__buffa_reflect_message_index())
+        }
+        fn pool(
+            &self,
+        ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+            __buffa::reflect::descriptor_pool()
+        }
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn get(
+            &self,
+            field: &::buffa_descriptor::FieldDescriptor,
+        ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match field.number() {
+                1u32 => ::buffa_descriptor::reflect::ValueRef::Bool(self.value),
+                _ => {
+                    ::core::debug_assert!(
+                        false,
+                        "field number {} is not a member of this message's reflect get()",
+                        field.number(),
+                    );
+                    ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                }
+            }
+        }
+        fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+            match field.number() {
+                1u32 => self.value,
+                _ => false,
+            }
+        }
+        fn for_each_set(
+            &self,
+            f: &mut dyn ::core::ops::FnMut(
+                &::buffa_descriptor::FieldDescriptor,
+                ::buffa_descriptor::reflect::ValueRef<'_>,
+            ),
+        ) {
+            let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                self,
+            );
+            for fd in md.fields() {
+                if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                    f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+                }
+            }
+        }
+        fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+            ::buffa_descriptor::reflect::DynamicMessage::from_message(
+                self,
+                ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+                Self::__buffa_reflect_message_index(),
+            )
+        }
+    }
+    impl ::buffa_descriptor::reflect::ReflectElement for Alternative1 {
+        #[inline]
+        fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            ::buffa_descriptor::reflect::ValueRef::Message(
+                ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+            )
+        }
+    }
+    impl Alternative1 {
+        #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+        /// Memoized `MessageIndex` for this message type, resolved once
+        /// against the package's embedded descriptor pool.
+        #[doc(hidden)]
+        fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+            static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+            *IDX
+                .get_or_init(|| {
+                    __buffa::reflect::descriptor_pool()
+                        .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                        .expect(
+                            "generated message is registered in the embedded descriptor pool",
+                        )
+                })
+        }
+    }
+    impl ::buffa_descriptor::reflect::Reflectable for Alternative1 {
+        /// Vtable-mode reflective handle: borrows `self` directly. No
+        /// encode/decode round-trip and no allocation — the reflective
+        /// accessors read this message's fields in place.
+        #[inline]
+        fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+        }
+    }
+    impl ::buffa::MessageName for Alternative1 {
+        const PACKAGE: &'static str = "pse.engineering.v1";
+        const NAME: &'static str = "StructuralValue.Alternative1";
+        const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative1";
+        const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative1";
+    }
+    impl ::buffa::Message for Alternative1 {
+        /// Returns the total encoded size in bytes.
+        ///
+        /// Accumulates in `u64` (which cannot overflow for in-memory
+        /// data) and saturates to `u32` at return, so a message whose
+        /// encoded size exceeds the 2 GiB protobuf limit yields a value
+        /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+        /// points reject, never a silently wrapped size.
+        #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            let mut size = 0u64;
+            if self.value {
+                size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
+            }
+            size += self.__buffa_unknown_fields.encoded_len() as u64;
+            ::buffa::saturate_size(size)
+        }
+        fn write_to(
+            &self,
+            _cache: &mut ::buffa::SizeCache,
+            buf: &mut impl ::buffa::EncodeSink,
+        ) {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if self.value {
+                ::buffa::types::put_bool_field(1u32, self.value, buf);
+            }
+            self.__buffa_unknown_fields.write_to(buf);
+        }
+        fn merge_field(
+            &mut self,
+            tag: ::buffa::encoding::Tag,
+            buf: &mut impl ::buffa::bytes::Buf,
+            ctx: ::buffa::DecodeContext<'_>,
+        ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::bytes::Buf as _;
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match tag.field_number() {
+                1u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::Varint,
+                    )?;
+                    self.value = ::buffa::types::decode_bool(buf)?;
+                }
+                _ => {
+                    self.__buffa_unknown_fields
+                        .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+        fn clear(&mut self) {
+            self.value = false;
+            self.__buffa_unknown_fields.clear();
+        }
+    }
+    impl ::buffa::ExtensionSet for Alternative1 {
+        const PROTO_FQN: &'static str = "pse.engineering.v1.StructuralValue.Alternative1";
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+            &mut self.__buffa_unknown_fields
+        }
+    }
+    impl ::buffa::text::TextFormat for Alternative1 {
+        fn encode_text(
+            &self,
+            enc: &mut ::buffa::text::TextEncoder<'_>,
+        ) -> ::core::fmt::Result {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if self.value {
+                enc.write_field_name("value")?;
+                enc.write_bool(self.value)?;
+            }
+            enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+            ::core::result::Result::Ok(())
+        }
+        fn merge_text(
+            &mut self,
+            dec: &mut ::buffa::text::TextDecoder<'_>,
+        ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+                match __name {
+                    "value" => self.value = dec.read_bool()?,
+                    _ => dec.skip_value()?,
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+    }
+    impl ::buffa::json_helpers::ProtoElemJson for Alternative1 {
+        fn serialize_proto_json<S: ::serde::Serializer>(
+            v: &Self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            ::serde::Serialize::serialize(v, s)
+        }
+        fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+            d: D,
+        ) -> ::core::result::Result<Self, D::Error> {
+            <Self as ::serde::Deserialize>::deserialize(d)
+        }
+    }
+    #[doc(hidden)]
+    pub const __ALTERNATIVE1_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative1",
+        to_json: ::buffa::type_registry::any_to_json::<Alternative1>,
+        from_json: ::buffa::type_registry::any_from_json::<Alternative1>,
+        is_wkt: false,
+    };
+    #[doc(hidden)]
+    pub const __ALTERNATIVE1_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative1",
+        text_encode: ::buffa::type_registry::any_encode_text::<Alternative1>,
+        text_merge: ::buffa::type_registry::any_merge_text::<Alternative1>,
+    };
+    #[derive(Clone, PartialEq, Default)]
+    #[derive(::serde::Serialize, ::serde::Deserialize)]
+    #[serde(default)]
+    pub struct Alternative2 {
+        /// Field 1: `value`
+        #[serde(
+            rename = "value",
+            with = "::buffa::json_helpers::int64",
+            skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_i64"
+        )]
+        pub value: i64,
+        #[serde(skip)]
+        #[doc(hidden)]
+        pub __buffa_unknown_fields: ::buffa::UnknownFields,
+    }
+    impl ::core::fmt::Debug for Alternative2 {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            f.debug_struct("Alternative2").field("value", &self.value).finish()
+        }
+    }
+    impl Alternative2 {
+        /// Protobuf type URL for this message, for use with `Any::pack` and
+        /// `Any::unpack_if`.
+        ///
+        /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+        pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative2";
+    }
+    ::buffa::impl_default_instance!(Alternative2);
+    impl ::buffa_descriptor::reflect::ReflectMessage for Alternative2 {
+        fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+            __buffa::reflect::descriptor_pool()
+                .message(Self::__buffa_reflect_message_index())
+        }
+        fn pool(
+            &self,
+        ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+            __buffa::reflect::descriptor_pool()
+        }
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn get(
+            &self,
+            field: &::buffa_descriptor::FieldDescriptor,
+        ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match field.number() {
+                1u32 => ::buffa_descriptor::reflect::ValueRef::I64(self.value),
+                _ => {
+                    ::core::debug_assert!(
+                        false,
+                        "field number {} is not a member of this message's reflect get()",
+                        field.number(),
+                    );
+                    ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                }
+            }
+        }
+        fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+            match field.number() {
+                1u32 => self.value != 0,
+                _ => false,
+            }
+        }
+        fn for_each_set(
+            &self,
+            f: &mut dyn ::core::ops::FnMut(
+                &::buffa_descriptor::FieldDescriptor,
+                ::buffa_descriptor::reflect::ValueRef<'_>,
+            ),
+        ) {
+            let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                self,
+            );
+            for fd in md.fields() {
+                if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                    f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+                }
+            }
+        }
+        fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+            ::buffa_descriptor::reflect::DynamicMessage::from_message(
+                self,
+                ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+                Self::__buffa_reflect_message_index(),
+            )
+        }
+    }
+    impl ::buffa_descriptor::reflect::ReflectElement for Alternative2 {
+        #[inline]
+        fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            ::buffa_descriptor::reflect::ValueRef::Message(
+                ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+            )
+        }
+    }
+    impl Alternative2 {
+        #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+        /// Memoized `MessageIndex` for this message type, resolved once
+        /// against the package's embedded descriptor pool.
+        #[doc(hidden)]
+        fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+            static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+            *IDX
+                .get_or_init(|| {
+                    __buffa::reflect::descriptor_pool()
+                        .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                        .expect(
+                            "generated message is registered in the embedded descriptor pool",
+                        )
+                })
+        }
+    }
+    impl ::buffa_descriptor::reflect::Reflectable for Alternative2 {
+        /// Vtable-mode reflective handle: borrows `self` directly. No
+        /// encode/decode round-trip and no allocation — the reflective
+        /// accessors read this message's fields in place.
+        #[inline]
+        fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+        }
+    }
+    impl ::buffa::MessageName for Alternative2 {
+        const PACKAGE: &'static str = "pse.engineering.v1";
+        const NAME: &'static str = "StructuralValue.Alternative2";
+        const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative2";
+        const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative2";
+    }
+    impl ::buffa::Message for Alternative2 {
+        /// Returns the total encoded size in bytes.
+        ///
+        /// Accumulates in `u64` (which cannot overflow for in-memory
+        /// data) and saturates to `u32` at return, so a message whose
+        /// encoded size exceeds the 2 GiB protobuf limit yields a value
+        /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+        /// points reject, never a silently wrapped size.
+        #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            let mut size = 0u64;
+            if self.value != 0i64 {
+                size += 1u64 + ::buffa::types::sint64_encoded_len(self.value) as u64;
+            }
+            size += self.__buffa_unknown_fields.encoded_len() as u64;
+            ::buffa::saturate_size(size)
+        }
+        fn write_to(
+            &self,
+            _cache: &mut ::buffa::SizeCache,
+            buf: &mut impl ::buffa::EncodeSink,
+        ) {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if self.value != 0i64 {
+                ::buffa::types::put_sint64_field(1u32, self.value, buf);
+            }
+            self.__buffa_unknown_fields.write_to(buf);
+        }
+        fn merge_field(
+            &mut self,
+            tag: ::buffa::encoding::Tag,
+            buf: &mut impl ::buffa::bytes::Buf,
+            ctx: ::buffa::DecodeContext<'_>,
+        ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::bytes::Buf as _;
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match tag.field_number() {
+                1u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::Varint,
+                    )?;
+                    self.value = ::buffa::types::decode_sint64(buf)?;
+                }
+                _ => {
+                    self.__buffa_unknown_fields
+                        .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+        fn clear(&mut self) {
+            self.value = 0i64;
+            self.__buffa_unknown_fields.clear();
+        }
+    }
+    impl ::buffa::ExtensionSet for Alternative2 {
+        const PROTO_FQN: &'static str = "pse.engineering.v1.StructuralValue.Alternative2";
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+            &mut self.__buffa_unknown_fields
+        }
+    }
+    impl ::buffa::text::TextFormat for Alternative2 {
+        fn encode_text(
+            &self,
+            enc: &mut ::buffa::text::TextEncoder<'_>,
+        ) -> ::core::fmt::Result {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if self.value != 0i64 {
+                enc.write_field_name("value")?;
+                enc.write_i64(self.value)?;
+            }
+            enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+            ::core::result::Result::Ok(())
+        }
+        fn merge_text(
+            &mut self,
+            dec: &mut ::buffa::text::TextDecoder<'_>,
+        ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+                match __name {
+                    "value" => self.value = dec.read_i64()?,
+                    _ => dec.skip_value()?,
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+    }
+    impl ::buffa::json_helpers::ProtoElemJson for Alternative2 {
+        fn serialize_proto_json<S: ::serde::Serializer>(
+            v: &Self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            ::serde::Serialize::serialize(v, s)
+        }
+        fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+            d: D,
+        ) -> ::core::result::Result<Self, D::Error> {
+            <Self as ::serde::Deserialize>::deserialize(d)
+        }
+    }
+    #[doc(hidden)]
+    pub const __ALTERNATIVE2_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative2",
+        to_json: ::buffa::type_registry::any_to_json::<Alternative2>,
+        from_json: ::buffa::type_registry::any_from_json::<Alternative2>,
+        is_wkt: false,
+    };
+    #[doc(hidden)]
+    pub const __ALTERNATIVE2_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative2",
+        text_encode: ::buffa::type_registry::any_encode_text::<Alternative2>,
+        text_merge: ::buffa::type_registry::any_merge_text::<Alternative2>,
+    };
+    #[derive(Clone, PartialEq, Default)]
+    #[derive(::serde::Serialize, ::serde::Deserialize)]
+    #[serde(default)]
+    pub struct Alternative3 {
+        /// Field 1: `bits`
+        #[serde(
+            rename = "bits",
+            with = "::buffa::json_helpers::uint64",
+            skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+        )]
+        pub bits: u64,
+        /// Field 2: `quantity`
+        #[serde(
+            rename = "quantity",
+            skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+        )]
+        pub quantity: ::buffa::MessageField<
+            super::QuantityTypeId,
+            ::buffa::Inline<super::QuantityTypeId>,
+        >,
+        #[serde(skip)]
+        #[doc(hidden)]
+        pub __buffa_unknown_fields: ::buffa::UnknownFields,
+    }
+    impl ::core::fmt::Debug for Alternative3 {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            f.debug_struct("Alternative3")
+                .field("bits", &self.bits)
+                .field("quantity", &self.quantity)
+                .finish()
+        }
+    }
+    impl Alternative3 {
+        /// Protobuf type URL for this message, for use with `Any::pack` and
+        /// `Any::unpack_if`.
+        ///
+        /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+        pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative3";
+    }
+    ::buffa::impl_default_instance!(Alternative3);
+    impl ::buffa_descriptor::reflect::ReflectMessage for Alternative3 {
+        fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+            __buffa::reflect::descriptor_pool()
+                .message(Self::__buffa_reflect_message_index())
+        }
+        fn pool(
+            &self,
+        ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+            __buffa::reflect::descriptor_pool()
+        }
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn get(
+            &self,
+            field: &::buffa_descriptor::FieldDescriptor,
+        ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match field.number() {
+                1u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.bits),
+                2u32 => {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::Reflectable::reflect(
+                            &*self.quantity,
+                        ),
+                    )
+                }
+                _ => {
+                    ::core::debug_assert!(
+                        false,
+                        "field number {} is not a member of this message's reflect get()",
+                        field.number(),
+                    );
+                    ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                }
+            }
+        }
+        fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+            match field.number() {
+                1u32 => self.bits != 0,
+                2u32 => self.quantity.is_set(),
+                _ => false,
+            }
+        }
+        fn for_each_set(
+            &self,
+            f: &mut dyn ::core::ops::FnMut(
+                &::buffa_descriptor::FieldDescriptor,
+                ::buffa_descriptor::reflect::ValueRef<'_>,
+            ),
+        ) {
+            let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                self,
+            );
+            for fd in md.fields() {
+                if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                    f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+                }
+            }
+        }
+        fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+            ::buffa_descriptor::reflect::DynamicMessage::from_message(
+                self,
+                ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+                Self::__buffa_reflect_message_index(),
+            )
+        }
+    }
+    impl ::buffa_descriptor::reflect::ReflectElement for Alternative3 {
+        #[inline]
+        fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            ::buffa_descriptor::reflect::ValueRef::Message(
+                ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+            )
+        }
+    }
+    impl Alternative3 {
+        #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+        /// Memoized `MessageIndex` for this message type, resolved once
+        /// against the package's embedded descriptor pool.
+        #[doc(hidden)]
+        fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+            static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+            *IDX
+                .get_or_init(|| {
+                    __buffa::reflect::descriptor_pool()
+                        .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                        .expect(
+                            "generated message is registered in the embedded descriptor pool",
+                        )
+                })
+        }
+    }
+    impl ::buffa_descriptor::reflect::Reflectable for Alternative3 {
+        /// Vtable-mode reflective handle: borrows `self` directly. No
+        /// encode/decode round-trip and no allocation — the reflective
+        /// accessors read this message's fields in place.
+        #[inline]
+        fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+        }
+    }
+    impl ::buffa::MessageName for Alternative3 {
+        const PACKAGE: &'static str = "pse.engineering.v1";
+        const NAME: &'static str = "StructuralValue.Alternative3";
+        const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative3";
+        const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative3";
+    }
+    impl ::buffa::Message for Alternative3 {
+        /// Returns the total encoded size in bytes.
+        ///
+        /// Accumulates in `u64` (which cannot overflow for in-memory
+        /// data) and saturates to `u32` at return, so a message whose
+        /// encoded size exceeds the 2 GiB protobuf limit yields a value
+        /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+        /// points reject, never a silently wrapped size.
+        #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            let mut size = 0u64;
+            if self.bits != 0u64 {
+                size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+            }
+            if self.quantity.is_set() {
+                let __slot = __cache.reserve();
+                let inner_size = self.quantity.compute_size(__cache);
+                __cache.set(__slot, inner_size);
+                size
+                    += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                        + inner_size as u64;
+            }
+            size += self.__buffa_unknown_fields.encoded_len() as u64;
+            ::buffa::saturate_size(size)
+        }
+        fn write_to(
+            &self,
+            __cache: &mut ::buffa::SizeCache,
+            buf: &mut impl ::buffa::EncodeSink,
+        ) {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if self.bits != 0u64 {
+                ::buffa::types::put_fixed64_field(1u32, self.bits, buf);
+            }
+            if self.quantity.is_set() {
+                ::buffa::types::put_len_delimited_header(
+                    2u32,
+                    u64::from(__cache.consume_next()),
+                    buf,
+                );
+                self.quantity.write_to(__cache, buf);
+            }
+            self.__buffa_unknown_fields.write_to(buf);
+        }
+        fn merge_field(
+            &mut self,
+            tag: ::buffa::encoding::Tag,
+            buf: &mut impl ::buffa::bytes::Buf,
+            ctx: ::buffa::DecodeContext<'_>,
+        ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::bytes::Buf as _;
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match tag.field_number() {
+                1u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::Fixed64,
+                    )?;
+                    self.bits = ::buffa::types::decode_fixed64(buf)?;
+                }
+                2u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::LengthDelimited,
+                    )?;
+                    ::buffa::Message::merge_length_delimited(
+                        self.quantity.get_or_insert_default(),
+                        buf,
+                        ctx,
+                    )?;
+                }
+                _ => {
+                    self.__buffa_unknown_fields
+                        .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+        fn clear(&mut self) {
+            self.bits = 0u64;
+            self.quantity = ::buffa::MessageField::none();
+            self.__buffa_unknown_fields.clear();
+        }
+    }
+    impl ::buffa::ExtensionSet for Alternative3 {
+        const PROTO_FQN: &'static str = "pse.engineering.v1.StructuralValue.Alternative3";
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+            &mut self.__buffa_unknown_fields
+        }
+    }
+    impl ::buffa::text::TextFormat for Alternative3 {
+        fn encode_text(
+            &self,
+            enc: &mut ::buffa::text::TextEncoder<'_>,
+        ) -> ::core::fmt::Result {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if self.bits != 0u64 {
+                enc.write_field_name("bits")?;
+                enc.write_u64(self.bits)?;
+            }
+            if self.quantity.is_set() {
+                enc.write_field_name("quantity")?;
+                enc.write_message(&*self.quantity)?;
+            }
+            enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+            ::core::result::Result::Ok(())
+        }
+        fn merge_text(
+            &mut self,
+            dec: &mut ::buffa::text::TextDecoder<'_>,
+        ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+                match __name {
+                    "bits" => self.bits = dec.read_u64()?,
+                    "quantity" => {
+                        dec.merge_message(self.quantity.get_or_insert_default())?
+                    }
+                    _ => dec.skip_value()?,
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+    }
+    impl ::buffa::json_helpers::ProtoElemJson for Alternative3 {
+        fn serialize_proto_json<S: ::serde::Serializer>(
+            v: &Self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            ::serde::Serialize::serialize(v, s)
+        }
+        fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+            d: D,
+        ) -> ::core::result::Result<Self, D::Error> {
+            <Self as ::serde::Deserialize>::deserialize(d)
+        }
+    }
+    #[doc(hidden)]
+    pub const __ALTERNATIVE3_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative3",
+        to_json: ::buffa::type_registry::any_to_json::<Alternative3>,
+        from_json: ::buffa::type_registry::any_from_json::<Alternative3>,
+        is_wkt: false,
+    };
+    #[doc(hidden)]
+    pub const __ALTERNATIVE3_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative3",
+        text_encode: ::buffa::type_registry::any_encode_text::<Alternative3>,
+        text_merge: ::buffa::type_registry::any_merge_text::<Alternative3>,
+    };
+    #[derive(Clone, PartialEq, Default)]
+    #[derive(::serde::Serialize, ::serde::Deserialize)]
+    #[serde(default)]
+    pub struct Alternative4 {
+        /// Field 1: `id`
+        #[serde(
+            rename = "id",
+            with = "::buffa::json_helpers::bytes",
+            skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_bytes"
+        )]
+        pub id: ::buffa::alloc::vec::Vec<u8>,
+        /// Field 2: `bits`
+        #[serde(
+            rename = "bits",
+            with = "::buffa::json_helpers::uint64",
+            skip_serializing_if = "::buffa::json_helpers::skip_if::is_zero_u64"
+        )]
+        pub bits: u64,
+        /// Field 3: `quantity`
+        #[serde(
+            rename = "quantity",
+            skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+        )]
+        pub quantity: ::buffa::MessageField<
+            super::QuantityTypeId,
+            ::buffa::Inline<super::QuantityTypeId>,
+        >,
+        #[serde(skip)]
+        #[doc(hidden)]
+        pub __buffa_unknown_fields: ::buffa::UnknownFields,
+    }
+    impl ::core::fmt::Debug for Alternative4 {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            f.debug_struct("Alternative4")
+                .field("id", &self.id)
+                .field("bits", &self.bits)
+                .field("quantity", &self.quantity)
+                .finish()
+        }
+    }
+    impl Alternative4 {
+        /// Protobuf type URL for this message, for use with `Any::pack` and
+        /// `Any::unpack_if`.
+        ///
+        /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+        pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative4";
+    }
+    ::buffa::impl_default_instance!(Alternative4);
+    impl ::buffa_descriptor::reflect::ReflectMessage for Alternative4 {
+        fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+            __buffa::reflect::descriptor_pool()
+                .message(Self::__buffa_reflect_message_index())
+        }
+        fn pool(
+            &self,
+        ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+            __buffa::reflect::descriptor_pool()
+        }
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn get(
+            &self,
+            field: &::buffa_descriptor::FieldDescriptor,
+        ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match field.number() {
+                1u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(&self.id[..]),
+                2u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.bits),
+                3u32 => {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::Reflectable::reflect(
+                            &*self.quantity,
+                        ),
+                    )
+                }
+                _ => {
+                    ::core::debug_assert!(
+                        false,
+                        "field number {} is not a member of this message's reflect get()",
+                        field.number(),
+                    );
+                    ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                }
+            }
+        }
+        fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+            match field.number() {
+                1u32 => !self.id.is_empty(),
+                2u32 => self.bits != 0,
+                3u32 => self.quantity.is_set(),
+                _ => false,
+            }
+        }
+        fn for_each_set(
+            &self,
+            f: &mut dyn ::core::ops::FnMut(
+                &::buffa_descriptor::FieldDescriptor,
+                ::buffa_descriptor::reflect::ValueRef<'_>,
+            ),
+        ) {
+            let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                self,
+            );
+            for fd in md.fields() {
+                if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                    f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+                }
+            }
+        }
+        fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+            ::buffa_descriptor::reflect::DynamicMessage::from_message(
+                self,
+                ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+                Self::__buffa_reflect_message_index(),
+            )
+        }
+    }
+    impl ::buffa_descriptor::reflect::ReflectElement for Alternative4 {
+        #[inline]
+        fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            ::buffa_descriptor::reflect::ValueRef::Message(
+                ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+            )
+        }
+    }
+    impl Alternative4 {
+        #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+        /// Memoized `MessageIndex` for this message type, resolved once
+        /// against the package's embedded descriptor pool.
+        #[doc(hidden)]
+        fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+            static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+            *IDX
+                .get_or_init(|| {
+                    __buffa::reflect::descriptor_pool()
+                        .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                        .expect(
+                            "generated message is registered in the embedded descriptor pool",
+                        )
+                })
+        }
+    }
+    impl ::buffa_descriptor::reflect::Reflectable for Alternative4 {
+        /// Vtable-mode reflective handle: borrows `self` directly. No
+        /// encode/decode round-trip and no allocation — the reflective
+        /// accessors read this message's fields in place.
+        #[inline]
+        fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+        }
+    }
+    impl ::buffa::MessageName for Alternative4 {
+        const PACKAGE: &'static str = "pse.engineering.v1";
+        const NAME: &'static str = "StructuralValue.Alternative4";
+        const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative4";
+        const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative4";
+    }
+    impl ::buffa::Message for Alternative4 {
+        /// Returns the total encoded size in bytes.
+        ///
+        /// Accumulates in `u64` (which cannot overflow for in-memory
+        /// data) and saturates to `u32` at return, so a message whose
+        /// encoded size exceeds the 2 GiB protobuf limit yields a value
+        /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+        /// points reject, never a silently wrapped size.
+        #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            let mut size = 0u64;
+            if !self.id.is_empty() {
+                size += 1u64 + ::buffa::types::bytes_encoded_len(&self.id) as u64;
+            }
+            if self.bits != 0u64 {
+                size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+            }
+            if self.quantity.is_set() {
+                let __slot = __cache.reserve();
+                let inner_size = self.quantity.compute_size(__cache);
+                __cache.set(__slot, inner_size);
+                size
+                    += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                        + inner_size as u64;
+            }
+            size += self.__buffa_unknown_fields.encoded_len() as u64;
+            ::buffa::saturate_size(size)
+        }
+        fn write_to(
+            &self,
+            __cache: &mut ::buffa::SizeCache,
+            buf: &mut impl ::buffa::EncodeSink,
+        ) {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if !self.id.is_empty() {
+                ::buffa::types::put_shared_bytes_field(1u32, &self.id, buf);
+            }
+            if self.bits != 0u64 {
+                ::buffa::types::put_fixed64_field(2u32, self.bits, buf);
+            }
+            if self.quantity.is_set() {
+                ::buffa::types::put_len_delimited_header(
+                    3u32,
+                    u64::from(__cache.consume_next()),
+                    buf,
+                );
+                self.quantity.write_to(__cache, buf);
+            }
+            self.__buffa_unknown_fields.write_to(buf);
+        }
+        fn merge_field(
+            &mut self,
+            tag: ::buffa::encoding::Tag,
+            buf: &mut impl ::buffa::bytes::Buf,
+            ctx: ::buffa::DecodeContext<'_>,
+        ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::bytes::Buf as _;
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match tag.field_number() {
+                1u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::LengthDelimited,
+                    )?;
+                    ::buffa::types::merge_bytes(&mut self.id, buf)?;
+                }
+                2u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::Fixed64,
+                    )?;
+                    self.bits = ::buffa::types::decode_fixed64(buf)?;
+                }
+                3u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::LengthDelimited,
+                    )?;
+                    ::buffa::Message::merge_length_delimited(
+                        self.quantity.get_or_insert_default(),
+                        buf,
+                        ctx,
+                    )?;
+                }
+                _ => {
+                    self.__buffa_unknown_fields
+                        .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+        fn clear(&mut self) {
+            self.id.clear();
+            self.bits = 0u64;
+            self.quantity = ::buffa::MessageField::none();
+            self.__buffa_unknown_fields.clear();
+        }
+    }
+    impl ::buffa::ExtensionSet for Alternative4 {
+        const PROTO_FQN: &'static str = "pse.engineering.v1.StructuralValue.Alternative4";
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+            &mut self.__buffa_unknown_fields
+        }
+    }
+    impl ::buffa::text::TextFormat for Alternative4 {
+        fn encode_text(
+            &self,
+            enc: &mut ::buffa::text::TextEncoder<'_>,
+        ) -> ::core::fmt::Result {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if !self.id.is_empty() {
+                enc.write_field_name("id")?;
+                enc.write_bytes(&self.id)?;
+            }
+            if self.bits != 0u64 {
+                enc.write_field_name("bits")?;
+                enc.write_u64(self.bits)?;
+            }
+            if self.quantity.is_set() {
+                enc.write_field_name("quantity")?;
+                enc.write_message(&*self.quantity)?;
+            }
+            enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+            ::core::result::Result::Ok(())
+        }
+        fn merge_text(
+            &mut self,
+            dec: &mut ::buffa::text::TextDecoder<'_>,
+        ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+                match __name {
+                    "id" => self.id = dec.read_bytes()?,
+                    "bits" => self.bits = dec.read_u64()?,
+                    "quantity" => {
+                        dec.merge_message(self.quantity.get_or_insert_default())?
+                    }
+                    _ => dec.skip_value()?,
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+    }
+    impl ::buffa::json_helpers::ProtoElemJson for Alternative4 {
+        fn serialize_proto_json<S: ::serde::Serializer>(
+            v: &Self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            ::serde::Serialize::serialize(v, s)
+        }
+        fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+            d: D,
+        ) -> ::core::result::Result<Self, D::Error> {
+            <Self as ::serde::Deserialize>::deserialize(d)
+        }
+    }
+    #[doc(hidden)]
+    pub const __ALTERNATIVE4_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative4",
+        to_json: ::buffa::type_registry::any_to_json::<Alternative4>,
+        from_json: ::buffa::type_registry::any_from_json::<Alternative4>,
+        is_wkt: false,
+    };
+    #[doc(hidden)]
+    pub const __ALTERNATIVE4_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative4",
+        text_encode: ::buffa::type_registry::any_encode_text::<Alternative4>,
+        text_merge: ::buffa::type_registry::any_merge_text::<Alternative4>,
+    };
+    #[derive(Clone, PartialEq, Default)]
+    #[derive(::serde::Serialize, ::serde::Deserialize)]
+    #[serde(default)]
+    pub struct Alternative5 {
+        /// Field 1: `value`
+        #[serde(
+            rename = "value",
+            with = "::buffa::json_helpers::proto_string",
+            skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+        )]
+        pub value: ::buffa::alloc::string::String,
+        #[serde(skip)]
+        #[doc(hidden)]
+        pub __buffa_unknown_fields: ::buffa::UnknownFields,
+    }
+    impl ::core::fmt::Debug for Alternative5 {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            f.debug_struct("Alternative5").field("value", &self.value).finish()
+        }
+    }
+    impl Alternative5 {
+        /// Protobuf type URL for this message, for use with `Any::pack` and
+        /// `Any::unpack_if`.
+        ///
+        /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+        pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative5";
+    }
+    ::buffa::impl_default_instance!(Alternative5);
+    impl ::buffa_descriptor::reflect::ReflectMessage for Alternative5 {
+        fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+            __buffa::reflect::descriptor_pool()
+                .message(Self::__buffa_reflect_message_index())
+        }
+        fn pool(
+            &self,
+        ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+            __buffa::reflect::descriptor_pool()
+        }
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn get(
+            &self,
+            field: &::buffa_descriptor::FieldDescriptor,
+        ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match field.number() {
+                1u32 => ::buffa_descriptor::reflect::ValueRef::String(&self.value),
+                _ => {
+                    ::core::debug_assert!(
+                        false,
+                        "field number {} is not a member of this message's reflect get()",
+                        field.number(),
+                    );
+                    ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                }
+            }
+        }
+        fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+            match field.number() {
+                1u32 => !self.value.is_empty(),
+                _ => false,
+            }
+        }
+        fn for_each_set(
+            &self,
+            f: &mut dyn ::core::ops::FnMut(
+                &::buffa_descriptor::FieldDescriptor,
+                ::buffa_descriptor::reflect::ValueRef<'_>,
+            ),
+        ) {
+            let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                self,
+            );
+            for fd in md.fields() {
+                if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                    f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+                }
+            }
+        }
+        fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+            ::buffa_descriptor::reflect::DynamicMessage::from_message(
+                self,
+                ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+                Self::__buffa_reflect_message_index(),
+            )
+        }
+    }
+    impl ::buffa_descriptor::reflect::ReflectElement for Alternative5 {
+        #[inline]
+        fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            ::buffa_descriptor::reflect::ValueRef::Message(
+                ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+            )
+        }
+    }
+    impl Alternative5 {
+        #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+        /// Memoized `MessageIndex` for this message type, resolved once
+        /// against the package's embedded descriptor pool.
+        #[doc(hidden)]
+        fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+            static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+            *IDX
+                .get_or_init(|| {
+                    __buffa::reflect::descriptor_pool()
+                        .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                        .expect(
+                            "generated message is registered in the embedded descriptor pool",
+                        )
+                })
+        }
+    }
+    impl ::buffa_descriptor::reflect::Reflectable for Alternative5 {
+        /// Vtable-mode reflective handle: borrows `self` directly. No
+        /// encode/decode round-trip and no allocation — the reflective
+        /// accessors read this message's fields in place.
+        #[inline]
+        fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+        }
+    }
+    impl ::buffa::MessageName for Alternative5 {
+        const PACKAGE: &'static str = "pse.engineering.v1";
+        const NAME: &'static str = "StructuralValue.Alternative5";
+        const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative5";
+        const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative5";
+    }
+    impl ::buffa::Message for Alternative5 {
+        /// Returns the total encoded size in bytes.
+        ///
+        /// Accumulates in `u64` (which cannot overflow for in-memory
+        /// data) and saturates to `u32` at return, so a message whose
+        /// encoded size exceeds the 2 GiB protobuf limit yields a value
+        /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+        /// points reject, never a silently wrapped size.
+        #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            let mut size = 0u64;
+            if !self.value.is_empty() {
+                size += 1u64 + ::buffa::types::string_encoded_len(&self.value) as u64;
+            }
+            size += self.__buffa_unknown_fields.encoded_len() as u64;
+            ::buffa::saturate_size(size)
+        }
+        fn write_to(
+            &self,
+            _cache: &mut ::buffa::SizeCache,
+            buf: &mut impl ::buffa::EncodeSink,
+        ) {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if !self.value.is_empty() {
+                ::buffa::types::put_string_field(1u32, &self.value, buf);
+            }
+            self.__buffa_unknown_fields.write_to(buf);
+        }
+        fn merge_field(
+            &mut self,
+            tag: ::buffa::encoding::Tag,
+            buf: &mut impl ::buffa::bytes::Buf,
+            ctx: ::buffa::DecodeContext<'_>,
+        ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::bytes::Buf as _;
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match tag.field_number() {
+                1u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::LengthDelimited,
+                    )?;
+                    ::buffa::types::merge_string(&mut self.value, buf)?;
+                }
+                _ => {
+                    self.__buffa_unknown_fields
+                        .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+        fn clear(&mut self) {
+            self.value.clear();
+            self.__buffa_unknown_fields.clear();
+        }
+    }
+    impl ::buffa::ExtensionSet for Alternative5 {
+        const PROTO_FQN: &'static str = "pse.engineering.v1.StructuralValue.Alternative5";
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+            &mut self.__buffa_unknown_fields
+        }
+    }
+    impl ::buffa::text::TextFormat for Alternative5 {
+        fn encode_text(
+            &self,
+            enc: &mut ::buffa::text::TextEncoder<'_>,
+        ) -> ::core::fmt::Result {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if !self.value.is_empty() {
+                enc.write_field_name("value")?;
+                enc.write_string(&self.value)?;
+            }
+            enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+            ::core::result::Result::Ok(())
+        }
+        fn merge_text(
+            &mut self,
+            dec: &mut ::buffa::text::TextDecoder<'_>,
+        ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+                match __name {
+                    "value" => self.value = dec.read_string()?.into_owned(),
+                    _ => dec.skip_value()?,
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+    }
+    impl ::buffa::json_helpers::ProtoElemJson for Alternative5 {
+        fn serialize_proto_json<S: ::serde::Serializer>(
+            v: &Self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            ::serde::Serialize::serialize(v, s)
+        }
+        fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+            d: D,
+        ) -> ::core::result::Result<Self, D::Error> {
+            <Self as ::serde::Deserialize>::deserialize(d)
+        }
+    }
+    #[doc(hidden)]
+    pub const __ALTERNATIVE5_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative5",
+        to_json: ::buffa::type_registry::any_to_json::<Alternative5>,
+        from_json: ::buffa::type_registry::any_from_json::<Alternative5>,
+        is_wkt: false,
+    };
+    #[doc(hidden)]
+    pub const __ALTERNATIVE5_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative5",
+        text_encode: ::buffa::type_registry::any_encode_text::<Alternative5>,
+        text_merge: ::buffa::type_registry::any_merge_text::<Alternative5>,
+    };
+    #[derive(Clone, PartialEq, Default)]
+    #[derive(::serde::Serialize, ::serde::Deserialize)]
+    #[serde(default)]
+    pub struct Alternative6 {
+        /// Field 1: `id`
+        #[serde(
+            rename = "id",
+            skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+        )]
+        pub id: ::buffa::MessageField<
+            super::DeclarationId,
+            ::buffa::Inline<super::DeclarationId>,
+        >,
+        /// Field 2: `kind`
+        #[serde(
+            rename = "kind",
+            skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+        )]
+        pub kind: ::buffa::MessageField<
+            super::DeclarationId,
+            ::buffa::Inline<super::DeclarationId>,
+        >,
+        #[serde(skip)]
+        #[doc(hidden)]
+        pub __buffa_unknown_fields: ::buffa::UnknownFields,
+    }
+    impl ::core::fmt::Debug for Alternative6 {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            f.debug_struct("Alternative6")
+                .field("id", &self.id)
+                .field("kind", &self.kind)
+                .finish()
+        }
+    }
+    impl Alternative6 {
+        /// Protobuf type URL for this message, for use with `Any::pack` and
+        /// `Any::unpack_if`.
+        ///
+        /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+        pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative6";
+    }
+    ::buffa::impl_default_instance!(Alternative6);
+    impl ::buffa_descriptor::reflect::ReflectMessage for Alternative6 {
+        fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+            __buffa::reflect::descriptor_pool()
+                .message(Self::__buffa_reflect_message_index())
+        }
+        fn pool(
+            &self,
+        ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+            __buffa::reflect::descriptor_pool()
+        }
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn get(
+            &self,
+            field: &::buffa_descriptor::FieldDescriptor,
+        ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match field.number() {
+                1u32 => {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::Reflectable::reflect(&*self.id),
+                    )
+                }
+                2u32 => {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::Reflectable::reflect(&*self.kind),
+                    )
+                }
+                _ => {
+                    ::core::debug_assert!(
+                        false,
+                        "field number {} is not a member of this message's reflect get()",
+                        field.number(),
+                    );
+                    ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                }
+            }
+        }
+        fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+            match field.number() {
+                1u32 => self.id.is_set(),
+                2u32 => self.kind.is_set(),
+                _ => false,
+            }
+        }
+        fn for_each_set(
+            &self,
+            f: &mut dyn ::core::ops::FnMut(
+                &::buffa_descriptor::FieldDescriptor,
+                ::buffa_descriptor::reflect::ValueRef<'_>,
+            ),
+        ) {
+            let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                self,
+            );
+            for fd in md.fields() {
+                if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                    f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+                }
+            }
+        }
+        fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+            ::buffa_descriptor::reflect::DynamicMessage::from_message(
+                self,
+                ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+                Self::__buffa_reflect_message_index(),
+            )
+        }
+    }
+    impl ::buffa_descriptor::reflect::ReflectElement for Alternative6 {
+        #[inline]
+        fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            ::buffa_descriptor::reflect::ValueRef::Message(
+                ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+            )
+        }
+    }
+    impl Alternative6 {
+        #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+        /// Memoized `MessageIndex` for this message type, resolved once
+        /// against the package's embedded descriptor pool.
+        #[doc(hidden)]
+        fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+            static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+            *IDX
+                .get_or_init(|| {
+                    __buffa::reflect::descriptor_pool()
+                        .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                        .expect(
+                            "generated message is registered in the embedded descriptor pool",
+                        )
+                })
+        }
+    }
+    impl ::buffa_descriptor::reflect::Reflectable for Alternative6 {
+        /// Vtable-mode reflective handle: borrows `self` directly. No
+        /// encode/decode round-trip and no allocation — the reflective
+        /// accessors read this message's fields in place.
+        #[inline]
+        fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+        }
+    }
+    impl ::buffa::MessageName for Alternative6 {
+        const PACKAGE: &'static str = "pse.engineering.v1";
+        const NAME: &'static str = "StructuralValue.Alternative6";
+        const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative6";
+        const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative6";
+    }
+    impl ::buffa::Message for Alternative6 {
+        /// Returns the total encoded size in bytes.
+        ///
+        /// Accumulates in `u64` (which cannot overflow for in-memory
+        /// data) and saturates to `u32` at return, so a message whose
+        /// encoded size exceeds the 2 GiB protobuf limit yields a value
+        /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+        /// points reject, never a silently wrapped size.
+        #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            let mut size = 0u64;
+            if self.id.is_set() {
+                let __slot = __cache.reserve();
+                let inner_size = self.id.compute_size(__cache);
+                __cache.set(__slot, inner_size);
+                size
+                    += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                        + inner_size as u64;
+            }
+            if self.kind.is_set() {
+                let __slot = __cache.reserve();
+                let inner_size = self.kind.compute_size(__cache);
+                __cache.set(__slot, inner_size);
+                size
+                    += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                        + inner_size as u64;
+            }
+            size += self.__buffa_unknown_fields.encoded_len() as u64;
+            ::buffa::saturate_size(size)
+        }
+        fn write_to(
+            &self,
+            __cache: &mut ::buffa::SizeCache,
+            buf: &mut impl ::buffa::EncodeSink,
+        ) {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if self.id.is_set() {
+                ::buffa::types::put_len_delimited_header(
+                    1u32,
+                    u64::from(__cache.consume_next()),
+                    buf,
+                );
+                self.id.write_to(__cache, buf);
+            }
+            if self.kind.is_set() {
+                ::buffa::types::put_len_delimited_header(
+                    2u32,
+                    u64::from(__cache.consume_next()),
+                    buf,
+                );
+                self.kind.write_to(__cache, buf);
+            }
+            self.__buffa_unknown_fields.write_to(buf);
+        }
+        fn merge_field(
+            &mut self,
+            tag: ::buffa::encoding::Tag,
+            buf: &mut impl ::buffa::bytes::Buf,
+            ctx: ::buffa::DecodeContext<'_>,
+        ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::bytes::Buf as _;
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match tag.field_number() {
+                1u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::LengthDelimited,
+                    )?;
+                    ::buffa::Message::merge_length_delimited(
+                        self.id.get_or_insert_default(),
+                        buf,
+                        ctx,
+                    )?;
+                }
+                2u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::LengthDelimited,
+                    )?;
+                    ::buffa::Message::merge_length_delimited(
+                        self.kind.get_or_insert_default(),
+                        buf,
+                        ctx,
+                    )?;
+                }
+                _ => {
+                    self.__buffa_unknown_fields
+                        .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+        fn clear(&mut self) {
+            self.id = ::buffa::MessageField::none();
+            self.kind = ::buffa::MessageField::none();
+            self.__buffa_unknown_fields.clear();
+        }
+    }
+    impl ::buffa::ExtensionSet for Alternative6 {
+        const PROTO_FQN: &'static str = "pse.engineering.v1.StructuralValue.Alternative6";
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+            &mut self.__buffa_unknown_fields
+        }
+    }
+    impl ::buffa::text::TextFormat for Alternative6 {
+        fn encode_text(
+            &self,
+            enc: &mut ::buffa::text::TextEncoder<'_>,
+        ) -> ::core::fmt::Result {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if self.id.is_set() {
+                enc.write_field_name("id")?;
+                enc.write_message(&*self.id)?;
+            }
+            if self.kind.is_set() {
+                enc.write_field_name("kind")?;
+                enc.write_message(&*self.kind)?;
+            }
+            enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+            ::core::result::Result::Ok(())
+        }
+        fn merge_text(
+            &mut self,
+            dec: &mut ::buffa::text::TextDecoder<'_>,
+        ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+                match __name {
+                    "id" => dec.merge_message(self.id.get_or_insert_default())?,
+                    "kind" => dec.merge_message(self.kind.get_or_insert_default())?,
+                    _ => dec.skip_value()?,
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+    }
+    impl ::buffa::json_helpers::ProtoElemJson for Alternative6 {
+        fn serialize_proto_json<S: ::serde::Serializer>(
+            v: &Self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            ::serde::Serialize::serialize(v, s)
+        }
+        fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+            d: D,
+        ) -> ::core::result::Result<Self, D::Error> {
+            <Self as ::serde::Deserialize>::deserialize(d)
+        }
+    }
+    #[doc(hidden)]
+    pub const __ALTERNATIVE6_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative6",
+        to_json: ::buffa::type_registry::any_to_json::<Alternative6>,
+        from_json: ::buffa::type_registry::any_from_json::<Alternative6>,
+        is_wkt: false,
+    };
+    #[doc(hidden)]
+    pub const __ALTERNATIVE6_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative6",
+        text_encode: ::buffa::type_registry::any_encode_text::<Alternative6>,
+        text_merge: ::buffa::type_registry::any_merge_text::<Alternative6>,
+    };
+    #[derive(Clone, PartialEq, Default)]
+    #[derive(::serde::Serialize, ::serde::Deserialize)]
+    #[serde(default)]
+    pub struct Alternative7 {
+        /// Field 1: `enumeration`
+        #[serde(
+            rename = "enumeration",
+            skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+        )]
+        pub enumeration: ::buffa::MessageField<
+            super::DeclarationId,
+            ::buffa::Inline<super::DeclarationId>,
+        >,
+        /// Field 2: `member`
+        #[serde(
+            rename = "member",
+            with = "::buffa::json_helpers::bytes",
+            skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_bytes"
+        )]
+        pub member: ::buffa::alloc::vec::Vec<u8>,
+        #[serde(skip)]
+        #[doc(hidden)]
+        pub __buffa_unknown_fields: ::buffa::UnknownFields,
+    }
+    impl ::core::fmt::Debug for Alternative7 {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            f.debug_struct("Alternative7")
+                .field("enumeration", &self.enumeration)
+                .field("member", &self.member)
+                .finish()
+        }
+    }
+    impl Alternative7 {
+        /// Protobuf type URL for this message, for use with `Any::pack` and
+        /// `Any::unpack_if`.
+        ///
+        /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+        pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative7";
+    }
+    ::buffa::impl_default_instance!(Alternative7);
+    impl ::buffa_descriptor::reflect::ReflectMessage for Alternative7 {
+        fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+            __buffa::reflect::descriptor_pool()
+                .message(Self::__buffa_reflect_message_index())
+        }
+        fn pool(
+            &self,
+        ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+            __buffa::reflect::descriptor_pool()
+        }
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn get(
+            &self,
+            field: &::buffa_descriptor::FieldDescriptor,
+        ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match field.number() {
+                1u32 => {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::Reflectable::reflect(
+                            &*self.enumeration,
+                        ),
+                    )
+                }
+                2u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(&self.member[..]),
+                _ => {
+                    ::core::debug_assert!(
+                        false,
+                        "field number {} is not a member of this message's reflect get()",
+                        field.number(),
+                    );
+                    ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                }
+            }
+        }
+        fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+            match field.number() {
+                1u32 => self.enumeration.is_set(),
+                2u32 => !self.member.is_empty(),
+                _ => false,
+            }
+        }
+        fn for_each_set(
+            &self,
+            f: &mut dyn ::core::ops::FnMut(
+                &::buffa_descriptor::FieldDescriptor,
+                ::buffa_descriptor::reflect::ValueRef<'_>,
+            ),
+        ) {
+            let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                self,
+            );
+            for fd in md.fields() {
+                if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                    f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+                }
+            }
+        }
+        fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+            ::buffa_descriptor::reflect::DynamicMessage::from_message(
+                self,
+                ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+                Self::__buffa_reflect_message_index(),
+            )
+        }
+    }
+    impl ::buffa_descriptor::reflect::ReflectElement for Alternative7 {
+        #[inline]
+        fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            ::buffa_descriptor::reflect::ValueRef::Message(
+                ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+            )
+        }
+    }
+    impl Alternative7 {
+        #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+        /// Memoized `MessageIndex` for this message type, resolved once
+        /// against the package's embedded descriptor pool.
+        #[doc(hidden)]
+        fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+            static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+            *IDX
+                .get_or_init(|| {
+                    __buffa::reflect::descriptor_pool()
+                        .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                        .expect(
+                            "generated message is registered in the embedded descriptor pool",
+                        )
+                })
+        }
+    }
+    impl ::buffa_descriptor::reflect::Reflectable for Alternative7 {
+        /// Vtable-mode reflective handle: borrows `self` directly. No
+        /// encode/decode round-trip and no allocation — the reflective
+        /// accessors read this message's fields in place.
+        #[inline]
+        fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+        }
+    }
+    impl ::buffa::MessageName for Alternative7 {
+        const PACKAGE: &'static str = "pse.engineering.v1";
+        const NAME: &'static str = "StructuralValue.Alternative7";
+        const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative7";
+        const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative7";
+    }
+    impl ::buffa::Message for Alternative7 {
+        /// Returns the total encoded size in bytes.
+        ///
+        /// Accumulates in `u64` (which cannot overflow for in-memory
+        /// data) and saturates to `u32` at return, so a message whose
+        /// encoded size exceeds the 2 GiB protobuf limit yields a value
+        /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+        /// points reject, never a silently wrapped size.
+        #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            let mut size = 0u64;
+            if self.enumeration.is_set() {
+                let __slot = __cache.reserve();
+                let inner_size = self.enumeration.compute_size(__cache);
+                __cache.set(__slot, inner_size);
+                size
+                    += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                        + inner_size as u64;
+            }
+            if !self.member.is_empty() {
+                size += 1u64 + ::buffa::types::bytes_encoded_len(&self.member) as u64;
+            }
+            size += self.__buffa_unknown_fields.encoded_len() as u64;
+            ::buffa::saturate_size(size)
+        }
+        fn write_to(
+            &self,
+            __cache: &mut ::buffa::SizeCache,
+            buf: &mut impl ::buffa::EncodeSink,
+        ) {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if self.enumeration.is_set() {
+                ::buffa::types::put_len_delimited_header(
+                    1u32,
+                    u64::from(__cache.consume_next()),
+                    buf,
+                );
+                self.enumeration.write_to(__cache, buf);
+            }
+            if !self.member.is_empty() {
+                ::buffa::types::put_shared_bytes_field(2u32, &self.member, buf);
+            }
+            self.__buffa_unknown_fields.write_to(buf);
+        }
+        fn merge_field(
+            &mut self,
+            tag: ::buffa::encoding::Tag,
+            buf: &mut impl ::buffa::bytes::Buf,
+            ctx: ::buffa::DecodeContext<'_>,
+        ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::bytes::Buf as _;
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match tag.field_number() {
+                1u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::LengthDelimited,
+                    )?;
+                    ::buffa::Message::merge_length_delimited(
+                        self.enumeration.get_or_insert_default(),
+                        buf,
+                        ctx,
+                    )?;
+                }
+                2u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::LengthDelimited,
+                    )?;
+                    ::buffa::types::merge_bytes(&mut self.member, buf)?;
+                }
+                _ => {
+                    self.__buffa_unknown_fields
+                        .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+        fn clear(&mut self) {
+            self.enumeration = ::buffa::MessageField::none();
+            self.member.clear();
+            self.__buffa_unknown_fields.clear();
+        }
+    }
+    impl ::buffa::ExtensionSet for Alternative7 {
+        const PROTO_FQN: &'static str = "pse.engineering.v1.StructuralValue.Alternative7";
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+            &mut self.__buffa_unknown_fields
+        }
+    }
+    impl ::buffa::text::TextFormat for Alternative7 {
+        fn encode_text(
+            &self,
+            enc: &mut ::buffa::text::TextEncoder<'_>,
+        ) -> ::core::fmt::Result {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if self.enumeration.is_set() {
+                enc.write_field_name("enumeration")?;
+                enc.write_message(&*self.enumeration)?;
+            }
+            if !self.member.is_empty() {
+                enc.write_field_name("member")?;
+                enc.write_bytes(&self.member)?;
+            }
+            enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+            ::core::result::Result::Ok(())
+        }
+        fn merge_text(
+            &mut self,
+            dec: &mut ::buffa::text::TextDecoder<'_>,
+        ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+                match __name {
+                    "enumeration" => {
+                        dec.merge_message(self.enumeration.get_or_insert_default())?
+                    }
+                    "member" => self.member = dec.read_bytes()?,
+                    _ => dec.skip_value()?,
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+    }
+    impl ::buffa::json_helpers::ProtoElemJson for Alternative7 {
+        fn serialize_proto_json<S: ::serde::Serializer>(
+            v: &Self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            ::serde::Serialize::serialize(v, s)
+        }
+        fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+            d: D,
+        ) -> ::core::result::Result<Self, D::Error> {
+            <Self as ::serde::Deserialize>::deserialize(d)
+        }
+    }
+    #[doc(hidden)]
+    pub const __ALTERNATIVE7_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative7",
+        to_json: ::buffa::type_registry::any_to_json::<Alternative7>,
+        from_json: ::buffa::type_registry::any_from_json::<Alternative7>,
+        is_wkt: false,
+    };
+    #[doc(hidden)]
+    pub const __ALTERNATIVE7_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative7",
+        text_encode: ::buffa::type_registry::any_encode_text::<Alternative7>,
+        text_merge: ::buffa::type_registry::any_merge_text::<Alternative7>,
+    };
+    #[derive(Clone, PartialEq, Default)]
+    #[derive(::serde::Serialize, ::serde::Deserialize)]
+    #[serde(default)]
+    pub struct Alternative8 {
+        /// Field 1: `scheme`
+        #[serde(
+            rename = "scheme",
+            skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+        )]
+        pub scheme: ::buffa::MessageField<
+            super::DeclarationId,
+            ::buffa::Inline<super::DeclarationId>,
+        >,
+        /// Field 2: `value`
+        #[serde(
+            rename = "value",
+            with = "::buffa::json_helpers::proto_string",
+            skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_str"
+        )]
+        pub value: ::buffa::alloc::string::String,
+        #[serde(skip)]
+        #[doc(hidden)]
+        pub __buffa_unknown_fields: ::buffa::UnknownFields,
+    }
+    impl ::core::fmt::Debug for Alternative8 {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            f.debug_struct("Alternative8")
+                .field("scheme", &self.scheme)
+                .field("value", &self.value)
+                .finish()
+        }
+    }
+    impl Alternative8 {
+        /// Protobuf type URL for this message, for use with `Any::pack` and
+        /// `Any::unpack_if`.
+        ///
+        /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+        pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative8";
+    }
+    ::buffa::impl_default_instance!(Alternative8);
+    impl ::buffa_descriptor::reflect::ReflectMessage for Alternative8 {
+        fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+            __buffa::reflect::descriptor_pool()
+                .message(Self::__buffa_reflect_message_index())
+        }
+        fn pool(
+            &self,
+        ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+            __buffa::reflect::descriptor_pool()
+        }
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn get(
+            &self,
+            field: &::buffa_descriptor::FieldDescriptor,
+        ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match field.number() {
+                1u32 => {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::Reflectable::reflect(&*self.scheme),
+                    )
+                }
+                2u32 => ::buffa_descriptor::reflect::ValueRef::String(&self.value),
+                _ => {
+                    ::core::debug_assert!(
+                        false,
+                        "field number {} is not a member of this message's reflect get()",
+                        field.number(),
+                    );
+                    ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                }
+            }
+        }
+        fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+            match field.number() {
+                1u32 => self.scheme.is_set(),
+                2u32 => !self.value.is_empty(),
+                _ => false,
+            }
+        }
+        fn for_each_set(
+            &self,
+            f: &mut dyn ::core::ops::FnMut(
+                &::buffa_descriptor::FieldDescriptor,
+                ::buffa_descriptor::reflect::ValueRef<'_>,
+            ),
+        ) {
+            let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                self,
+            );
+            for fd in md.fields() {
+                if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                    f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+                }
+            }
+        }
+        fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+            ::buffa_descriptor::reflect::DynamicMessage::from_message(
+                self,
+                ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+                Self::__buffa_reflect_message_index(),
+            )
+        }
+    }
+    impl ::buffa_descriptor::reflect::ReflectElement for Alternative8 {
+        #[inline]
+        fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            ::buffa_descriptor::reflect::ValueRef::Message(
+                ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+            )
+        }
+    }
+    impl Alternative8 {
+        #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+        /// Memoized `MessageIndex` for this message type, resolved once
+        /// against the package's embedded descriptor pool.
+        #[doc(hidden)]
+        fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+            static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+            *IDX
+                .get_or_init(|| {
+                    __buffa::reflect::descriptor_pool()
+                        .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                        .expect(
+                            "generated message is registered in the embedded descriptor pool",
+                        )
+                })
+        }
+    }
+    impl ::buffa_descriptor::reflect::Reflectable for Alternative8 {
+        /// Vtable-mode reflective handle: borrows `self` directly. No
+        /// encode/decode round-trip and no allocation — the reflective
+        /// accessors read this message's fields in place.
+        #[inline]
+        fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+        }
+    }
+    impl ::buffa::MessageName for Alternative8 {
+        const PACKAGE: &'static str = "pse.engineering.v1";
+        const NAME: &'static str = "StructuralValue.Alternative8";
+        const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative8";
+        const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative8";
+    }
+    impl ::buffa::Message for Alternative8 {
+        /// Returns the total encoded size in bytes.
+        ///
+        /// Accumulates in `u64` (which cannot overflow for in-memory
+        /// data) and saturates to `u32` at return, so a message whose
+        /// encoded size exceeds the 2 GiB protobuf limit yields a value
+        /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+        /// points reject, never a silently wrapped size.
+        #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            let mut size = 0u64;
+            if self.scheme.is_set() {
+                let __slot = __cache.reserve();
+                let inner_size = self.scheme.compute_size(__cache);
+                __cache.set(__slot, inner_size);
+                size
+                    += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                        + inner_size as u64;
+            }
+            if !self.value.is_empty() {
+                size += 1u64 + ::buffa::types::string_encoded_len(&self.value) as u64;
+            }
+            size += self.__buffa_unknown_fields.encoded_len() as u64;
+            ::buffa::saturate_size(size)
+        }
+        fn write_to(
+            &self,
+            __cache: &mut ::buffa::SizeCache,
+            buf: &mut impl ::buffa::EncodeSink,
+        ) {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if self.scheme.is_set() {
+                ::buffa::types::put_len_delimited_header(
+                    1u32,
+                    u64::from(__cache.consume_next()),
+                    buf,
+                );
+                self.scheme.write_to(__cache, buf);
+            }
+            if !self.value.is_empty() {
+                ::buffa::types::put_string_field(2u32, &self.value, buf);
+            }
+            self.__buffa_unknown_fields.write_to(buf);
+        }
+        fn merge_field(
+            &mut self,
+            tag: ::buffa::encoding::Tag,
+            buf: &mut impl ::buffa::bytes::Buf,
+            ctx: ::buffa::DecodeContext<'_>,
+        ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::bytes::Buf as _;
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match tag.field_number() {
+                1u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::LengthDelimited,
+                    )?;
+                    ::buffa::Message::merge_length_delimited(
+                        self.scheme.get_or_insert_default(),
+                        buf,
+                        ctx,
+                    )?;
+                }
+                2u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::LengthDelimited,
+                    )?;
+                    ::buffa::types::merge_string(&mut self.value, buf)?;
+                }
+                _ => {
+                    self.__buffa_unknown_fields
+                        .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+        fn clear(&mut self) {
+            self.scheme = ::buffa::MessageField::none();
+            self.value.clear();
+            self.__buffa_unknown_fields.clear();
+        }
+    }
+    impl ::buffa::ExtensionSet for Alternative8 {
+        const PROTO_FQN: &'static str = "pse.engineering.v1.StructuralValue.Alternative8";
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+            &mut self.__buffa_unknown_fields
+        }
+    }
+    impl ::buffa::text::TextFormat for Alternative8 {
+        fn encode_text(
+            &self,
+            enc: &mut ::buffa::text::TextEncoder<'_>,
+        ) -> ::core::fmt::Result {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if self.scheme.is_set() {
+                enc.write_field_name("scheme")?;
+                enc.write_message(&*self.scheme)?;
+            }
+            if !self.value.is_empty() {
+                enc.write_field_name("value")?;
+                enc.write_string(&self.value)?;
+            }
+            enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+            ::core::result::Result::Ok(())
+        }
+        fn merge_text(
+            &mut self,
+            dec: &mut ::buffa::text::TextDecoder<'_>,
+        ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+                match __name {
+                    "scheme" => dec.merge_message(self.scheme.get_or_insert_default())?,
+                    "value" => self.value = dec.read_string()?.into_owned(),
+                    _ => dec.skip_value()?,
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+    }
+    impl ::buffa::json_helpers::ProtoElemJson for Alternative8 {
+        fn serialize_proto_json<S: ::serde::Serializer>(
+            v: &Self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            ::serde::Serialize::serialize(v, s)
+        }
+        fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+            d: D,
+        ) -> ::core::result::Result<Self, D::Error> {
+            <Self as ::serde::Deserialize>::deserialize(d)
+        }
+    }
+    #[doc(hidden)]
+    pub const __ALTERNATIVE8_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative8",
+        to_json: ::buffa::type_registry::any_to_json::<Alternative8>,
+        from_json: ::buffa::type_registry::any_from_json::<Alternative8>,
+        is_wkt: false,
+    };
+    #[doc(hidden)]
+    pub const __ALTERNATIVE8_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative8",
+        text_encode: ::buffa::type_registry::any_encode_text::<Alternative8>,
+        text_merge: ::buffa::type_registry::any_merge_text::<Alternative8>,
+    };
+    #[derive(Clone, PartialEq, Default)]
+    #[derive(::serde::Serialize, ::serde::Deserialize)]
+    #[serde(default)]
+    pub struct Alternative9 {
+        /// Field 1: `id`
+        #[serde(
+            rename = "id",
+            skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+        )]
+        pub id: ::buffa::MessageField<
+            super::DeclarationId,
+            ::buffa::Inline<super::DeclarationId>,
+        >,
+        /// Field 2: `bindings`
+        #[serde(
+            rename = "bindings",
+            skip_serializing_if = "::buffa::__private::HashMap::is_empty",
+            deserialize_with = "::buffa::json_helpers::null_as_default"
+        )]
+        pub bindings: ::buffa::__private::HashMap<
+            ::buffa::alloc::string::String,
+            super::StructuralValue,
+        >,
+        #[serde(skip)]
+        #[doc(hidden)]
+        pub __buffa_unknown_fields: ::buffa::UnknownFields,
+    }
+    impl ::core::fmt::Debug for Alternative9 {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            f.debug_struct("Alternative9")
+                .field("id", &self.id)
+                .field("bindings", &self.bindings)
+                .finish()
+        }
+    }
+    impl Alternative9 {
+        /// Protobuf type URL for this message, for use with `Any::pack` and
+        /// `Any::unpack_if`.
+        ///
+        /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+        pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative9";
+    }
+    ::buffa::impl_default_instance!(Alternative9);
+    impl ::buffa_descriptor::reflect::ReflectMessage for Alternative9 {
+        fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+            __buffa::reflect::descriptor_pool()
+                .message(Self::__buffa_reflect_message_index())
+        }
+        fn pool(
+            &self,
+        ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+            __buffa::reflect::descriptor_pool()
+        }
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn get(
+            &self,
+            field: &::buffa_descriptor::FieldDescriptor,
+        ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match field.number() {
+                1u32 => {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::Reflectable::reflect(&*self.id),
+                    )
+                }
+                2u32 => ::buffa_descriptor::reflect::ValueRef::Map(&self.bindings),
+                _ => {
+                    ::core::debug_assert!(
+                        false,
+                        "field number {} is not a member of this message's reflect get()",
+                        field.number(),
+                    );
+                    ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                }
+            }
+        }
+        fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+            match field.number() {
+                1u32 => self.id.is_set(),
+                2u32 => !self.bindings.is_empty(),
+                _ => false,
+            }
+        }
+        fn for_each_set(
+            &self,
+            f: &mut dyn ::core::ops::FnMut(
+                &::buffa_descriptor::FieldDescriptor,
+                ::buffa_descriptor::reflect::ValueRef<'_>,
+            ),
+        ) {
+            let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                self,
+            );
+            for fd in md.fields() {
+                if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                    f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+                }
+            }
+        }
+        fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+            ::buffa_descriptor::reflect::DynamicMessage::from_message(
+                self,
+                ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+                Self::__buffa_reflect_message_index(),
+            )
+        }
+    }
+    impl ::buffa_descriptor::reflect::ReflectElement for Alternative9 {
+        #[inline]
+        fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            ::buffa_descriptor::reflect::ValueRef::Message(
+                ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+            )
+        }
+    }
+    impl Alternative9 {
+        #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+        /// Memoized `MessageIndex` for this message type, resolved once
+        /// against the package's embedded descriptor pool.
+        #[doc(hidden)]
+        fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+            static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+            *IDX
+                .get_or_init(|| {
+                    __buffa::reflect::descriptor_pool()
+                        .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                        .expect(
+                            "generated message is registered in the embedded descriptor pool",
+                        )
+                })
+        }
+    }
+    impl ::buffa_descriptor::reflect::Reflectable for Alternative9 {
+        /// Vtable-mode reflective handle: borrows `self` directly. No
+        /// encode/decode round-trip and no allocation — the reflective
+        /// accessors read this message's fields in place.
+        #[inline]
+        fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+        }
+    }
+    impl ::buffa::MessageName for Alternative9 {
+        const PACKAGE: &'static str = "pse.engineering.v1";
+        const NAME: &'static str = "StructuralValue.Alternative9";
+        const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative9";
+        const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative9";
+    }
+    impl ::buffa::Message for Alternative9 {
+        /// Returns the total encoded size in bytes.
+        ///
+        /// Accumulates in `u64` (which cannot overflow for in-memory
+        /// data) and saturates to `u32` at return, so a message whose
+        /// encoded size exceeds the 2 GiB protobuf limit yields a value
+        /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+        /// points reject, never a silently wrapped size.
+        #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            let mut size = 0u64;
+            if self.id.is_set() {
+                let __slot = __cache.reserve();
+                let inner_size = self.id.compute_size(__cache);
+                __cache.set(__slot, inner_size);
+                size
+                    += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                        + inner_size as u64;
+            }
+            size
+                += ::buffa::map_codec::message_field_len::<
+                    ::buffa::map_codec::Str,
+                    _,
+                    _,
+                >(&self.bindings, 1u64, __cache);
+            size += self.__buffa_unknown_fields.encoded_len() as u64;
+            ::buffa::saturate_size(size)
+        }
+        fn write_to(
+            &self,
+            __cache: &mut ::buffa::SizeCache,
+            buf: &mut impl ::buffa::EncodeSink,
+        ) {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if self.id.is_set() {
+                ::buffa::types::put_len_delimited_header(
+                    1u32,
+                    u64::from(__cache.consume_next()),
+                    buf,
+                );
+                self.id.write_to(__cache, buf);
+            }
+            ::buffa::map_codec::write_message_field::<
+                ::buffa::map_codec::Str,
+                _,
+                _,
+            >(&self.bindings, 2u32, __cache, buf);
+            self.__buffa_unknown_fields.write_to(buf);
+        }
+        fn merge_field(
+            &mut self,
+            tag: ::buffa::encoding::Tag,
+            buf: &mut impl ::buffa::bytes::Buf,
+            ctx: ::buffa::DecodeContext<'_>,
+        ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::bytes::Buf as _;
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match tag.field_number() {
+                1u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::LengthDelimited,
+                    )?;
+                    ::buffa::Message::merge_length_delimited(
+                        self.id.get_or_insert_default(),
+                        buf,
+                        ctx,
+                    )?;
+                }
+                2u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::LengthDelimited,
+                    )?;
+                    ::buffa::map_codec::merge_entry::<
+                        ::buffa::map_codec::Str,
+                        ::buffa::map_codec::Msg<_>,
+                        _,
+                    >(&mut self.bindings, buf, ctx)?;
+                }
+                _ => {
+                    self.__buffa_unknown_fields
+                        .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+        fn clear(&mut self) {
+            self.id = ::buffa::MessageField::none();
+            self.bindings.clear();
+            self.__buffa_unknown_fields.clear();
+        }
+    }
+    impl ::buffa::ExtensionSet for Alternative9 {
+        const PROTO_FQN: &'static str = "pse.engineering.v1.StructuralValue.Alternative9";
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+            &mut self.__buffa_unknown_fields
+        }
+    }
+    impl ::buffa::text::TextFormat for Alternative9 {
+        fn encode_text(
+            &self,
+            enc: &mut ::buffa::text::TextEncoder<'_>,
+        ) -> ::core::fmt::Result {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if self.id.is_set() {
+                enc.write_field_name("id")?;
+                enc.write_message(&*self.id)?;
+            }
+            for (__k, __v) in &self.bindings {
+                enc.write_field_name("bindings")?;
+                enc.write_map_entry(|enc| {
+                    enc.write_field_name("key")?;
+                    enc.write_string(__k)?;
+                    enc.write_field_name("value")?;
+                    enc.write_message(__v)?;
+                    ::core::result::Result::Ok(())
+                })?;
+            }
+            enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+            ::core::result::Result::Ok(())
+        }
+        fn merge_text(
+            &mut self,
+            dec: &mut ::buffa::text::TextDecoder<'_>,
+        ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+                match __name {
+                    "id" => dec.merge_message(self.id.get_or_insert_default())?,
+                    "bindings" => {
+                        let mut __pairs: ::buffa::alloc::vec::Vec<_> = ::buffa::alloc::vec::Vec::new();
+                        dec.read_repeated_into(
+                            &mut __pairs,
+                            |__d| {
+                                let mut __k = ::core::option::Option::None;
+                                let mut __v = ::core::option::Option::None;
+                                __d.merge_map_entry(|__d| {
+                                    while let ::core::option::Option::Some(__n) = __d
+                                        .read_field_name()?
+                                    {
+                                        match __n {
+                                            "key" => {
+                                                __k = ::core::option::Option::Some(
+                                                    __d.read_string()?.into_owned(),
+                                                );
+                                            }
+                                            "value" => {
+                                                __v = ::core::option::Option::Some({
+                                                    let mut __m = ::core::default::Default::default();
+                                                    __d.merge_message(&mut __m)?;
+                                                    __m
+                                                });
+                                            }
+                                            _ => __d.skip_value()?,
+                                        }
+                                    }
+                                    ::core::result::Result::Ok(())
+                                })?;
+                                ::core::result::Result::Ok((
+                                    __k.unwrap_or_default(),
+                                    __v.unwrap_or_default(),
+                                ))
+                            },
+                        )?;
+                        for (__k, __v) in __pairs {
+                            self.bindings.insert(__k, __v);
+                        }
+                    }
+                    _ => dec.skip_value()?,
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+    }
+    impl ::buffa::json_helpers::ProtoElemJson for Alternative9 {
+        fn serialize_proto_json<S: ::serde::Serializer>(
+            v: &Self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            ::serde::Serialize::serialize(v, s)
+        }
+        fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+            d: D,
+        ) -> ::core::result::Result<Self, D::Error> {
+            <Self as ::serde::Deserialize>::deserialize(d)
+        }
+    }
+    #[doc(hidden)]
+    pub const __ALTERNATIVE9_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative9",
+        to_json: ::buffa::type_registry::any_to_json::<Alternative9>,
+        from_json: ::buffa::type_registry::any_from_json::<Alternative9>,
+        is_wkt: false,
+    };
+    #[doc(hidden)]
+    pub const __ALTERNATIVE9_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative9",
+        text_encode: ::buffa::type_registry::any_encode_text::<Alternative9>,
+        text_merge: ::buffa::type_registry::any_merge_text::<Alternative9>,
+    };
+    #[derive(Clone, PartialEq, Default)]
+    #[derive(::serde::Serialize, ::serde::Deserialize)]
+    #[serde(default)]
+    pub struct Alternative10 {
+        /// Field 1: `value`
+        #[serde(
+            rename = "value",
+            skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+        )]
+        pub value: ::buffa::MessageField<
+            super::DeclarationId,
+            ::buffa::Inline<super::DeclarationId>,
+        >,
+        #[serde(skip)]
+        #[doc(hidden)]
+        pub __buffa_unknown_fields: ::buffa::UnknownFields,
+    }
+    impl ::core::fmt::Debug for Alternative10 {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            f.debug_struct("Alternative10").field("value", &self.value).finish()
+        }
+    }
+    impl Alternative10 {
+        /// Protobuf type URL for this message, for use with `Any::pack` and
+        /// `Any::unpack_if`.
+        ///
+        /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+        pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative10";
+    }
+    ::buffa::impl_default_instance!(Alternative10);
+    impl ::buffa_descriptor::reflect::ReflectMessage for Alternative10 {
+        fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+            __buffa::reflect::descriptor_pool()
+                .message(Self::__buffa_reflect_message_index())
+        }
+        fn pool(
+            &self,
+        ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+            __buffa::reflect::descriptor_pool()
+        }
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn get(
+            &self,
+            field: &::buffa_descriptor::FieldDescriptor,
+        ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match field.number() {
+                1u32 => {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::Reflectable::reflect(&*self.value),
+                    )
+                }
+                _ => {
+                    ::core::debug_assert!(
+                        false,
+                        "field number {} is not a member of this message's reflect get()",
+                        field.number(),
+                    );
+                    ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                }
+            }
+        }
+        fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+            match field.number() {
+                1u32 => self.value.is_set(),
+                _ => false,
+            }
+        }
+        fn for_each_set(
+            &self,
+            f: &mut dyn ::core::ops::FnMut(
+                &::buffa_descriptor::FieldDescriptor,
+                ::buffa_descriptor::reflect::ValueRef<'_>,
+            ),
+        ) {
+            let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                self,
+            );
+            for fd in md.fields() {
+                if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                    f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+                }
+            }
+        }
+        fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+            ::buffa_descriptor::reflect::DynamicMessage::from_message(
+                self,
+                ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+                Self::__buffa_reflect_message_index(),
+            )
+        }
+    }
+    impl ::buffa_descriptor::reflect::ReflectElement for Alternative10 {
+        #[inline]
+        fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            ::buffa_descriptor::reflect::ValueRef::Message(
+                ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+            )
+        }
+    }
+    impl Alternative10 {
+        #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+        /// Memoized `MessageIndex` for this message type, resolved once
+        /// against the package's embedded descriptor pool.
+        #[doc(hidden)]
+        fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+            static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+            *IDX
+                .get_or_init(|| {
+                    __buffa::reflect::descriptor_pool()
+                        .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                        .expect(
+                            "generated message is registered in the embedded descriptor pool",
+                        )
+                })
+        }
+    }
+    impl ::buffa_descriptor::reflect::Reflectable for Alternative10 {
+        /// Vtable-mode reflective handle: borrows `self` directly. No
+        /// encode/decode round-trip and no allocation — the reflective
+        /// accessors read this message's fields in place.
+        #[inline]
+        fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+        }
+    }
+    impl ::buffa::MessageName for Alternative10 {
+        const PACKAGE: &'static str = "pse.engineering.v1";
+        const NAME: &'static str = "StructuralValue.Alternative10";
+        const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative10";
+        const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative10";
+    }
+    impl ::buffa::Message for Alternative10 {
+        /// Returns the total encoded size in bytes.
+        ///
+        /// Accumulates in `u64` (which cannot overflow for in-memory
+        /// data) and saturates to `u32` at return, so a message whose
+        /// encoded size exceeds the 2 GiB protobuf limit yields a value
+        /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+        /// points reject, never a silently wrapped size.
+        #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            let mut size = 0u64;
+            if self.value.is_set() {
+                let __slot = __cache.reserve();
+                let inner_size = self.value.compute_size(__cache);
+                __cache.set(__slot, inner_size);
+                size
+                    += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                        + inner_size as u64;
+            }
+            size += self.__buffa_unknown_fields.encoded_len() as u64;
+            ::buffa::saturate_size(size)
+        }
+        fn write_to(
+            &self,
+            __cache: &mut ::buffa::SizeCache,
+            buf: &mut impl ::buffa::EncodeSink,
+        ) {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if self.value.is_set() {
+                ::buffa::types::put_len_delimited_header(
+                    1u32,
+                    u64::from(__cache.consume_next()),
+                    buf,
+                );
+                self.value.write_to(__cache, buf);
+            }
+            self.__buffa_unknown_fields.write_to(buf);
+        }
+        fn merge_field(
+            &mut self,
+            tag: ::buffa::encoding::Tag,
+            buf: &mut impl ::buffa::bytes::Buf,
+            ctx: ::buffa::DecodeContext<'_>,
+        ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::bytes::Buf as _;
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match tag.field_number() {
+                1u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::LengthDelimited,
+                    )?;
+                    ::buffa::Message::merge_length_delimited(
+                        self.value.get_or_insert_default(),
+                        buf,
+                        ctx,
+                    )?;
+                }
+                _ => {
+                    self.__buffa_unknown_fields
+                        .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+        fn clear(&mut self) {
+            self.value = ::buffa::MessageField::none();
+            self.__buffa_unknown_fields.clear();
+        }
+    }
+    impl ::buffa::ExtensionSet for Alternative10 {
+        const PROTO_FQN: &'static str = "pse.engineering.v1.StructuralValue.Alternative10";
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+            &mut self.__buffa_unknown_fields
+        }
+    }
+    impl ::buffa::text::TextFormat for Alternative10 {
+        fn encode_text(
+            &self,
+            enc: &mut ::buffa::text::TextEncoder<'_>,
+        ) -> ::core::fmt::Result {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if self.value.is_set() {
+                enc.write_field_name("value")?;
+                enc.write_message(&*self.value)?;
+            }
+            enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+            ::core::result::Result::Ok(())
+        }
+        fn merge_text(
+            &mut self,
+            dec: &mut ::buffa::text::TextDecoder<'_>,
+        ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+                match __name {
+                    "value" => dec.merge_message(self.value.get_or_insert_default())?,
+                    _ => dec.skip_value()?,
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+    }
+    impl ::buffa::json_helpers::ProtoElemJson for Alternative10 {
+        fn serialize_proto_json<S: ::serde::Serializer>(
+            v: &Self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            ::serde::Serialize::serialize(v, s)
+        }
+        fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+            d: D,
+        ) -> ::core::result::Result<Self, D::Error> {
+            <Self as ::serde::Deserialize>::deserialize(d)
+        }
+    }
+    #[doc(hidden)]
+    pub const __ALTERNATIVE10_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative10",
+        to_json: ::buffa::type_registry::any_to_json::<Alternative10>,
+        from_json: ::buffa::type_registry::any_from_json::<Alternative10>,
+        is_wkt: false,
+    };
+    #[doc(hidden)]
+    pub const __ALTERNATIVE10_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative10",
+        text_encode: ::buffa::type_registry::any_encode_text::<Alternative10>,
+        text_merge: ::buffa::type_registry::any_merge_text::<Alternative10>,
+    };
+    #[derive(Clone, PartialEq, Default)]
+    #[derive(::serde::Serialize, ::serde::Deserialize)]
+    #[serde(default)]
+    pub struct Alternative11 {
+        /// Field 1: `table`
+        #[serde(
+            rename = "table",
+            skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+        )]
+        pub table: ::buffa::MessageField<
+            super::DeclarationId,
+            ::buffa::Inline<super::DeclarationId>,
+        >,
+        /// Field 2: `names`
+        #[serde(
+            rename = "names",
+            skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+            deserialize_with = "::buffa::json_helpers::null_as_default"
+        )]
+        pub names: ::buffa::alloc::vec::Vec<::buffa::alloc::string::String>,
+        /// Field 3: `fields`
+        #[serde(
+            rename = "fields",
+            skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+            deserialize_with = "::buffa::json_helpers::null_as_default"
+        )]
+        pub fields: ::buffa::alloc::vec::Vec<super::StructuralValue>,
+        #[serde(skip)]
+        #[doc(hidden)]
+        pub __buffa_unknown_fields: ::buffa::UnknownFields,
+    }
+    impl ::core::fmt::Debug for Alternative11 {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            f.debug_struct("Alternative11")
+                .field("table", &self.table)
+                .field("names", &self.names)
+                .field("fields", &self.fields)
+                .finish()
+        }
+    }
+    impl Alternative11 {
+        /// Protobuf type URL for this message, for use with `Any::pack` and
+        /// `Any::unpack_if`.
+        ///
+        /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+        pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative11";
+    }
+    ::buffa::impl_default_instance!(Alternative11);
+    impl ::buffa_descriptor::reflect::ReflectMessage for Alternative11 {
+        fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+            __buffa::reflect::descriptor_pool()
+                .message(Self::__buffa_reflect_message_index())
+        }
+        fn pool(
+            &self,
+        ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+            __buffa::reflect::descriptor_pool()
+        }
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn get(
+            &self,
+            field: &::buffa_descriptor::FieldDescriptor,
+        ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match field.number() {
+                1u32 => {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::Reflectable::reflect(&*self.table),
+                    )
+                }
+                2u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.names),
+                3u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.fields),
+                _ => {
+                    ::core::debug_assert!(
+                        false,
+                        "field number {} is not a member of this message's reflect get()",
+                        field.number(),
+                    );
+                    ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                }
+            }
+        }
+        fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+            match field.number() {
+                1u32 => self.table.is_set(),
+                2u32 => !self.names.is_empty(),
+                3u32 => !self.fields.is_empty(),
+                _ => false,
+            }
+        }
+        fn for_each_set(
+            &self,
+            f: &mut dyn ::core::ops::FnMut(
+                &::buffa_descriptor::FieldDescriptor,
+                ::buffa_descriptor::reflect::ValueRef<'_>,
+            ),
+        ) {
+            let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                self,
+            );
+            for fd in md.fields() {
+                if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                    f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+                }
+            }
+        }
+        fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+            ::buffa_descriptor::reflect::DynamicMessage::from_message(
+                self,
+                ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+                Self::__buffa_reflect_message_index(),
+            )
+        }
+    }
+    impl ::buffa_descriptor::reflect::ReflectElement for Alternative11 {
+        #[inline]
+        fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            ::buffa_descriptor::reflect::ValueRef::Message(
+                ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+            )
+        }
+    }
+    impl Alternative11 {
+        #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+        /// Memoized `MessageIndex` for this message type, resolved once
+        /// against the package's embedded descriptor pool.
+        #[doc(hidden)]
+        fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+            static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+            *IDX
+                .get_or_init(|| {
+                    __buffa::reflect::descriptor_pool()
+                        .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                        .expect(
+                            "generated message is registered in the embedded descriptor pool",
+                        )
+                })
+        }
+    }
+    impl ::buffa_descriptor::reflect::Reflectable for Alternative11 {
+        /// Vtable-mode reflective handle: borrows `self` directly. No
+        /// encode/decode round-trip and no allocation — the reflective
+        /// accessors read this message's fields in place.
+        #[inline]
+        fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+        }
+    }
+    impl ::buffa::MessageName for Alternative11 {
+        const PACKAGE: &'static str = "pse.engineering.v1";
+        const NAME: &'static str = "StructuralValue.Alternative11";
+        const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative11";
+        const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative11";
+    }
+    impl ::buffa::Message for Alternative11 {
+        /// Returns the total encoded size in bytes.
+        ///
+        /// Accumulates in `u64` (which cannot overflow for in-memory
+        /// data) and saturates to `u32` at return, so a message whose
+        /// encoded size exceeds the 2 GiB protobuf limit yields a value
+        /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+        /// points reject, never a silently wrapped size.
+        #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            let mut size = 0u64;
+            if self.table.is_set() {
+                let __slot = __cache.reserve();
+                let inner_size = self.table.compute_size(__cache);
+                __cache.set(__slot, inner_size);
+                size
+                    += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                        + inner_size as u64;
+            }
+            for v in &self.names {
+                size += 1u64 + ::buffa::types::string_encoded_len(v) as u64;
+            }
+            for v in &self.fields {
+                let __slot = __cache.reserve();
+                let inner_size = v.compute_size(__cache);
+                __cache.set(__slot, inner_size);
+                size
+                    += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                        + inner_size as u64;
+            }
+            size += self.__buffa_unknown_fields.encoded_len() as u64;
+            ::buffa::saturate_size(size)
+        }
+        fn write_to(
+            &self,
+            __cache: &mut ::buffa::SizeCache,
+            buf: &mut impl ::buffa::EncodeSink,
+        ) {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if self.table.is_set() {
+                ::buffa::types::put_len_delimited_header(
+                    1u32,
+                    u64::from(__cache.consume_next()),
+                    buf,
+                );
+                self.table.write_to(__cache, buf);
+            }
+            for v in &self.names {
+                ::buffa::types::put_string_field(2u32, v, buf);
+            }
+            for v in &self.fields {
+                ::buffa::types::put_len_delimited_header(
+                    3u32,
+                    u64::from(__cache.consume_next()),
+                    buf,
+                );
+                v.write_to(__cache, buf);
+            }
+            self.__buffa_unknown_fields.write_to(buf);
+        }
+        fn merge_field(
+            &mut self,
+            tag: ::buffa::encoding::Tag,
+            buf: &mut impl ::buffa::bytes::Buf,
+            ctx: ::buffa::DecodeContext<'_>,
+        ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::bytes::Buf as _;
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match tag.field_number() {
+                1u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::LengthDelimited,
+                    )?;
+                    ::buffa::Message::merge_length_delimited(
+                        self.table.get_or_insert_default(),
+                        buf,
+                        ctx,
+                    )?;
+                }
+                2u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::LengthDelimited,
+                    )?;
+                    let __elem = ::buffa::types::decode_string(buf)?;
+                    ctx.register_element_memory(
+                        ::buffa::__private::element_footprint(&__elem),
+                    )?;
+                    self.names.push(__elem);
+                }
+                3u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::LengthDelimited,
+                    )?;
+                    let mut elem = ::core::default::Default::default();
+                    ctx.register_element_memory(
+                        ::buffa::__private::element_footprint(&elem),
+                    )?;
+                    ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
+                    self.fields.push(elem);
+                }
+                _ => {
+                    self.__buffa_unknown_fields
+                        .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+        fn clear(&mut self) {
+            self.table = ::buffa::MessageField::none();
+            self.names.clear();
+            self.fields.clear();
+            self.__buffa_unknown_fields.clear();
+        }
+    }
+    impl ::buffa::ExtensionSet for Alternative11 {
+        const PROTO_FQN: &'static str = "pse.engineering.v1.StructuralValue.Alternative11";
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+            &mut self.__buffa_unknown_fields
+        }
+    }
+    impl ::buffa::text::TextFormat for Alternative11 {
+        fn encode_text(
+            &self,
+            enc: &mut ::buffa::text::TextEncoder<'_>,
+        ) -> ::core::fmt::Result {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if self.table.is_set() {
+                enc.write_field_name("table")?;
+                enc.write_message(&*self.table)?;
+            }
+            for __v in &self.names {
+                enc.write_field_name("names")?;
+                enc.write_string(__v)?;
+            }
+            for __v in &self.fields {
+                enc.write_field_name("fields")?;
+                enc.write_message(__v)?;
+            }
+            enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+            ::core::result::Result::Ok(())
+        }
+        fn merge_text(
+            &mut self,
+            dec: &mut ::buffa::text::TextDecoder<'_>,
+        ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+                match __name {
+                    "table" => dec.merge_message(self.table.get_or_insert_default())?,
+                    "names" => {
+                        dec.read_repeated_into(
+                            &mut self.names,
+                            |__d| ::core::result::Result::Ok(
+                                __d.read_string()?.into_owned(),
+                            ),
+                        )?
+                    }
+                    "fields" => {
+                        dec.read_repeated_into(
+                            &mut self.fields,
+                            |__d| {
+                                let mut __m = ::core::default::Default::default();
+                                __d.merge_message(&mut __m)?;
+                                ::core::result::Result::Ok(__m)
+                            },
+                        )?
+                    }
+                    _ => dec.skip_value()?,
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+    }
+    impl ::buffa::json_helpers::ProtoElemJson for Alternative11 {
+        fn serialize_proto_json<S: ::serde::Serializer>(
+            v: &Self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            ::serde::Serialize::serialize(v, s)
+        }
+        fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+            d: D,
+        ) -> ::core::result::Result<Self, D::Error> {
+            <Self as ::serde::Deserialize>::deserialize(d)
+        }
+    }
+    #[doc(hidden)]
+    pub const __ALTERNATIVE11_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative11",
+        to_json: ::buffa::type_registry::any_to_json::<Alternative11>,
+        from_json: ::buffa::type_registry::any_from_json::<Alternative11>,
+        is_wkt: false,
+    };
+    #[doc(hidden)]
+    pub const __ALTERNATIVE11_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative11",
+        text_encode: ::buffa::type_registry::any_encode_text::<Alternative11>,
+        text_merge: ::buffa::type_registry::any_merge_text::<Alternative11>,
+    };
+    #[derive(Clone, PartialEq, Default)]
+    #[derive(::serde::Serialize, ::serde::Deserialize)]
+    #[serde(default)]
+    pub struct Alternative12 {
+        /// Field 1: `value`
+        #[serde(
+            rename = "value",
+            skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+            deserialize_with = "::buffa::json_helpers::null_as_default"
+        )]
+        pub value: ::buffa::alloc::vec::Vec<super::StructuralValue>,
+        #[serde(skip)]
+        #[doc(hidden)]
+        pub __buffa_unknown_fields: ::buffa::UnknownFields,
+    }
+    impl ::core::fmt::Debug for Alternative12 {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            f.debug_struct("Alternative12").field("value", &self.value).finish()
+        }
+    }
+    impl Alternative12 {
+        /// Protobuf type URL for this message, for use with `Any::pack` and
+        /// `Any::unpack_if`.
+        ///
+        /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+        pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative12";
+    }
+    ::buffa::impl_default_instance!(Alternative12);
+    impl ::buffa_descriptor::reflect::ReflectMessage for Alternative12 {
+        fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+            __buffa::reflect::descriptor_pool()
+                .message(Self::__buffa_reflect_message_index())
+        }
+        fn pool(
+            &self,
+        ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+            __buffa::reflect::descriptor_pool()
+        }
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn get(
+            &self,
+            field: &::buffa_descriptor::FieldDescriptor,
+        ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match field.number() {
+                1u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.value),
+                _ => {
+                    ::core::debug_assert!(
+                        false,
+                        "field number {} is not a member of this message's reflect get()",
+                        field.number(),
+                    );
+                    ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                }
+            }
+        }
+        fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+            match field.number() {
+                1u32 => !self.value.is_empty(),
+                _ => false,
+            }
+        }
+        fn for_each_set(
+            &self,
+            f: &mut dyn ::core::ops::FnMut(
+                &::buffa_descriptor::FieldDescriptor,
+                ::buffa_descriptor::reflect::ValueRef<'_>,
+            ),
+        ) {
+            let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                self,
+            );
+            for fd in md.fields() {
+                if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                    f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+                }
+            }
+        }
+        fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+            ::buffa_descriptor::reflect::DynamicMessage::from_message(
+                self,
+                ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+                Self::__buffa_reflect_message_index(),
+            )
+        }
+    }
+    impl ::buffa_descriptor::reflect::ReflectElement for Alternative12 {
+        #[inline]
+        fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            ::buffa_descriptor::reflect::ValueRef::Message(
+                ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+            )
+        }
+    }
+    impl Alternative12 {
+        #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+        /// Memoized `MessageIndex` for this message type, resolved once
+        /// against the package's embedded descriptor pool.
+        #[doc(hidden)]
+        fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+            static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+            *IDX
+                .get_or_init(|| {
+                    __buffa::reflect::descriptor_pool()
+                        .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                        .expect(
+                            "generated message is registered in the embedded descriptor pool",
+                        )
+                })
+        }
+    }
+    impl ::buffa_descriptor::reflect::Reflectable for Alternative12 {
+        /// Vtable-mode reflective handle: borrows `self` directly. No
+        /// encode/decode round-trip and no allocation — the reflective
+        /// accessors read this message's fields in place.
+        #[inline]
+        fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+        }
+    }
+    impl ::buffa::MessageName for Alternative12 {
+        const PACKAGE: &'static str = "pse.engineering.v1";
+        const NAME: &'static str = "StructuralValue.Alternative12";
+        const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative12";
+        const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative12";
+    }
+    impl ::buffa::Message for Alternative12 {
+        /// Returns the total encoded size in bytes.
+        ///
+        /// Accumulates in `u64` (which cannot overflow for in-memory
+        /// data) and saturates to `u32` at return, so a message whose
+        /// encoded size exceeds the 2 GiB protobuf limit yields a value
+        /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+        /// points reject, never a silently wrapped size.
+        #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            let mut size = 0u64;
+            for v in &self.value {
+                let __slot = __cache.reserve();
+                let inner_size = v.compute_size(__cache);
+                __cache.set(__slot, inner_size);
+                size
+                    += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                        + inner_size as u64;
+            }
+            size += self.__buffa_unknown_fields.encoded_len() as u64;
+            ::buffa::saturate_size(size)
+        }
+        fn write_to(
+            &self,
+            __cache: &mut ::buffa::SizeCache,
+            buf: &mut impl ::buffa::EncodeSink,
+        ) {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            for v in &self.value {
+                ::buffa::types::put_len_delimited_header(
+                    1u32,
+                    u64::from(__cache.consume_next()),
+                    buf,
+                );
+                v.write_to(__cache, buf);
+            }
+            self.__buffa_unknown_fields.write_to(buf);
+        }
+        fn merge_field(
+            &mut self,
+            tag: ::buffa::encoding::Tag,
+            buf: &mut impl ::buffa::bytes::Buf,
+            ctx: ::buffa::DecodeContext<'_>,
+        ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::bytes::Buf as _;
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match tag.field_number() {
+                1u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::LengthDelimited,
+                    )?;
+                    let mut elem = ::core::default::Default::default();
+                    ctx.register_element_memory(
+                        ::buffa::__private::element_footprint(&elem),
+                    )?;
+                    ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
+                    self.value.push(elem);
+                }
+                _ => {
+                    self.__buffa_unknown_fields
+                        .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+        fn clear(&mut self) {
+            self.value.clear();
+            self.__buffa_unknown_fields.clear();
+        }
+    }
+    impl ::buffa::ExtensionSet for Alternative12 {
+        const PROTO_FQN: &'static str = "pse.engineering.v1.StructuralValue.Alternative12";
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+            &mut self.__buffa_unknown_fields
+        }
+    }
+    impl ::buffa::text::TextFormat for Alternative12 {
+        fn encode_text(
+            &self,
+            enc: &mut ::buffa::text::TextEncoder<'_>,
+        ) -> ::core::fmt::Result {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            for __v in &self.value {
+                enc.write_field_name("value")?;
+                enc.write_message(__v)?;
+            }
+            enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+            ::core::result::Result::Ok(())
+        }
+        fn merge_text(
+            &mut self,
+            dec: &mut ::buffa::text::TextDecoder<'_>,
+        ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+                match __name {
+                    "value" => {
+                        dec.read_repeated_into(
+                            &mut self.value,
+                            |__d| {
+                                let mut __m = ::core::default::Default::default();
+                                __d.merge_message(&mut __m)?;
+                                ::core::result::Result::Ok(__m)
+                            },
+                        )?
+                    }
+                    _ => dec.skip_value()?,
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+    }
+    impl ::buffa::json_helpers::ProtoElemJson for Alternative12 {
+        fn serialize_proto_json<S: ::serde::Serializer>(
+            v: &Self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            ::serde::Serialize::serialize(v, s)
+        }
+        fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+            d: D,
+        ) -> ::core::result::Result<Self, D::Error> {
+            <Self as ::serde::Deserialize>::deserialize(d)
+        }
+    }
+    #[doc(hidden)]
+    pub const __ALTERNATIVE12_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative12",
+        to_json: ::buffa::type_registry::any_to_json::<Alternative12>,
+        from_json: ::buffa::type_registry::any_from_json::<Alternative12>,
+        is_wkt: false,
+    };
+    #[doc(hidden)]
+    pub const __ALTERNATIVE12_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative12",
+        text_encode: ::buffa::type_registry::any_encode_text::<Alternative12>,
+        text_merge: ::buffa::type_registry::any_merge_text::<Alternative12>,
+    };
+    #[derive(Clone, PartialEq, Default)]
+    #[derive(::serde::Serialize, ::serde::Deserialize)]
+    #[serde(default)]
+    pub struct Alternative13 {
+        /// Field 1: `value`
+        #[serde(
+            rename = "value",
+            skip_serializing_if = "::buffa::json_helpers::skip_if::is_empty_vec",
+            deserialize_with = "::buffa::json_helpers::null_as_default"
+        )]
+        pub value: ::buffa::alloc::vec::Vec<super::StructuralValue>,
+        #[serde(skip)]
+        #[doc(hidden)]
+        pub __buffa_unknown_fields: ::buffa::UnknownFields,
+    }
+    impl ::core::fmt::Debug for Alternative13 {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            f.debug_struct("Alternative13").field("value", &self.value).finish()
+        }
+    }
+    impl Alternative13 {
+        /// Protobuf type URL for this message, for use with `Any::pack` and
+        /// `Any::unpack_if`.
+        ///
+        /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+        pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative13";
+    }
+    ::buffa::impl_default_instance!(Alternative13);
+    impl ::buffa_descriptor::reflect::ReflectMessage for Alternative13 {
+        fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+            __buffa::reflect::descriptor_pool()
+                .message(Self::__buffa_reflect_message_index())
+        }
+        fn pool(
+            &self,
+        ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+            __buffa::reflect::descriptor_pool()
+        }
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn get(
+            &self,
+            field: &::buffa_descriptor::FieldDescriptor,
+        ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match field.number() {
+                1u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.value),
+                _ => {
+                    ::core::debug_assert!(
+                        false,
+                        "field number {} is not a member of this message's reflect get()",
+                        field.number(),
+                    );
+                    ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                }
+            }
+        }
+        fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+            match field.number() {
+                1u32 => !self.value.is_empty(),
+                _ => false,
+            }
+        }
+        fn for_each_set(
+            &self,
+            f: &mut dyn ::core::ops::FnMut(
+                &::buffa_descriptor::FieldDescriptor,
+                ::buffa_descriptor::reflect::ValueRef<'_>,
+            ),
+        ) {
+            let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                self,
+            );
+            for fd in md.fields() {
+                if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                    f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+                }
+            }
+        }
+        fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+            ::buffa_descriptor::reflect::DynamicMessage::from_message(
+                self,
+                ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+                Self::__buffa_reflect_message_index(),
+            )
+        }
+    }
+    impl ::buffa_descriptor::reflect::ReflectElement for Alternative13 {
+        #[inline]
+        fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            ::buffa_descriptor::reflect::ValueRef::Message(
+                ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+            )
+        }
+    }
+    impl Alternative13 {
+        #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+        /// Memoized `MessageIndex` for this message type, resolved once
+        /// against the package's embedded descriptor pool.
+        #[doc(hidden)]
+        fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+            static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+            *IDX
+                .get_or_init(|| {
+                    __buffa::reflect::descriptor_pool()
+                        .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                        .expect(
+                            "generated message is registered in the embedded descriptor pool",
+                        )
+                })
+        }
+    }
+    impl ::buffa_descriptor::reflect::Reflectable for Alternative13 {
+        /// Vtable-mode reflective handle: borrows `self` directly. No
+        /// encode/decode round-trip and no allocation — the reflective
+        /// accessors read this message's fields in place.
+        #[inline]
+        fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+        }
+    }
+    impl ::buffa::MessageName for Alternative13 {
+        const PACKAGE: &'static str = "pse.engineering.v1";
+        const NAME: &'static str = "StructuralValue.Alternative13";
+        const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative13";
+        const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative13";
+    }
+    impl ::buffa::Message for Alternative13 {
+        /// Returns the total encoded size in bytes.
+        ///
+        /// Accumulates in `u64` (which cannot overflow for in-memory
+        /// data) and saturates to `u32` at return, so a message whose
+        /// encoded size exceeds the 2 GiB protobuf limit yields a value
+        /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+        /// points reject, never a silently wrapped size.
+        #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            let mut size = 0u64;
+            for v in &self.value {
+                let __slot = __cache.reserve();
+                let inner_size = v.compute_size(__cache);
+                __cache.set(__slot, inner_size);
+                size
+                    += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                        + inner_size as u64;
+            }
+            size += self.__buffa_unknown_fields.encoded_len() as u64;
+            ::buffa::saturate_size(size)
+        }
+        fn write_to(
+            &self,
+            __cache: &mut ::buffa::SizeCache,
+            buf: &mut impl ::buffa::EncodeSink,
+        ) {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            for v in &self.value {
+                ::buffa::types::put_len_delimited_header(
+                    1u32,
+                    u64::from(__cache.consume_next()),
+                    buf,
+                );
+                v.write_to(__cache, buf);
+            }
+            self.__buffa_unknown_fields.write_to(buf);
+        }
+        fn merge_field(
+            &mut self,
+            tag: ::buffa::encoding::Tag,
+            buf: &mut impl ::buffa::bytes::Buf,
+            ctx: ::buffa::DecodeContext<'_>,
+        ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::bytes::Buf as _;
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match tag.field_number() {
+                1u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::LengthDelimited,
+                    )?;
+                    let mut elem = ::core::default::Default::default();
+                    ctx.register_element_memory(
+                        ::buffa::__private::element_footprint(&elem),
+                    )?;
+                    ::buffa::Message::merge_length_delimited(&mut elem, buf, ctx)?;
+                    self.value.push(elem);
+                }
+                _ => {
+                    self.__buffa_unknown_fields
+                        .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+        fn clear(&mut self) {
+            self.value.clear();
+            self.__buffa_unknown_fields.clear();
+        }
+    }
+    impl ::buffa::ExtensionSet for Alternative13 {
+        const PROTO_FQN: &'static str = "pse.engineering.v1.StructuralValue.Alternative13";
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+            &mut self.__buffa_unknown_fields
+        }
+    }
+    impl ::buffa::text::TextFormat for Alternative13 {
+        fn encode_text(
+            &self,
+            enc: &mut ::buffa::text::TextEncoder<'_>,
+        ) -> ::core::fmt::Result {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            for __v in &self.value {
+                enc.write_field_name("value")?;
+                enc.write_message(__v)?;
+            }
+            enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+            ::core::result::Result::Ok(())
+        }
+        fn merge_text(
+            &mut self,
+            dec: &mut ::buffa::text::TextDecoder<'_>,
+        ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+                match __name {
+                    "value" => {
+                        dec.read_repeated_into(
+                            &mut self.value,
+                            |__d| {
+                                let mut __m = ::core::default::Default::default();
+                                __d.merge_message(&mut __m)?;
+                                ::core::result::Result::Ok(__m)
+                            },
+                        )?
+                    }
+                    _ => dec.skip_value()?,
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+    }
+    impl ::buffa::json_helpers::ProtoElemJson for Alternative13 {
+        fn serialize_proto_json<S: ::serde::Serializer>(
+            v: &Self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            ::serde::Serialize::serialize(v, s)
+        }
+        fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+            d: D,
+        ) -> ::core::result::Result<Self, D::Error> {
+            <Self as ::serde::Deserialize>::deserialize(d)
+        }
+    }
+    #[doc(hidden)]
+    pub const __ALTERNATIVE13_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative13",
+        to_json: ::buffa::type_registry::any_to_json::<Alternative13>,
+        from_json: ::buffa::type_registry::any_from_json::<Alternative13>,
+        is_wkt: false,
+    };
+    #[doc(hidden)]
+    pub const __ALTERNATIVE13_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative13",
+        text_encode: ::buffa::type_registry::any_encode_text::<Alternative13>,
+        text_merge: ::buffa::type_registry::any_merge_text::<Alternative13>,
+    };
+    #[derive(Clone, PartialEq, Default)]
+    #[derive(::serde::Serialize, ::serde::Deserialize)]
+    #[serde(default)]
+    pub struct Alternative14 {
+        /// Field 1: `value`
+        #[serde(
+            rename = "value",
+            skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+        )]
+        pub value: ::buffa::MessageField<
+            super::QuantityTypeId,
+            ::buffa::Inline<super::QuantityTypeId>,
+        >,
+        #[serde(skip)]
+        #[doc(hidden)]
+        pub __buffa_unknown_fields: ::buffa::UnknownFields,
+    }
+    impl ::core::fmt::Debug for Alternative14 {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            f.debug_struct("Alternative14").field("value", &self.value).finish()
+        }
+    }
+    impl Alternative14 {
+        /// Protobuf type URL for this message, for use with `Any::pack` and
+        /// `Any::unpack_if`.
+        ///
+        /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+        pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative14";
+    }
+    ::buffa::impl_default_instance!(Alternative14);
+    impl ::buffa_descriptor::reflect::ReflectMessage for Alternative14 {
+        fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+            __buffa::reflect::descriptor_pool()
+                .message(Self::__buffa_reflect_message_index())
+        }
+        fn pool(
+            &self,
+        ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+            __buffa::reflect::descriptor_pool()
+        }
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn get(
+            &self,
+            field: &::buffa_descriptor::FieldDescriptor,
+        ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match field.number() {
+                1u32 => {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::Reflectable::reflect(&*self.value),
+                    )
+                }
+                _ => {
+                    ::core::debug_assert!(
+                        false,
+                        "field number {} is not a member of this message's reflect get()",
+                        field.number(),
+                    );
+                    ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                }
+            }
+        }
+        fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+            match field.number() {
+                1u32 => self.value.is_set(),
+                _ => false,
+            }
+        }
+        fn for_each_set(
+            &self,
+            f: &mut dyn ::core::ops::FnMut(
+                &::buffa_descriptor::FieldDescriptor,
+                ::buffa_descriptor::reflect::ValueRef<'_>,
+            ),
+        ) {
+            let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                self,
+            );
+            for fd in md.fields() {
+                if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                    f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+                }
+            }
+        }
+        fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+            ::buffa_descriptor::reflect::DynamicMessage::from_message(
+                self,
+                ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+                Self::__buffa_reflect_message_index(),
+            )
+        }
+    }
+    impl ::buffa_descriptor::reflect::ReflectElement for Alternative14 {
+        #[inline]
+        fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            ::buffa_descriptor::reflect::ValueRef::Message(
+                ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+            )
+        }
+    }
+    impl Alternative14 {
+        #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+        /// Memoized `MessageIndex` for this message type, resolved once
+        /// against the package's embedded descriptor pool.
+        #[doc(hidden)]
+        fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+            static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+            *IDX
+                .get_or_init(|| {
+                    __buffa::reflect::descriptor_pool()
+                        .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                        .expect(
+                            "generated message is registered in the embedded descriptor pool",
+                        )
+                })
+        }
+    }
+    impl ::buffa_descriptor::reflect::Reflectable for Alternative14 {
+        /// Vtable-mode reflective handle: borrows `self` directly. No
+        /// encode/decode round-trip and no allocation — the reflective
+        /// accessors read this message's fields in place.
+        #[inline]
+        fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+        }
+    }
+    impl ::buffa::MessageName for Alternative14 {
+        const PACKAGE: &'static str = "pse.engineering.v1";
+        const NAME: &'static str = "StructuralValue.Alternative14";
+        const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative14";
+        const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative14";
+    }
+    impl ::buffa::Message for Alternative14 {
+        /// Returns the total encoded size in bytes.
+        ///
+        /// Accumulates in `u64` (which cannot overflow for in-memory
+        /// data) and saturates to `u32` at return, so a message whose
+        /// encoded size exceeds the 2 GiB protobuf limit yields a value
+        /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+        /// points reject, never a silently wrapped size.
+        #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            let mut size = 0u64;
+            if self.value.is_set() {
+                let __slot = __cache.reserve();
+                let inner_size = self.value.compute_size(__cache);
+                __cache.set(__slot, inner_size);
+                size
+                    += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                        + inner_size as u64;
+            }
+            size += self.__buffa_unknown_fields.encoded_len() as u64;
+            ::buffa::saturate_size(size)
+        }
+        fn write_to(
+            &self,
+            __cache: &mut ::buffa::SizeCache,
+            buf: &mut impl ::buffa::EncodeSink,
+        ) {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if self.value.is_set() {
+                ::buffa::types::put_len_delimited_header(
+                    1u32,
+                    u64::from(__cache.consume_next()),
+                    buf,
+                );
+                self.value.write_to(__cache, buf);
+            }
+            self.__buffa_unknown_fields.write_to(buf);
+        }
+        fn merge_field(
+            &mut self,
+            tag: ::buffa::encoding::Tag,
+            buf: &mut impl ::buffa::bytes::Buf,
+            ctx: ::buffa::DecodeContext<'_>,
+        ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::bytes::Buf as _;
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match tag.field_number() {
+                1u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::LengthDelimited,
+                    )?;
+                    ::buffa::Message::merge_length_delimited(
+                        self.value.get_or_insert_default(),
+                        buf,
+                        ctx,
+                    )?;
+                }
+                _ => {
+                    self.__buffa_unknown_fields
+                        .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+        fn clear(&mut self) {
+            self.value = ::buffa::MessageField::none();
+            self.__buffa_unknown_fields.clear();
+        }
+    }
+    impl ::buffa::ExtensionSet for Alternative14 {
+        const PROTO_FQN: &'static str = "pse.engineering.v1.StructuralValue.Alternative14";
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+            &mut self.__buffa_unknown_fields
+        }
+    }
+    impl ::buffa::text::TextFormat for Alternative14 {
+        fn encode_text(
+            &self,
+            enc: &mut ::buffa::text::TextEncoder<'_>,
+        ) -> ::core::fmt::Result {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if self.value.is_set() {
+                enc.write_field_name("value")?;
+                enc.write_message(&*self.value)?;
+            }
+            enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+            ::core::result::Result::Ok(())
+        }
+        fn merge_text(
+            &mut self,
+            dec: &mut ::buffa::text::TextDecoder<'_>,
+        ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+                match __name {
+                    "value" => dec.merge_message(self.value.get_or_insert_default())?,
+                    _ => dec.skip_value()?,
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+    }
+    impl ::buffa::json_helpers::ProtoElemJson for Alternative14 {
+        fn serialize_proto_json<S: ::serde::Serializer>(
+            v: &Self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            ::serde::Serialize::serialize(v, s)
+        }
+        fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+            d: D,
+        ) -> ::core::result::Result<Self, D::Error> {
+            <Self as ::serde::Deserialize>::deserialize(d)
+        }
+    }
+    #[doc(hidden)]
+    pub const __ALTERNATIVE14_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative14",
+        to_json: ::buffa::type_registry::any_to_json::<Alternative14>,
+        from_json: ::buffa::type_registry::any_from_json::<Alternative14>,
+        is_wkt: false,
+    };
+    #[doc(hidden)]
+    pub const __ALTERNATIVE14_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative14",
+        text_encode: ::buffa::type_registry::any_encode_text::<Alternative14>,
+        text_merge: ::buffa::type_registry::any_merge_text::<Alternative14>,
+    };
+    #[derive(Clone, PartialEq, Default)]
+    #[derive(::serde::Serialize, ::serde::Deserialize)]
+    #[serde(default)]
+    pub struct Alternative15 {
+        /// Field 1: `value`
+        #[serde(
+            rename = "value",
+            skip_serializing_if = "::buffa::json_helpers::skip_if::is_unset_message_field"
+        )]
+        pub value: ::buffa::MessageField<
+            super::ReferenceStateId,
+            ::buffa::Inline<super::ReferenceStateId>,
+        >,
+        #[serde(skip)]
+        #[doc(hidden)]
+        pub __buffa_unknown_fields: ::buffa::UnknownFields,
+    }
+    impl ::core::fmt::Debug for Alternative15 {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            f.debug_struct("Alternative15").field("value", &self.value).finish()
+        }
+    }
+    impl Alternative15 {
+        /// Protobuf type URL for this message, for use with `Any::pack` and
+        /// `Any::unpack_if`.
+        ///
+        /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+        pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative15";
+    }
+    ::buffa::impl_default_instance!(Alternative15);
+    impl ::buffa_descriptor::reflect::ReflectMessage for Alternative15 {
+        fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+            __buffa::reflect::descriptor_pool()
+                .message(Self::__buffa_reflect_message_index())
+        }
+        fn pool(
+            &self,
+        ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+            __buffa::reflect::descriptor_pool()
+        }
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn get(
+            &self,
+            field: &::buffa_descriptor::FieldDescriptor,
+        ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match field.number() {
+                1u32 => {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::Reflectable::reflect(&*self.value),
+                    )
+                }
+                _ => {
+                    ::core::debug_assert!(
+                        false,
+                        "field number {} is not a member of this message's reflect get()",
+                        field.number(),
+                    );
+                    ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                }
+            }
+        }
+        fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+            match field.number() {
+                1u32 => self.value.is_set(),
+                _ => false,
+            }
+        }
+        fn for_each_set(
+            &self,
+            f: &mut dyn ::core::ops::FnMut(
+                &::buffa_descriptor::FieldDescriptor,
+                ::buffa_descriptor::reflect::ValueRef<'_>,
+            ),
+        ) {
+            let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                self,
+            );
+            for fd in md.fields() {
+                if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                    f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+                }
+            }
+        }
+        fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+            ::buffa_descriptor::reflect::DynamicMessage::from_message(
+                self,
+                ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+                Self::__buffa_reflect_message_index(),
+            )
+        }
+    }
+    impl ::buffa_descriptor::reflect::ReflectElement for Alternative15 {
+        #[inline]
+        fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            ::buffa_descriptor::reflect::ValueRef::Message(
+                ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+            )
+        }
+    }
+    impl Alternative15 {
+        #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+        /// Memoized `MessageIndex` for this message type, resolved once
+        /// against the package's embedded descriptor pool.
+        #[doc(hidden)]
+        fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+            static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+            *IDX
+                .get_or_init(|| {
+                    __buffa::reflect::descriptor_pool()
+                        .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                        .expect(
+                            "generated message is registered in the embedded descriptor pool",
+                        )
+                })
+        }
+    }
+    impl ::buffa_descriptor::reflect::Reflectable for Alternative15 {
+        /// Vtable-mode reflective handle: borrows `self` directly. No
+        /// encode/decode round-trip and no allocation — the reflective
+        /// accessors read this message's fields in place.
+        #[inline]
+        fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+        }
+    }
+    impl ::buffa::MessageName for Alternative15 {
+        const PACKAGE: &'static str = "pse.engineering.v1";
+        const NAME: &'static str = "StructuralValue.Alternative15";
+        const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative15";
+        const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative15";
+    }
+    impl ::buffa::Message for Alternative15 {
+        /// Returns the total encoded size in bytes.
+        ///
+        /// Accumulates in `u64` (which cannot overflow for in-memory
+        /// data) and saturates to `u32` at return, so a message whose
+        /// encoded size exceeds the 2 GiB protobuf limit yields a value
+        /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+        /// points reject, never a silently wrapped size.
+        #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            let mut size = 0u64;
+            if self.value.is_set() {
+                let __slot = __cache.reserve();
+                let inner_size = self.value.compute_size(__cache);
+                __cache.set(__slot, inner_size);
+                size
+                    += 1u64 + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                        + inner_size as u64;
+            }
+            size += self.__buffa_unknown_fields.encoded_len() as u64;
+            ::buffa::saturate_size(size)
+        }
+        fn write_to(
+            &self,
+            __cache: &mut ::buffa::SizeCache,
+            buf: &mut impl ::buffa::EncodeSink,
+        ) {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if self.value.is_set() {
+                ::buffa::types::put_len_delimited_header(
+                    1u32,
+                    u64::from(__cache.consume_next()),
+                    buf,
+                );
+                self.value.write_to(__cache, buf);
+            }
+            self.__buffa_unknown_fields.write_to(buf);
+        }
+        fn merge_field(
+            &mut self,
+            tag: ::buffa::encoding::Tag,
+            buf: &mut impl ::buffa::bytes::Buf,
+            ctx: ::buffa::DecodeContext<'_>,
+        ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::bytes::Buf as _;
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match tag.field_number() {
+                1u32 => {
+                    ::buffa::encoding::check_wire_type(
+                        tag,
+                        ::buffa::encoding::WireType::LengthDelimited,
+                    )?;
+                    ::buffa::Message::merge_length_delimited(
+                        self.value.get_or_insert_default(),
+                        buf,
+                        ctx,
+                    )?;
+                }
+                _ => {
+                    self.__buffa_unknown_fields
+                        .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+        fn clear(&mut self) {
+            self.value = ::buffa::MessageField::none();
+            self.__buffa_unknown_fields.clear();
+        }
+    }
+    impl ::buffa::ExtensionSet for Alternative15 {
+        const PROTO_FQN: &'static str = "pse.engineering.v1.StructuralValue.Alternative15";
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+            &mut self.__buffa_unknown_fields
+        }
+    }
+    impl ::buffa::text::TextFormat for Alternative15 {
+        fn encode_text(
+            &self,
+            enc: &mut ::buffa::text::TextEncoder<'_>,
+        ) -> ::core::fmt::Result {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            if self.value.is_set() {
+                enc.write_field_name("value")?;
+                enc.write_message(&*self.value)?;
+            }
+            enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+            ::core::result::Result::Ok(())
+        }
+        fn merge_text(
+            &mut self,
+            dec: &mut ::buffa::text::TextDecoder<'_>,
+        ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+                match __name {
+                    "value" => dec.merge_message(self.value.get_or_insert_default())?,
+                    _ => dec.skip_value()?,
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+    }
+    impl ::buffa::json_helpers::ProtoElemJson for Alternative15 {
+        fn serialize_proto_json<S: ::serde::Serializer>(
+            v: &Self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            ::serde::Serialize::serialize(v, s)
+        }
+        fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+            d: D,
+        ) -> ::core::result::Result<Self, D::Error> {
+            <Self as ::serde::Deserialize>::deserialize(d)
+        }
+    }
+    #[doc(hidden)]
+    pub const __ALTERNATIVE15_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative15",
+        to_json: ::buffa::type_registry::any_to_json::<Alternative15>,
+        from_json: ::buffa::type_registry::any_from_json::<Alternative15>,
+        is_wkt: false,
+    };
+    #[doc(hidden)]
+    pub const __ALTERNATIVE15_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative15",
+        text_encode: ::buffa::type_registry::any_encode_text::<Alternative15>,
+        text_merge: ::buffa::type_registry::any_merge_text::<Alternative15>,
+    };
+    #[derive(Clone, PartialEq, Default)]
+    #[derive(::serde::Serialize, ::serde::Deserialize)]
+    #[serde(default)]
+    pub struct Alternative16 {
+        #[serde(skip)]
+        #[doc(hidden)]
+        pub __buffa_unknown_fields: ::buffa::UnknownFields,
+    }
+    impl ::core::fmt::Debug for Alternative16 {
+        fn fmt(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+            f.debug_struct("Alternative16").finish()
+        }
+    }
+    impl Alternative16 {
+        /// Protobuf type URL for this message, for use with `Any::pack` and
+        /// `Any::unpack_if`.
+        ///
+        /// Format: `type.googleapis.com/<fully.qualified.TypeName>`
+        pub const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative16";
+    }
+    ::buffa::impl_default_instance!(Alternative16);
+    impl ::buffa_descriptor::reflect::ReflectMessage for Alternative16 {
+        fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+            __buffa::reflect::descriptor_pool()
+                .message(Self::__buffa_reflect_message_index())
+        }
+        fn pool(
+            &self,
+        ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+            __buffa::reflect::descriptor_pool()
+        }
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn get(
+            &self,
+            field: &::buffa_descriptor::FieldDescriptor,
+        ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match field.number() {
+                _ => {
+                    ::core::debug_assert!(
+                        false,
+                        "field number {} is not a member of this message's reflect get()",
+                        field.number(),
+                    );
+                    ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                }
+            }
+        }
+        fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+            match field.number() {
+                _ => false,
+            }
+        }
+        fn for_each_set(
+            &self,
+            f: &mut dyn ::core::ops::FnMut(
+                &::buffa_descriptor::FieldDescriptor,
+                ::buffa_descriptor::reflect::ValueRef<'_>,
+            ),
+        ) {
+            let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                self,
+            );
+            for fd in md.fields() {
+                if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                    f(fd, ::buffa_descriptor::reflect::ReflectMessage::get(self, fd));
+                }
+            }
+        }
+        fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+            ::buffa_descriptor::reflect::DynamicMessage::from_message(
+                self,
+                ::buffa::alloc::sync::Arc::clone(__buffa::reflect::descriptor_pool()),
+                Self::__buffa_reflect_message_index(),
+            )
+        }
+    }
+    impl ::buffa_descriptor::reflect::ReflectElement for Alternative16 {
+        #[inline]
+        fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+            ::buffa_descriptor::reflect::ValueRef::Message(
+                ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+            )
+        }
+    }
+    impl Alternative16 {
+        #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+        /// Memoized `MessageIndex` for this message type, resolved once
+        /// against the package's embedded descriptor pool.
+        #[doc(hidden)]
+        fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+            static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+            *IDX
+                .get_or_init(|| {
+                    __buffa::reflect::descriptor_pool()
+                        .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                        .expect(
+                            "generated message is registered in the embedded descriptor pool",
+                        )
+                })
+        }
+    }
+    impl ::buffa_descriptor::reflect::Reflectable for Alternative16 {
+        /// Vtable-mode reflective handle: borrows `self` directly. No
+        /// encode/decode round-trip and no allocation — the reflective
+        /// accessors read this message's fields in place.
+        #[inline]
+        fn reflect(&self) -> ::buffa_descriptor::reflect::ReflectCow<'_> {
+            ::buffa_descriptor::reflect::ReflectCow::Borrowed(self)
+        }
+    }
+    impl ::buffa::MessageName for Alternative16 {
+        const PACKAGE: &'static str = "pse.engineering.v1";
+        const NAME: &'static str = "StructuralValue.Alternative16";
+        const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative16";
+        const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative16";
+    }
+    impl ::buffa::Message for Alternative16 {
+        /// Returns the total encoded size in bytes.
+        ///
+        /// Accumulates in `u64` (which cannot overflow for in-memory
+        /// data) and saturates to `u32` at return, so a message whose
+        /// encoded size exceeds the 2 GiB protobuf limit yields a value
+        /// above [`::buffa::MAX_MESSAGE_BYTES`] that the encode entry
+        /// points reject, never a silently wrapped size.
+        #[allow(clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+        fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            let mut size = 0u64;
+            size += self.__buffa_unknown_fields.encoded_len() as u64;
+            ::buffa::saturate_size(size)
+        }
+        fn write_to(
+            &self,
+            _cache: &mut ::buffa::SizeCache,
+            buf: &mut impl ::buffa::EncodeSink,
+        ) {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            self.__buffa_unknown_fields.write_to(buf);
+        }
+        fn merge_field(
+            &mut self,
+            tag: ::buffa::encoding::Tag,
+            buf: &mut impl ::buffa::bytes::Buf,
+            ctx: ::buffa::DecodeContext<'_>,
+        ) -> ::core::result::Result<(), ::buffa::DecodeError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::bytes::Buf as _;
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            match tag.field_number() {
+                _ => {
+                    self.__buffa_unknown_fields
+                        .push(::buffa::encoding::decode_unknown_field(tag, buf, ctx)?);
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+        fn clear(&mut self) {
+            self.__buffa_unknown_fields.clear();
+        }
+    }
+    impl ::buffa::ExtensionSet for Alternative16 {
+        const PROTO_FQN: &'static str = "pse.engineering.v1.StructuralValue.Alternative16";
+        fn unknown_fields(&self) -> &::buffa::UnknownFields {
+            &self.__buffa_unknown_fields
+        }
+        fn unknown_fields_mut(&mut self) -> &mut ::buffa::UnknownFields {
+            &mut self.__buffa_unknown_fields
+        }
+    }
+    impl ::buffa::text::TextFormat for Alternative16 {
+        fn encode_text(
+            &self,
+            enc: &mut ::buffa::text::TextEncoder<'_>,
+        ) -> ::core::fmt::Result {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            enc.write_unknown_fields(&self.__buffa_unknown_fields)?;
+            ::core::result::Result::Ok(())
+        }
+        fn merge_text(
+            &mut self,
+            dec: &mut ::buffa::text::TextDecoder<'_>,
+        ) -> ::core::result::Result<(), ::buffa::text::ParseError> {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use ::buffa::Enumeration as _;
+            while let ::core::option::Option::Some(__name) = dec.read_field_name()? {
+                match __name {
+                    _ => dec.skip_value()?,
+                }
+            }
+            ::core::result::Result::Ok(())
+        }
+    }
+    impl ::buffa::json_helpers::ProtoElemJson for Alternative16 {
+        fn serialize_proto_json<S: ::serde::Serializer>(
+            v: &Self,
+            s: S,
+        ) -> ::core::result::Result<S::Ok, S::Error> {
+            ::serde::Serialize::serialize(v, s)
+        }
+        fn deserialize_proto_json<'de, D: ::serde::Deserializer<'de>>(
+            d: D,
+        ) -> ::core::result::Result<Self, D::Error> {
+            <Self as ::serde::Deserialize>::deserialize(d)
+        }
+    }
+    #[doc(hidden)]
+    pub const __ALTERNATIVE16_JSON_ANY: ::buffa::type_registry::JsonAnyEntry = ::buffa::type_registry::JsonAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative16",
+        to_json: ::buffa::type_registry::any_to_json::<Alternative16>,
+        from_json: ::buffa::type_registry::any_from_json::<Alternative16>,
+        is_wkt: false,
+    };
+    #[doc(hidden)]
+    pub const __ALTERNATIVE16_TEXT_ANY: ::buffa::type_registry::TextAnyEntry = ::buffa::type_registry::TextAnyEntry {
+        type_url: "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative16",
+        text_encode: ::buffa::type_registry::any_encode_text::<Alternative16>,
+        text_merge: ::buffa::type_registry::any_merge_text::<Alternative16>,
+    };
+    #[doc(inline)]
+    pub use super::__buffa::oneof::structural_value::Kind;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative1View;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative1OwnedView;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative2View;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative2OwnedView;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative3View;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative3OwnedView;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative4View;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative4OwnedView;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative5View;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative5OwnedView;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative6View;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative6OwnedView;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative7View;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative7OwnedView;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative8View;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative8OwnedView;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative9View;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative9OwnedView;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative10View;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative10OwnedView;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative11View;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative11OwnedView;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative12View;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative12OwnedView;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative13View;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative13OwnedView;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative14View;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative14OwnedView;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative15View;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative15OwnedView;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative16View;
+    #[doc(inline)]
+    pub use super::__buffa::view::structural_value::Alternative16OwnedView;
+    #[doc(inline)]
+    pub use super::__buffa::view::oneof::structural_value::Kind as KindView;
+}
 #[derive(Clone, PartialEq, Default)]
 #[derive(::serde::Serialize, ::serde::Deserialize)]
 #[serde(default)]
@@ -17395,6 +24410,382 @@ pub mod __buffa {
             }
         }
         #[derive(Clone, Debug, Default)]
+        pub struct ReferenceStateIdView<'a> {
+            /// Field 1: `id`
+            pub id: ::core::option::Option<&'a [u8]>,
+            pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+        }
+        impl<'a> ::buffa::MessageView<'a> for ReferenceStateIdView<'a> {
+            type Owned = super::super::ReferenceStateId;
+            fn decode_view(
+                buf: &'a [u8],
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                let __limit = ::core::cell::Cell::new(
+                    ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                );
+                let __elem = ::core::cell::Cell::new(
+                    ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                );
+                <Self as ::buffa::MessageView>::decode_view_ctx(
+                    buf,
+                    ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                        .with_element_memory(&__elem),
+                )
+            }
+            fn decode_view_with_ctx(
+                buf: &'a [u8],
+                ctx: ::buffa::DecodeContext<'_>,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+            }
+            #[inline]
+            fn merge_view_field(
+                &mut self,
+                tag: ::buffa::encoding::Tag,
+                cur: &'a [u8],
+                before_tag: &'a [u8],
+                ctx: ::buffa::DecodeContext<'_>,
+            ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                let _ = ctx;
+                #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                let view = self;
+                let mut cur = cur;
+                match tag.field_number() {
+                    1u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        view.id = Some(::buffa::types::borrow_bytes(&mut cur)?);
+                    }
+                    _ => {
+                        ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                        let span_len = before_tag.len() - cur.len();
+                        view.__buffa_unknown_fields
+                            .push_record(before_tag, span_len, ctx)?;
+                    }
+                }
+                ::core::result::Result::Ok(cur)
+            }
+            fn to_owned_message(
+                &self,
+            ) -> ::core::result::Result<
+                super::super::ReferenceStateId,
+                ::buffa::DecodeError,
+            > {
+                self.to_owned_from_source(None)
+            }
+            #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn to_owned_from_source(
+                &self,
+                __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+            ) -> ::core::result::Result<
+                super::super::ReferenceStateId,
+                ::buffa::DecodeError,
+            > {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::alloc::string::ToString as _;
+                let _ = __buffa_src;
+                ::core::result::Result::Ok(super::super::ReferenceStateId {
+                    id: self.id.map(|b| (b).to_vec()),
+                    __buffa_unknown_fields: self
+                        .__buffa_unknown_fields
+                        .to_owned()?
+                        .into(),
+                    ..::core::default::Default::default()
+                })
+            }
+        }
+        impl<'a> ::buffa::ViewEncode<'a> for ReferenceStateIdView<'a> {
+            #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                let mut size = 0u64;
+                if let Some(ref v) = self.id {
+                    size += 1u64 + ::buffa::types::bytes_encoded_len(v) as u64;
+                }
+                size += self.__buffa_unknown_fields.encoded_len() as u64;
+                ::buffa::saturate_size(size)
+            }
+            #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn write_to(
+                &self,
+                _cache: &mut ::buffa::SizeCache,
+                buf: &mut impl ::buffa::EncodeSink,
+            ) {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                if let Some(ref v) = self.id {
+                    ::buffa::types::put_shared_bytes_field(1u32, v, buf);
+                }
+                self.__buffa_unknown_fields.write_to(buf);
+            }
+        }
+        /// Serializes this view as protobuf JSON.
+        ///
+        /// Implicit-presence fields with default values are omitted, `required`
+        /// fields are always emitted, explicit-presence (`optional`) fields are
+        /// emitted only when set, bytes fields are base64-encoded, and enum
+        /// values are their proto name strings.
+        ///
+        /// This impl uses `serialize_map(None)` because the number of emitted
+        /// fields depends on default-omission rules; serializers that require
+        /// known map lengths (e.g. `bincode`) will return a runtime error.
+        /// Use the owned message type for those formats.
+        impl<'__a> ::serde::Serialize for ReferenceStateIdView<'__a> {
+            fn serialize<__S: ::serde::Serializer>(
+                &self,
+                __s: __S,
+            ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                use ::serde::ser::SerializeMap as _;
+                let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                if let ::core::option::Option::Some(__v) = self.id {
+                    __map.serialize_entry("id", &::buffa::json_helpers::BytesJson(__v))?;
+                }
+                __map.end()
+            }
+        }
+        impl<'a> ::buffa::MessageName for ReferenceStateIdView<'a> {
+            const PACKAGE: &'static str = "pse.engineering.v1";
+            const NAME: &'static str = "ReferenceStateId";
+            const FULL_NAME: &'static str = "pse.engineering.v1.ReferenceStateId";
+            const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.ReferenceStateId";
+        }
+        ::buffa::impl_default_view_instance!(ReferenceStateIdView);
+        ::buffa::impl_view_reborrow!(ReferenceStateIdView);
+        /** Self-contained, `'static` owned view of a `ReferenceStateId` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`ReferenceStateIdView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`ReferenceStateIdView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+        #[derive(Clone, Debug)]
+        pub struct ReferenceStateIdOwnedView(
+            ::buffa::OwnedView<ReferenceStateIdView<'static>>,
+        );
+        impl ReferenceStateIdOwnedView {
+            /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+            ///
+            /// The view borrows directly from the buffer's data; the buffer is
+            /// retained inside the returned handle.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+            /// protobuf data.
+            pub fn decode(
+                bytes: ::buffa::bytes::Bytes,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    ReferenceStateIdOwnedView(::buffa::OwnedView::decode(bytes)?),
+                )
+            }
+            /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+            /// max message size).
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+            /// exceeds the configured limits.
+            pub fn decode_with_options(
+                bytes: ::buffa::bytes::Bytes,
+                opts: &::buffa::DecodeOptions,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    ReferenceStateIdOwnedView(
+                        ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                    ),
+                )
+            }
+            /// Build from an owned message via an encode → decode round-trip.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+            /// message's encoded size exceeds the 2 GiB protobuf limit, or
+            /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+            /// somehow invalid (should not happen for well-formed messages).
+            pub fn from_owned(
+                msg: &super::super::ReferenceStateId,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    ReferenceStateIdOwnedView(::buffa::OwnedView::from_owned(msg)?),
+                )
+            }
+            /// Borrow the full [`ReferenceStateIdView`] with its lifetime tied to `&self`.
+            #[must_use]
+            pub fn view(&self) -> &ReferenceStateIdView<'_> {
+                self.0.reborrow()
+            }
+            /// Convert to the owned message type.
+            ///
+            /// Infallible: this type's constructors wire-decode their
+            /// buffer, and a view produced by wire decoding always
+            /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+            /// whose contract also governs handles converted from a raw
+            /// [`::buffa::OwnedView`].
+            #[must_use]
+            pub fn to_owned_message(&self) -> super::super::ReferenceStateId {
+                self.0.to_owned_message()
+            }
+            /// The underlying bytes buffer.
+            #[must_use]
+            pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                self.0.bytes()
+            }
+            /// Consume the handle, returning the underlying bytes buffer.
+            #[must_use]
+            pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                self.0.into_bytes()
+            }
+            /// Field 1: `id`
+            #[must_use]
+            pub fn id(&self) -> ::core::option::Option<&'_ [u8]> {
+                self.0.reborrow().id
+            }
+        }
+        impl ::core::convert::From<::buffa::OwnedView<ReferenceStateIdView<'static>>>
+        for ReferenceStateIdOwnedView {
+            fn from(inner: ::buffa::OwnedView<ReferenceStateIdView<'static>>) -> Self {
+                ReferenceStateIdOwnedView(inner)
+            }
+        }
+        impl ::core::convert::From<ReferenceStateIdOwnedView>
+        for ::buffa::OwnedView<ReferenceStateIdView<'static>> {
+            fn from(wrapper: ReferenceStateIdOwnedView) -> Self {
+                wrapper.0
+            }
+        }
+        impl ::core::convert::AsRef<::buffa::OwnedView<ReferenceStateIdView<'static>>>
+        for ReferenceStateIdOwnedView {
+            fn as_ref(&self) -> &::buffa::OwnedView<ReferenceStateIdView<'static>> {
+                &self.0
+            }
+        }
+        impl ::buffa::HasMessageView for super::super::ReferenceStateId {
+            type View<'a> = ReferenceStateIdView<'a>;
+            type ViewHandle = ReferenceStateIdOwnedView;
+        }
+        impl ::serde::Serialize for ReferenceStateIdOwnedView {
+            fn serialize<__S: ::serde::Serializer>(
+                &self,
+                __s: __S,
+            ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                ::serde::Serialize::serialize(&self.0, __s)
+            }
+        }
+        impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+        for ReferenceStateIdView<'a> {
+            fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                super::super::__buffa::reflect::descriptor_pool()
+                    .message(Self::__buffa_reflect_message_index())
+            }
+            fn pool(
+                &self,
+            ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                super::super::__buffa::reflect::descriptor_pool()
+            }
+            fn get(
+                &self,
+                field: &::buffa_descriptor::FieldDescriptor,
+            ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                match field.number() {
+                    1u32 => {
+                        ::buffa_descriptor::reflect::ValueRef::Bytes(
+                            self.id.unwrap_or(&[]),
+                        )
+                    }
+                    _ => {
+                        ::core::debug_assert!(
+                            false,
+                            "field number {} is not a member of this view's reflect get()",
+                            field.number(),
+                        );
+                        ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                    }
+                }
+            }
+            fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                match field.number() {
+                    1u32 => self.id.is_some(),
+                    _ => false,
+                }
+            }
+            fn for_each_set(
+                &self,
+                f: &mut dyn ::core::ops::FnMut(
+                    &::buffa_descriptor::FieldDescriptor,
+                    ::buffa_descriptor::reflect::ValueRef<'_>,
+                ),
+            ) {
+                let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                    self,
+                );
+                for fd in md.fields() {
+                    if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                        f(
+                            fd,
+                            ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                        );
+                    }
+                }
+            }
+            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+            fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                let options = ::buffa::DecodeOptions::new()
+                    .with_element_memory_limit(
+                        bytes
+                            .len()
+                            .saturating_mul(128)
+                            .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                    )
+                    .with_unknown_field_limit(
+                        bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                    );
+                ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                        ::buffa::alloc::sync::Arc::clone(
+                            super::super::__buffa::reflect::descriptor_pool(),
+                        ),
+                        Self::__buffa_reflect_message_index(),
+                        &bytes,
+                        &options,
+                    )
+                    .expect(
+                        "view re-encodes to bytes decodable against its own descriptor",
+                    )
+            }
+        }
+        impl<'a> ::buffa_descriptor::reflect::ReflectElement
+        for ReferenceStateIdView<'a> {
+            fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                )
+            }
+        }
+        impl<'a> ReferenceStateIdView<'a> {
+            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+            /// Memoized `MessageIndex` for this view's message type, resolved
+            /// once against the package's embedded descriptor pool. An inherent
+            /// associated fn (not a free fn) so sibling views in the same module
+            /// do not collide.
+            #[doc(hidden)]
+            fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+                *IDX
+                    .get_or_init(|| {
+                        super::super::__buffa::reflect::descriptor_pool()
+                            .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                            .expect(
+                                "generated view type is registered in the embedded descriptor pool",
+                            )
+                    })
+            }
+        }
+        #[derive(Clone, Debug, Default)]
         pub struct ResearchSourceView<'a> {
             /// Field 1: `issuing_store`
             pub issuing_store: &'a str,
@@ -18293,6 +25684,9025 @@ pub mod __buffa {
             }
         }
         #[derive(Clone, Debug, Default)]
+        pub struct StructuralValueView<'a> {
+            pub kind: ::core::option::Option<
+                super::super::__buffa::view::oneof::structural_value::Kind<'a>,
+            >,
+            pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+        }
+        impl<'a> ::buffa::MessageView<'a> for StructuralValueView<'a> {
+            type Owned = super::super::StructuralValue;
+            fn decode_view(
+                buf: &'a [u8],
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                let __limit = ::core::cell::Cell::new(
+                    ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                );
+                let __elem = ::core::cell::Cell::new(
+                    ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                );
+                <Self as ::buffa::MessageView>::decode_view_ctx(
+                    buf,
+                    ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                        .with_element_memory(&__elem),
+                )
+            }
+            fn decode_view_with_ctx(
+                buf: &'a [u8],
+                ctx: ::buffa::DecodeContext<'_>,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+            }
+            #[inline]
+            fn merge_view_field(
+                &mut self,
+                tag: ::buffa::encoding::Tag,
+                cur: &'a [u8],
+                before_tag: &'a [u8],
+                ctx: ::buffa::DecodeContext<'_>,
+            ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                let _ = ctx;
+                #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                let view = self;
+                let mut cur = cur;
+                match tag.field_number() {
+                    1u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        if let Some(
+                            super::super::__buffa::view::oneof::structural_value::Kind::Boolean(
+                                ref mut existing,
+                            ),
+                        ) = view.kind
+                        {
+                            ::buffa::MessageView::merge_into_view(
+                                &mut **existing,
+                                sub,
+                                __sub_ctx,
+                            )?;
+                        } else {
+                            view.kind = Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Boolean(
+                                    ::buffa::alloc::boxed::Box::new(
+                                        <super::super::__buffa::view::structural_value::Alternative1View as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    ),
+                                ),
+                            );
+                        }
+                    }
+                    2u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        if let Some(
+                            super::super::__buffa::view::oneof::structural_value::Kind::Integer(
+                                ref mut existing,
+                            ),
+                        ) = view.kind
+                        {
+                            ::buffa::MessageView::merge_into_view(
+                                &mut **existing,
+                                sub,
+                                __sub_ctx,
+                            )?;
+                        } else {
+                            view.kind = Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Integer(
+                                    ::buffa::alloc::boxed::Box::new(
+                                        <super::super::__buffa::view::structural_value::Alternative2View as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    ),
+                                ),
+                            );
+                        }
+                    }
+                    3u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        if let Some(
+                            super::super::__buffa::view::oneof::structural_value::Kind::Number(
+                                ref mut existing,
+                            ),
+                        ) = view.kind
+                        {
+                            ::buffa::MessageView::merge_into_view(
+                                &mut **existing,
+                                sub,
+                                __sub_ctx,
+                            )?;
+                        } else {
+                            view.kind = Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Number(
+                                    ::buffa::alloc::boxed::Box::new(
+                                        <super::super::__buffa::view::structural_value::Alternative3View as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    ),
+                                ),
+                            );
+                        }
+                    }
+                    4u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        if let Some(
+                            super::super::__buffa::view::oneof::structural_value::Kind::Coordinate(
+                                ref mut existing,
+                            ),
+                        ) = view.kind
+                        {
+                            ::buffa::MessageView::merge_into_view(
+                                &mut **existing,
+                                sub,
+                                __sub_ctx,
+                            )?;
+                        } else {
+                            view.kind = Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Coordinate(
+                                    ::buffa::alloc::boxed::Box::new(
+                                        <super::super::__buffa::view::structural_value::Alternative4View as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    ),
+                                ),
+                            );
+                        }
+                    }
+                    5u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        if let Some(
+                            super::super::__buffa::view::oneof::structural_value::Kind::Text(
+                                ref mut existing,
+                            ),
+                        ) = view.kind
+                        {
+                            ::buffa::MessageView::merge_into_view(
+                                &mut **existing,
+                                sub,
+                                __sub_ctx,
+                            )?;
+                        } else {
+                            view.kind = Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Text(
+                                    ::buffa::alloc::boxed::Box::new(
+                                        <super::super::__buffa::view::structural_value::Alternative5View as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    ),
+                                ),
+                            );
+                        }
+                    }
+                    6u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        if let Some(
+                            super::super::__buffa::view::oneof::structural_value::Kind::Entity(
+                                ref mut existing,
+                            ),
+                        ) = view.kind
+                        {
+                            ::buffa::MessageView::merge_into_view(
+                                &mut **existing,
+                                sub,
+                                __sub_ctx,
+                            )?;
+                        } else {
+                            view.kind = Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Entity(
+                                    ::buffa::alloc::boxed::Box::new(
+                                        <super::super::__buffa::view::structural_value::Alternative6View as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    ),
+                                ),
+                            );
+                        }
+                    }
+                    7u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        if let Some(
+                            super::super::__buffa::view::oneof::structural_value::Kind::Enum(
+                                ref mut existing,
+                            ),
+                        ) = view.kind
+                        {
+                            ::buffa::MessageView::merge_into_view(
+                                &mut **existing,
+                                sub,
+                                __sub_ctx,
+                            )?;
+                        } else {
+                            view.kind = Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Enum(
+                                    ::buffa::alloc::boxed::Box::new(
+                                        <super::super::__buffa::view::structural_value::Alternative7View as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    ),
+                                ),
+                            );
+                        }
+                    }
+                    8u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        if let Some(
+                            super::super::__buffa::view::oneof::structural_value::Kind::Identifier(
+                                ref mut existing,
+                            ),
+                        ) = view.kind
+                        {
+                            ::buffa::MessageView::merge_into_view(
+                                &mut **existing,
+                                sub,
+                                __sub_ctx,
+                            )?;
+                        } else {
+                            view.kind = Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Identifier(
+                                    ::buffa::alloc::boxed::Box::new(
+                                        <super::super::__buffa::view::structural_value::Alternative8View as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    ),
+                                ),
+                            );
+                        }
+                    }
+                    9u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        if let Some(
+                            super::super::__buffa::view::oneof::structural_value::Kind::Definition(
+                                ref mut existing,
+                            ),
+                        ) = view.kind
+                        {
+                            ::buffa::MessageView::merge_into_view(
+                                &mut **existing,
+                                sub,
+                                __sub_ctx,
+                            )?;
+                        } else {
+                            view.kind = Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Definition(
+                                    ::buffa::alloc::boxed::Box::new(
+                                        <super::super::__buffa::view::structural_value::Alternative9View as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    ),
+                                ),
+                            );
+                        }
+                    }
+                    10u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        if let Some(
+                            super::super::__buffa::view::oneof::structural_value::Kind::Function(
+                                ref mut existing,
+                            ),
+                        ) = view.kind
+                        {
+                            ::buffa::MessageView::merge_into_view(
+                                &mut **existing,
+                                sub,
+                                __sub_ctx,
+                            )?;
+                        } else {
+                            view.kind = Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Function(
+                                    ::buffa::alloc::boxed::Box::new(
+                                        <super::super::__buffa::view::structural_value::Alternative10View as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    ),
+                                ),
+                            );
+                        }
+                    }
+                    11u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        if let Some(
+                            super::super::__buffa::view::oneof::structural_value::Kind::Row(
+                                ref mut existing,
+                            ),
+                        ) = view.kind
+                        {
+                            ::buffa::MessageView::merge_into_view(
+                                &mut **existing,
+                                sub,
+                                __sub_ctx,
+                            )?;
+                        } else {
+                            view.kind = Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Row(
+                                    ::buffa::alloc::boxed::Box::new(
+                                        <super::super::__buffa::view::structural_value::Alternative11View as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    ),
+                                ),
+                            );
+                        }
+                    }
+                    12u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        if let Some(
+                            super::super::__buffa::view::oneof::structural_value::Kind::Set(
+                                ref mut existing,
+                            ),
+                        ) = view.kind
+                        {
+                            ::buffa::MessageView::merge_into_view(
+                                &mut **existing,
+                                sub,
+                                __sub_ctx,
+                            )?;
+                        } else {
+                            view.kind = Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Set(
+                                    ::buffa::alloc::boxed::Box::new(
+                                        <super::super::__buffa::view::structural_value::Alternative12View as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    ),
+                                ),
+                            );
+                        }
+                    }
+                    13u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        if let Some(
+                            super::super::__buffa::view::oneof::structural_value::Kind::Tuple(
+                                ref mut existing,
+                            ),
+                        ) = view.kind
+                        {
+                            ::buffa::MessageView::merge_into_view(
+                                &mut **existing,
+                                sub,
+                                __sub_ctx,
+                            )?;
+                        } else {
+                            view.kind = Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Tuple(
+                                    ::buffa::alloc::boxed::Box::new(
+                                        <super::super::__buffa::view::structural_value::Alternative13View as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    ),
+                                ),
+                            );
+                        }
+                    }
+                    14u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        if let Some(
+                            super::super::__buffa::view::oneof::structural_value::Kind::QuantityType(
+                                ref mut existing,
+                            ),
+                        ) = view.kind
+                        {
+                            ::buffa::MessageView::merge_into_view(
+                                &mut **existing,
+                                sub,
+                                __sub_ctx,
+                            )?;
+                        } else {
+                            view.kind = Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::QuantityType(
+                                    ::buffa::alloc::boxed::Box::new(
+                                        <super::super::__buffa::view::structural_value::Alternative14View as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    ),
+                                ),
+                            );
+                        }
+                    }
+                    15u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        if let Some(
+                            super::super::__buffa::view::oneof::structural_value::Kind::ReferenceState(
+                                ref mut existing,
+                            ),
+                        ) = view.kind
+                        {
+                            ::buffa::MessageView::merge_into_view(
+                                &mut **existing,
+                                sub,
+                                __sub_ctx,
+                            )?;
+                        } else {
+                            view.kind = Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::ReferenceState(
+                                    ::buffa::alloc::boxed::Box::new(
+                                        <super::super::__buffa::view::structural_value::Alternative15View as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    ),
+                                ),
+                            );
+                        }
+                    }
+                    16u32 => {
+                        ::buffa::encoding::check_wire_type(
+                            tag,
+                            ::buffa::encoding::WireType::LengthDelimited,
+                        )?;
+                        let __sub_ctx = ctx.descend()?;
+                        let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                        if let Some(
+                            super::super::__buffa::view::oneof::structural_value::Kind::Missing(
+                                ref mut existing,
+                            ),
+                        ) = view.kind
+                        {
+                            ::buffa::MessageView::merge_into_view(
+                                &mut **existing,
+                                sub,
+                                __sub_ctx,
+                            )?;
+                        } else {
+                            view.kind = Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Missing(
+                                    ::buffa::alloc::boxed::Box::new(
+                                        <super::super::__buffa::view::structural_value::Alternative16View as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    ),
+                                ),
+                            );
+                        }
+                    }
+                    _ => {
+                        ::buffa::encoding::skip_field_depth(tag, &mut cur, ctx.depth())?;
+                        let span_len = before_tag.len() - cur.len();
+                        view.__buffa_unknown_fields
+                            .push_record(before_tag, span_len, ctx)?;
+                    }
+                }
+                ::core::result::Result::Ok(cur)
+            }
+            fn to_owned_message(
+                &self,
+            ) -> ::core::result::Result<
+                super::super::StructuralValue,
+                ::buffa::DecodeError,
+            > {
+                self.to_owned_from_source(None)
+            }
+            #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn to_owned_from_source(
+                &self,
+                __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+            ) -> ::core::result::Result<
+                super::super::StructuralValue,
+                ::buffa::DecodeError,
+            > {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::alloc::string::ToString as _;
+                let _ = __buffa_src;
+                ::core::result::Result::Ok(super::super::StructuralValue {
+                    kind: match self.kind.as_ref() {
+                        ::core::option::Option::Some(v) => {
+                            ::core::option::Option::Some(
+                                match v {
+                                    super::super::__buffa::view::oneof::structural_value::Kind::Boolean(
+                                        v,
+                                    ) => {
+                                        super::super::__buffa::oneof::structural_value::Kind::Boolean(
+                                            ::buffa::alloc::boxed::Box::new(
+                                                v.to_owned_from_source(__buffa_src)?,
+                                            ),
+                                        )
+                                    }
+                                    super::super::__buffa::view::oneof::structural_value::Kind::Integer(
+                                        v,
+                                    ) => {
+                                        super::super::__buffa::oneof::structural_value::Kind::Integer(
+                                            ::buffa::alloc::boxed::Box::new(
+                                                v.to_owned_from_source(__buffa_src)?,
+                                            ),
+                                        )
+                                    }
+                                    super::super::__buffa::view::oneof::structural_value::Kind::Number(
+                                        v,
+                                    ) => {
+                                        super::super::__buffa::oneof::structural_value::Kind::Number(
+                                            ::buffa::alloc::boxed::Box::new(
+                                                v.to_owned_from_source(__buffa_src)?,
+                                            ),
+                                        )
+                                    }
+                                    super::super::__buffa::view::oneof::structural_value::Kind::Coordinate(
+                                        v,
+                                    ) => {
+                                        super::super::__buffa::oneof::structural_value::Kind::Coordinate(
+                                            ::buffa::alloc::boxed::Box::new(
+                                                v.to_owned_from_source(__buffa_src)?,
+                                            ),
+                                        )
+                                    }
+                                    super::super::__buffa::view::oneof::structural_value::Kind::Text(
+                                        v,
+                                    ) => {
+                                        super::super::__buffa::oneof::structural_value::Kind::Text(
+                                            ::buffa::alloc::boxed::Box::new(
+                                                v.to_owned_from_source(__buffa_src)?,
+                                            ),
+                                        )
+                                    }
+                                    super::super::__buffa::view::oneof::structural_value::Kind::Entity(
+                                        v,
+                                    ) => {
+                                        super::super::__buffa::oneof::structural_value::Kind::Entity(
+                                            ::buffa::alloc::boxed::Box::new(
+                                                v.to_owned_from_source(__buffa_src)?,
+                                            ),
+                                        )
+                                    }
+                                    super::super::__buffa::view::oneof::structural_value::Kind::Enum(
+                                        v,
+                                    ) => {
+                                        super::super::__buffa::oneof::structural_value::Kind::Enum(
+                                            ::buffa::alloc::boxed::Box::new(
+                                                v.to_owned_from_source(__buffa_src)?,
+                                            ),
+                                        )
+                                    }
+                                    super::super::__buffa::view::oneof::structural_value::Kind::Identifier(
+                                        v,
+                                    ) => {
+                                        super::super::__buffa::oneof::structural_value::Kind::Identifier(
+                                            ::buffa::alloc::boxed::Box::new(
+                                                v.to_owned_from_source(__buffa_src)?,
+                                            ),
+                                        )
+                                    }
+                                    super::super::__buffa::view::oneof::structural_value::Kind::Definition(
+                                        v,
+                                    ) => {
+                                        super::super::__buffa::oneof::structural_value::Kind::Definition(
+                                            ::buffa::alloc::boxed::Box::new(
+                                                v.to_owned_from_source(__buffa_src)?,
+                                            ),
+                                        )
+                                    }
+                                    super::super::__buffa::view::oneof::structural_value::Kind::Function(
+                                        v,
+                                    ) => {
+                                        super::super::__buffa::oneof::structural_value::Kind::Function(
+                                            ::buffa::alloc::boxed::Box::new(
+                                                v.to_owned_from_source(__buffa_src)?,
+                                            ),
+                                        )
+                                    }
+                                    super::super::__buffa::view::oneof::structural_value::Kind::Row(
+                                        v,
+                                    ) => {
+                                        super::super::__buffa::oneof::structural_value::Kind::Row(
+                                            ::buffa::alloc::boxed::Box::new(
+                                                v.to_owned_from_source(__buffa_src)?,
+                                            ),
+                                        )
+                                    }
+                                    super::super::__buffa::view::oneof::structural_value::Kind::Set(
+                                        v,
+                                    ) => {
+                                        super::super::__buffa::oneof::structural_value::Kind::Set(
+                                            ::buffa::alloc::boxed::Box::new(
+                                                v.to_owned_from_source(__buffa_src)?,
+                                            ),
+                                        )
+                                    }
+                                    super::super::__buffa::view::oneof::structural_value::Kind::Tuple(
+                                        v,
+                                    ) => {
+                                        super::super::__buffa::oneof::structural_value::Kind::Tuple(
+                                            ::buffa::alloc::boxed::Box::new(
+                                                v.to_owned_from_source(__buffa_src)?,
+                                            ),
+                                        )
+                                    }
+                                    super::super::__buffa::view::oneof::structural_value::Kind::QuantityType(
+                                        v,
+                                    ) => {
+                                        super::super::__buffa::oneof::structural_value::Kind::QuantityType(
+                                            ::buffa::alloc::boxed::Box::new(
+                                                v.to_owned_from_source(__buffa_src)?,
+                                            ),
+                                        )
+                                    }
+                                    super::super::__buffa::view::oneof::structural_value::Kind::ReferenceState(
+                                        v,
+                                    ) => {
+                                        super::super::__buffa::oneof::structural_value::Kind::ReferenceState(
+                                            ::buffa::alloc::boxed::Box::new(
+                                                v.to_owned_from_source(__buffa_src)?,
+                                            ),
+                                        )
+                                    }
+                                    super::super::__buffa::view::oneof::structural_value::Kind::Missing(
+                                        v,
+                                    ) => {
+                                        super::super::__buffa::oneof::structural_value::Kind::Missing(
+                                            ::buffa::alloc::boxed::Box::new(
+                                                v.to_owned_from_source(__buffa_src)?,
+                                            ),
+                                        )
+                                    }
+                                },
+                            )
+                        }
+                        ::core::option::Option::None => ::core::option::Option::None,
+                    },
+                    __buffa_unknown_fields: self
+                        .__buffa_unknown_fields
+                        .to_owned()?
+                        .into(),
+                    ..::core::default::Default::default()
+                })
+            }
+        }
+        impl<'a> ::buffa::ViewEncode<'a> for StructuralValueView<'a> {
+            #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                let mut size = 0u64;
+                if let ::core::option::Option::Some(ref v) = self.kind {
+                    match v {
+                        super::super::__buffa::view::oneof::structural_value::Kind::Boolean(
+                            x,
+                        ) => {
+                            let __slot = __cache.reserve();
+                            let inner = x.compute_size(__cache);
+                            __cache.set(__slot, inner);
+                            size
+                                += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                                    + inner as u64;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Integer(
+                            x,
+                        ) => {
+                            let __slot = __cache.reserve();
+                            let inner = x.compute_size(__cache);
+                            __cache.set(__slot, inner);
+                            size
+                                += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                                    + inner as u64;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Number(
+                            x,
+                        ) => {
+                            let __slot = __cache.reserve();
+                            let inner = x.compute_size(__cache);
+                            __cache.set(__slot, inner);
+                            size
+                                += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                                    + inner as u64;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Coordinate(
+                            x,
+                        ) => {
+                            let __slot = __cache.reserve();
+                            let inner = x.compute_size(__cache);
+                            __cache.set(__slot, inner);
+                            size
+                                += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                                    + inner as u64;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Text(
+                            x,
+                        ) => {
+                            let __slot = __cache.reserve();
+                            let inner = x.compute_size(__cache);
+                            __cache.set(__slot, inner);
+                            size
+                                += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                                    + inner as u64;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Entity(
+                            x,
+                        ) => {
+                            let __slot = __cache.reserve();
+                            let inner = x.compute_size(__cache);
+                            __cache.set(__slot, inner);
+                            size
+                                += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                                    + inner as u64;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Enum(
+                            x,
+                        ) => {
+                            let __slot = __cache.reserve();
+                            let inner = x.compute_size(__cache);
+                            __cache.set(__slot, inner);
+                            size
+                                += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                                    + inner as u64;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Identifier(
+                            x,
+                        ) => {
+                            let __slot = __cache.reserve();
+                            let inner = x.compute_size(__cache);
+                            __cache.set(__slot, inner);
+                            size
+                                += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                                    + inner as u64;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Definition(
+                            x,
+                        ) => {
+                            let __slot = __cache.reserve();
+                            let inner = x.compute_size(__cache);
+                            __cache.set(__slot, inner);
+                            size
+                                += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                                    + inner as u64;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Function(
+                            x,
+                        ) => {
+                            let __slot = __cache.reserve();
+                            let inner = x.compute_size(__cache);
+                            __cache.set(__slot, inner);
+                            size
+                                += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                                    + inner as u64;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Row(
+                            x,
+                        ) => {
+                            let __slot = __cache.reserve();
+                            let inner = x.compute_size(__cache);
+                            __cache.set(__slot, inner);
+                            size
+                                += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                                    + inner as u64;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Set(
+                            x,
+                        ) => {
+                            let __slot = __cache.reserve();
+                            let inner = x.compute_size(__cache);
+                            __cache.set(__slot, inner);
+                            size
+                                += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                                    + inner as u64;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Tuple(
+                            x,
+                        ) => {
+                            let __slot = __cache.reserve();
+                            let inner = x.compute_size(__cache);
+                            __cache.set(__slot, inner);
+                            size
+                                += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                                    + inner as u64;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::QuantityType(
+                            x,
+                        ) => {
+                            let __slot = __cache.reserve();
+                            let inner = x.compute_size(__cache);
+                            __cache.set(__slot, inner);
+                            size
+                                += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                                    + inner as u64;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::ReferenceState(
+                            x,
+                        ) => {
+                            let __slot = __cache.reserve();
+                            let inner = x.compute_size(__cache);
+                            __cache.set(__slot, inner);
+                            size
+                                += 1u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                                    + inner as u64;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Missing(
+                            x,
+                        ) => {
+                            let __slot = __cache.reserve();
+                            let inner = x.compute_size(__cache);
+                            __cache.set(__slot, inner);
+                            size
+                                += 2u64 + ::buffa::encoding::varint_len(inner as u64) as u64
+                                    + inner as u64;
+                        }
+                    }
+                }
+                size += self.__buffa_unknown_fields.encoded_len() as u64;
+                ::buffa::saturate_size(size)
+            }
+            #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            fn write_to(
+                &self,
+                __cache: &mut ::buffa::SizeCache,
+                buf: &mut impl ::buffa::EncodeSink,
+            ) {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                if let ::core::option::Option::Some(ref v) = self.kind {
+                    match v {
+                        super::super::__buffa::view::oneof::structural_value::Kind::Boolean(
+                            x,
+                        ) => {
+                            ::buffa::types::put_len_delimited_header(
+                                1u32,
+                                u64::from(__cache.consume_next()),
+                                buf,
+                            );
+                            x.write_to(__cache, buf);
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Integer(
+                            x,
+                        ) => {
+                            ::buffa::types::put_len_delimited_header(
+                                2u32,
+                                u64::from(__cache.consume_next()),
+                                buf,
+                            );
+                            x.write_to(__cache, buf);
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Number(
+                            x,
+                        ) => {
+                            ::buffa::types::put_len_delimited_header(
+                                3u32,
+                                u64::from(__cache.consume_next()),
+                                buf,
+                            );
+                            x.write_to(__cache, buf);
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Coordinate(
+                            x,
+                        ) => {
+                            ::buffa::types::put_len_delimited_header(
+                                4u32,
+                                u64::from(__cache.consume_next()),
+                                buf,
+                            );
+                            x.write_to(__cache, buf);
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Text(
+                            x,
+                        ) => {
+                            ::buffa::types::put_len_delimited_header(
+                                5u32,
+                                u64::from(__cache.consume_next()),
+                                buf,
+                            );
+                            x.write_to(__cache, buf);
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Entity(
+                            x,
+                        ) => {
+                            ::buffa::types::put_len_delimited_header(
+                                6u32,
+                                u64::from(__cache.consume_next()),
+                                buf,
+                            );
+                            x.write_to(__cache, buf);
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Enum(
+                            x,
+                        ) => {
+                            ::buffa::types::put_len_delimited_header(
+                                7u32,
+                                u64::from(__cache.consume_next()),
+                                buf,
+                            );
+                            x.write_to(__cache, buf);
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Identifier(
+                            x,
+                        ) => {
+                            ::buffa::types::put_len_delimited_header(
+                                8u32,
+                                u64::from(__cache.consume_next()),
+                                buf,
+                            );
+                            x.write_to(__cache, buf);
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Definition(
+                            x,
+                        ) => {
+                            ::buffa::types::put_len_delimited_header(
+                                9u32,
+                                u64::from(__cache.consume_next()),
+                                buf,
+                            );
+                            x.write_to(__cache, buf);
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Function(
+                            x,
+                        ) => {
+                            ::buffa::types::put_len_delimited_header(
+                                10u32,
+                                u64::from(__cache.consume_next()),
+                                buf,
+                            );
+                            x.write_to(__cache, buf);
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Row(
+                            x,
+                        ) => {
+                            ::buffa::types::put_len_delimited_header(
+                                11u32,
+                                u64::from(__cache.consume_next()),
+                                buf,
+                            );
+                            x.write_to(__cache, buf);
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Set(
+                            x,
+                        ) => {
+                            ::buffa::types::put_len_delimited_header(
+                                12u32,
+                                u64::from(__cache.consume_next()),
+                                buf,
+                            );
+                            x.write_to(__cache, buf);
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Tuple(
+                            x,
+                        ) => {
+                            ::buffa::types::put_len_delimited_header(
+                                13u32,
+                                u64::from(__cache.consume_next()),
+                                buf,
+                            );
+                            x.write_to(__cache, buf);
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::QuantityType(
+                            x,
+                        ) => {
+                            ::buffa::types::put_len_delimited_header(
+                                14u32,
+                                u64::from(__cache.consume_next()),
+                                buf,
+                            );
+                            x.write_to(__cache, buf);
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::ReferenceState(
+                            x,
+                        ) => {
+                            ::buffa::types::put_len_delimited_header(
+                                15u32,
+                                u64::from(__cache.consume_next()),
+                                buf,
+                            );
+                            x.write_to(__cache, buf);
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Missing(
+                            x,
+                        ) => {
+                            ::buffa::types::put_len_delimited_header(
+                                16u32,
+                                u64::from(__cache.consume_next()),
+                                buf,
+                            );
+                            x.write_to(__cache, buf);
+                        }
+                    }
+                }
+                self.__buffa_unknown_fields.write_to(buf);
+            }
+        }
+        /// Serializes this view as protobuf JSON.
+        ///
+        /// Implicit-presence fields with default values are omitted, `required`
+        /// fields are always emitted, explicit-presence (`optional`) fields are
+        /// emitted only when set, bytes fields are base64-encoded, and enum
+        /// values are their proto name strings.
+        ///
+        /// This impl uses `serialize_map(None)` because the number of emitted
+        /// fields depends on default-omission rules; serializers that require
+        /// known map lengths (e.g. `bincode`) will return a runtime error.
+        /// Use the owned message type for those formats.
+        impl<'__a> ::serde::Serialize for StructuralValueView<'__a> {
+            fn serialize<__S: ::serde::Serializer>(
+                &self,
+                __s: __S,
+            ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                use ::serde::ser::SerializeMap as _;
+                let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                if let ::core::option::Option::Some(ref __ov) = self.kind {
+                    match __ov {
+                        super::super::__buffa::view::oneof::structural_value::Kind::Boolean(
+                            v,
+                        ) => {
+                            __map.serialize_entry("boolean", v)?;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Integer(
+                            v,
+                        ) => {
+                            __map.serialize_entry("integer", v)?;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Number(
+                            v,
+                        ) => {
+                            __map.serialize_entry("number", v)?;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Coordinate(
+                            v,
+                        ) => {
+                            __map.serialize_entry("coordinate", v)?;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Text(
+                            v,
+                        ) => {
+                            __map.serialize_entry("text", v)?;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Entity(
+                            v,
+                        ) => {
+                            __map.serialize_entry("entity", v)?;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Enum(
+                            v,
+                        ) => {
+                            __map.serialize_entry("enum", v)?;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Identifier(
+                            v,
+                        ) => {
+                            __map.serialize_entry("identifier", v)?;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Definition(
+                            v,
+                        ) => {
+                            __map.serialize_entry("definition", v)?;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Function(
+                            v,
+                        ) => {
+                            __map.serialize_entry("function", v)?;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Row(
+                            v,
+                        ) => {
+                            __map.serialize_entry("row", v)?;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Set(
+                            v,
+                        ) => {
+                            __map.serialize_entry("set", v)?;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Tuple(
+                            v,
+                        ) => {
+                            __map.serialize_entry("tuple", v)?;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::QuantityType(
+                            v,
+                        ) => {
+                            __map.serialize_entry("quantity_type", v)?;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::ReferenceState(
+                            v,
+                        ) => {
+                            __map.serialize_entry("reference_state", v)?;
+                        }
+                        super::super::__buffa::view::oneof::structural_value::Kind::Missing(
+                            v,
+                        ) => {
+                            __map.serialize_entry("missing", v)?;
+                        }
+                    }
+                }
+                __map.end()
+            }
+        }
+        impl<'a> ::buffa::MessageName for StructuralValueView<'a> {
+            const PACKAGE: &'static str = "pse.engineering.v1";
+            const NAME: &'static str = "StructuralValue";
+            const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue";
+            const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue";
+        }
+        ::buffa::impl_default_view_instance!(StructuralValueView);
+        ::buffa::impl_view_reborrow!(StructuralValueView);
+        /** Self-contained, `'static` owned view of a `StructuralValue` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`StructuralValueView`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`StructuralValueView`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+        #[derive(Clone, Debug)]
+        pub struct StructuralValueOwnedView(
+            ::buffa::OwnedView<StructuralValueView<'static>>,
+        );
+        impl StructuralValueOwnedView {
+            /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+            ///
+            /// The view borrows directly from the buffer's data; the buffer is
+            /// retained inside the returned handle.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+            /// protobuf data.
+            pub fn decode(
+                bytes: ::buffa::bytes::Bytes,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    StructuralValueOwnedView(::buffa::OwnedView::decode(bytes)?),
+                )
+            }
+            /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+            /// max message size).
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+            /// exceeds the configured limits.
+            pub fn decode_with_options(
+                bytes: ::buffa::bytes::Bytes,
+                opts: &::buffa::DecodeOptions,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    StructuralValueOwnedView(
+                        ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                    ),
+                )
+            }
+            /// Build from an owned message via an encode → decode round-trip.
+            ///
+            /// # Errors
+            ///
+            /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+            /// message's encoded size exceeds the 2 GiB protobuf limit, or
+            /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+            /// somehow invalid (should not happen for well-formed messages).
+            pub fn from_owned(
+                msg: &super::super::StructuralValue,
+            ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                ::core::result::Result::Ok(
+                    StructuralValueOwnedView(::buffa::OwnedView::from_owned(msg)?),
+                )
+            }
+            /// Borrow the full [`StructuralValueView`] with its lifetime tied to `&self`.
+            #[must_use]
+            pub fn view(&self) -> &StructuralValueView<'_> {
+                self.0.reborrow()
+            }
+            /// Convert to the owned message type.
+            ///
+            /// Infallible: this type's constructors wire-decode their
+            /// buffer, and a view produced by wire decoding always
+            /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+            /// whose contract also governs handles converted from a raw
+            /// [`::buffa::OwnedView`].
+            #[must_use]
+            pub fn to_owned_message(&self) -> super::super::StructuralValue {
+                self.0.to_owned_message()
+            }
+            /// The underlying bytes buffer.
+            #[must_use]
+            pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                self.0.bytes()
+            }
+            /// Consume the handle, returning the underlying bytes buffer.
+            #[must_use]
+            pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                self.0.into_bytes()
+            }
+            /// Oneof `kind`.
+            #[must_use]
+            pub fn kind(
+                &self,
+            ) -> ::core::option::Option<
+                &super::super::__buffa::view::oneof::structural_value::Kind<'_>,
+            > {
+                self.0.reborrow().kind.as_ref()
+            }
+        }
+        impl ::core::convert::From<::buffa::OwnedView<StructuralValueView<'static>>>
+        for StructuralValueOwnedView {
+            fn from(inner: ::buffa::OwnedView<StructuralValueView<'static>>) -> Self {
+                StructuralValueOwnedView(inner)
+            }
+        }
+        impl ::core::convert::From<StructuralValueOwnedView>
+        for ::buffa::OwnedView<StructuralValueView<'static>> {
+            fn from(wrapper: StructuralValueOwnedView) -> Self {
+                wrapper.0
+            }
+        }
+        impl ::core::convert::AsRef<::buffa::OwnedView<StructuralValueView<'static>>>
+        for StructuralValueOwnedView {
+            fn as_ref(&self) -> &::buffa::OwnedView<StructuralValueView<'static>> {
+                &self.0
+            }
+        }
+        impl ::buffa::HasMessageView for super::super::StructuralValue {
+            type View<'a> = StructuralValueView<'a>;
+            type ViewHandle = StructuralValueOwnedView;
+        }
+        impl ::serde::Serialize for StructuralValueOwnedView {
+            fn serialize<__S: ::serde::Serializer>(
+                &self,
+                __s: __S,
+            ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                ::serde::Serialize::serialize(&self.0, __s)
+            }
+        }
+        impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+        for StructuralValueView<'a> {
+            fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                super::super::__buffa::reflect::descriptor_pool()
+                    .message(Self::__buffa_reflect_message_index())
+            }
+            fn pool(
+                &self,
+            ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                super::super::__buffa::reflect::descriptor_pool()
+            }
+            fn get(
+                &self,
+                field: &::buffa_descriptor::FieldDescriptor,
+            ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use ::buffa::Enumeration as _;
+                match field.number() {
+                    1u32 => {
+                        match &self.kind {
+                            ::core::option::Option::Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Boolean(
+                                    v,
+                                ),
+                            ) => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(&**v),
+                                )
+                            }
+                            _ => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                        <super::super::__buffa::view::structural_value::Alternative1View<
+                                            'a,
+                                        > as ::buffa::view::DefaultViewInstance>::default_view_instance(),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                    2u32 => {
+                        match &self.kind {
+                            ::core::option::Option::Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Integer(
+                                    v,
+                                ),
+                            ) => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(&**v),
+                                )
+                            }
+                            _ => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                        <super::super::__buffa::view::structural_value::Alternative2View<
+                                            'a,
+                                        > as ::buffa::view::DefaultViewInstance>::default_view_instance(),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                    3u32 => {
+                        match &self.kind {
+                            ::core::option::Option::Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Number(
+                                    v,
+                                ),
+                            ) => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(&**v),
+                                )
+                            }
+                            _ => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                        <super::super::__buffa::view::structural_value::Alternative3View<
+                                            'a,
+                                        > as ::buffa::view::DefaultViewInstance>::default_view_instance(),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                    4u32 => {
+                        match &self.kind {
+                            ::core::option::Option::Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Coordinate(
+                                    v,
+                                ),
+                            ) => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(&**v),
+                                )
+                            }
+                            _ => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                        <super::super::__buffa::view::structural_value::Alternative4View<
+                                            'a,
+                                        > as ::buffa::view::DefaultViewInstance>::default_view_instance(),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                    5u32 => {
+                        match &self.kind {
+                            ::core::option::Option::Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Text(
+                                    v,
+                                ),
+                            ) => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(&**v),
+                                )
+                            }
+                            _ => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                        <super::super::__buffa::view::structural_value::Alternative5View<
+                                            'a,
+                                        > as ::buffa::view::DefaultViewInstance>::default_view_instance(),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                    6u32 => {
+                        match &self.kind {
+                            ::core::option::Option::Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Entity(
+                                    v,
+                                ),
+                            ) => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(&**v),
+                                )
+                            }
+                            _ => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                        <super::super::__buffa::view::structural_value::Alternative6View<
+                                            'a,
+                                        > as ::buffa::view::DefaultViewInstance>::default_view_instance(),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                    7u32 => {
+                        match &self.kind {
+                            ::core::option::Option::Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Enum(
+                                    v,
+                                ),
+                            ) => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(&**v),
+                                )
+                            }
+                            _ => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                        <super::super::__buffa::view::structural_value::Alternative7View<
+                                            'a,
+                                        > as ::buffa::view::DefaultViewInstance>::default_view_instance(),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                    8u32 => {
+                        match &self.kind {
+                            ::core::option::Option::Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Identifier(
+                                    v,
+                                ),
+                            ) => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(&**v),
+                                )
+                            }
+                            _ => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                        <super::super::__buffa::view::structural_value::Alternative8View<
+                                            'a,
+                                        > as ::buffa::view::DefaultViewInstance>::default_view_instance(),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                    9u32 => {
+                        match &self.kind {
+                            ::core::option::Option::Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Definition(
+                                    v,
+                                ),
+                            ) => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(&**v),
+                                )
+                            }
+                            _ => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                        <super::super::__buffa::view::structural_value::Alternative9View<
+                                            'a,
+                                        > as ::buffa::view::DefaultViewInstance>::default_view_instance(),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                    10u32 => {
+                        match &self.kind {
+                            ::core::option::Option::Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Function(
+                                    v,
+                                ),
+                            ) => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(&**v),
+                                )
+                            }
+                            _ => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                        <super::super::__buffa::view::structural_value::Alternative10View<
+                                            'a,
+                                        > as ::buffa::view::DefaultViewInstance>::default_view_instance(),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                    11u32 => {
+                        match &self.kind {
+                            ::core::option::Option::Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Row(
+                                    v,
+                                ),
+                            ) => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(&**v),
+                                )
+                            }
+                            _ => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                        <super::super::__buffa::view::structural_value::Alternative11View<
+                                            'a,
+                                        > as ::buffa::view::DefaultViewInstance>::default_view_instance(),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                    12u32 => {
+                        match &self.kind {
+                            ::core::option::Option::Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Set(
+                                    v,
+                                ),
+                            ) => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(&**v),
+                                )
+                            }
+                            _ => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                        <super::super::__buffa::view::structural_value::Alternative12View<
+                                            'a,
+                                        > as ::buffa::view::DefaultViewInstance>::default_view_instance(),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                    13u32 => {
+                        match &self.kind {
+                            ::core::option::Option::Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Tuple(
+                                    v,
+                                ),
+                            ) => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(&**v),
+                                )
+                            }
+                            _ => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                        <super::super::__buffa::view::structural_value::Alternative13View<
+                                            'a,
+                                        > as ::buffa::view::DefaultViewInstance>::default_view_instance(),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                    14u32 => {
+                        match &self.kind {
+                            ::core::option::Option::Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::QuantityType(
+                                    v,
+                                ),
+                            ) => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(&**v),
+                                )
+                            }
+                            _ => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                        <super::super::__buffa::view::structural_value::Alternative14View<
+                                            'a,
+                                        > as ::buffa::view::DefaultViewInstance>::default_view_instance(),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                    15u32 => {
+                        match &self.kind {
+                            ::core::option::Option::Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::ReferenceState(
+                                    v,
+                                ),
+                            ) => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(&**v),
+                                )
+                            }
+                            _ => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                        <super::super::__buffa::view::structural_value::Alternative15View<
+                                            'a,
+                                        > as ::buffa::view::DefaultViewInstance>::default_view_instance(),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                    16u32 => {
+                        match &self.kind {
+                            ::core::option::Option::Some(
+                                super::super::__buffa::view::oneof::structural_value::Kind::Missing(
+                                    v,
+                                ),
+                            ) => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(&**v),
+                                )
+                            }
+                            _ => {
+                                ::buffa_descriptor::reflect::ValueRef::Message(
+                                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                        <super::super::__buffa::view::structural_value::Alternative16View<
+                                            'a,
+                                        > as ::buffa::view::DefaultViewInstance>::default_view_instance(),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                    _ => {
+                        ::core::debug_assert!(
+                            false,
+                            "field number {} is not a member of this view's reflect get()",
+                            field.number(),
+                        );
+                        ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                    }
+                }
+            }
+            fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                match field.number() {
+                    1u32 => {
+                        ::core::matches!(
+                            & self.kind,
+                            ::core::option::Option::Some(super::super::__buffa::view::oneof::structural_value::Kind::Boolean(_))
+                        )
+                    }
+                    2u32 => {
+                        ::core::matches!(
+                            & self.kind,
+                            ::core::option::Option::Some(super::super::__buffa::view::oneof::structural_value::Kind::Integer(_))
+                        )
+                    }
+                    3u32 => {
+                        ::core::matches!(
+                            & self.kind,
+                            ::core::option::Option::Some(super::super::__buffa::view::oneof::structural_value::Kind::Number(_))
+                        )
+                    }
+                    4u32 => {
+                        ::core::matches!(
+                            & self.kind,
+                            ::core::option::Option::Some(super::super::__buffa::view::oneof::structural_value::Kind::Coordinate(_))
+                        )
+                    }
+                    5u32 => {
+                        ::core::matches!(
+                            & self.kind,
+                            ::core::option::Option::Some(super::super::__buffa::view::oneof::structural_value::Kind::Text(_))
+                        )
+                    }
+                    6u32 => {
+                        ::core::matches!(
+                            & self.kind,
+                            ::core::option::Option::Some(super::super::__buffa::view::oneof::structural_value::Kind::Entity(_))
+                        )
+                    }
+                    7u32 => {
+                        ::core::matches!(
+                            & self.kind,
+                            ::core::option::Option::Some(super::super::__buffa::view::oneof::structural_value::Kind::Enum(_))
+                        )
+                    }
+                    8u32 => {
+                        ::core::matches!(
+                            & self.kind,
+                            ::core::option::Option::Some(super::super::__buffa::view::oneof::structural_value::Kind::Identifier(_))
+                        )
+                    }
+                    9u32 => {
+                        ::core::matches!(
+                            & self.kind,
+                            ::core::option::Option::Some(super::super::__buffa::view::oneof::structural_value::Kind::Definition(_))
+                        )
+                    }
+                    10u32 => {
+                        ::core::matches!(
+                            & self.kind,
+                            ::core::option::Option::Some(super::super::__buffa::view::oneof::structural_value::Kind::Function(_))
+                        )
+                    }
+                    11u32 => {
+                        ::core::matches!(
+                            & self.kind,
+                            ::core::option::Option::Some(super::super::__buffa::view::oneof::structural_value::Kind::Row(_))
+                        )
+                    }
+                    12u32 => {
+                        ::core::matches!(
+                            & self.kind,
+                            ::core::option::Option::Some(super::super::__buffa::view::oneof::structural_value::Kind::Set(_))
+                        )
+                    }
+                    13u32 => {
+                        ::core::matches!(
+                            & self.kind,
+                            ::core::option::Option::Some(super::super::__buffa::view::oneof::structural_value::Kind::Tuple(_))
+                        )
+                    }
+                    14u32 => {
+                        ::core::matches!(
+                            & self.kind,
+                            ::core::option::Option::Some(super::super::__buffa::view::oneof::structural_value::Kind::QuantityType(_))
+                        )
+                    }
+                    15u32 => {
+                        ::core::matches!(
+                            & self.kind,
+                            ::core::option::Option::Some(super::super::__buffa::view::oneof::structural_value::Kind::ReferenceState(_))
+                        )
+                    }
+                    16u32 => {
+                        ::core::matches!(
+                            & self.kind,
+                            ::core::option::Option::Some(super::super::__buffa::view::oneof::structural_value::Kind::Missing(_))
+                        )
+                    }
+                    _ => false,
+                }
+            }
+            fn for_each_set(
+                &self,
+                f: &mut dyn ::core::ops::FnMut(
+                    &::buffa_descriptor::FieldDescriptor,
+                    ::buffa_descriptor::reflect::ValueRef<'_>,
+                ),
+            ) {
+                let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                    self,
+                );
+                for fd in md.fields() {
+                    if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                        f(
+                            fd,
+                            ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                        );
+                    }
+                }
+            }
+            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+            fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                let options = ::buffa::DecodeOptions::new()
+                    .with_element_memory_limit(
+                        bytes
+                            .len()
+                            .saturating_mul(128)
+                            .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                    )
+                    .with_unknown_field_limit(
+                        bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                    );
+                ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                        ::buffa::alloc::sync::Arc::clone(
+                            super::super::__buffa::reflect::descriptor_pool(),
+                        ),
+                        Self::__buffa_reflect_message_index(),
+                        &bytes,
+                        &options,
+                    )
+                    .expect(
+                        "view re-encodes to bytes decodable against its own descriptor",
+                    )
+            }
+        }
+        impl<'a> ::buffa_descriptor::reflect::ReflectElement
+        for StructuralValueView<'a> {
+            fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                ::buffa_descriptor::reflect::ValueRef::Message(
+                    ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                )
+            }
+        }
+        impl<'a> StructuralValueView<'a> {
+            #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+            /// Memoized `MessageIndex` for this view's message type, resolved
+            /// once against the package's embedded descriptor pool. An inherent
+            /// associated fn (not a free fn) so sibling views in the same module
+            /// do not collide.
+            #[doc(hidden)]
+            fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                static IDX: ::std::sync::OnceLock<::buffa_descriptor::MessageIndex> = ::std::sync::OnceLock::new();
+                *IDX
+                    .get_or_init(|| {
+                        super::super::__buffa::reflect::descriptor_pool()
+                            .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                            .expect(
+                                "generated view type is registered in the embedded descriptor pool",
+                            )
+                    })
+            }
+        }
+        pub mod structural_value {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use super::*;
+            #[derive(Clone, Debug, Default)]
+            pub struct Alternative1View<'a> {
+                /// Field 1: `value`
+                pub value: bool,
+                pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+            }
+            impl<'a> ::buffa::MessageView<'a> for Alternative1View<'a> {
+                type Owned = super::super::super::structural_value::Alternative1;
+                fn decode_view(
+                    buf: &'a [u8],
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    let __limit = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                    );
+                    let __elem = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                    );
+                    <Self as ::buffa::MessageView>::decode_view_ctx(
+                        buf,
+                        ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                            .with_element_memory(&__elem),
+                    )
+                }
+                fn decode_view_with_ctx(
+                    buf: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+                }
+                #[inline]
+                fn merge_view_field(
+                    &mut self,
+                    tag: ::buffa::encoding::Tag,
+                    cur: &'a [u8],
+                    before_tag: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                    let _ = ctx;
+                    #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    let view = self;
+                    let mut cur = cur;
+                    match tag.field_number() {
+                        1u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::Varint,
+                            )?;
+                            view.value = ::buffa::types::decode_bool(&mut cur)?;
+                        }
+                        _ => {
+                            ::buffa::encoding::skip_field_depth(
+                                tag,
+                                &mut cur,
+                                ctx.depth(),
+                            )?;
+                            let span_len = before_tag.len() - cur.len();
+                            view.__buffa_unknown_fields
+                                .push_record(before_tag, span_len, ctx)?;
+                        }
+                    }
+                    ::core::result::Result::Ok(cur)
+                }
+                fn to_owned_message(
+                    &self,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative1,
+                    ::buffa::DecodeError,
+                > {
+                    self.to_owned_from_source(None)
+                }
+                #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn to_owned_from_source(
+                    &self,
+                    __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative1,
+                    ::buffa::DecodeError,
+                > {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::alloc::string::ToString as _;
+                    let _ = __buffa_src;
+                    ::core::result::Result::Ok(super::super::super::structural_value::Alternative1 {
+                        value: self.value,
+                        __buffa_unknown_fields: self
+                            .__buffa_unknown_fields
+                            .to_owned()?
+                            .into(),
+                        ..::core::default::Default::default()
+                    })
+                }
+            }
+            impl<'a> ::buffa::ViewEncode<'a> for Alternative1View<'a> {
+                #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    let mut size = 0u64;
+                    if self.value {
+                        size += 1u64 + ::buffa::types::BOOL_ENCODED_LEN as u64;
+                    }
+                    size += self.__buffa_unknown_fields.encoded_len() as u64;
+                    ::buffa::saturate_size(size)
+                }
+                #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn write_to(
+                    &self,
+                    _cache: &mut ::buffa::SizeCache,
+                    buf: &mut impl ::buffa::EncodeSink,
+                ) {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    if self.value {
+                        ::buffa::types::put_bool_field(1u32, self.value, buf);
+                    }
+                    self.__buffa_unknown_fields.write_to(buf);
+                }
+            }
+            /// Serializes this view as protobuf JSON.
+            ///
+            /// Implicit-presence fields with default values are omitted, `required`
+            /// fields are always emitted, explicit-presence (`optional`) fields are
+            /// emitted only when set, bytes fields are base64-encoded, and enum
+            /// values are their proto name strings.
+            ///
+            /// This impl uses `serialize_map(None)` because the number of emitted
+            /// fields depends on default-omission rules; serializers that require
+            /// known map lengths (e.g. `bincode`) will return a runtime error.
+            /// Use the owned message type for those formats.
+            impl<'__a> ::serde::Serialize for Alternative1View<'__a> {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    use ::serde::ser::SerializeMap as _;
+                    let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                    if self.value {
+                        __map.serialize_entry("value", &self.value)?;
+                    }
+                    __map.end()
+                }
+            }
+            impl<'a> ::buffa::MessageName for Alternative1View<'a> {
+                const PACKAGE: &'static str = "pse.engineering.v1";
+                const NAME: &'static str = "StructuralValue.Alternative1";
+                const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative1";
+                const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative1";
+            }
+            ::buffa::impl_default_view_instance!(Alternative1View);
+            ::buffa::impl_view_reborrow!(Alternative1View);
+            /** Self-contained, `'static` owned view of a `Alternative1` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`Alternative1View`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`Alternative1View`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+            #[derive(Clone, Debug)]
+            pub struct Alternative1OwnedView(
+                ::buffa::OwnedView<Alternative1View<'static>>,
+            );
+            impl Alternative1OwnedView {
+                /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+                ///
+                /// The view borrows directly from the buffer's data; the buffer is
+                /// retained inside the returned handle.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+                /// protobuf data.
+                pub fn decode(
+                    bytes: ::buffa::bytes::Bytes,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative1OwnedView(::buffa::OwnedView::decode(bytes)?),
+                    )
+                }
+                /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+                /// max message size).
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+                /// exceeds the configured limits.
+                pub fn decode_with_options(
+                    bytes: ::buffa::bytes::Bytes,
+                    opts: &::buffa::DecodeOptions,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative1OwnedView(
+                            ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                        ),
+                    )
+                }
+                /// Build from an owned message via an encode → decode round-trip.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+                /// message's encoded size exceeds the 2 GiB protobuf limit, or
+                /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+                /// somehow invalid (should not happen for well-formed messages).
+                pub fn from_owned(
+                    msg: &super::super::super::structural_value::Alternative1,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative1OwnedView(::buffa::OwnedView::from_owned(msg)?),
+                    )
+                }
+                /// Borrow the full [`Alternative1View`] with its lifetime tied to `&self`.
+                #[must_use]
+                pub fn view(&self) -> &Alternative1View<'_> {
+                    self.0.reborrow()
+                }
+                /// Convert to the owned message type.
+                ///
+                /// Infallible: this type's constructors wire-decode their
+                /// buffer, and a view produced by wire decoding always
+                /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+                /// whose contract also governs handles converted from a raw
+                /// [`::buffa::OwnedView`].
+                #[must_use]
+                pub fn to_owned_message(
+                    &self,
+                ) -> super::super::super::structural_value::Alternative1 {
+                    self.0.to_owned_message()
+                }
+                /// The underlying bytes buffer.
+                #[must_use]
+                pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                    self.0.bytes()
+                }
+                /// Consume the handle, returning the underlying bytes buffer.
+                #[must_use]
+                pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                    self.0.into_bytes()
+                }
+                /// Field 1: `value`
+                #[must_use]
+                pub fn value(&self) -> bool {
+                    self.0.reborrow().value
+                }
+            }
+            impl ::core::convert::From<::buffa::OwnedView<Alternative1View<'static>>>
+            for Alternative1OwnedView {
+                fn from(inner: ::buffa::OwnedView<Alternative1View<'static>>) -> Self {
+                    Alternative1OwnedView(inner)
+                }
+            }
+            impl ::core::convert::From<Alternative1OwnedView>
+            for ::buffa::OwnedView<Alternative1View<'static>> {
+                fn from(wrapper: Alternative1OwnedView) -> Self {
+                    wrapper.0
+                }
+            }
+            impl ::core::convert::AsRef<::buffa::OwnedView<Alternative1View<'static>>>
+            for Alternative1OwnedView {
+                fn as_ref(&self) -> &::buffa::OwnedView<Alternative1View<'static>> {
+                    &self.0
+                }
+            }
+            impl ::buffa::HasMessageView
+            for super::super::super::structural_value::Alternative1 {
+                type View<'a> = Alternative1View<'a>;
+                type ViewHandle = Alternative1OwnedView;
+            }
+            impl ::serde::Serialize for Alternative1OwnedView {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    ::serde::Serialize::serialize(&self.0, __s)
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+            for Alternative1View<'a> {
+                fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                        .message(Self::__buffa_reflect_message_index())
+                }
+                fn pool(
+                    &self,
+                ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                }
+                fn get(
+                    &self,
+                    field: &::buffa_descriptor::FieldDescriptor,
+                ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    match field.number() {
+                        1u32 => ::buffa_descriptor::reflect::ValueRef::Bool(self.value),
+                        _ => {
+                            ::core::debug_assert!(
+                                false,
+                                "field number {} is not a member of this view's reflect get()",
+                                field.number(),
+                            );
+                            ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                        }
+                    }
+                }
+                fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                    match field.number() {
+                        1u32 => self.value,
+                        _ => false,
+                    }
+                }
+                fn for_each_set(
+                    &self,
+                    f: &mut dyn ::core::ops::FnMut(
+                        &::buffa_descriptor::FieldDescriptor,
+                        ::buffa_descriptor::reflect::ValueRef<'_>,
+                    ),
+                ) {
+                    let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                        self,
+                    );
+                    for fd in md.fields() {
+                        if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                            f(
+                                fd,
+                                ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                            );
+                        }
+                    }
+                }
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                    let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                    let options = ::buffa::DecodeOptions::new()
+                        .with_element_memory_limit(
+                            bytes
+                                .len()
+                                .saturating_mul(128)
+                                .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                        )
+                        .with_unknown_field_limit(
+                            bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                        );
+                    ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                            ::buffa::alloc::sync::Arc::clone(
+                                super::super::super::__buffa::reflect::descriptor_pool(),
+                            ),
+                            Self::__buffa_reflect_message_index(),
+                            &bytes,
+                            &options,
+                        )
+                        .expect(
+                            "view re-encodes to bytes decodable against its own descriptor",
+                        )
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectElement
+            for Alternative1View<'a> {
+                fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                    )
+                }
+            }
+            impl<'a> Alternative1View<'a> {
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                /// Memoized `MessageIndex` for this view's message type, resolved
+                /// once against the package's embedded descriptor pool. An inherent
+                /// associated fn (not a free fn) so sibling views in the same module
+                /// do not collide.
+                #[doc(hidden)]
+                fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                    static IDX: ::std::sync::OnceLock<
+                        ::buffa_descriptor::MessageIndex,
+                    > = ::std::sync::OnceLock::new();
+                    *IDX
+                        .get_or_init(|| {
+                            super::super::super::__buffa::reflect::descriptor_pool()
+                                .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                                .expect(
+                                    "generated view type is registered in the embedded descriptor pool",
+                                )
+                        })
+                }
+            }
+            #[derive(Clone, Debug, Default)]
+            pub struct Alternative2View<'a> {
+                /// Field 1: `value`
+                pub value: i64,
+                pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+            }
+            impl<'a> ::buffa::MessageView<'a> for Alternative2View<'a> {
+                type Owned = super::super::super::structural_value::Alternative2;
+                fn decode_view(
+                    buf: &'a [u8],
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    let __limit = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                    );
+                    let __elem = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                    );
+                    <Self as ::buffa::MessageView>::decode_view_ctx(
+                        buf,
+                        ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                            .with_element_memory(&__elem),
+                    )
+                }
+                fn decode_view_with_ctx(
+                    buf: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+                }
+                #[inline]
+                fn merge_view_field(
+                    &mut self,
+                    tag: ::buffa::encoding::Tag,
+                    cur: &'a [u8],
+                    before_tag: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                    let _ = ctx;
+                    #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    let view = self;
+                    let mut cur = cur;
+                    match tag.field_number() {
+                        1u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::Varint,
+                            )?;
+                            view.value = ::buffa::types::decode_sint64(&mut cur)?;
+                        }
+                        _ => {
+                            ::buffa::encoding::skip_field_depth(
+                                tag,
+                                &mut cur,
+                                ctx.depth(),
+                            )?;
+                            let span_len = before_tag.len() - cur.len();
+                            view.__buffa_unknown_fields
+                                .push_record(before_tag, span_len, ctx)?;
+                        }
+                    }
+                    ::core::result::Result::Ok(cur)
+                }
+                fn to_owned_message(
+                    &self,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative2,
+                    ::buffa::DecodeError,
+                > {
+                    self.to_owned_from_source(None)
+                }
+                #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn to_owned_from_source(
+                    &self,
+                    __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative2,
+                    ::buffa::DecodeError,
+                > {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::alloc::string::ToString as _;
+                    let _ = __buffa_src;
+                    ::core::result::Result::Ok(super::super::super::structural_value::Alternative2 {
+                        value: self.value,
+                        __buffa_unknown_fields: self
+                            .__buffa_unknown_fields
+                            .to_owned()?
+                            .into(),
+                        ..::core::default::Default::default()
+                    })
+                }
+            }
+            impl<'a> ::buffa::ViewEncode<'a> for Alternative2View<'a> {
+                #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    let mut size = 0u64;
+                    if self.value != 0i64 {
+                        size
+                            += 1u64
+                                + ::buffa::types::sint64_encoded_len(self.value) as u64;
+                    }
+                    size += self.__buffa_unknown_fields.encoded_len() as u64;
+                    ::buffa::saturate_size(size)
+                }
+                #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn write_to(
+                    &self,
+                    _cache: &mut ::buffa::SizeCache,
+                    buf: &mut impl ::buffa::EncodeSink,
+                ) {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    if self.value != 0i64 {
+                        ::buffa::types::put_sint64_field(1u32, self.value, buf);
+                    }
+                    self.__buffa_unknown_fields.write_to(buf);
+                }
+            }
+            /// Serializes this view as protobuf JSON.
+            ///
+            /// Implicit-presence fields with default values are omitted, `required`
+            /// fields are always emitted, explicit-presence (`optional`) fields are
+            /// emitted only when set, bytes fields are base64-encoded, and enum
+            /// values are their proto name strings.
+            ///
+            /// This impl uses `serialize_map(None)` because the number of emitted
+            /// fields depends on default-omission rules; serializers that require
+            /// known map lengths (e.g. `bincode`) will return a runtime error.
+            /// Use the owned message type for those formats.
+            impl<'__a> ::serde::Serialize for Alternative2View<'__a> {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    use ::serde::ser::SerializeMap as _;
+                    let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                    if !::buffa::json_helpers::skip_if::is_zero_i64(&self.value) {
+                        __map
+                            .serialize_entry(
+                                "value",
+                                &::buffa::json_helpers::ProtoJson(&self.value),
+                            )?;
+                    }
+                    __map.end()
+                }
+            }
+            impl<'a> ::buffa::MessageName for Alternative2View<'a> {
+                const PACKAGE: &'static str = "pse.engineering.v1";
+                const NAME: &'static str = "StructuralValue.Alternative2";
+                const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative2";
+                const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative2";
+            }
+            ::buffa::impl_default_view_instance!(Alternative2View);
+            ::buffa::impl_view_reborrow!(Alternative2View);
+            /** Self-contained, `'static` owned view of a `Alternative2` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`Alternative2View`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`Alternative2View`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+            #[derive(Clone, Debug)]
+            pub struct Alternative2OwnedView(
+                ::buffa::OwnedView<Alternative2View<'static>>,
+            );
+            impl Alternative2OwnedView {
+                /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+                ///
+                /// The view borrows directly from the buffer's data; the buffer is
+                /// retained inside the returned handle.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+                /// protobuf data.
+                pub fn decode(
+                    bytes: ::buffa::bytes::Bytes,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative2OwnedView(::buffa::OwnedView::decode(bytes)?),
+                    )
+                }
+                /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+                /// max message size).
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+                /// exceeds the configured limits.
+                pub fn decode_with_options(
+                    bytes: ::buffa::bytes::Bytes,
+                    opts: &::buffa::DecodeOptions,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative2OwnedView(
+                            ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                        ),
+                    )
+                }
+                /// Build from an owned message via an encode → decode round-trip.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+                /// message's encoded size exceeds the 2 GiB protobuf limit, or
+                /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+                /// somehow invalid (should not happen for well-formed messages).
+                pub fn from_owned(
+                    msg: &super::super::super::structural_value::Alternative2,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative2OwnedView(::buffa::OwnedView::from_owned(msg)?),
+                    )
+                }
+                /// Borrow the full [`Alternative2View`] with its lifetime tied to `&self`.
+                #[must_use]
+                pub fn view(&self) -> &Alternative2View<'_> {
+                    self.0.reborrow()
+                }
+                /// Convert to the owned message type.
+                ///
+                /// Infallible: this type's constructors wire-decode their
+                /// buffer, and a view produced by wire decoding always
+                /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+                /// whose contract also governs handles converted from a raw
+                /// [`::buffa::OwnedView`].
+                #[must_use]
+                pub fn to_owned_message(
+                    &self,
+                ) -> super::super::super::structural_value::Alternative2 {
+                    self.0.to_owned_message()
+                }
+                /// The underlying bytes buffer.
+                #[must_use]
+                pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                    self.0.bytes()
+                }
+                /// Consume the handle, returning the underlying bytes buffer.
+                #[must_use]
+                pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                    self.0.into_bytes()
+                }
+                /// Field 1: `value`
+                #[must_use]
+                pub fn value(&self) -> i64 {
+                    self.0.reborrow().value
+                }
+            }
+            impl ::core::convert::From<::buffa::OwnedView<Alternative2View<'static>>>
+            for Alternative2OwnedView {
+                fn from(inner: ::buffa::OwnedView<Alternative2View<'static>>) -> Self {
+                    Alternative2OwnedView(inner)
+                }
+            }
+            impl ::core::convert::From<Alternative2OwnedView>
+            for ::buffa::OwnedView<Alternative2View<'static>> {
+                fn from(wrapper: Alternative2OwnedView) -> Self {
+                    wrapper.0
+                }
+            }
+            impl ::core::convert::AsRef<::buffa::OwnedView<Alternative2View<'static>>>
+            for Alternative2OwnedView {
+                fn as_ref(&self) -> &::buffa::OwnedView<Alternative2View<'static>> {
+                    &self.0
+                }
+            }
+            impl ::buffa::HasMessageView
+            for super::super::super::structural_value::Alternative2 {
+                type View<'a> = Alternative2View<'a>;
+                type ViewHandle = Alternative2OwnedView;
+            }
+            impl ::serde::Serialize for Alternative2OwnedView {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    ::serde::Serialize::serialize(&self.0, __s)
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+            for Alternative2View<'a> {
+                fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                        .message(Self::__buffa_reflect_message_index())
+                }
+                fn pool(
+                    &self,
+                ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                }
+                fn get(
+                    &self,
+                    field: &::buffa_descriptor::FieldDescriptor,
+                ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    match field.number() {
+                        1u32 => ::buffa_descriptor::reflect::ValueRef::I64(self.value),
+                        _ => {
+                            ::core::debug_assert!(
+                                false,
+                                "field number {} is not a member of this view's reflect get()",
+                                field.number(),
+                            );
+                            ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                        }
+                    }
+                }
+                fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                    match field.number() {
+                        1u32 => self.value != 0,
+                        _ => false,
+                    }
+                }
+                fn for_each_set(
+                    &self,
+                    f: &mut dyn ::core::ops::FnMut(
+                        &::buffa_descriptor::FieldDescriptor,
+                        ::buffa_descriptor::reflect::ValueRef<'_>,
+                    ),
+                ) {
+                    let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                        self,
+                    );
+                    for fd in md.fields() {
+                        if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                            f(
+                                fd,
+                                ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                            );
+                        }
+                    }
+                }
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                    let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                    let options = ::buffa::DecodeOptions::new()
+                        .with_element_memory_limit(
+                            bytes
+                                .len()
+                                .saturating_mul(128)
+                                .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                        )
+                        .with_unknown_field_limit(
+                            bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                        );
+                    ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                            ::buffa::alloc::sync::Arc::clone(
+                                super::super::super::__buffa::reflect::descriptor_pool(),
+                            ),
+                            Self::__buffa_reflect_message_index(),
+                            &bytes,
+                            &options,
+                        )
+                        .expect(
+                            "view re-encodes to bytes decodable against its own descriptor",
+                        )
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectElement
+            for Alternative2View<'a> {
+                fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                    )
+                }
+            }
+            impl<'a> Alternative2View<'a> {
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                /// Memoized `MessageIndex` for this view's message type, resolved
+                /// once against the package's embedded descriptor pool. An inherent
+                /// associated fn (not a free fn) so sibling views in the same module
+                /// do not collide.
+                #[doc(hidden)]
+                fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                    static IDX: ::std::sync::OnceLock<
+                        ::buffa_descriptor::MessageIndex,
+                    > = ::std::sync::OnceLock::new();
+                    *IDX
+                        .get_or_init(|| {
+                            super::super::super::__buffa::reflect::descriptor_pool()
+                                .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                                .expect(
+                                    "generated view type is registered in the embedded descriptor pool",
+                                )
+                        })
+                }
+            }
+            #[derive(Clone, Debug, Default)]
+            pub struct Alternative3View<'a> {
+                /// Field 1: `bits`
+                pub bits: u64,
+                /// Field 2: `quantity`
+                pub quantity: ::buffa::MessageFieldView<
+                    super::super::super::__buffa::view::QuantityTypeIdView<'a>,
+                >,
+                pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+            }
+            impl<'a> ::buffa::MessageView<'a> for Alternative3View<'a> {
+                type Owned = super::super::super::structural_value::Alternative3;
+                fn decode_view(
+                    buf: &'a [u8],
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    let __limit = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                    );
+                    let __elem = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                    );
+                    <Self as ::buffa::MessageView>::decode_view_ctx(
+                        buf,
+                        ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                            .with_element_memory(&__elem),
+                    )
+                }
+                fn decode_view_with_ctx(
+                    buf: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+                }
+                #[inline]
+                fn merge_view_field(
+                    &mut self,
+                    tag: ::buffa::encoding::Tag,
+                    cur: &'a [u8],
+                    before_tag: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                    let _ = ctx;
+                    #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    let view = self;
+                    let mut cur = cur;
+                    match tag.field_number() {
+                        1u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::Fixed64,
+                            )?;
+                            view.bits = ::buffa::types::decode_fixed64(&mut cur)?;
+                        }
+                        2u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::LengthDelimited,
+                            )?;
+                            let __sub_ctx = ctx.descend()?;
+                            let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                            match view.quantity.as_mut() {
+                                Some(existing) => {
+                                    ::buffa::MessageView::merge_into_view(
+                                        existing,
+                                        sub,
+                                        __sub_ctx,
+                                    )?
+                                }
+                                None => {
+                                    view.quantity = ::buffa::MessageFieldView::set(
+                                        <super::super::super::__buffa::view::QuantityTypeIdView as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    );
+                                }
+                            }
+                        }
+                        _ => {
+                            ::buffa::encoding::skip_field_depth(
+                                tag,
+                                &mut cur,
+                                ctx.depth(),
+                            )?;
+                            let span_len = before_tag.len() - cur.len();
+                            view.__buffa_unknown_fields
+                                .push_record(before_tag, span_len, ctx)?;
+                        }
+                    }
+                    ::core::result::Result::Ok(cur)
+                }
+                fn to_owned_message(
+                    &self,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative3,
+                    ::buffa::DecodeError,
+                > {
+                    self.to_owned_from_source(None)
+                }
+                #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn to_owned_from_source(
+                    &self,
+                    __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative3,
+                    ::buffa::DecodeError,
+                > {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::alloc::string::ToString as _;
+                    let _ = __buffa_src;
+                    ::core::result::Result::Ok(super::super::super::structural_value::Alternative3 {
+                        bits: self.bits,
+                        quantity: match self.quantity.as_option() {
+                            Some(v) => {
+                                ::buffa::MessageField::<
+                                    super::super::super::QuantityTypeId,
+                                    ::buffa::Inline<super::super::super::QuantityTypeId>,
+                                >::some(v.to_owned_from_source(__buffa_src)?)
+                            }
+                            None => ::buffa::MessageField::none(),
+                        },
+                        __buffa_unknown_fields: self
+                            .__buffa_unknown_fields
+                            .to_owned()?
+                            .into(),
+                        ..::core::default::Default::default()
+                    })
+                }
+            }
+            impl<'a> ::buffa::ViewEncode<'a> for Alternative3View<'a> {
+                #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    let mut size = 0u64;
+                    if self.bits != 0u64 {
+                        size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+                    }
+                    if self.quantity.is_set() {
+                        let __slot = __cache.reserve();
+                        let inner_size = self.quantity.compute_size(__cache);
+                        __cache.set(__slot, inner_size);
+                        size
+                            += 1u64
+                                + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                                + inner_size as u64;
+                    }
+                    size += self.__buffa_unknown_fields.encoded_len() as u64;
+                    ::buffa::saturate_size(size)
+                }
+                #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn write_to(
+                    &self,
+                    __cache: &mut ::buffa::SizeCache,
+                    buf: &mut impl ::buffa::EncodeSink,
+                ) {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    if self.bits != 0u64 {
+                        ::buffa::types::put_fixed64_field(1u32, self.bits, buf);
+                    }
+                    if self.quantity.is_set() {
+                        ::buffa::types::put_len_delimited_header(
+                            2u32,
+                            u64::from(__cache.consume_next()),
+                            buf,
+                        );
+                        self.quantity.write_to(__cache, buf);
+                    }
+                    self.__buffa_unknown_fields.write_to(buf);
+                }
+            }
+            /// Serializes this view as protobuf JSON.
+            ///
+            /// Implicit-presence fields with default values are omitted, `required`
+            /// fields are always emitted, explicit-presence (`optional`) fields are
+            /// emitted only when set, bytes fields are base64-encoded, and enum
+            /// values are their proto name strings.
+            ///
+            /// This impl uses `serialize_map(None)` because the number of emitted
+            /// fields depends on default-omission rules; serializers that require
+            /// known map lengths (e.g. `bincode`) will return a runtime error.
+            /// Use the owned message type for those formats.
+            impl<'__a> ::serde::Serialize for Alternative3View<'__a> {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    use ::serde::ser::SerializeMap as _;
+                    let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                    if !::buffa::json_helpers::skip_if::is_zero_u64(&self.bits) {
+                        __map
+                            .serialize_entry(
+                                "bits",
+                                &::buffa::json_helpers::ProtoJson(&self.bits),
+                            )?;
+                    }
+                    {
+                        if let ::core::option::Option::Some(__v) = self
+                            .quantity
+                            .as_option()
+                        {
+                            __map.serialize_entry("quantity", __v)?;
+                        }
+                    }
+                    __map.end()
+                }
+            }
+            impl<'a> ::buffa::MessageName for Alternative3View<'a> {
+                const PACKAGE: &'static str = "pse.engineering.v1";
+                const NAME: &'static str = "StructuralValue.Alternative3";
+                const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative3";
+                const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative3";
+            }
+            ::buffa::impl_default_view_instance!(Alternative3View);
+            ::buffa::impl_view_reborrow!(Alternative3View);
+            /** Self-contained, `'static` owned view of a `Alternative3` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`Alternative3View`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`Alternative3View`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+            #[derive(Clone, Debug)]
+            pub struct Alternative3OwnedView(
+                ::buffa::OwnedView<Alternative3View<'static>>,
+            );
+            impl Alternative3OwnedView {
+                /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+                ///
+                /// The view borrows directly from the buffer's data; the buffer is
+                /// retained inside the returned handle.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+                /// protobuf data.
+                pub fn decode(
+                    bytes: ::buffa::bytes::Bytes,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative3OwnedView(::buffa::OwnedView::decode(bytes)?),
+                    )
+                }
+                /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+                /// max message size).
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+                /// exceeds the configured limits.
+                pub fn decode_with_options(
+                    bytes: ::buffa::bytes::Bytes,
+                    opts: &::buffa::DecodeOptions,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative3OwnedView(
+                            ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                        ),
+                    )
+                }
+                /// Build from an owned message via an encode → decode round-trip.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+                /// message's encoded size exceeds the 2 GiB protobuf limit, or
+                /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+                /// somehow invalid (should not happen for well-formed messages).
+                pub fn from_owned(
+                    msg: &super::super::super::structural_value::Alternative3,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative3OwnedView(::buffa::OwnedView::from_owned(msg)?),
+                    )
+                }
+                /// Borrow the full [`Alternative3View`] with its lifetime tied to `&self`.
+                #[must_use]
+                pub fn view(&self) -> &Alternative3View<'_> {
+                    self.0.reborrow()
+                }
+                /// Convert to the owned message type.
+                ///
+                /// Infallible: this type's constructors wire-decode their
+                /// buffer, and a view produced by wire decoding always
+                /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+                /// whose contract also governs handles converted from a raw
+                /// [`::buffa::OwnedView`].
+                #[must_use]
+                pub fn to_owned_message(
+                    &self,
+                ) -> super::super::super::structural_value::Alternative3 {
+                    self.0.to_owned_message()
+                }
+                /// The underlying bytes buffer.
+                #[must_use]
+                pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                    self.0.bytes()
+                }
+                /// Consume the handle, returning the underlying bytes buffer.
+                #[must_use]
+                pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                    self.0.into_bytes()
+                }
+                /// Field 1: `bits`
+                #[must_use]
+                pub fn bits(&self) -> u64 {
+                    self.0.reborrow().bits
+                }
+                /// Field 2: `quantity`
+                #[must_use]
+                pub fn quantity(
+                    &self,
+                ) -> &::buffa::MessageFieldView<
+                    super::super::super::__buffa::view::QuantityTypeIdView<'_>,
+                > {
+                    &self.0.reborrow().quantity
+                }
+            }
+            impl ::core::convert::From<::buffa::OwnedView<Alternative3View<'static>>>
+            for Alternative3OwnedView {
+                fn from(inner: ::buffa::OwnedView<Alternative3View<'static>>) -> Self {
+                    Alternative3OwnedView(inner)
+                }
+            }
+            impl ::core::convert::From<Alternative3OwnedView>
+            for ::buffa::OwnedView<Alternative3View<'static>> {
+                fn from(wrapper: Alternative3OwnedView) -> Self {
+                    wrapper.0
+                }
+            }
+            impl ::core::convert::AsRef<::buffa::OwnedView<Alternative3View<'static>>>
+            for Alternative3OwnedView {
+                fn as_ref(&self) -> &::buffa::OwnedView<Alternative3View<'static>> {
+                    &self.0
+                }
+            }
+            impl ::buffa::HasMessageView
+            for super::super::super::structural_value::Alternative3 {
+                type View<'a> = Alternative3View<'a>;
+                type ViewHandle = Alternative3OwnedView;
+            }
+            impl ::serde::Serialize for Alternative3OwnedView {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    ::serde::Serialize::serialize(&self.0, __s)
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+            for Alternative3View<'a> {
+                fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                        .message(Self::__buffa_reflect_message_index())
+                }
+                fn pool(
+                    &self,
+                ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                }
+                fn get(
+                    &self,
+                    field: &::buffa_descriptor::FieldDescriptor,
+                ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    match field.number() {
+                        1u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.bits),
+                        2u32 => {
+                            ::buffa_descriptor::reflect::ValueRef::Message(
+                                ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                    &*self.quantity,
+                                ),
+                            )
+                        }
+                        _ => {
+                            ::core::debug_assert!(
+                                false,
+                                "field number {} is not a member of this view's reflect get()",
+                                field.number(),
+                            );
+                            ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                        }
+                    }
+                }
+                fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                    match field.number() {
+                        1u32 => self.bits != 0,
+                        2u32 => self.quantity.is_set(),
+                        _ => false,
+                    }
+                }
+                fn for_each_set(
+                    &self,
+                    f: &mut dyn ::core::ops::FnMut(
+                        &::buffa_descriptor::FieldDescriptor,
+                        ::buffa_descriptor::reflect::ValueRef<'_>,
+                    ),
+                ) {
+                    let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                        self,
+                    );
+                    for fd in md.fields() {
+                        if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                            f(
+                                fd,
+                                ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                            );
+                        }
+                    }
+                }
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                    let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                    let options = ::buffa::DecodeOptions::new()
+                        .with_element_memory_limit(
+                            bytes
+                                .len()
+                                .saturating_mul(128)
+                                .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                        )
+                        .with_unknown_field_limit(
+                            bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                        );
+                    ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                            ::buffa::alloc::sync::Arc::clone(
+                                super::super::super::__buffa::reflect::descriptor_pool(),
+                            ),
+                            Self::__buffa_reflect_message_index(),
+                            &bytes,
+                            &options,
+                        )
+                        .expect(
+                            "view re-encodes to bytes decodable against its own descriptor",
+                        )
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectElement
+            for Alternative3View<'a> {
+                fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                    )
+                }
+            }
+            impl<'a> Alternative3View<'a> {
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                /// Memoized `MessageIndex` for this view's message type, resolved
+                /// once against the package's embedded descriptor pool. An inherent
+                /// associated fn (not a free fn) so sibling views in the same module
+                /// do not collide.
+                #[doc(hidden)]
+                fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                    static IDX: ::std::sync::OnceLock<
+                        ::buffa_descriptor::MessageIndex,
+                    > = ::std::sync::OnceLock::new();
+                    *IDX
+                        .get_or_init(|| {
+                            super::super::super::__buffa::reflect::descriptor_pool()
+                                .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                                .expect(
+                                    "generated view type is registered in the embedded descriptor pool",
+                                )
+                        })
+                }
+            }
+            #[derive(Clone, Debug, Default)]
+            pub struct Alternative4View<'a> {
+                /// Field 1: `id`
+                pub id: &'a [u8],
+                /// Field 2: `bits`
+                pub bits: u64,
+                /// Field 3: `quantity`
+                pub quantity: ::buffa::MessageFieldView<
+                    super::super::super::__buffa::view::QuantityTypeIdView<'a>,
+                >,
+                pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+            }
+            impl<'a> ::buffa::MessageView<'a> for Alternative4View<'a> {
+                type Owned = super::super::super::structural_value::Alternative4;
+                fn decode_view(
+                    buf: &'a [u8],
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    let __limit = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                    );
+                    let __elem = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                    );
+                    <Self as ::buffa::MessageView>::decode_view_ctx(
+                        buf,
+                        ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                            .with_element_memory(&__elem),
+                    )
+                }
+                fn decode_view_with_ctx(
+                    buf: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+                }
+                #[inline]
+                fn merge_view_field(
+                    &mut self,
+                    tag: ::buffa::encoding::Tag,
+                    cur: &'a [u8],
+                    before_tag: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                    let _ = ctx;
+                    #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    let view = self;
+                    let mut cur = cur;
+                    match tag.field_number() {
+                        1u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::LengthDelimited,
+                            )?;
+                            view.id = ::buffa::types::borrow_bytes(&mut cur)?;
+                        }
+                        2u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::Fixed64,
+                            )?;
+                            view.bits = ::buffa::types::decode_fixed64(&mut cur)?;
+                        }
+                        3u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::LengthDelimited,
+                            )?;
+                            let __sub_ctx = ctx.descend()?;
+                            let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                            match view.quantity.as_mut() {
+                                Some(existing) => {
+                                    ::buffa::MessageView::merge_into_view(
+                                        existing,
+                                        sub,
+                                        __sub_ctx,
+                                    )?
+                                }
+                                None => {
+                                    view.quantity = ::buffa::MessageFieldView::set(
+                                        <super::super::super::__buffa::view::QuantityTypeIdView as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    );
+                                }
+                            }
+                        }
+                        _ => {
+                            ::buffa::encoding::skip_field_depth(
+                                tag,
+                                &mut cur,
+                                ctx.depth(),
+                            )?;
+                            let span_len = before_tag.len() - cur.len();
+                            view.__buffa_unknown_fields
+                                .push_record(before_tag, span_len, ctx)?;
+                        }
+                    }
+                    ::core::result::Result::Ok(cur)
+                }
+                fn to_owned_message(
+                    &self,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative4,
+                    ::buffa::DecodeError,
+                > {
+                    self.to_owned_from_source(None)
+                }
+                #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn to_owned_from_source(
+                    &self,
+                    __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative4,
+                    ::buffa::DecodeError,
+                > {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::alloc::string::ToString as _;
+                    let _ = __buffa_src;
+                    ::core::result::Result::Ok(super::super::super::structural_value::Alternative4 {
+                        id: (self.id).to_vec(),
+                        bits: self.bits,
+                        quantity: match self.quantity.as_option() {
+                            Some(v) => {
+                                ::buffa::MessageField::<
+                                    super::super::super::QuantityTypeId,
+                                    ::buffa::Inline<super::super::super::QuantityTypeId>,
+                                >::some(v.to_owned_from_source(__buffa_src)?)
+                            }
+                            None => ::buffa::MessageField::none(),
+                        },
+                        __buffa_unknown_fields: self
+                            .__buffa_unknown_fields
+                            .to_owned()?
+                            .into(),
+                        ..::core::default::Default::default()
+                    })
+                }
+            }
+            impl<'a> ::buffa::ViewEncode<'a> for Alternative4View<'a> {
+                #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    let mut size = 0u64;
+                    if !self.id.is_empty() {
+                        size
+                            += 1u64 + ::buffa::types::bytes_encoded_len(&self.id) as u64;
+                    }
+                    if self.bits != 0u64 {
+                        size += 1u64 + ::buffa::types::FIXED64_ENCODED_LEN as u64;
+                    }
+                    if self.quantity.is_set() {
+                        let __slot = __cache.reserve();
+                        let inner_size = self.quantity.compute_size(__cache);
+                        __cache.set(__slot, inner_size);
+                        size
+                            += 1u64
+                                + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                                + inner_size as u64;
+                    }
+                    size += self.__buffa_unknown_fields.encoded_len() as u64;
+                    ::buffa::saturate_size(size)
+                }
+                #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn write_to(
+                    &self,
+                    __cache: &mut ::buffa::SizeCache,
+                    buf: &mut impl ::buffa::EncodeSink,
+                ) {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    if !self.id.is_empty() {
+                        ::buffa::types::put_shared_bytes_field(1u32, &self.id, buf);
+                    }
+                    if self.bits != 0u64 {
+                        ::buffa::types::put_fixed64_field(2u32, self.bits, buf);
+                    }
+                    if self.quantity.is_set() {
+                        ::buffa::types::put_len_delimited_header(
+                            3u32,
+                            u64::from(__cache.consume_next()),
+                            buf,
+                        );
+                        self.quantity.write_to(__cache, buf);
+                    }
+                    self.__buffa_unknown_fields.write_to(buf);
+                }
+            }
+            /// Serializes this view as protobuf JSON.
+            ///
+            /// Implicit-presence fields with default values are omitted, `required`
+            /// fields are always emitted, explicit-presence (`optional`) fields are
+            /// emitted only when set, bytes fields are base64-encoded, and enum
+            /// values are their proto name strings.
+            ///
+            /// This impl uses `serialize_map(None)` because the number of emitted
+            /// fields depends on default-omission rules; serializers that require
+            /// known map lengths (e.g. `bincode`) will return a runtime error.
+            /// Use the owned message type for those formats.
+            impl<'__a> ::serde::Serialize for Alternative4View<'__a> {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    use ::serde::ser::SerializeMap as _;
+                    let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                    if !::buffa::json_helpers::skip_if::is_empty_bytes(self.id) {
+                        __map
+                            .serialize_entry(
+                                "id",
+                                &::buffa::json_helpers::BytesJson(self.id),
+                            )?;
+                    }
+                    if !::buffa::json_helpers::skip_if::is_zero_u64(&self.bits) {
+                        __map
+                            .serialize_entry(
+                                "bits",
+                                &::buffa::json_helpers::ProtoJson(&self.bits),
+                            )?;
+                    }
+                    {
+                        if let ::core::option::Option::Some(__v) = self
+                            .quantity
+                            .as_option()
+                        {
+                            __map.serialize_entry("quantity", __v)?;
+                        }
+                    }
+                    __map.end()
+                }
+            }
+            impl<'a> ::buffa::MessageName for Alternative4View<'a> {
+                const PACKAGE: &'static str = "pse.engineering.v1";
+                const NAME: &'static str = "StructuralValue.Alternative4";
+                const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative4";
+                const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative4";
+            }
+            ::buffa::impl_default_view_instance!(Alternative4View);
+            ::buffa::impl_view_reborrow!(Alternative4View);
+            /** Self-contained, `'static` owned view of a `Alternative4` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`Alternative4View`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`Alternative4View`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+            #[derive(Clone, Debug)]
+            pub struct Alternative4OwnedView(
+                ::buffa::OwnedView<Alternative4View<'static>>,
+            );
+            impl Alternative4OwnedView {
+                /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+                ///
+                /// The view borrows directly from the buffer's data; the buffer is
+                /// retained inside the returned handle.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+                /// protobuf data.
+                pub fn decode(
+                    bytes: ::buffa::bytes::Bytes,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative4OwnedView(::buffa::OwnedView::decode(bytes)?),
+                    )
+                }
+                /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+                /// max message size).
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+                /// exceeds the configured limits.
+                pub fn decode_with_options(
+                    bytes: ::buffa::bytes::Bytes,
+                    opts: &::buffa::DecodeOptions,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative4OwnedView(
+                            ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                        ),
+                    )
+                }
+                /// Build from an owned message via an encode → decode round-trip.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+                /// message's encoded size exceeds the 2 GiB protobuf limit, or
+                /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+                /// somehow invalid (should not happen for well-formed messages).
+                pub fn from_owned(
+                    msg: &super::super::super::structural_value::Alternative4,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative4OwnedView(::buffa::OwnedView::from_owned(msg)?),
+                    )
+                }
+                /// Borrow the full [`Alternative4View`] with its lifetime tied to `&self`.
+                #[must_use]
+                pub fn view(&self) -> &Alternative4View<'_> {
+                    self.0.reborrow()
+                }
+                /// Convert to the owned message type.
+                ///
+                /// Infallible: this type's constructors wire-decode their
+                /// buffer, and a view produced by wire decoding always
+                /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+                /// whose contract also governs handles converted from a raw
+                /// [`::buffa::OwnedView`].
+                #[must_use]
+                pub fn to_owned_message(
+                    &self,
+                ) -> super::super::super::structural_value::Alternative4 {
+                    self.0.to_owned_message()
+                }
+                /// The underlying bytes buffer.
+                #[must_use]
+                pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                    self.0.bytes()
+                }
+                /// Consume the handle, returning the underlying bytes buffer.
+                #[must_use]
+                pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                    self.0.into_bytes()
+                }
+                /// Field 1: `id`
+                #[must_use]
+                pub fn id(&self) -> &'_ [u8] {
+                    self.0.reborrow().id
+                }
+                /// Field 2: `bits`
+                #[must_use]
+                pub fn bits(&self) -> u64 {
+                    self.0.reborrow().bits
+                }
+                /// Field 3: `quantity`
+                #[must_use]
+                pub fn quantity(
+                    &self,
+                ) -> &::buffa::MessageFieldView<
+                    super::super::super::__buffa::view::QuantityTypeIdView<'_>,
+                > {
+                    &self.0.reborrow().quantity
+                }
+            }
+            impl ::core::convert::From<::buffa::OwnedView<Alternative4View<'static>>>
+            for Alternative4OwnedView {
+                fn from(inner: ::buffa::OwnedView<Alternative4View<'static>>) -> Self {
+                    Alternative4OwnedView(inner)
+                }
+            }
+            impl ::core::convert::From<Alternative4OwnedView>
+            for ::buffa::OwnedView<Alternative4View<'static>> {
+                fn from(wrapper: Alternative4OwnedView) -> Self {
+                    wrapper.0
+                }
+            }
+            impl ::core::convert::AsRef<::buffa::OwnedView<Alternative4View<'static>>>
+            for Alternative4OwnedView {
+                fn as_ref(&self) -> &::buffa::OwnedView<Alternative4View<'static>> {
+                    &self.0
+                }
+            }
+            impl ::buffa::HasMessageView
+            for super::super::super::structural_value::Alternative4 {
+                type View<'a> = Alternative4View<'a>;
+                type ViewHandle = Alternative4OwnedView;
+            }
+            impl ::serde::Serialize for Alternative4OwnedView {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    ::serde::Serialize::serialize(&self.0, __s)
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+            for Alternative4View<'a> {
+                fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                        .message(Self::__buffa_reflect_message_index())
+                }
+                fn pool(
+                    &self,
+                ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                }
+                fn get(
+                    &self,
+                    field: &::buffa_descriptor::FieldDescriptor,
+                ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    match field.number() {
+                        1u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(self.id),
+                        2u32 => ::buffa_descriptor::reflect::ValueRef::U64(self.bits),
+                        3u32 => {
+                            ::buffa_descriptor::reflect::ValueRef::Message(
+                                ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                    &*self.quantity,
+                                ),
+                            )
+                        }
+                        _ => {
+                            ::core::debug_assert!(
+                                false,
+                                "field number {} is not a member of this view's reflect get()",
+                                field.number(),
+                            );
+                            ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                        }
+                    }
+                }
+                fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                    match field.number() {
+                        1u32 => !self.id.is_empty(),
+                        2u32 => self.bits != 0,
+                        3u32 => self.quantity.is_set(),
+                        _ => false,
+                    }
+                }
+                fn for_each_set(
+                    &self,
+                    f: &mut dyn ::core::ops::FnMut(
+                        &::buffa_descriptor::FieldDescriptor,
+                        ::buffa_descriptor::reflect::ValueRef<'_>,
+                    ),
+                ) {
+                    let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                        self,
+                    );
+                    for fd in md.fields() {
+                        if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                            f(
+                                fd,
+                                ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                            );
+                        }
+                    }
+                }
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                    let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                    let options = ::buffa::DecodeOptions::new()
+                        .with_element_memory_limit(
+                            bytes
+                                .len()
+                                .saturating_mul(128)
+                                .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                        )
+                        .with_unknown_field_limit(
+                            bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                        );
+                    ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                            ::buffa::alloc::sync::Arc::clone(
+                                super::super::super::__buffa::reflect::descriptor_pool(),
+                            ),
+                            Self::__buffa_reflect_message_index(),
+                            &bytes,
+                            &options,
+                        )
+                        .expect(
+                            "view re-encodes to bytes decodable against its own descriptor",
+                        )
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectElement
+            for Alternative4View<'a> {
+                fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                    )
+                }
+            }
+            impl<'a> Alternative4View<'a> {
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                /// Memoized `MessageIndex` for this view's message type, resolved
+                /// once against the package's embedded descriptor pool. An inherent
+                /// associated fn (not a free fn) so sibling views in the same module
+                /// do not collide.
+                #[doc(hidden)]
+                fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                    static IDX: ::std::sync::OnceLock<
+                        ::buffa_descriptor::MessageIndex,
+                    > = ::std::sync::OnceLock::new();
+                    *IDX
+                        .get_or_init(|| {
+                            super::super::super::__buffa::reflect::descriptor_pool()
+                                .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                                .expect(
+                                    "generated view type is registered in the embedded descriptor pool",
+                                )
+                        })
+                }
+            }
+            #[derive(Clone, Debug, Default)]
+            pub struct Alternative5View<'a> {
+                /// Field 1: `value`
+                pub value: &'a str,
+                pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+            }
+            impl<'a> ::buffa::MessageView<'a> for Alternative5View<'a> {
+                type Owned = super::super::super::structural_value::Alternative5;
+                fn decode_view(
+                    buf: &'a [u8],
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    let __limit = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                    );
+                    let __elem = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                    );
+                    <Self as ::buffa::MessageView>::decode_view_ctx(
+                        buf,
+                        ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                            .with_element_memory(&__elem),
+                    )
+                }
+                fn decode_view_with_ctx(
+                    buf: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+                }
+                #[inline]
+                fn merge_view_field(
+                    &mut self,
+                    tag: ::buffa::encoding::Tag,
+                    cur: &'a [u8],
+                    before_tag: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                    let _ = ctx;
+                    #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    let view = self;
+                    let mut cur = cur;
+                    match tag.field_number() {
+                        1u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::LengthDelimited,
+                            )?;
+                            view.value = ::buffa::types::borrow_str(&mut cur)?;
+                        }
+                        _ => {
+                            ::buffa::encoding::skip_field_depth(
+                                tag,
+                                &mut cur,
+                                ctx.depth(),
+                            )?;
+                            let span_len = before_tag.len() - cur.len();
+                            view.__buffa_unknown_fields
+                                .push_record(before_tag, span_len, ctx)?;
+                        }
+                    }
+                    ::core::result::Result::Ok(cur)
+                }
+                fn to_owned_message(
+                    &self,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative5,
+                    ::buffa::DecodeError,
+                > {
+                    self.to_owned_from_source(None)
+                }
+                #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn to_owned_from_source(
+                    &self,
+                    __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative5,
+                    ::buffa::DecodeError,
+                > {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::alloc::string::ToString as _;
+                    let _ = __buffa_src;
+                    ::core::result::Result::Ok(super::super::super::structural_value::Alternative5 {
+                        value: self.value.to_string(),
+                        __buffa_unknown_fields: self
+                            .__buffa_unknown_fields
+                            .to_owned()?
+                            .into(),
+                        ..::core::default::Default::default()
+                    })
+                }
+            }
+            impl<'a> ::buffa::ViewEncode<'a> for Alternative5View<'a> {
+                #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    let mut size = 0u64;
+                    if !self.value.is_empty() {
+                        size
+                            += 1u64
+                                + ::buffa::types::string_encoded_len(&self.value) as u64;
+                    }
+                    size += self.__buffa_unknown_fields.encoded_len() as u64;
+                    ::buffa::saturate_size(size)
+                }
+                #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn write_to(
+                    &self,
+                    _cache: &mut ::buffa::SizeCache,
+                    buf: &mut impl ::buffa::EncodeSink,
+                ) {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    if !self.value.is_empty() {
+                        ::buffa::types::put_string_field(1u32, &self.value, buf);
+                    }
+                    self.__buffa_unknown_fields.write_to(buf);
+                }
+            }
+            /// Serializes this view as protobuf JSON.
+            ///
+            /// Implicit-presence fields with default values are omitted, `required`
+            /// fields are always emitted, explicit-presence (`optional`) fields are
+            /// emitted only when set, bytes fields are base64-encoded, and enum
+            /// values are their proto name strings.
+            ///
+            /// This impl uses `serialize_map(None)` because the number of emitted
+            /// fields depends on default-omission rules; serializers that require
+            /// known map lengths (e.g. `bincode`) will return a runtime error.
+            /// Use the owned message type for those formats.
+            impl<'__a> ::serde::Serialize for Alternative5View<'__a> {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    use ::serde::ser::SerializeMap as _;
+                    let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                    if !::buffa::json_helpers::skip_if::is_empty_str(self.value) {
+                        __map.serialize_entry("value", self.value)?;
+                    }
+                    __map.end()
+                }
+            }
+            impl<'a> ::buffa::MessageName for Alternative5View<'a> {
+                const PACKAGE: &'static str = "pse.engineering.v1";
+                const NAME: &'static str = "StructuralValue.Alternative5";
+                const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative5";
+                const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative5";
+            }
+            ::buffa::impl_default_view_instance!(Alternative5View);
+            ::buffa::impl_view_reborrow!(Alternative5View);
+            /** Self-contained, `'static` owned view of a `Alternative5` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`Alternative5View`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`Alternative5View`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+            #[derive(Clone, Debug)]
+            pub struct Alternative5OwnedView(
+                ::buffa::OwnedView<Alternative5View<'static>>,
+            );
+            impl Alternative5OwnedView {
+                /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+                ///
+                /// The view borrows directly from the buffer's data; the buffer is
+                /// retained inside the returned handle.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+                /// protobuf data.
+                pub fn decode(
+                    bytes: ::buffa::bytes::Bytes,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative5OwnedView(::buffa::OwnedView::decode(bytes)?),
+                    )
+                }
+                /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+                /// max message size).
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+                /// exceeds the configured limits.
+                pub fn decode_with_options(
+                    bytes: ::buffa::bytes::Bytes,
+                    opts: &::buffa::DecodeOptions,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative5OwnedView(
+                            ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                        ),
+                    )
+                }
+                /// Build from an owned message via an encode → decode round-trip.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+                /// message's encoded size exceeds the 2 GiB protobuf limit, or
+                /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+                /// somehow invalid (should not happen for well-formed messages).
+                pub fn from_owned(
+                    msg: &super::super::super::structural_value::Alternative5,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative5OwnedView(::buffa::OwnedView::from_owned(msg)?),
+                    )
+                }
+                /// Borrow the full [`Alternative5View`] with its lifetime tied to `&self`.
+                #[must_use]
+                pub fn view(&self) -> &Alternative5View<'_> {
+                    self.0.reborrow()
+                }
+                /// Convert to the owned message type.
+                ///
+                /// Infallible: this type's constructors wire-decode their
+                /// buffer, and a view produced by wire decoding always
+                /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+                /// whose contract also governs handles converted from a raw
+                /// [`::buffa::OwnedView`].
+                #[must_use]
+                pub fn to_owned_message(
+                    &self,
+                ) -> super::super::super::structural_value::Alternative5 {
+                    self.0.to_owned_message()
+                }
+                /// The underlying bytes buffer.
+                #[must_use]
+                pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                    self.0.bytes()
+                }
+                /// Consume the handle, returning the underlying bytes buffer.
+                #[must_use]
+                pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                    self.0.into_bytes()
+                }
+                /// Field 1: `value`
+                #[must_use]
+                pub fn value(&self) -> &'_ str {
+                    self.0.reborrow().value
+                }
+            }
+            impl ::core::convert::From<::buffa::OwnedView<Alternative5View<'static>>>
+            for Alternative5OwnedView {
+                fn from(inner: ::buffa::OwnedView<Alternative5View<'static>>) -> Self {
+                    Alternative5OwnedView(inner)
+                }
+            }
+            impl ::core::convert::From<Alternative5OwnedView>
+            for ::buffa::OwnedView<Alternative5View<'static>> {
+                fn from(wrapper: Alternative5OwnedView) -> Self {
+                    wrapper.0
+                }
+            }
+            impl ::core::convert::AsRef<::buffa::OwnedView<Alternative5View<'static>>>
+            for Alternative5OwnedView {
+                fn as_ref(&self) -> &::buffa::OwnedView<Alternative5View<'static>> {
+                    &self.0
+                }
+            }
+            impl ::buffa::HasMessageView
+            for super::super::super::structural_value::Alternative5 {
+                type View<'a> = Alternative5View<'a>;
+                type ViewHandle = Alternative5OwnedView;
+            }
+            impl ::serde::Serialize for Alternative5OwnedView {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    ::serde::Serialize::serialize(&self.0, __s)
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+            for Alternative5View<'a> {
+                fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                        .message(Self::__buffa_reflect_message_index())
+                }
+                fn pool(
+                    &self,
+                ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                }
+                fn get(
+                    &self,
+                    field: &::buffa_descriptor::FieldDescriptor,
+                ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    match field.number() {
+                        1u32 => ::buffa_descriptor::reflect::ValueRef::String(self.value),
+                        _ => {
+                            ::core::debug_assert!(
+                                false,
+                                "field number {} is not a member of this view's reflect get()",
+                                field.number(),
+                            );
+                            ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                        }
+                    }
+                }
+                fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                    match field.number() {
+                        1u32 => !self.value.is_empty(),
+                        _ => false,
+                    }
+                }
+                fn for_each_set(
+                    &self,
+                    f: &mut dyn ::core::ops::FnMut(
+                        &::buffa_descriptor::FieldDescriptor,
+                        ::buffa_descriptor::reflect::ValueRef<'_>,
+                    ),
+                ) {
+                    let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                        self,
+                    );
+                    for fd in md.fields() {
+                        if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                            f(
+                                fd,
+                                ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                            );
+                        }
+                    }
+                }
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                    let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                    let options = ::buffa::DecodeOptions::new()
+                        .with_element_memory_limit(
+                            bytes
+                                .len()
+                                .saturating_mul(128)
+                                .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                        )
+                        .with_unknown_field_limit(
+                            bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                        );
+                    ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                            ::buffa::alloc::sync::Arc::clone(
+                                super::super::super::__buffa::reflect::descriptor_pool(),
+                            ),
+                            Self::__buffa_reflect_message_index(),
+                            &bytes,
+                            &options,
+                        )
+                        .expect(
+                            "view re-encodes to bytes decodable against its own descriptor",
+                        )
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectElement
+            for Alternative5View<'a> {
+                fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                    )
+                }
+            }
+            impl<'a> Alternative5View<'a> {
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                /// Memoized `MessageIndex` for this view's message type, resolved
+                /// once against the package's embedded descriptor pool. An inherent
+                /// associated fn (not a free fn) so sibling views in the same module
+                /// do not collide.
+                #[doc(hidden)]
+                fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                    static IDX: ::std::sync::OnceLock<
+                        ::buffa_descriptor::MessageIndex,
+                    > = ::std::sync::OnceLock::new();
+                    *IDX
+                        .get_or_init(|| {
+                            super::super::super::__buffa::reflect::descriptor_pool()
+                                .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                                .expect(
+                                    "generated view type is registered in the embedded descriptor pool",
+                                )
+                        })
+                }
+            }
+            #[derive(Clone, Debug, Default)]
+            pub struct Alternative6View<'a> {
+                /// Field 1: `id`
+                pub id: ::buffa::MessageFieldView<
+                    super::super::super::__buffa::view::DeclarationIdView<'a>,
+                >,
+                /// Field 2: `kind`
+                pub kind: ::buffa::MessageFieldView<
+                    super::super::super::__buffa::view::DeclarationIdView<'a>,
+                >,
+                pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+            }
+            impl<'a> ::buffa::MessageView<'a> for Alternative6View<'a> {
+                type Owned = super::super::super::structural_value::Alternative6;
+                fn decode_view(
+                    buf: &'a [u8],
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    let __limit = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                    );
+                    let __elem = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                    );
+                    <Self as ::buffa::MessageView>::decode_view_ctx(
+                        buf,
+                        ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                            .with_element_memory(&__elem),
+                    )
+                }
+                fn decode_view_with_ctx(
+                    buf: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+                }
+                #[inline]
+                fn merge_view_field(
+                    &mut self,
+                    tag: ::buffa::encoding::Tag,
+                    cur: &'a [u8],
+                    before_tag: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                    let _ = ctx;
+                    #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    let view = self;
+                    let mut cur = cur;
+                    match tag.field_number() {
+                        1u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::LengthDelimited,
+                            )?;
+                            let __sub_ctx = ctx.descend()?;
+                            let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                            match view.id.as_mut() {
+                                Some(existing) => {
+                                    ::buffa::MessageView::merge_into_view(
+                                        existing,
+                                        sub,
+                                        __sub_ctx,
+                                    )?
+                                }
+                                None => {
+                                    view.id = ::buffa::MessageFieldView::set(
+                                        <super::super::super::__buffa::view::DeclarationIdView as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    );
+                                }
+                            }
+                        }
+                        2u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::LengthDelimited,
+                            )?;
+                            let __sub_ctx = ctx.descend()?;
+                            let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                            match view.kind.as_mut() {
+                                Some(existing) => {
+                                    ::buffa::MessageView::merge_into_view(
+                                        existing,
+                                        sub,
+                                        __sub_ctx,
+                                    )?
+                                }
+                                None => {
+                                    view.kind = ::buffa::MessageFieldView::set(
+                                        <super::super::super::__buffa::view::DeclarationIdView as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    );
+                                }
+                            }
+                        }
+                        _ => {
+                            ::buffa::encoding::skip_field_depth(
+                                tag,
+                                &mut cur,
+                                ctx.depth(),
+                            )?;
+                            let span_len = before_tag.len() - cur.len();
+                            view.__buffa_unknown_fields
+                                .push_record(before_tag, span_len, ctx)?;
+                        }
+                    }
+                    ::core::result::Result::Ok(cur)
+                }
+                fn to_owned_message(
+                    &self,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative6,
+                    ::buffa::DecodeError,
+                > {
+                    self.to_owned_from_source(None)
+                }
+                #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn to_owned_from_source(
+                    &self,
+                    __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative6,
+                    ::buffa::DecodeError,
+                > {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::alloc::string::ToString as _;
+                    let _ = __buffa_src;
+                    ::core::result::Result::Ok(super::super::super::structural_value::Alternative6 {
+                        id: match self.id.as_option() {
+                            Some(v) => {
+                                ::buffa::MessageField::<
+                                    super::super::super::DeclarationId,
+                                    ::buffa::Inline<super::super::super::DeclarationId>,
+                                >::some(v.to_owned_from_source(__buffa_src)?)
+                            }
+                            None => ::buffa::MessageField::none(),
+                        },
+                        kind: match self.kind.as_option() {
+                            Some(v) => {
+                                ::buffa::MessageField::<
+                                    super::super::super::DeclarationId,
+                                    ::buffa::Inline<super::super::super::DeclarationId>,
+                                >::some(v.to_owned_from_source(__buffa_src)?)
+                            }
+                            None => ::buffa::MessageField::none(),
+                        },
+                        __buffa_unknown_fields: self
+                            .__buffa_unknown_fields
+                            .to_owned()?
+                            .into(),
+                        ..::core::default::Default::default()
+                    })
+                }
+            }
+            impl<'a> ::buffa::ViewEncode<'a> for Alternative6View<'a> {
+                #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    let mut size = 0u64;
+                    if self.id.is_set() {
+                        let __slot = __cache.reserve();
+                        let inner_size = self.id.compute_size(__cache);
+                        __cache.set(__slot, inner_size);
+                        size
+                            += 1u64
+                                + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                                + inner_size as u64;
+                    }
+                    if self.kind.is_set() {
+                        let __slot = __cache.reserve();
+                        let inner_size = self.kind.compute_size(__cache);
+                        __cache.set(__slot, inner_size);
+                        size
+                            += 1u64
+                                + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                                + inner_size as u64;
+                    }
+                    size += self.__buffa_unknown_fields.encoded_len() as u64;
+                    ::buffa::saturate_size(size)
+                }
+                #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn write_to(
+                    &self,
+                    __cache: &mut ::buffa::SizeCache,
+                    buf: &mut impl ::buffa::EncodeSink,
+                ) {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    if self.id.is_set() {
+                        ::buffa::types::put_len_delimited_header(
+                            1u32,
+                            u64::from(__cache.consume_next()),
+                            buf,
+                        );
+                        self.id.write_to(__cache, buf);
+                    }
+                    if self.kind.is_set() {
+                        ::buffa::types::put_len_delimited_header(
+                            2u32,
+                            u64::from(__cache.consume_next()),
+                            buf,
+                        );
+                        self.kind.write_to(__cache, buf);
+                    }
+                    self.__buffa_unknown_fields.write_to(buf);
+                }
+            }
+            /// Serializes this view as protobuf JSON.
+            ///
+            /// Implicit-presence fields with default values are omitted, `required`
+            /// fields are always emitted, explicit-presence (`optional`) fields are
+            /// emitted only when set, bytes fields are base64-encoded, and enum
+            /// values are their proto name strings.
+            ///
+            /// This impl uses `serialize_map(None)` because the number of emitted
+            /// fields depends on default-omission rules; serializers that require
+            /// known map lengths (e.g. `bincode`) will return a runtime error.
+            /// Use the owned message type for those formats.
+            impl<'__a> ::serde::Serialize for Alternative6View<'__a> {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    use ::serde::ser::SerializeMap as _;
+                    let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                    {
+                        if let ::core::option::Option::Some(__v) = self.id.as_option() {
+                            __map.serialize_entry("id", __v)?;
+                        }
+                    }
+                    {
+                        if let ::core::option::Option::Some(__v) = self.kind.as_option()
+                        {
+                            __map.serialize_entry("kind", __v)?;
+                        }
+                    }
+                    __map.end()
+                }
+            }
+            impl<'a> ::buffa::MessageName for Alternative6View<'a> {
+                const PACKAGE: &'static str = "pse.engineering.v1";
+                const NAME: &'static str = "StructuralValue.Alternative6";
+                const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative6";
+                const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative6";
+            }
+            ::buffa::impl_default_view_instance!(Alternative6View);
+            ::buffa::impl_view_reborrow!(Alternative6View);
+            /** Self-contained, `'static` owned view of a `Alternative6` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`Alternative6View`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`Alternative6View`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+            #[derive(Clone, Debug)]
+            pub struct Alternative6OwnedView(
+                ::buffa::OwnedView<Alternative6View<'static>>,
+            );
+            impl Alternative6OwnedView {
+                /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+                ///
+                /// The view borrows directly from the buffer's data; the buffer is
+                /// retained inside the returned handle.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+                /// protobuf data.
+                pub fn decode(
+                    bytes: ::buffa::bytes::Bytes,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative6OwnedView(::buffa::OwnedView::decode(bytes)?),
+                    )
+                }
+                /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+                /// max message size).
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+                /// exceeds the configured limits.
+                pub fn decode_with_options(
+                    bytes: ::buffa::bytes::Bytes,
+                    opts: &::buffa::DecodeOptions,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative6OwnedView(
+                            ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                        ),
+                    )
+                }
+                /// Build from an owned message via an encode → decode round-trip.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+                /// message's encoded size exceeds the 2 GiB protobuf limit, or
+                /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+                /// somehow invalid (should not happen for well-formed messages).
+                pub fn from_owned(
+                    msg: &super::super::super::structural_value::Alternative6,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative6OwnedView(::buffa::OwnedView::from_owned(msg)?),
+                    )
+                }
+                /// Borrow the full [`Alternative6View`] with its lifetime tied to `&self`.
+                #[must_use]
+                pub fn view(&self) -> &Alternative6View<'_> {
+                    self.0.reborrow()
+                }
+                /// Convert to the owned message type.
+                ///
+                /// Infallible: this type's constructors wire-decode their
+                /// buffer, and a view produced by wire decoding always
+                /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+                /// whose contract also governs handles converted from a raw
+                /// [`::buffa::OwnedView`].
+                #[must_use]
+                pub fn to_owned_message(
+                    &self,
+                ) -> super::super::super::structural_value::Alternative6 {
+                    self.0.to_owned_message()
+                }
+                /// The underlying bytes buffer.
+                #[must_use]
+                pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                    self.0.bytes()
+                }
+                /// Consume the handle, returning the underlying bytes buffer.
+                #[must_use]
+                pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                    self.0.into_bytes()
+                }
+                /// Field 1: `id`
+                #[must_use]
+                pub fn id(
+                    &self,
+                ) -> &::buffa::MessageFieldView<
+                    super::super::super::__buffa::view::DeclarationIdView<'_>,
+                > {
+                    &self.0.reborrow().id
+                }
+                /// Field 2: `kind`
+                #[must_use]
+                pub fn kind(
+                    &self,
+                ) -> &::buffa::MessageFieldView<
+                    super::super::super::__buffa::view::DeclarationIdView<'_>,
+                > {
+                    &self.0.reborrow().kind
+                }
+            }
+            impl ::core::convert::From<::buffa::OwnedView<Alternative6View<'static>>>
+            for Alternative6OwnedView {
+                fn from(inner: ::buffa::OwnedView<Alternative6View<'static>>) -> Self {
+                    Alternative6OwnedView(inner)
+                }
+            }
+            impl ::core::convert::From<Alternative6OwnedView>
+            for ::buffa::OwnedView<Alternative6View<'static>> {
+                fn from(wrapper: Alternative6OwnedView) -> Self {
+                    wrapper.0
+                }
+            }
+            impl ::core::convert::AsRef<::buffa::OwnedView<Alternative6View<'static>>>
+            for Alternative6OwnedView {
+                fn as_ref(&self) -> &::buffa::OwnedView<Alternative6View<'static>> {
+                    &self.0
+                }
+            }
+            impl ::buffa::HasMessageView
+            for super::super::super::structural_value::Alternative6 {
+                type View<'a> = Alternative6View<'a>;
+                type ViewHandle = Alternative6OwnedView;
+            }
+            impl ::serde::Serialize for Alternative6OwnedView {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    ::serde::Serialize::serialize(&self.0, __s)
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+            for Alternative6View<'a> {
+                fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                        .message(Self::__buffa_reflect_message_index())
+                }
+                fn pool(
+                    &self,
+                ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                }
+                fn get(
+                    &self,
+                    field: &::buffa_descriptor::FieldDescriptor,
+                ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    match field.number() {
+                        1u32 => {
+                            ::buffa_descriptor::reflect::ValueRef::Message(
+                                ::buffa_descriptor::reflect::ReflectCow::Borrowed(&*self.id),
+                            )
+                        }
+                        2u32 => {
+                            ::buffa_descriptor::reflect::ValueRef::Message(
+                                ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                    &*self.kind,
+                                ),
+                            )
+                        }
+                        _ => {
+                            ::core::debug_assert!(
+                                false,
+                                "field number {} is not a member of this view's reflect get()",
+                                field.number(),
+                            );
+                            ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                        }
+                    }
+                }
+                fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                    match field.number() {
+                        1u32 => self.id.is_set(),
+                        2u32 => self.kind.is_set(),
+                        _ => false,
+                    }
+                }
+                fn for_each_set(
+                    &self,
+                    f: &mut dyn ::core::ops::FnMut(
+                        &::buffa_descriptor::FieldDescriptor,
+                        ::buffa_descriptor::reflect::ValueRef<'_>,
+                    ),
+                ) {
+                    let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                        self,
+                    );
+                    for fd in md.fields() {
+                        if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                            f(
+                                fd,
+                                ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                            );
+                        }
+                    }
+                }
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                    let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                    let options = ::buffa::DecodeOptions::new()
+                        .with_element_memory_limit(
+                            bytes
+                                .len()
+                                .saturating_mul(128)
+                                .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                        )
+                        .with_unknown_field_limit(
+                            bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                        );
+                    ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                            ::buffa::alloc::sync::Arc::clone(
+                                super::super::super::__buffa::reflect::descriptor_pool(),
+                            ),
+                            Self::__buffa_reflect_message_index(),
+                            &bytes,
+                            &options,
+                        )
+                        .expect(
+                            "view re-encodes to bytes decodable against its own descriptor",
+                        )
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectElement
+            for Alternative6View<'a> {
+                fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                    )
+                }
+            }
+            impl<'a> Alternative6View<'a> {
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                /// Memoized `MessageIndex` for this view's message type, resolved
+                /// once against the package's embedded descriptor pool. An inherent
+                /// associated fn (not a free fn) so sibling views in the same module
+                /// do not collide.
+                #[doc(hidden)]
+                fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                    static IDX: ::std::sync::OnceLock<
+                        ::buffa_descriptor::MessageIndex,
+                    > = ::std::sync::OnceLock::new();
+                    *IDX
+                        .get_or_init(|| {
+                            super::super::super::__buffa::reflect::descriptor_pool()
+                                .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                                .expect(
+                                    "generated view type is registered in the embedded descriptor pool",
+                                )
+                        })
+                }
+            }
+            #[derive(Clone, Debug, Default)]
+            pub struct Alternative7View<'a> {
+                /// Field 1: `enumeration`
+                pub enumeration: ::buffa::MessageFieldView<
+                    super::super::super::__buffa::view::DeclarationIdView<'a>,
+                >,
+                /// Field 2: `member`
+                pub member: &'a [u8],
+                pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+            }
+            impl<'a> ::buffa::MessageView<'a> for Alternative7View<'a> {
+                type Owned = super::super::super::structural_value::Alternative7;
+                fn decode_view(
+                    buf: &'a [u8],
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    let __limit = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                    );
+                    let __elem = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                    );
+                    <Self as ::buffa::MessageView>::decode_view_ctx(
+                        buf,
+                        ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                            .with_element_memory(&__elem),
+                    )
+                }
+                fn decode_view_with_ctx(
+                    buf: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+                }
+                #[inline]
+                fn merge_view_field(
+                    &mut self,
+                    tag: ::buffa::encoding::Tag,
+                    cur: &'a [u8],
+                    before_tag: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                    let _ = ctx;
+                    #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    let view = self;
+                    let mut cur = cur;
+                    match tag.field_number() {
+                        1u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::LengthDelimited,
+                            )?;
+                            let __sub_ctx = ctx.descend()?;
+                            let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                            match view.enumeration.as_mut() {
+                                Some(existing) => {
+                                    ::buffa::MessageView::merge_into_view(
+                                        existing,
+                                        sub,
+                                        __sub_ctx,
+                                    )?
+                                }
+                                None => {
+                                    view.enumeration = ::buffa::MessageFieldView::set(
+                                        <super::super::super::__buffa::view::DeclarationIdView as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    );
+                                }
+                            }
+                        }
+                        2u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::LengthDelimited,
+                            )?;
+                            view.member = ::buffa::types::borrow_bytes(&mut cur)?;
+                        }
+                        _ => {
+                            ::buffa::encoding::skip_field_depth(
+                                tag,
+                                &mut cur,
+                                ctx.depth(),
+                            )?;
+                            let span_len = before_tag.len() - cur.len();
+                            view.__buffa_unknown_fields
+                                .push_record(before_tag, span_len, ctx)?;
+                        }
+                    }
+                    ::core::result::Result::Ok(cur)
+                }
+                fn to_owned_message(
+                    &self,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative7,
+                    ::buffa::DecodeError,
+                > {
+                    self.to_owned_from_source(None)
+                }
+                #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn to_owned_from_source(
+                    &self,
+                    __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative7,
+                    ::buffa::DecodeError,
+                > {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::alloc::string::ToString as _;
+                    let _ = __buffa_src;
+                    ::core::result::Result::Ok(super::super::super::structural_value::Alternative7 {
+                        enumeration: match self.enumeration.as_option() {
+                            Some(v) => {
+                                ::buffa::MessageField::<
+                                    super::super::super::DeclarationId,
+                                    ::buffa::Inline<super::super::super::DeclarationId>,
+                                >::some(v.to_owned_from_source(__buffa_src)?)
+                            }
+                            None => ::buffa::MessageField::none(),
+                        },
+                        member: (self.member).to_vec(),
+                        __buffa_unknown_fields: self
+                            .__buffa_unknown_fields
+                            .to_owned()?
+                            .into(),
+                        ..::core::default::Default::default()
+                    })
+                }
+            }
+            impl<'a> ::buffa::ViewEncode<'a> for Alternative7View<'a> {
+                #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    let mut size = 0u64;
+                    if self.enumeration.is_set() {
+                        let __slot = __cache.reserve();
+                        let inner_size = self.enumeration.compute_size(__cache);
+                        __cache.set(__slot, inner_size);
+                        size
+                            += 1u64
+                                + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                                + inner_size as u64;
+                    }
+                    if !self.member.is_empty() {
+                        size
+                            += 1u64
+                                + ::buffa::types::bytes_encoded_len(&self.member) as u64;
+                    }
+                    size += self.__buffa_unknown_fields.encoded_len() as u64;
+                    ::buffa::saturate_size(size)
+                }
+                #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn write_to(
+                    &self,
+                    __cache: &mut ::buffa::SizeCache,
+                    buf: &mut impl ::buffa::EncodeSink,
+                ) {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    if self.enumeration.is_set() {
+                        ::buffa::types::put_len_delimited_header(
+                            1u32,
+                            u64::from(__cache.consume_next()),
+                            buf,
+                        );
+                        self.enumeration.write_to(__cache, buf);
+                    }
+                    if !self.member.is_empty() {
+                        ::buffa::types::put_shared_bytes_field(2u32, &self.member, buf);
+                    }
+                    self.__buffa_unknown_fields.write_to(buf);
+                }
+            }
+            /// Serializes this view as protobuf JSON.
+            ///
+            /// Implicit-presence fields with default values are omitted, `required`
+            /// fields are always emitted, explicit-presence (`optional`) fields are
+            /// emitted only when set, bytes fields are base64-encoded, and enum
+            /// values are their proto name strings.
+            ///
+            /// This impl uses `serialize_map(None)` because the number of emitted
+            /// fields depends on default-omission rules; serializers that require
+            /// known map lengths (e.g. `bincode`) will return a runtime error.
+            /// Use the owned message type for those formats.
+            impl<'__a> ::serde::Serialize for Alternative7View<'__a> {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    use ::serde::ser::SerializeMap as _;
+                    let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                    {
+                        if let ::core::option::Option::Some(__v) = self
+                            .enumeration
+                            .as_option()
+                        {
+                            __map.serialize_entry("enumeration", __v)?;
+                        }
+                    }
+                    if !::buffa::json_helpers::skip_if::is_empty_bytes(self.member) {
+                        __map
+                            .serialize_entry(
+                                "member",
+                                &::buffa::json_helpers::BytesJson(self.member),
+                            )?;
+                    }
+                    __map.end()
+                }
+            }
+            impl<'a> ::buffa::MessageName for Alternative7View<'a> {
+                const PACKAGE: &'static str = "pse.engineering.v1";
+                const NAME: &'static str = "StructuralValue.Alternative7";
+                const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative7";
+                const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative7";
+            }
+            ::buffa::impl_default_view_instance!(Alternative7View);
+            ::buffa::impl_view_reborrow!(Alternative7View);
+            /** Self-contained, `'static` owned view of a `Alternative7` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`Alternative7View`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`Alternative7View`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+            #[derive(Clone, Debug)]
+            pub struct Alternative7OwnedView(
+                ::buffa::OwnedView<Alternative7View<'static>>,
+            );
+            impl Alternative7OwnedView {
+                /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+                ///
+                /// The view borrows directly from the buffer's data; the buffer is
+                /// retained inside the returned handle.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+                /// protobuf data.
+                pub fn decode(
+                    bytes: ::buffa::bytes::Bytes,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative7OwnedView(::buffa::OwnedView::decode(bytes)?),
+                    )
+                }
+                /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+                /// max message size).
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+                /// exceeds the configured limits.
+                pub fn decode_with_options(
+                    bytes: ::buffa::bytes::Bytes,
+                    opts: &::buffa::DecodeOptions,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative7OwnedView(
+                            ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                        ),
+                    )
+                }
+                /// Build from an owned message via an encode → decode round-trip.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+                /// message's encoded size exceeds the 2 GiB protobuf limit, or
+                /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+                /// somehow invalid (should not happen for well-formed messages).
+                pub fn from_owned(
+                    msg: &super::super::super::structural_value::Alternative7,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative7OwnedView(::buffa::OwnedView::from_owned(msg)?),
+                    )
+                }
+                /// Borrow the full [`Alternative7View`] with its lifetime tied to `&self`.
+                #[must_use]
+                pub fn view(&self) -> &Alternative7View<'_> {
+                    self.0.reborrow()
+                }
+                /// Convert to the owned message type.
+                ///
+                /// Infallible: this type's constructors wire-decode their
+                /// buffer, and a view produced by wire decoding always
+                /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+                /// whose contract also governs handles converted from a raw
+                /// [`::buffa::OwnedView`].
+                #[must_use]
+                pub fn to_owned_message(
+                    &self,
+                ) -> super::super::super::structural_value::Alternative7 {
+                    self.0.to_owned_message()
+                }
+                /// The underlying bytes buffer.
+                #[must_use]
+                pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                    self.0.bytes()
+                }
+                /// Consume the handle, returning the underlying bytes buffer.
+                #[must_use]
+                pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                    self.0.into_bytes()
+                }
+                /// Field 1: `enumeration`
+                #[must_use]
+                pub fn enumeration(
+                    &self,
+                ) -> &::buffa::MessageFieldView<
+                    super::super::super::__buffa::view::DeclarationIdView<'_>,
+                > {
+                    &self.0.reborrow().enumeration
+                }
+                /// Field 2: `member`
+                #[must_use]
+                pub fn member(&self) -> &'_ [u8] {
+                    self.0.reborrow().member
+                }
+            }
+            impl ::core::convert::From<::buffa::OwnedView<Alternative7View<'static>>>
+            for Alternative7OwnedView {
+                fn from(inner: ::buffa::OwnedView<Alternative7View<'static>>) -> Self {
+                    Alternative7OwnedView(inner)
+                }
+            }
+            impl ::core::convert::From<Alternative7OwnedView>
+            for ::buffa::OwnedView<Alternative7View<'static>> {
+                fn from(wrapper: Alternative7OwnedView) -> Self {
+                    wrapper.0
+                }
+            }
+            impl ::core::convert::AsRef<::buffa::OwnedView<Alternative7View<'static>>>
+            for Alternative7OwnedView {
+                fn as_ref(&self) -> &::buffa::OwnedView<Alternative7View<'static>> {
+                    &self.0
+                }
+            }
+            impl ::buffa::HasMessageView
+            for super::super::super::structural_value::Alternative7 {
+                type View<'a> = Alternative7View<'a>;
+                type ViewHandle = Alternative7OwnedView;
+            }
+            impl ::serde::Serialize for Alternative7OwnedView {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    ::serde::Serialize::serialize(&self.0, __s)
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+            for Alternative7View<'a> {
+                fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                        .message(Self::__buffa_reflect_message_index())
+                }
+                fn pool(
+                    &self,
+                ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                }
+                fn get(
+                    &self,
+                    field: &::buffa_descriptor::FieldDescriptor,
+                ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    match field.number() {
+                        1u32 => {
+                            ::buffa_descriptor::reflect::ValueRef::Message(
+                                ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                    &*self.enumeration,
+                                ),
+                            )
+                        }
+                        2u32 => ::buffa_descriptor::reflect::ValueRef::Bytes(self.member),
+                        _ => {
+                            ::core::debug_assert!(
+                                false,
+                                "field number {} is not a member of this view's reflect get()",
+                                field.number(),
+                            );
+                            ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                        }
+                    }
+                }
+                fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                    match field.number() {
+                        1u32 => self.enumeration.is_set(),
+                        2u32 => !self.member.is_empty(),
+                        _ => false,
+                    }
+                }
+                fn for_each_set(
+                    &self,
+                    f: &mut dyn ::core::ops::FnMut(
+                        &::buffa_descriptor::FieldDescriptor,
+                        ::buffa_descriptor::reflect::ValueRef<'_>,
+                    ),
+                ) {
+                    let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                        self,
+                    );
+                    for fd in md.fields() {
+                        if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                            f(
+                                fd,
+                                ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                            );
+                        }
+                    }
+                }
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                    let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                    let options = ::buffa::DecodeOptions::new()
+                        .with_element_memory_limit(
+                            bytes
+                                .len()
+                                .saturating_mul(128)
+                                .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                        )
+                        .with_unknown_field_limit(
+                            bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                        );
+                    ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                            ::buffa::alloc::sync::Arc::clone(
+                                super::super::super::__buffa::reflect::descriptor_pool(),
+                            ),
+                            Self::__buffa_reflect_message_index(),
+                            &bytes,
+                            &options,
+                        )
+                        .expect(
+                            "view re-encodes to bytes decodable against its own descriptor",
+                        )
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectElement
+            for Alternative7View<'a> {
+                fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                    )
+                }
+            }
+            impl<'a> Alternative7View<'a> {
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                /// Memoized `MessageIndex` for this view's message type, resolved
+                /// once against the package's embedded descriptor pool. An inherent
+                /// associated fn (not a free fn) so sibling views in the same module
+                /// do not collide.
+                #[doc(hidden)]
+                fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                    static IDX: ::std::sync::OnceLock<
+                        ::buffa_descriptor::MessageIndex,
+                    > = ::std::sync::OnceLock::new();
+                    *IDX
+                        .get_or_init(|| {
+                            super::super::super::__buffa::reflect::descriptor_pool()
+                                .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                                .expect(
+                                    "generated view type is registered in the embedded descriptor pool",
+                                )
+                        })
+                }
+            }
+            #[derive(Clone, Debug, Default)]
+            pub struct Alternative8View<'a> {
+                /// Field 1: `scheme`
+                pub scheme: ::buffa::MessageFieldView<
+                    super::super::super::__buffa::view::DeclarationIdView<'a>,
+                >,
+                /// Field 2: `value`
+                pub value: &'a str,
+                pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+            }
+            impl<'a> ::buffa::MessageView<'a> for Alternative8View<'a> {
+                type Owned = super::super::super::structural_value::Alternative8;
+                fn decode_view(
+                    buf: &'a [u8],
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    let __limit = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                    );
+                    let __elem = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                    );
+                    <Self as ::buffa::MessageView>::decode_view_ctx(
+                        buf,
+                        ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                            .with_element_memory(&__elem),
+                    )
+                }
+                fn decode_view_with_ctx(
+                    buf: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+                }
+                #[inline]
+                fn merge_view_field(
+                    &mut self,
+                    tag: ::buffa::encoding::Tag,
+                    cur: &'a [u8],
+                    before_tag: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                    let _ = ctx;
+                    #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    let view = self;
+                    let mut cur = cur;
+                    match tag.field_number() {
+                        1u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::LengthDelimited,
+                            )?;
+                            let __sub_ctx = ctx.descend()?;
+                            let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                            match view.scheme.as_mut() {
+                                Some(existing) => {
+                                    ::buffa::MessageView::merge_into_view(
+                                        existing,
+                                        sub,
+                                        __sub_ctx,
+                                    )?
+                                }
+                                None => {
+                                    view.scheme = ::buffa::MessageFieldView::set(
+                                        <super::super::super::__buffa::view::DeclarationIdView as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    );
+                                }
+                            }
+                        }
+                        2u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::LengthDelimited,
+                            )?;
+                            view.value = ::buffa::types::borrow_str(&mut cur)?;
+                        }
+                        _ => {
+                            ::buffa::encoding::skip_field_depth(
+                                tag,
+                                &mut cur,
+                                ctx.depth(),
+                            )?;
+                            let span_len = before_tag.len() - cur.len();
+                            view.__buffa_unknown_fields
+                                .push_record(before_tag, span_len, ctx)?;
+                        }
+                    }
+                    ::core::result::Result::Ok(cur)
+                }
+                fn to_owned_message(
+                    &self,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative8,
+                    ::buffa::DecodeError,
+                > {
+                    self.to_owned_from_source(None)
+                }
+                #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn to_owned_from_source(
+                    &self,
+                    __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative8,
+                    ::buffa::DecodeError,
+                > {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::alloc::string::ToString as _;
+                    let _ = __buffa_src;
+                    ::core::result::Result::Ok(super::super::super::structural_value::Alternative8 {
+                        scheme: match self.scheme.as_option() {
+                            Some(v) => {
+                                ::buffa::MessageField::<
+                                    super::super::super::DeclarationId,
+                                    ::buffa::Inline<super::super::super::DeclarationId>,
+                                >::some(v.to_owned_from_source(__buffa_src)?)
+                            }
+                            None => ::buffa::MessageField::none(),
+                        },
+                        value: self.value.to_string(),
+                        __buffa_unknown_fields: self
+                            .__buffa_unknown_fields
+                            .to_owned()?
+                            .into(),
+                        ..::core::default::Default::default()
+                    })
+                }
+            }
+            impl<'a> ::buffa::ViewEncode<'a> for Alternative8View<'a> {
+                #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    let mut size = 0u64;
+                    if self.scheme.is_set() {
+                        let __slot = __cache.reserve();
+                        let inner_size = self.scheme.compute_size(__cache);
+                        __cache.set(__slot, inner_size);
+                        size
+                            += 1u64
+                                + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                                + inner_size as u64;
+                    }
+                    if !self.value.is_empty() {
+                        size
+                            += 1u64
+                                + ::buffa::types::string_encoded_len(&self.value) as u64;
+                    }
+                    size += self.__buffa_unknown_fields.encoded_len() as u64;
+                    ::buffa::saturate_size(size)
+                }
+                #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn write_to(
+                    &self,
+                    __cache: &mut ::buffa::SizeCache,
+                    buf: &mut impl ::buffa::EncodeSink,
+                ) {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    if self.scheme.is_set() {
+                        ::buffa::types::put_len_delimited_header(
+                            1u32,
+                            u64::from(__cache.consume_next()),
+                            buf,
+                        );
+                        self.scheme.write_to(__cache, buf);
+                    }
+                    if !self.value.is_empty() {
+                        ::buffa::types::put_string_field(2u32, &self.value, buf);
+                    }
+                    self.__buffa_unknown_fields.write_to(buf);
+                }
+            }
+            /// Serializes this view as protobuf JSON.
+            ///
+            /// Implicit-presence fields with default values are omitted, `required`
+            /// fields are always emitted, explicit-presence (`optional`) fields are
+            /// emitted only when set, bytes fields are base64-encoded, and enum
+            /// values are their proto name strings.
+            ///
+            /// This impl uses `serialize_map(None)` because the number of emitted
+            /// fields depends on default-omission rules; serializers that require
+            /// known map lengths (e.g. `bincode`) will return a runtime error.
+            /// Use the owned message type for those formats.
+            impl<'__a> ::serde::Serialize for Alternative8View<'__a> {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    use ::serde::ser::SerializeMap as _;
+                    let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                    {
+                        if let ::core::option::Option::Some(__v) = self
+                            .scheme
+                            .as_option()
+                        {
+                            __map.serialize_entry("scheme", __v)?;
+                        }
+                    }
+                    if !::buffa::json_helpers::skip_if::is_empty_str(self.value) {
+                        __map.serialize_entry("value", self.value)?;
+                    }
+                    __map.end()
+                }
+            }
+            impl<'a> ::buffa::MessageName for Alternative8View<'a> {
+                const PACKAGE: &'static str = "pse.engineering.v1";
+                const NAME: &'static str = "StructuralValue.Alternative8";
+                const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative8";
+                const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative8";
+            }
+            ::buffa::impl_default_view_instance!(Alternative8View);
+            ::buffa::impl_view_reborrow!(Alternative8View);
+            /** Self-contained, `'static` owned view of a `Alternative8` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`Alternative8View`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`Alternative8View`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+            #[derive(Clone, Debug)]
+            pub struct Alternative8OwnedView(
+                ::buffa::OwnedView<Alternative8View<'static>>,
+            );
+            impl Alternative8OwnedView {
+                /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+                ///
+                /// The view borrows directly from the buffer's data; the buffer is
+                /// retained inside the returned handle.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+                /// protobuf data.
+                pub fn decode(
+                    bytes: ::buffa::bytes::Bytes,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative8OwnedView(::buffa::OwnedView::decode(bytes)?),
+                    )
+                }
+                /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+                /// max message size).
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+                /// exceeds the configured limits.
+                pub fn decode_with_options(
+                    bytes: ::buffa::bytes::Bytes,
+                    opts: &::buffa::DecodeOptions,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative8OwnedView(
+                            ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                        ),
+                    )
+                }
+                /// Build from an owned message via an encode → decode round-trip.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+                /// message's encoded size exceeds the 2 GiB protobuf limit, or
+                /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+                /// somehow invalid (should not happen for well-formed messages).
+                pub fn from_owned(
+                    msg: &super::super::super::structural_value::Alternative8,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative8OwnedView(::buffa::OwnedView::from_owned(msg)?),
+                    )
+                }
+                /// Borrow the full [`Alternative8View`] with its lifetime tied to `&self`.
+                #[must_use]
+                pub fn view(&self) -> &Alternative8View<'_> {
+                    self.0.reborrow()
+                }
+                /// Convert to the owned message type.
+                ///
+                /// Infallible: this type's constructors wire-decode their
+                /// buffer, and a view produced by wire decoding always
+                /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+                /// whose contract also governs handles converted from a raw
+                /// [`::buffa::OwnedView`].
+                #[must_use]
+                pub fn to_owned_message(
+                    &self,
+                ) -> super::super::super::structural_value::Alternative8 {
+                    self.0.to_owned_message()
+                }
+                /// The underlying bytes buffer.
+                #[must_use]
+                pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                    self.0.bytes()
+                }
+                /// Consume the handle, returning the underlying bytes buffer.
+                #[must_use]
+                pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                    self.0.into_bytes()
+                }
+                /// Field 1: `scheme`
+                #[must_use]
+                pub fn scheme(
+                    &self,
+                ) -> &::buffa::MessageFieldView<
+                    super::super::super::__buffa::view::DeclarationIdView<'_>,
+                > {
+                    &self.0.reborrow().scheme
+                }
+                /// Field 2: `value`
+                #[must_use]
+                pub fn value(&self) -> &'_ str {
+                    self.0.reborrow().value
+                }
+            }
+            impl ::core::convert::From<::buffa::OwnedView<Alternative8View<'static>>>
+            for Alternative8OwnedView {
+                fn from(inner: ::buffa::OwnedView<Alternative8View<'static>>) -> Self {
+                    Alternative8OwnedView(inner)
+                }
+            }
+            impl ::core::convert::From<Alternative8OwnedView>
+            for ::buffa::OwnedView<Alternative8View<'static>> {
+                fn from(wrapper: Alternative8OwnedView) -> Self {
+                    wrapper.0
+                }
+            }
+            impl ::core::convert::AsRef<::buffa::OwnedView<Alternative8View<'static>>>
+            for Alternative8OwnedView {
+                fn as_ref(&self) -> &::buffa::OwnedView<Alternative8View<'static>> {
+                    &self.0
+                }
+            }
+            impl ::buffa::HasMessageView
+            for super::super::super::structural_value::Alternative8 {
+                type View<'a> = Alternative8View<'a>;
+                type ViewHandle = Alternative8OwnedView;
+            }
+            impl ::serde::Serialize for Alternative8OwnedView {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    ::serde::Serialize::serialize(&self.0, __s)
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+            for Alternative8View<'a> {
+                fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                        .message(Self::__buffa_reflect_message_index())
+                }
+                fn pool(
+                    &self,
+                ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                }
+                fn get(
+                    &self,
+                    field: &::buffa_descriptor::FieldDescriptor,
+                ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    match field.number() {
+                        1u32 => {
+                            ::buffa_descriptor::reflect::ValueRef::Message(
+                                ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                    &*self.scheme,
+                                ),
+                            )
+                        }
+                        2u32 => ::buffa_descriptor::reflect::ValueRef::String(self.value),
+                        _ => {
+                            ::core::debug_assert!(
+                                false,
+                                "field number {} is not a member of this view's reflect get()",
+                                field.number(),
+                            );
+                            ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                        }
+                    }
+                }
+                fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                    match field.number() {
+                        1u32 => self.scheme.is_set(),
+                        2u32 => !self.value.is_empty(),
+                        _ => false,
+                    }
+                }
+                fn for_each_set(
+                    &self,
+                    f: &mut dyn ::core::ops::FnMut(
+                        &::buffa_descriptor::FieldDescriptor,
+                        ::buffa_descriptor::reflect::ValueRef<'_>,
+                    ),
+                ) {
+                    let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                        self,
+                    );
+                    for fd in md.fields() {
+                        if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                            f(
+                                fd,
+                                ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                            );
+                        }
+                    }
+                }
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                    let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                    let options = ::buffa::DecodeOptions::new()
+                        .with_element_memory_limit(
+                            bytes
+                                .len()
+                                .saturating_mul(128)
+                                .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                        )
+                        .with_unknown_field_limit(
+                            bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                        );
+                    ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                            ::buffa::alloc::sync::Arc::clone(
+                                super::super::super::__buffa::reflect::descriptor_pool(),
+                            ),
+                            Self::__buffa_reflect_message_index(),
+                            &bytes,
+                            &options,
+                        )
+                        .expect(
+                            "view re-encodes to bytes decodable against its own descriptor",
+                        )
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectElement
+            for Alternative8View<'a> {
+                fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                    )
+                }
+            }
+            impl<'a> Alternative8View<'a> {
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                /// Memoized `MessageIndex` for this view's message type, resolved
+                /// once against the package's embedded descriptor pool. An inherent
+                /// associated fn (not a free fn) so sibling views in the same module
+                /// do not collide.
+                #[doc(hidden)]
+                fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                    static IDX: ::std::sync::OnceLock<
+                        ::buffa_descriptor::MessageIndex,
+                    > = ::std::sync::OnceLock::new();
+                    *IDX
+                        .get_or_init(|| {
+                            super::super::super::__buffa::reflect::descriptor_pool()
+                                .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                                .expect(
+                                    "generated view type is registered in the embedded descriptor pool",
+                                )
+                        })
+                }
+            }
+            #[derive(Clone, Debug, Default)]
+            pub struct Alternative9View<'a> {
+                /// Field 1: `id`
+                pub id: ::buffa::MessageFieldView<
+                    super::super::super::__buffa::view::DeclarationIdView<'a>,
+                >,
+                /// Field 2: `bindings` (map)
+                pub bindings: ::buffa::MapView<
+                    'a,
+                    &'a str,
+                    super::super::super::__buffa::view::StructuralValueView<'a>,
+                >,
+                pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+            }
+            impl<'a> ::buffa::MessageView<'a> for Alternative9View<'a> {
+                type Owned = super::super::super::structural_value::Alternative9;
+                fn decode_view(
+                    buf: &'a [u8],
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    let __limit = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                    );
+                    let __elem = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                    );
+                    <Self as ::buffa::MessageView>::decode_view_ctx(
+                        buf,
+                        ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                            .with_element_memory(&__elem),
+                    )
+                }
+                fn decode_view_with_ctx(
+                    buf: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+                }
+                #[inline]
+                fn merge_view_field(
+                    &mut self,
+                    tag: ::buffa::encoding::Tag,
+                    cur: &'a [u8],
+                    before_tag: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                    let _ = ctx;
+                    #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    let view = self;
+                    let mut cur = cur;
+                    match tag.field_number() {
+                        1u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::LengthDelimited,
+                            )?;
+                            let __sub_ctx = ctx.descend()?;
+                            let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                            match view.id.as_mut() {
+                                Some(existing) => {
+                                    ::buffa::MessageView::merge_into_view(
+                                        existing,
+                                        sub,
+                                        __sub_ctx,
+                                    )?
+                                }
+                                None => {
+                                    view.id = ::buffa::MessageFieldView::set(
+                                        <super::super::super::__buffa::view::DeclarationIdView as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    );
+                                }
+                            }
+                        }
+                        2u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::LengthDelimited,
+                            )?;
+                            let entry_bytes = ::buffa::types::borrow_bytes(&mut cur)?;
+                            let mut entry_cur: &'a [u8] = entry_bytes;
+                            let mut key = "";
+                            let mut val = ::core::default::Default::default();
+                            ctx.register_element_memory(
+                                ::buffa::__private::element_footprint(&key)
+                                    + ::buffa::__private::element_footprint(&val),
+                            )?;
+                            while !entry_cur.is_empty() {
+                                let entry_tag = ::buffa::encoding::Tag::decode(
+                                    &mut entry_cur,
+                                )?;
+                                match entry_tag.field_number() {
+                                    1 => {
+                                        ::buffa::encoding::check_wire_type(
+                                            entry_tag,
+                                            ::buffa::encoding::WireType::LengthDelimited,
+                                        )?;
+                                        key = ::buffa::types::borrow_str(&mut entry_cur)?;
+                                    }
+                                    2 => {
+                                        ::buffa::encoding::check_wire_type(
+                                            entry_tag,
+                                            ::buffa::encoding::WireType::LengthDelimited,
+                                        )?;
+                                        let __sub_ctx = ctx.descend()?;
+                                        let sub = ::buffa::types::borrow_bytes(&mut entry_cur)?;
+                                        <super::super::super::__buffa::view::StructuralValueView as ::buffa::MessageView>::merge_into_view(
+                                            &mut val,
+                                            sub,
+                                            __sub_ctx,
+                                        )?;
+                                    }
+                                    _ => {
+                                        ::buffa::encoding::skip_field_depth(
+                                            entry_tag,
+                                            &mut entry_cur,
+                                            ctx.depth(),
+                                        )?;
+                                    }
+                                }
+                            }
+                            view.bindings.push(key, val);
+                        }
+                        _ => {
+                            ::buffa::encoding::skip_field_depth(
+                                tag,
+                                &mut cur,
+                                ctx.depth(),
+                            )?;
+                            let span_len = before_tag.len() - cur.len();
+                            view.__buffa_unknown_fields
+                                .push_record(before_tag, span_len, ctx)?;
+                        }
+                    }
+                    ::core::result::Result::Ok(cur)
+                }
+                fn to_owned_message(
+                    &self,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative9,
+                    ::buffa::DecodeError,
+                > {
+                    self.to_owned_from_source(None)
+                }
+                #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn to_owned_from_source(
+                    &self,
+                    __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative9,
+                    ::buffa::DecodeError,
+                > {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::alloc::string::ToString as _;
+                    let _ = __buffa_src;
+                    ::core::result::Result::Ok(super::super::super::structural_value::Alternative9 {
+                        id: match self.id.as_option() {
+                            Some(v) => {
+                                ::buffa::MessageField::<
+                                    super::super::super::DeclarationId,
+                                    ::buffa::Inline<super::super::super::DeclarationId>,
+                                >::some(v.to_owned_from_source(__buffa_src)?)
+                            }
+                            None => ::buffa::MessageField::none(),
+                        },
+                        bindings: self
+                            .bindings
+                            .iter()
+                            .map(|(k, v)| {
+                                ::core::result::Result::<
+                                    _,
+                                    ::buffa::DecodeError,
+                                >::Ok((k.to_string(), v.to_owned_from_source(__buffa_src)?))
+                            })
+                            .collect::<
+                                ::core::result::Result<_, ::buffa::DecodeError>,
+                            >()?,
+                        __buffa_unknown_fields: self
+                            .__buffa_unknown_fields
+                            .to_owned()?
+                            .into(),
+                        ..::core::default::Default::default()
+                    })
+                }
+            }
+            impl<'a> ::buffa::ViewEncode<'a> for Alternative9View<'a> {
+                #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    let mut size = 0u64;
+                    if self.id.is_set() {
+                        let __slot = __cache.reserve();
+                        let inner_size = self.id.compute_size(__cache);
+                        __cache.set(__slot, inner_size);
+                        size
+                            += 1u64
+                                + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                                + inner_size as u64;
+                    }
+                    #[allow(clippy::for_kv_map, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    for (k, v) in &self.bindings {
+                        let entry_size: u64 = 1u64
+                            + ::buffa::types::string_encoded_len(k) as u64 + 1u64
+                            + {
+                                let __slot = __cache.reserve();
+                                let inner = v.compute_size(__cache);
+                                __cache.set(__slot, inner);
+                                ::buffa::encoding::varint_len(inner as u64) as u64
+                                    + inner as u64
+                            };
+                        size
+                            += 1u64 + ::buffa::encoding::varint_len(entry_size) as u64
+                                + entry_size;
+                    }
+                    size += self.__buffa_unknown_fields.encoded_len() as u64;
+                    ::buffa::saturate_size(size)
+                }
+                #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn write_to(
+                    &self,
+                    __cache: &mut ::buffa::SizeCache,
+                    buf: &mut impl ::buffa::EncodeSink,
+                ) {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    if self.id.is_set() {
+                        ::buffa::types::put_len_delimited_header(
+                            1u32,
+                            u64::from(__cache.consume_next()),
+                            buf,
+                        );
+                        self.id.write_to(__cache, buf);
+                    }
+                    for (k, v) in &self.bindings {
+                        let __v_len = __cache.consume_next();
+                        let entry_size: u64 = 1u64
+                            + ::buffa::types::string_encoded_len(k) as u64 + 1u64
+                            + (::buffa::encoding::varint_len(__v_len as u64) as u64
+                                + __v_len as u64);
+                        ::buffa::encoding::Tag::new(
+                                2u32,
+                                ::buffa::encoding::WireType::LengthDelimited,
+                            )
+                            .encode(buf);
+                        ::buffa::encoding::encode_varint(entry_size, buf);
+                        ::buffa::encoding::Tag::new(
+                                1u32,
+                                ::buffa::encoding::WireType::LengthDelimited,
+                            )
+                            .encode(buf);
+                        ::buffa::types::encode_string(k, buf);
+                        ::buffa::encoding::Tag::new(
+                                2u32,
+                                ::buffa::encoding::WireType::LengthDelimited,
+                            )
+                            .encode(buf);
+                        ::buffa::encoding::encode_varint(__v_len as u64, buf);
+                        v.write_to(__cache, buf);
+                    }
+                    self.__buffa_unknown_fields.write_to(buf);
+                }
+            }
+            /// Serializes this view as protobuf JSON.
+            ///
+            /// Implicit-presence fields with default values are omitted, `required`
+            /// fields are always emitted, explicit-presence (`optional`) fields are
+            /// emitted only when set, bytes fields are base64-encoded, and enum
+            /// values are their proto name strings.
+            ///
+            /// This impl uses `serialize_map(None)` because the number of emitted
+            /// fields depends on default-omission rules; serializers that require
+            /// known map lengths (e.g. `bincode`) will return a runtime error.
+            /// Use the owned message type for those formats.
+            impl<'__a> ::serde::Serialize for Alternative9View<'__a> {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    use ::serde::ser::SerializeMap as _;
+                    let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                    {
+                        if let ::core::option::Option::Some(__v) = self.id.as_option() {
+                            __map.serialize_entry("id", __v)?;
+                        }
+                    }
+                    if !self.bindings.is_empty() {
+                        struct _WM<'__a, '__x>(
+                            &'__x ::buffa::MapView<
+                                '__x,
+                                &'__a str,
+                                super::super::super::__buffa::view::StructuralValueView<
+                                    '__a,
+                                >,
+                            >,
+                        );
+                        impl<'__a> ::serde::Serialize for _WM<'__a, '_> {
+                            fn serialize<__S: ::serde::Serializer>(
+                                &self,
+                                __s: __S,
+                            ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                                use ::serde::ser::SerializeMap as _;
+                                let mut __m = __s
+                                    .serialize_map(::core::option::Option::Some(self.0.len()))?;
+                                for (k, v) in self.0.iter_unique() {
+                                    __m.serialize_entry(k, v)?;
+                                }
+                                __m.end()
+                            }
+                        }
+                        __map.serialize_entry("bindings", &_WM(&self.bindings))?;
+                    }
+                    __map.end()
+                }
+            }
+            impl<'a> ::buffa::MessageName for Alternative9View<'a> {
+                const PACKAGE: &'static str = "pse.engineering.v1";
+                const NAME: &'static str = "StructuralValue.Alternative9";
+                const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative9";
+                const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative9";
+            }
+            ::buffa::impl_default_view_instance!(Alternative9View);
+            ::buffa::impl_view_reborrow!(Alternative9View);
+            /** Self-contained, `'static` owned view of a `Alternative9` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`Alternative9View`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`Alternative9View`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+            #[derive(Clone, Debug)]
+            pub struct Alternative9OwnedView(
+                ::buffa::OwnedView<Alternative9View<'static>>,
+            );
+            impl Alternative9OwnedView {
+                /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+                ///
+                /// The view borrows directly from the buffer's data; the buffer is
+                /// retained inside the returned handle.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+                /// protobuf data.
+                pub fn decode(
+                    bytes: ::buffa::bytes::Bytes,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative9OwnedView(::buffa::OwnedView::decode(bytes)?),
+                    )
+                }
+                /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+                /// max message size).
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+                /// exceeds the configured limits.
+                pub fn decode_with_options(
+                    bytes: ::buffa::bytes::Bytes,
+                    opts: &::buffa::DecodeOptions,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative9OwnedView(
+                            ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                        ),
+                    )
+                }
+                /// Build from an owned message via an encode → decode round-trip.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+                /// message's encoded size exceeds the 2 GiB protobuf limit, or
+                /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+                /// somehow invalid (should not happen for well-formed messages).
+                pub fn from_owned(
+                    msg: &super::super::super::structural_value::Alternative9,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative9OwnedView(::buffa::OwnedView::from_owned(msg)?),
+                    )
+                }
+                /// Borrow the full [`Alternative9View`] with its lifetime tied to `&self`.
+                #[must_use]
+                pub fn view(&self) -> &Alternative9View<'_> {
+                    self.0.reborrow()
+                }
+                /// Convert to the owned message type.
+                ///
+                /// Infallible: this type's constructors wire-decode their
+                /// buffer, and a view produced by wire decoding always
+                /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+                /// whose contract also governs handles converted from a raw
+                /// [`::buffa::OwnedView`].
+                #[must_use]
+                pub fn to_owned_message(
+                    &self,
+                ) -> super::super::super::structural_value::Alternative9 {
+                    self.0.to_owned_message()
+                }
+                /// The underlying bytes buffer.
+                #[must_use]
+                pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                    self.0.bytes()
+                }
+                /// Consume the handle, returning the underlying bytes buffer.
+                #[must_use]
+                pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                    self.0.into_bytes()
+                }
+                /// Field 1: `id`
+                #[must_use]
+                pub fn id(
+                    &self,
+                ) -> &::buffa::MessageFieldView<
+                    super::super::super::__buffa::view::DeclarationIdView<'_>,
+                > {
+                    &self.0.reborrow().id
+                }
+                /// Field 2: `bindings` (map)
+                #[must_use]
+                pub fn bindings(
+                    &self,
+                ) -> &::buffa::MapView<
+                    '_,
+                    &'_ str,
+                    super::super::super::__buffa::view::StructuralValueView<'_>,
+                > {
+                    &self.0.reborrow().bindings
+                }
+            }
+            impl ::core::convert::From<::buffa::OwnedView<Alternative9View<'static>>>
+            for Alternative9OwnedView {
+                fn from(inner: ::buffa::OwnedView<Alternative9View<'static>>) -> Self {
+                    Alternative9OwnedView(inner)
+                }
+            }
+            impl ::core::convert::From<Alternative9OwnedView>
+            for ::buffa::OwnedView<Alternative9View<'static>> {
+                fn from(wrapper: Alternative9OwnedView) -> Self {
+                    wrapper.0
+                }
+            }
+            impl ::core::convert::AsRef<::buffa::OwnedView<Alternative9View<'static>>>
+            for Alternative9OwnedView {
+                fn as_ref(&self) -> &::buffa::OwnedView<Alternative9View<'static>> {
+                    &self.0
+                }
+            }
+            impl ::buffa::HasMessageView
+            for super::super::super::structural_value::Alternative9 {
+                type View<'a> = Alternative9View<'a>;
+                type ViewHandle = Alternative9OwnedView;
+            }
+            impl ::serde::Serialize for Alternative9OwnedView {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    ::serde::Serialize::serialize(&self.0, __s)
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+            for Alternative9View<'a> {
+                fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                        .message(Self::__buffa_reflect_message_index())
+                }
+                fn pool(
+                    &self,
+                ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                }
+                fn get(
+                    &self,
+                    field: &::buffa_descriptor::FieldDescriptor,
+                ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    match field.number() {
+                        1u32 => {
+                            ::buffa_descriptor::reflect::ValueRef::Message(
+                                ::buffa_descriptor::reflect::ReflectCow::Borrowed(&*self.id),
+                            )
+                        }
+                        2u32 => {
+                            ::buffa_descriptor::reflect::ValueRef::Map(&self.bindings)
+                        }
+                        _ => {
+                            ::core::debug_assert!(
+                                false,
+                                "field number {} is not a member of this view's reflect get()",
+                                field.number(),
+                            );
+                            ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                        }
+                    }
+                }
+                fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                    match field.number() {
+                        1u32 => self.id.is_set(),
+                        2u32 => !::buffa::MapView::is_empty(&self.bindings),
+                        _ => false,
+                    }
+                }
+                fn for_each_set(
+                    &self,
+                    f: &mut dyn ::core::ops::FnMut(
+                        &::buffa_descriptor::FieldDescriptor,
+                        ::buffa_descriptor::reflect::ValueRef<'_>,
+                    ),
+                ) {
+                    let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                        self,
+                    );
+                    for fd in md.fields() {
+                        if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                            f(
+                                fd,
+                                ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                            );
+                        }
+                    }
+                }
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                    let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                    let options = ::buffa::DecodeOptions::new()
+                        .with_element_memory_limit(
+                            bytes
+                                .len()
+                                .saturating_mul(128)
+                                .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                        )
+                        .with_unknown_field_limit(
+                            bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                        );
+                    ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                            ::buffa::alloc::sync::Arc::clone(
+                                super::super::super::__buffa::reflect::descriptor_pool(),
+                            ),
+                            Self::__buffa_reflect_message_index(),
+                            &bytes,
+                            &options,
+                        )
+                        .expect(
+                            "view re-encodes to bytes decodable against its own descriptor",
+                        )
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectElement
+            for Alternative9View<'a> {
+                fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                    )
+                }
+            }
+            impl<'a> Alternative9View<'a> {
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                /// Memoized `MessageIndex` for this view's message type, resolved
+                /// once against the package's embedded descriptor pool. An inherent
+                /// associated fn (not a free fn) so sibling views in the same module
+                /// do not collide.
+                #[doc(hidden)]
+                fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                    static IDX: ::std::sync::OnceLock<
+                        ::buffa_descriptor::MessageIndex,
+                    > = ::std::sync::OnceLock::new();
+                    *IDX
+                        .get_or_init(|| {
+                            super::super::super::__buffa::reflect::descriptor_pool()
+                                .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                                .expect(
+                                    "generated view type is registered in the embedded descriptor pool",
+                                )
+                        })
+                }
+            }
+            #[derive(Clone, Debug, Default)]
+            pub struct Alternative10View<'a> {
+                /// Field 1: `value`
+                pub value: ::buffa::MessageFieldView<
+                    super::super::super::__buffa::view::DeclarationIdView<'a>,
+                >,
+                pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+            }
+            impl<'a> ::buffa::MessageView<'a> for Alternative10View<'a> {
+                type Owned = super::super::super::structural_value::Alternative10;
+                fn decode_view(
+                    buf: &'a [u8],
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    let __limit = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                    );
+                    let __elem = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                    );
+                    <Self as ::buffa::MessageView>::decode_view_ctx(
+                        buf,
+                        ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                            .with_element_memory(&__elem),
+                    )
+                }
+                fn decode_view_with_ctx(
+                    buf: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+                }
+                #[inline]
+                fn merge_view_field(
+                    &mut self,
+                    tag: ::buffa::encoding::Tag,
+                    cur: &'a [u8],
+                    before_tag: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                    let _ = ctx;
+                    #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    let view = self;
+                    let mut cur = cur;
+                    match tag.field_number() {
+                        1u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::LengthDelimited,
+                            )?;
+                            let __sub_ctx = ctx.descend()?;
+                            let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                            match view.value.as_mut() {
+                                Some(existing) => {
+                                    ::buffa::MessageView::merge_into_view(
+                                        existing,
+                                        sub,
+                                        __sub_ctx,
+                                    )?
+                                }
+                                None => {
+                                    view.value = ::buffa::MessageFieldView::set(
+                                        <super::super::super::__buffa::view::DeclarationIdView as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    );
+                                }
+                            }
+                        }
+                        _ => {
+                            ::buffa::encoding::skip_field_depth(
+                                tag,
+                                &mut cur,
+                                ctx.depth(),
+                            )?;
+                            let span_len = before_tag.len() - cur.len();
+                            view.__buffa_unknown_fields
+                                .push_record(before_tag, span_len, ctx)?;
+                        }
+                    }
+                    ::core::result::Result::Ok(cur)
+                }
+                fn to_owned_message(
+                    &self,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative10,
+                    ::buffa::DecodeError,
+                > {
+                    self.to_owned_from_source(None)
+                }
+                #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn to_owned_from_source(
+                    &self,
+                    __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative10,
+                    ::buffa::DecodeError,
+                > {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::alloc::string::ToString as _;
+                    let _ = __buffa_src;
+                    ::core::result::Result::Ok(super::super::super::structural_value::Alternative10 {
+                        value: match self.value.as_option() {
+                            Some(v) => {
+                                ::buffa::MessageField::<
+                                    super::super::super::DeclarationId,
+                                    ::buffa::Inline<super::super::super::DeclarationId>,
+                                >::some(v.to_owned_from_source(__buffa_src)?)
+                            }
+                            None => ::buffa::MessageField::none(),
+                        },
+                        __buffa_unknown_fields: self
+                            .__buffa_unknown_fields
+                            .to_owned()?
+                            .into(),
+                        ..::core::default::Default::default()
+                    })
+                }
+            }
+            impl<'a> ::buffa::ViewEncode<'a> for Alternative10View<'a> {
+                #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    let mut size = 0u64;
+                    if self.value.is_set() {
+                        let __slot = __cache.reserve();
+                        let inner_size = self.value.compute_size(__cache);
+                        __cache.set(__slot, inner_size);
+                        size
+                            += 1u64
+                                + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                                + inner_size as u64;
+                    }
+                    size += self.__buffa_unknown_fields.encoded_len() as u64;
+                    ::buffa::saturate_size(size)
+                }
+                #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn write_to(
+                    &self,
+                    __cache: &mut ::buffa::SizeCache,
+                    buf: &mut impl ::buffa::EncodeSink,
+                ) {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    if self.value.is_set() {
+                        ::buffa::types::put_len_delimited_header(
+                            1u32,
+                            u64::from(__cache.consume_next()),
+                            buf,
+                        );
+                        self.value.write_to(__cache, buf);
+                    }
+                    self.__buffa_unknown_fields.write_to(buf);
+                }
+            }
+            /// Serializes this view as protobuf JSON.
+            ///
+            /// Implicit-presence fields with default values are omitted, `required`
+            /// fields are always emitted, explicit-presence (`optional`) fields are
+            /// emitted only when set, bytes fields are base64-encoded, and enum
+            /// values are their proto name strings.
+            ///
+            /// This impl uses `serialize_map(None)` because the number of emitted
+            /// fields depends on default-omission rules; serializers that require
+            /// known map lengths (e.g. `bincode`) will return a runtime error.
+            /// Use the owned message type for those formats.
+            impl<'__a> ::serde::Serialize for Alternative10View<'__a> {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    use ::serde::ser::SerializeMap as _;
+                    let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                    {
+                        if let ::core::option::Option::Some(__v) = self.value.as_option()
+                        {
+                            __map.serialize_entry("value", __v)?;
+                        }
+                    }
+                    __map.end()
+                }
+            }
+            impl<'a> ::buffa::MessageName for Alternative10View<'a> {
+                const PACKAGE: &'static str = "pse.engineering.v1";
+                const NAME: &'static str = "StructuralValue.Alternative10";
+                const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative10";
+                const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative10";
+            }
+            ::buffa::impl_default_view_instance!(Alternative10View);
+            ::buffa::impl_view_reborrow!(Alternative10View);
+            /** Self-contained, `'static` owned view of a `Alternative10` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`Alternative10View`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`Alternative10View`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+            #[derive(Clone, Debug)]
+            pub struct Alternative10OwnedView(
+                ::buffa::OwnedView<Alternative10View<'static>>,
+            );
+            impl Alternative10OwnedView {
+                /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+                ///
+                /// The view borrows directly from the buffer's data; the buffer is
+                /// retained inside the returned handle.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+                /// protobuf data.
+                pub fn decode(
+                    bytes: ::buffa::bytes::Bytes,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative10OwnedView(::buffa::OwnedView::decode(bytes)?),
+                    )
+                }
+                /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+                /// max message size).
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+                /// exceeds the configured limits.
+                pub fn decode_with_options(
+                    bytes: ::buffa::bytes::Bytes,
+                    opts: &::buffa::DecodeOptions,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative10OwnedView(
+                            ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                        ),
+                    )
+                }
+                /// Build from an owned message via an encode → decode round-trip.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+                /// message's encoded size exceeds the 2 GiB protobuf limit, or
+                /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+                /// somehow invalid (should not happen for well-formed messages).
+                pub fn from_owned(
+                    msg: &super::super::super::structural_value::Alternative10,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative10OwnedView(::buffa::OwnedView::from_owned(msg)?),
+                    )
+                }
+                /// Borrow the full [`Alternative10View`] with its lifetime tied to `&self`.
+                #[must_use]
+                pub fn view(&self) -> &Alternative10View<'_> {
+                    self.0.reborrow()
+                }
+                /// Convert to the owned message type.
+                ///
+                /// Infallible: this type's constructors wire-decode their
+                /// buffer, and a view produced by wire decoding always
+                /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+                /// whose contract also governs handles converted from a raw
+                /// [`::buffa::OwnedView`].
+                #[must_use]
+                pub fn to_owned_message(
+                    &self,
+                ) -> super::super::super::structural_value::Alternative10 {
+                    self.0.to_owned_message()
+                }
+                /// The underlying bytes buffer.
+                #[must_use]
+                pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                    self.0.bytes()
+                }
+                /// Consume the handle, returning the underlying bytes buffer.
+                #[must_use]
+                pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                    self.0.into_bytes()
+                }
+                /// Field 1: `value`
+                #[must_use]
+                pub fn value(
+                    &self,
+                ) -> &::buffa::MessageFieldView<
+                    super::super::super::__buffa::view::DeclarationIdView<'_>,
+                > {
+                    &self.0.reborrow().value
+                }
+            }
+            impl ::core::convert::From<::buffa::OwnedView<Alternative10View<'static>>>
+            for Alternative10OwnedView {
+                fn from(inner: ::buffa::OwnedView<Alternative10View<'static>>) -> Self {
+                    Alternative10OwnedView(inner)
+                }
+            }
+            impl ::core::convert::From<Alternative10OwnedView>
+            for ::buffa::OwnedView<Alternative10View<'static>> {
+                fn from(wrapper: Alternative10OwnedView) -> Self {
+                    wrapper.0
+                }
+            }
+            impl ::core::convert::AsRef<::buffa::OwnedView<Alternative10View<'static>>>
+            for Alternative10OwnedView {
+                fn as_ref(&self) -> &::buffa::OwnedView<Alternative10View<'static>> {
+                    &self.0
+                }
+            }
+            impl ::buffa::HasMessageView
+            for super::super::super::structural_value::Alternative10 {
+                type View<'a> = Alternative10View<'a>;
+                type ViewHandle = Alternative10OwnedView;
+            }
+            impl ::serde::Serialize for Alternative10OwnedView {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    ::serde::Serialize::serialize(&self.0, __s)
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+            for Alternative10View<'a> {
+                fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                        .message(Self::__buffa_reflect_message_index())
+                }
+                fn pool(
+                    &self,
+                ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                }
+                fn get(
+                    &self,
+                    field: &::buffa_descriptor::FieldDescriptor,
+                ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    match field.number() {
+                        1u32 => {
+                            ::buffa_descriptor::reflect::ValueRef::Message(
+                                ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                    &*self.value,
+                                ),
+                            )
+                        }
+                        _ => {
+                            ::core::debug_assert!(
+                                false,
+                                "field number {} is not a member of this view's reflect get()",
+                                field.number(),
+                            );
+                            ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                        }
+                    }
+                }
+                fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                    match field.number() {
+                        1u32 => self.value.is_set(),
+                        _ => false,
+                    }
+                }
+                fn for_each_set(
+                    &self,
+                    f: &mut dyn ::core::ops::FnMut(
+                        &::buffa_descriptor::FieldDescriptor,
+                        ::buffa_descriptor::reflect::ValueRef<'_>,
+                    ),
+                ) {
+                    let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                        self,
+                    );
+                    for fd in md.fields() {
+                        if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                            f(
+                                fd,
+                                ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                            );
+                        }
+                    }
+                }
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                    let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                    let options = ::buffa::DecodeOptions::new()
+                        .with_element_memory_limit(
+                            bytes
+                                .len()
+                                .saturating_mul(128)
+                                .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                        )
+                        .with_unknown_field_limit(
+                            bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                        );
+                    ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                            ::buffa::alloc::sync::Arc::clone(
+                                super::super::super::__buffa::reflect::descriptor_pool(),
+                            ),
+                            Self::__buffa_reflect_message_index(),
+                            &bytes,
+                            &options,
+                        )
+                        .expect(
+                            "view re-encodes to bytes decodable against its own descriptor",
+                        )
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectElement
+            for Alternative10View<'a> {
+                fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                    )
+                }
+            }
+            impl<'a> Alternative10View<'a> {
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                /// Memoized `MessageIndex` for this view's message type, resolved
+                /// once against the package's embedded descriptor pool. An inherent
+                /// associated fn (not a free fn) so sibling views in the same module
+                /// do not collide.
+                #[doc(hidden)]
+                fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                    static IDX: ::std::sync::OnceLock<
+                        ::buffa_descriptor::MessageIndex,
+                    > = ::std::sync::OnceLock::new();
+                    *IDX
+                        .get_or_init(|| {
+                            super::super::super::__buffa::reflect::descriptor_pool()
+                                .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                                .expect(
+                                    "generated view type is registered in the embedded descriptor pool",
+                                )
+                        })
+                }
+            }
+            #[derive(Clone, Debug, Default)]
+            pub struct Alternative11View<'a> {
+                /// Field 1: `table`
+                pub table: ::buffa::MessageFieldView<
+                    super::super::super::__buffa::view::DeclarationIdView<'a>,
+                >,
+                /// Field 2: `names`
+                pub names: ::buffa::RepeatedView<'a, &'a str>,
+                /// Field 3: `fields`
+                pub fields: ::buffa::RepeatedView<
+                    'a,
+                    super::super::super::__buffa::view::StructuralValueView<'a>,
+                >,
+                pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+            }
+            impl<'a> ::buffa::MessageView<'a> for Alternative11View<'a> {
+                type Owned = super::super::super::structural_value::Alternative11;
+                fn decode_view(
+                    buf: &'a [u8],
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    let __limit = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                    );
+                    let __elem = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                    );
+                    <Self as ::buffa::MessageView>::decode_view_ctx(
+                        buf,
+                        ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                            .with_element_memory(&__elem),
+                    )
+                }
+                fn decode_view_with_ctx(
+                    buf: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+                }
+                #[inline]
+                fn merge_view_field(
+                    &mut self,
+                    tag: ::buffa::encoding::Tag,
+                    cur: &'a [u8],
+                    before_tag: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                    let _ = ctx;
+                    #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    let view = self;
+                    let mut cur = cur;
+                    match tag.field_number() {
+                        1u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::LengthDelimited,
+                            )?;
+                            let __sub_ctx = ctx.descend()?;
+                            let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                            match view.table.as_mut() {
+                                Some(existing) => {
+                                    ::buffa::MessageView::merge_into_view(
+                                        existing,
+                                        sub,
+                                        __sub_ctx,
+                                    )?
+                                }
+                                None => {
+                                    view.table = ::buffa::MessageFieldView::set(
+                                        <super::super::super::__buffa::view::DeclarationIdView as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    );
+                                }
+                            }
+                        }
+                        2u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::LengthDelimited,
+                            )?;
+                            let __elem = ::buffa::types::borrow_str(&mut cur)?;
+                            ctx.register_element_memory(
+                                ::buffa::__private::element_footprint(&__elem),
+                            )?;
+                            view.names.push(__elem);
+                        }
+                        3u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::LengthDelimited,
+                            )?;
+                            let __sub_ctx = ctx.descend()?;
+                            let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                            ctx.register_element_memory(
+                                ::core::mem::size_of::<
+                                    super::super::super::__buffa::view::StructuralValueView,
+                                >(),
+                            )?;
+                            view.fields
+                                .push(
+                                    <super::super::super::__buffa::view::StructuralValueView as ::buffa::MessageView>::decode_view_ctx(
+                                        sub,
+                                        __sub_ctx,
+                                    )?,
+                                );
+                        }
+                        _ => {
+                            ::buffa::encoding::skip_field_depth(
+                                tag,
+                                &mut cur,
+                                ctx.depth(),
+                            )?;
+                            let span_len = before_tag.len() - cur.len();
+                            view.__buffa_unknown_fields
+                                .push_record(before_tag, span_len, ctx)?;
+                        }
+                    }
+                    ::core::result::Result::Ok(cur)
+                }
+                fn to_owned_message(
+                    &self,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative11,
+                    ::buffa::DecodeError,
+                > {
+                    self.to_owned_from_source(None)
+                }
+                #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn to_owned_from_source(
+                    &self,
+                    __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative11,
+                    ::buffa::DecodeError,
+                > {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::alloc::string::ToString as _;
+                    let _ = __buffa_src;
+                    ::core::result::Result::Ok(super::super::super::structural_value::Alternative11 {
+                        table: match self.table.as_option() {
+                            Some(v) => {
+                                ::buffa::MessageField::<
+                                    super::super::super::DeclarationId,
+                                    ::buffa::Inline<super::super::super::DeclarationId>,
+                                >::some(v.to_owned_from_source(__buffa_src)?)
+                            }
+                            None => ::buffa::MessageField::none(),
+                        },
+                        names: self.names.iter().map(|s| s.to_string()).collect(),
+                        fields: self
+                            .fields
+                            .iter()
+                            .map(|v| v.to_owned_from_source(__buffa_src))
+                            .collect::<
+                                ::core::result::Result<_, ::buffa::DecodeError>,
+                            >()?,
+                        __buffa_unknown_fields: self
+                            .__buffa_unknown_fields
+                            .to_owned()?
+                            .into(),
+                        ..::core::default::Default::default()
+                    })
+                }
+            }
+            impl<'a> ::buffa::ViewEncode<'a> for Alternative11View<'a> {
+                #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    let mut size = 0u64;
+                    if self.table.is_set() {
+                        let __slot = __cache.reserve();
+                        let inner_size = self.table.compute_size(__cache);
+                        __cache.set(__slot, inner_size);
+                        size
+                            += 1u64
+                                + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                                + inner_size as u64;
+                    }
+                    for v in &self.names {
+                        size += 1u64 + ::buffa::types::string_encoded_len(v) as u64;
+                    }
+                    for v in &self.fields {
+                        let __slot = __cache.reserve();
+                        let inner_size = v.compute_size(__cache);
+                        __cache.set(__slot, inner_size);
+                        size
+                            += 1u64
+                                + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                                + inner_size as u64;
+                    }
+                    size += self.__buffa_unknown_fields.encoded_len() as u64;
+                    ::buffa::saturate_size(size)
+                }
+                #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn write_to(
+                    &self,
+                    __cache: &mut ::buffa::SizeCache,
+                    buf: &mut impl ::buffa::EncodeSink,
+                ) {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    if self.table.is_set() {
+                        ::buffa::types::put_len_delimited_header(
+                            1u32,
+                            u64::from(__cache.consume_next()),
+                            buf,
+                        );
+                        self.table.write_to(__cache, buf);
+                    }
+                    for v in &self.names {
+                        ::buffa::types::put_string_field(2u32, v, buf);
+                    }
+                    for v in &self.fields {
+                        ::buffa::types::put_len_delimited_header(
+                            3u32,
+                            u64::from(__cache.consume_next()),
+                            buf,
+                        );
+                        v.write_to(__cache, buf);
+                    }
+                    self.__buffa_unknown_fields.write_to(buf);
+                }
+            }
+            /// Serializes this view as protobuf JSON.
+            ///
+            /// Implicit-presence fields with default values are omitted, `required`
+            /// fields are always emitted, explicit-presence (`optional`) fields are
+            /// emitted only when set, bytes fields are base64-encoded, and enum
+            /// values are their proto name strings.
+            ///
+            /// This impl uses `serialize_map(None)` because the number of emitted
+            /// fields depends on default-omission rules; serializers that require
+            /// known map lengths (e.g. `bincode`) will return a runtime error.
+            /// Use the owned message type for those formats.
+            impl<'__a> ::serde::Serialize for Alternative11View<'__a> {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    use ::serde::ser::SerializeMap as _;
+                    let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                    {
+                        if let ::core::option::Option::Some(__v) = self.table.as_option()
+                        {
+                            __map.serialize_entry("table", __v)?;
+                        }
+                    }
+                    if !self.names.is_empty() {
+                        __map.serialize_entry("names", &*self.names)?;
+                    }
+                    if !self.fields.is_empty() {
+                        __map.serialize_entry("fields", &*self.fields)?;
+                    }
+                    __map.end()
+                }
+            }
+            impl<'a> ::buffa::MessageName for Alternative11View<'a> {
+                const PACKAGE: &'static str = "pse.engineering.v1";
+                const NAME: &'static str = "StructuralValue.Alternative11";
+                const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative11";
+                const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative11";
+            }
+            ::buffa::impl_default_view_instance!(Alternative11View);
+            ::buffa::impl_view_reborrow!(Alternative11View);
+            /** Self-contained, `'static` owned view of a `Alternative11` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`Alternative11View`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`Alternative11View`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+            #[derive(Clone, Debug)]
+            pub struct Alternative11OwnedView(
+                ::buffa::OwnedView<Alternative11View<'static>>,
+            );
+            impl Alternative11OwnedView {
+                /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+                ///
+                /// The view borrows directly from the buffer's data; the buffer is
+                /// retained inside the returned handle.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+                /// protobuf data.
+                pub fn decode(
+                    bytes: ::buffa::bytes::Bytes,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative11OwnedView(::buffa::OwnedView::decode(bytes)?),
+                    )
+                }
+                /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+                /// max message size).
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+                /// exceeds the configured limits.
+                pub fn decode_with_options(
+                    bytes: ::buffa::bytes::Bytes,
+                    opts: &::buffa::DecodeOptions,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative11OwnedView(
+                            ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                        ),
+                    )
+                }
+                /// Build from an owned message via an encode → decode round-trip.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+                /// message's encoded size exceeds the 2 GiB protobuf limit, or
+                /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+                /// somehow invalid (should not happen for well-formed messages).
+                pub fn from_owned(
+                    msg: &super::super::super::structural_value::Alternative11,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative11OwnedView(::buffa::OwnedView::from_owned(msg)?),
+                    )
+                }
+                /// Borrow the full [`Alternative11View`] with its lifetime tied to `&self`.
+                #[must_use]
+                pub fn view(&self) -> &Alternative11View<'_> {
+                    self.0.reborrow()
+                }
+                /// Convert to the owned message type.
+                ///
+                /// Infallible: this type's constructors wire-decode their
+                /// buffer, and a view produced by wire decoding always
+                /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+                /// whose contract also governs handles converted from a raw
+                /// [`::buffa::OwnedView`].
+                #[must_use]
+                pub fn to_owned_message(
+                    &self,
+                ) -> super::super::super::structural_value::Alternative11 {
+                    self.0.to_owned_message()
+                }
+                /// The underlying bytes buffer.
+                #[must_use]
+                pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                    self.0.bytes()
+                }
+                /// Consume the handle, returning the underlying bytes buffer.
+                #[must_use]
+                pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                    self.0.into_bytes()
+                }
+                /// Field 1: `table`
+                #[must_use]
+                pub fn table(
+                    &self,
+                ) -> &::buffa::MessageFieldView<
+                    super::super::super::__buffa::view::DeclarationIdView<'_>,
+                > {
+                    &self.0.reborrow().table
+                }
+                /// Field 2: `names`
+                #[must_use]
+                pub fn names(&self) -> &::buffa::RepeatedView<'_, &'_ str> {
+                    &self.0.reborrow().names
+                }
+                /// Field 3: `fields`
+                #[must_use]
+                pub fn fields(
+                    &self,
+                ) -> &::buffa::RepeatedView<
+                    '_,
+                    super::super::super::__buffa::view::StructuralValueView<'_>,
+                > {
+                    &self.0.reborrow().fields
+                }
+            }
+            impl ::core::convert::From<::buffa::OwnedView<Alternative11View<'static>>>
+            for Alternative11OwnedView {
+                fn from(inner: ::buffa::OwnedView<Alternative11View<'static>>) -> Self {
+                    Alternative11OwnedView(inner)
+                }
+            }
+            impl ::core::convert::From<Alternative11OwnedView>
+            for ::buffa::OwnedView<Alternative11View<'static>> {
+                fn from(wrapper: Alternative11OwnedView) -> Self {
+                    wrapper.0
+                }
+            }
+            impl ::core::convert::AsRef<::buffa::OwnedView<Alternative11View<'static>>>
+            for Alternative11OwnedView {
+                fn as_ref(&self) -> &::buffa::OwnedView<Alternative11View<'static>> {
+                    &self.0
+                }
+            }
+            impl ::buffa::HasMessageView
+            for super::super::super::structural_value::Alternative11 {
+                type View<'a> = Alternative11View<'a>;
+                type ViewHandle = Alternative11OwnedView;
+            }
+            impl ::serde::Serialize for Alternative11OwnedView {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    ::serde::Serialize::serialize(&self.0, __s)
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+            for Alternative11View<'a> {
+                fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                        .message(Self::__buffa_reflect_message_index())
+                }
+                fn pool(
+                    &self,
+                ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                }
+                fn get(
+                    &self,
+                    field: &::buffa_descriptor::FieldDescriptor,
+                ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    match field.number() {
+                        1u32 => {
+                            ::buffa_descriptor::reflect::ValueRef::Message(
+                                ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                    &*self.table,
+                                ),
+                            )
+                        }
+                        2u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.names),
+                        3u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.fields),
+                        _ => {
+                            ::core::debug_assert!(
+                                false,
+                                "field number {} is not a member of this view's reflect get()",
+                                field.number(),
+                            );
+                            ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                        }
+                    }
+                }
+                fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                    match field.number() {
+                        1u32 => self.table.is_set(),
+                        2u32 => !::buffa::RepeatedView::is_empty(&self.names),
+                        3u32 => !::buffa::RepeatedView::is_empty(&self.fields),
+                        _ => false,
+                    }
+                }
+                fn for_each_set(
+                    &self,
+                    f: &mut dyn ::core::ops::FnMut(
+                        &::buffa_descriptor::FieldDescriptor,
+                        ::buffa_descriptor::reflect::ValueRef<'_>,
+                    ),
+                ) {
+                    let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                        self,
+                    );
+                    for fd in md.fields() {
+                        if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                            f(
+                                fd,
+                                ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                            );
+                        }
+                    }
+                }
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                    let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                    let options = ::buffa::DecodeOptions::new()
+                        .with_element_memory_limit(
+                            bytes
+                                .len()
+                                .saturating_mul(128)
+                                .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                        )
+                        .with_unknown_field_limit(
+                            bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                        );
+                    ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                            ::buffa::alloc::sync::Arc::clone(
+                                super::super::super::__buffa::reflect::descriptor_pool(),
+                            ),
+                            Self::__buffa_reflect_message_index(),
+                            &bytes,
+                            &options,
+                        )
+                        .expect(
+                            "view re-encodes to bytes decodable against its own descriptor",
+                        )
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectElement
+            for Alternative11View<'a> {
+                fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                    )
+                }
+            }
+            impl<'a> Alternative11View<'a> {
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                /// Memoized `MessageIndex` for this view's message type, resolved
+                /// once against the package's embedded descriptor pool. An inherent
+                /// associated fn (not a free fn) so sibling views in the same module
+                /// do not collide.
+                #[doc(hidden)]
+                fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                    static IDX: ::std::sync::OnceLock<
+                        ::buffa_descriptor::MessageIndex,
+                    > = ::std::sync::OnceLock::new();
+                    *IDX
+                        .get_or_init(|| {
+                            super::super::super::__buffa::reflect::descriptor_pool()
+                                .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                                .expect(
+                                    "generated view type is registered in the embedded descriptor pool",
+                                )
+                        })
+                }
+            }
+            #[derive(Clone, Debug, Default)]
+            pub struct Alternative12View<'a> {
+                /// Field 1: `value`
+                pub value: ::buffa::RepeatedView<
+                    'a,
+                    super::super::super::__buffa::view::StructuralValueView<'a>,
+                >,
+                pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+            }
+            impl<'a> ::buffa::MessageView<'a> for Alternative12View<'a> {
+                type Owned = super::super::super::structural_value::Alternative12;
+                fn decode_view(
+                    buf: &'a [u8],
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    let __limit = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                    );
+                    let __elem = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                    );
+                    <Self as ::buffa::MessageView>::decode_view_ctx(
+                        buf,
+                        ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                            .with_element_memory(&__elem),
+                    )
+                }
+                fn decode_view_with_ctx(
+                    buf: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+                }
+                #[inline]
+                fn merge_view_field(
+                    &mut self,
+                    tag: ::buffa::encoding::Tag,
+                    cur: &'a [u8],
+                    before_tag: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                    let _ = ctx;
+                    #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    let view = self;
+                    let mut cur = cur;
+                    match tag.field_number() {
+                        1u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::LengthDelimited,
+                            )?;
+                            let __sub_ctx = ctx.descend()?;
+                            let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                            ctx.register_element_memory(
+                                ::core::mem::size_of::<
+                                    super::super::super::__buffa::view::StructuralValueView,
+                                >(),
+                            )?;
+                            view.value
+                                .push(
+                                    <super::super::super::__buffa::view::StructuralValueView as ::buffa::MessageView>::decode_view_ctx(
+                                        sub,
+                                        __sub_ctx,
+                                    )?,
+                                );
+                        }
+                        _ => {
+                            ::buffa::encoding::skip_field_depth(
+                                tag,
+                                &mut cur,
+                                ctx.depth(),
+                            )?;
+                            let span_len = before_tag.len() - cur.len();
+                            view.__buffa_unknown_fields
+                                .push_record(before_tag, span_len, ctx)?;
+                        }
+                    }
+                    ::core::result::Result::Ok(cur)
+                }
+                fn to_owned_message(
+                    &self,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative12,
+                    ::buffa::DecodeError,
+                > {
+                    self.to_owned_from_source(None)
+                }
+                #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn to_owned_from_source(
+                    &self,
+                    __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative12,
+                    ::buffa::DecodeError,
+                > {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::alloc::string::ToString as _;
+                    let _ = __buffa_src;
+                    ::core::result::Result::Ok(super::super::super::structural_value::Alternative12 {
+                        value: self
+                            .value
+                            .iter()
+                            .map(|v| v.to_owned_from_source(__buffa_src))
+                            .collect::<
+                                ::core::result::Result<_, ::buffa::DecodeError>,
+                            >()?,
+                        __buffa_unknown_fields: self
+                            .__buffa_unknown_fields
+                            .to_owned()?
+                            .into(),
+                        ..::core::default::Default::default()
+                    })
+                }
+            }
+            impl<'a> ::buffa::ViewEncode<'a> for Alternative12View<'a> {
+                #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    let mut size = 0u64;
+                    for v in &self.value {
+                        let __slot = __cache.reserve();
+                        let inner_size = v.compute_size(__cache);
+                        __cache.set(__slot, inner_size);
+                        size
+                            += 1u64
+                                + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                                + inner_size as u64;
+                    }
+                    size += self.__buffa_unknown_fields.encoded_len() as u64;
+                    ::buffa::saturate_size(size)
+                }
+                #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn write_to(
+                    &self,
+                    __cache: &mut ::buffa::SizeCache,
+                    buf: &mut impl ::buffa::EncodeSink,
+                ) {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    for v in &self.value {
+                        ::buffa::types::put_len_delimited_header(
+                            1u32,
+                            u64::from(__cache.consume_next()),
+                            buf,
+                        );
+                        v.write_to(__cache, buf);
+                    }
+                    self.__buffa_unknown_fields.write_to(buf);
+                }
+            }
+            /// Serializes this view as protobuf JSON.
+            ///
+            /// Implicit-presence fields with default values are omitted, `required`
+            /// fields are always emitted, explicit-presence (`optional`) fields are
+            /// emitted only when set, bytes fields are base64-encoded, and enum
+            /// values are their proto name strings.
+            ///
+            /// This impl uses `serialize_map(None)` because the number of emitted
+            /// fields depends on default-omission rules; serializers that require
+            /// known map lengths (e.g. `bincode`) will return a runtime error.
+            /// Use the owned message type for those formats.
+            impl<'__a> ::serde::Serialize for Alternative12View<'__a> {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    use ::serde::ser::SerializeMap as _;
+                    let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                    if !self.value.is_empty() {
+                        __map.serialize_entry("value", &*self.value)?;
+                    }
+                    __map.end()
+                }
+            }
+            impl<'a> ::buffa::MessageName for Alternative12View<'a> {
+                const PACKAGE: &'static str = "pse.engineering.v1";
+                const NAME: &'static str = "StructuralValue.Alternative12";
+                const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative12";
+                const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative12";
+            }
+            ::buffa::impl_default_view_instance!(Alternative12View);
+            ::buffa::impl_view_reborrow!(Alternative12View);
+            /** Self-contained, `'static` owned view of a `Alternative12` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`Alternative12View`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`Alternative12View`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+            #[derive(Clone, Debug)]
+            pub struct Alternative12OwnedView(
+                ::buffa::OwnedView<Alternative12View<'static>>,
+            );
+            impl Alternative12OwnedView {
+                /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+                ///
+                /// The view borrows directly from the buffer's data; the buffer is
+                /// retained inside the returned handle.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+                /// protobuf data.
+                pub fn decode(
+                    bytes: ::buffa::bytes::Bytes,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative12OwnedView(::buffa::OwnedView::decode(bytes)?),
+                    )
+                }
+                /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+                /// max message size).
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+                /// exceeds the configured limits.
+                pub fn decode_with_options(
+                    bytes: ::buffa::bytes::Bytes,
+                    opts: &::buffa::DecodeOptions,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative12OwnedView(
+                            ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                        ),
+                    )
+                }
+                /// Build from an owned message via an encode → decode round-trip.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+                /// message's encoded size exceeds the 2 GiB protobuf limit, or
+                /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+                /// somehow invalid (should not happen for well-formed messages).
+                pub fn from_owned(
+                    msg: &super::super::super::structural_value::Alternative12,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative12OwnedView(::buffa::OwnedView::from_owned(msg)?),
+                    )
+                }
+                /// Borrow the full [`Alternative12View`] with its lifetime tied to `&self`.
+                #[must_use]
+                pub fn view(&self) -> &Alternative12View<'_> {
+                    self.0.reborrow()
+                }
+                /// Convert to the owned message type.
+                ///
+                /// Infallible: this type's constructors wire-decode their
+                /// buffer, and a view produced by wire decoding always
+                /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+                /// whose contract also governs handles converted from a raw
+                /// [`::buffa::OwnedView`].
+                #[must_use]
+                pub fn to_owned_message(
+                    &self,
+                ) -> super::super::super::structural_value::Alternative12 {
+                    self.0.to_owned_message()
+                }
+                /// The underlying bytes buffer.
+                #[must_use]
+                pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                    self.0.bytes()
+                }
+                /// Consume the handle, returning the underlying bytes buffer.
+                #[must_use]
+                pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                    self.0.into_bytes()
+                }
+                /// Field 1: `value`
+                #[must_use]
+                pub fn value(
+                    &self,
+                ) -> &::buffa::RepeatedView<
+                    '_,
+                    super::super::super::__buffa::view::StructuralValueView<'_>,
+                > {
+                    &self.0.reborrow().value
+                }
+            }
+            impl ::core::convert::From<::buffa::OwnedView<Alternative12View<'static>>>
+            for Alternative12OwnedView {
+                fn from(inner: ::buffa::OwnedView<Alternative12View<'static>>) -> Self {
+                    Alternative12OwnedView(inner)
+                }
+            }
+            impl ::core::convert::From<Alternative12OwnedView>
+            for ::buffa::OwnedView<Alternative12View<'static>> {
+                fn from(wrapper: Alternative12OwnedView) -> Self {
+                    wrapper.0
+                }
+            }
+            impl ::core::convert::AsRef<::buffa::OwnedView<Alternative12View<'static>>>
+            for Alternative12OwnedView {
+                fn as_ref(&self) -> &::buffa::OwnedView<Alternative12View<'static>> {
+                    &self.0
+                }
+            }
+            impl ::buffa::HasMessageView
+            for super::super::super::structural_value::Alternative12 {
+                type View<'a> = Alternative12View<'a>;
+                type ViewHandle = Alternative12OwnedView;
+            }
+            impl ::serde::Serialize for Alternative12OwnedView {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    ::serde::Serialize::serialize(&self.0, __s)
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+            for Alternative12View<'a> {
+                fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                        .message(Self::__buffa_reflect_message_index())
+                }
+                fn pool(
+                    &self,
+                ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                }
+                fn get(
+                    &self,
+                    field: &::buffa_descriptor::FieldDescriptor,
+                ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    match field.number() {
+                        1u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.value),
+                        _ => {
+                            ::core::debug_assert!(
+                                false,
+                                "field number {} is not a member of this view's reflect get()",
+                                field.number(),
+                            );
+                            ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                        }
+                    }
+                }
+                fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                    match field.number() {
+                        1u32 => !::buffa::RepeatedView::is_empty(&self.value),
+                        _ => false,
+                    }
+                }
+                fn for_each_set(
+                    &self,
+                    f: &mut dyn ::core::ops::FnMut(
+                        &::buffa_descriptor::FieldDescriptor,
+                        ::buffa_descriptor::reflect::ValueRef<'_>,
+                    ),
+                ) {
+                    let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                        self,
+                    );
+                    for fd in md.fields() {
+                        if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                            f(
+                                fd,
+                                ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                            );
+                        }
+                    }
+                }
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                    let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                    let options = ::buffa::DecodeOptions::new()
+                        .with_element_memory_limit(
+                            bytes
+                                .len()
+                                .saturating_mul(128)
+                                .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                        )
+                        .with_unknown_field_limit(
+                            bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                        );
+                    ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                            ::buffa::alloc::sync::Arc::clone(
+                                super::super::super::__buffa::reflect::descriptor_pool(),
+                            ),
+                            Self::__buffa_reflect_message_index(),
+                            &bytes,
+                            &options,
+                        )
+                        .expect(
+                            "view re-encodes to bytes decodable against its own descriptor",
+                        )
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectElement
+            for Alternative12View<'a> {
+                fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                    )
+                }
+            }
+            impl<'a> Alternative12View<'a> {
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                /// Memoized `MessageIndex` for this view's message type, resolved
+                /// once against the package's embedded descriptor pool. An inherent
+                /// associated fn (not a free fn) so sibling views in the same module
+                /// do not collide.
+                #[doc(hidden)]
+                fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                    static IDX: ::std::sync::OnceLock<
+                        ::buffa_descriptor::MessageIndex,
+                    > = ::std::sync::OnceLock::new();
+                    *IDX
+                        .get_or_init(|| {
+                            super::super::super::__buffa::reflect::descriptor_pool()
+                                .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                                .expect(
+                                    "generated view type is registered in the embedded descriptor pool",
+                                )
+                        })
+                }
+            }
+            #[derive(Clone, Debug, Default)]
+            pub struct Alternative13View<'a> {
+                /// Field 1: `value`
+                pub value: ::buffa::RepeatedView<
+                    'a,
+                    super::super::super::__buffa::view::StructuralValueView<'a>,
+                >,
+                pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+            }
+            impl<'a> ::buffa::MessageView<'a> for Alternative13View<'a> {
+                type Owned = super::super::super::structural_value::Alternative13;
+                fn decode_view(
+                    buf: &'a [u8],
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    let __limit = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                    );
+                    let __elem = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                    );
+                    <Self as ::buffa::MessageView>::decode_view_ctx(
+                        buf,
+                        ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                            .with_element_memory(&__elem),
+                    )
+                }
+                fn decode_view_with_ctx(
+                    buf: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+                }
+                #[inline]
+                fn merge_view_field(
+                    &mut self,
+                    tag: ::buffa::encoding::Tag,
+                    cur: &'a [u8],
+                    before_tag: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                    let _ = ctx;
+                    #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    let view = self;
+                    let mut cur = cur;
+                    match tag.field_number() {
+                        1u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::LengthDelimited,
+                            )?;
+                            let __sub_ctx = ctx.descend()?;
+                            let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                            ctx.register_element_memory(
+                                ::core::mem::size_of::<
+                                    super::super::super::__buffa::view::StructuralValueView,
+                                >(),
+                            )?;
+                            view.value
+                                .push(
+                                    <super::super::super::__buffa::view::StructuralValueView as ::buffa::MessageView>::decode_view_ctx(
+                                        sub,
+                                        __sub_ctx,
+                                    )?,
+                                );
+                        }
+                        _ => {
+                            ::buffa::encoding::skip_field_depth(
+                                tag,
+                                &mut cur,
+                                ctx.depth(),
+                            )?;
+                            let span_len = before_tag.len() - cur.len();
+                            view.__buffa_unknown_fields
+                                .push_record(before_tag, span_len, ctx)?;
+                        }
+                    }
+                    ::core::result::Result::Ok(cur)
+                }
+                fn to_owned_message(
+                    &self,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative13,
+                    ::buffa::DecodeError,
+                > {
+                    self.to_owned_from_source(None)
+                }
+                #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn to_owned_from_source(
+                    &self,
+                    __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative13,
+                    ::buffa::DecodeError,
+                > {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::alloc::string::ToString as _;
+                    let _ = __buffa_src;
+                    ::core::result::Result::Ok(super::super::super::structural_value::Alternative13 {
+                        value: self
+                            .value
+                            .iter()
+                            .map(|v| v.to_owned_from_source(__buffa_src))
+                            .collect::<
+                                ::core::result::Result<_, ::buffa::DecodeError>,
+                            >()?,
+                        __buffa_unknown_fields: self
+                            .__buffa_unknown_fields
+                            .to_owned()?
+                            .into(),
+                        ..::core::default::Default::default()
+                    })
+                }
+            }
+            impl<'a> ::buffa::ViewEncode<'a> for Alternative13View<'a> {
+                #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    let mut size = 0u64;
+                    for v in &self.value {
+                        let __slot = __cache.reserve();
+                        let inner_size = v.compute_size(__cache);
+                        __cache.set(__slot, inner_size);
+                        size
+                            += 1u64
+                                + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                                + inner_size as u64;
+                    }
+                    size += self.__buffa_unknown_fields.encoded_len() as u64;
+                    ::buffa::saturate_size(size)
+                }
+                #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn write_to(
+                    &self,
+                    __cache: &mut ::buffa::SizeCache,
+                    buf: &mut impl ::buffa::EncodeSink,
+                ) {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    for v in &self.value {
+                        ::buffa::types::put_len_delimited_header(
+                            1u32,
+                            u64::from(__cache.consume_next()),
+                            buf,
+                        );
+                        v.write_to(__cache, buf);
+                    }
+                    self.__buffa_unknown_fields.write_to(buf);
+                }
+            }
+            /// Serializes this view as protobuf JSON.
+            ///
+            /// Implicit-presence fields with default values are omitted, `required`
+            /// fields are always emitted, explicit-presence (`optional`) fields are
+            /// emitted only when set, bytes fields are base64-encoded, and enum
+            /// values are their proto name strings.
+            ///
+            /// This impl uses `serialize_map(None)` because the number of emitted
+            /// fields depends on default-omission rules; serializers that require
+            /// known map lengths (e.g. `bincode`) will return a runtime error.
+            /// Use the owned message type for those formats.
+            impl<'__a> ::serde::Serialize for Alternative13View<'__a> {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    use ::serde::ser::SerializeMap as _;
+                    let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                    if !self.value.is_empty() {
+                        __map.serialize_entry("value", &*self.value)?;
+                    }
+                    __map.end()
+                }
+            }
+            impl<'a> ::buffa::MessageName for Alternative13View<'a> {
+                const PACKAGE: &'static str = "pse.engineering.v1";
+                const NAME: &'static str = "StructuralValue.Alternative13";
+                const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative13";
+                const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative13";
+            }
+            ::buffa::impl_default_view_instance!(Alternative13View);
+            ::buffa::impl_view_reborrow!(Alternative13View);
+            /** Self-contained, `'static` owned view of a `Alternative13` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`Alternative13View`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`Alternative13View`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+            #[derive(Clone, Debug)]
+            pub struct Alternative13OwnedView(
+                ::buffa::OwnedView<Alternative13View<'static>>,
+            );
+            impl Alternative13OwnedView {
+                /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+                ///
+                /// The view borrows directly from the buffer's data; the buffer is
+                /// retained inside the returned handle.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+                /// protobuf data.
+                pub fn decode(
+                    bytes: ::buffa::bytes::Bytes,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative13OwnedView(::buffa::OwnedView::decode(bytes)?),
+                    )
+                }
+                /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+                /// max message size).
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+                /// exceeds the configured limits.
+                pub fn decode_with_options(
+                    bytes: ::buffa::bytes::Bytes,
+                    opts: &::buffa::DecodeOptions,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative13OwnedView(
+                            ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                        ),
+                    )
+                }
+                /// Build from an owned message via an encode → decode round-trip.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+                /// message's encoded size exceeds the 2 GiB protobuf limit, or
+                /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+                /// somehow invalid (should not happen for well-formed messages).
+                pub fn from_owned(
+                    msg: &super::super::super::structural_value::Alternative13,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative13OwnedView(::buffa::OwnedView::from_owned(msg)?),
+                    )
+                }
+                /// Borrow the full [`Alternative13View`] with its lifetime tied to `&self`.
+                #[must_use]
+                pub fn view(&self) -> &Alternative13View<'_> {
+                    self.0.reborrow()
+                }
+                /// Convert to the owned message type.
+                ///
+                /// Infallible: this type's constructors wire-decode their
+                /// buffer, and a view produced by wire decoding always
+                /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+                /// whose contract also governs handles converted from a raw
+                /// [`::buffa::OwnedView`].
+                #[must_use]
+                pub fn to_owned_message(
+                    &self,
+                ) -> super::super::super::structural_value::Alternative13 {
+                    self.0.to_owned_message()
+                }
+                /// The underlying bytes buffer.
+                #[must_use]
+                pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                    self.0.bytes()
+                }
+                /// Consume the handle, returning the underlying bytes buffer.
+                #[must_use]
+                pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                    self.0.into_bytes()
+                }
+                /// Field 1: `value`
+                #[must_use]
+                pub fn value(
+                    &self,
+                ) -> &::buffa::RepeatedView<
+                    '_,
+                    super::super::super::__buffa::view::StructuralValueView<'_>,
+                > {
+                    &self.0.reborrow().value
+                }
+            }
+            impl ::core::convert::From<::buffa::OwnedView<Alternative13View<'static>>>
+            for Alternative13OwnedView {
+                fn from(inner: ::buffa::OwnedView<Alternative13View<'static>>) -> Self {
+                    Alternative13OwnedView(inner)
+                }
+            }
+            impl ::core::convert::From<Alternative13OwnedView>
+            for ::buffa::OwnedView<Alternative13View<'static>> {
+                fn from(wrapper: Alternative13OwnedView) -> Self {
+                    wrapper.0
+                }
+            }
+            impl ::core::convert::AsRef<::buffa::OwnedView<Alternative13View<'static>>>
+            for Alternative13OwnedView {
+                fn as_ref(&self) -> &::buffa::OwnedView<Alternative13View<'static>> {
+                    &self.0
+                }
+            }
+            impl ::buffa::HasMessageView
+            for super::super::super::structural_value::Alternative13 {
+                type View<'a> = Alternative13View<'a>;
+                type ViewHandle = Alternative13OwnedView;
+            }
+            impl ::serde::Serialize for Alternative13OwnedView {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    ::serde::Serialize::serialize(&self.0, __s)
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+            for Alternative13View<'a> {
+                fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                        .message(Self::__buffa_reflect_message_index())
+                }
+                fn pool(
+                    &self,
+                ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                }
+                fn get(
+                    &self,
+                    field: &::buffa_descriptor::FieldDescriptor,
+                ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    match field.number() {
+                        1u32 => ::buffa_descriptor::reflect::ValueRef::List(&self.value),
+                        _ => {
+                            ::core::debug_assert!(
+                                false,
+                                "field number {} is not a member of this view's reflect get()",
+                                field.number(),
+                            );
+                            ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                        }
+                    }
+                }
+                fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                    match field.number() {
+                        1u32 => !::buffa::RepeatedView::is_empty(&self.value),
+                        _ => false,
+                    }
+                }
+                fn for_each_set(
+                    &self,
+                    f: &mut dyn ::core::ops::FnMut(
+                        &::buffa_descriptor::FieldDescriptor,
+                        ::buffa_descriptor::reflect::ValueRef<'_>,
+                    ),
+                ) {
+                    let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                        self,
+                    );
+                    for fd in md.fields() {
+                        if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                            f(
+                                fd,
+                                ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                            );
+                        }
+                    }
+                }
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                    let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                    let options = ::buffa::DecodeOptions::new()
+                        .with_element_memory_limit(
+                            bytes
+                                .len()
+                                .saturating_mul(128)
+                                .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                        )
+                        .with_unknown_field_limit(
+                            bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                        );
+                    ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                            ::buffa::alloc::sync::Arc::clone(
+                                super::super::super::__buffa::reflect::descriptor_pool(),
+                            ),
+                            Self::__buffa_reflect_message_index(),
+                            &bytes,
+                            &options,
+                        )
+                        .expect(
+                            "view re-encodes to bytes decodable against its own descriptor",
+                        )
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectElement
+            for Alternative13View<'a> {
+                fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                    )
+                }
+            }
+            impl<'a> Alternative13View<'a> {
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                /// Memoized `MessageIndex` for this view's message type, resolved
+                /// once against the package's embedded descriptor pool. An inherent
+                /// associated fn (not a free fn) so sibling views in the same module
+                /// do not collide.
+                #[doc(hidden)]
+                fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                    static IDX: ::std::sync::OnceLock<
+                        ::buffa_descriptor::MessageIndex,
+                    > = ::std::sync::OnceLock::new();
+                    *IDX
+                        .get_or_init(|| {
+                            super::super::super::__buffa::reflect::descriptor_pool()
+                                .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                                .expect(
+                                    "generated view type is registered in the embedded descriptor pool",
+                                )
+                        })
+                }
+            }
+            #[derive(Clone, Debug, Default)]
+            pub struct Alternative14View<'a> {
+                /// Field 1: `value`
+                pub value: ::buffa::MessageFieldView<
+                    super::super::super::__buffa::view::QuantityTypeIdView<'a>,
+                >,
+                pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+            }
+            impl<'a> ::buffa::MessageView<'a> for Alternative14View<'a> {
+                type Owned = super::super::super::structural_value::Alternative14;
+                fn decode_view(
+                    buf: &'a [u8],
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    let __limit = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                    );
+                    let __elem = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                    );
+                    <Self as ::buffa::MessageView>::decode_view_ctx(
+                        buf,
+                        ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                            .with_element_memory(&__elem),
+                    )
+                }
+                fn decode_view_with_ctx(
+                    buf: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+                }
+                #[inline]
+                fn merge_view_field(
+                    &mut self,
+                    tag: ::buffa::encoding::Tag,
+                    cur: &'a [u8],
+                    before_tag: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                    let _ = ctx;
+                    #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    let view = self;
+                    let mut cur = cur;
+                    match tag.field_number() {
+                        1u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::LengthDelimited,
+                            )?;
+                            let __sub_ctx = ctx.descend()?;
+                            let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                            match view.value.as_mut() {
+                                Some(existing) => {
+                                    ::buffa::MessageView::merge_into_view(
+                                        existing,
+                                        sub,
+                                        __sub_ctx,
+                                    )?
+                                }
+                                None => {
+                                    view.value = ::buffa::MessageFieldView::set(
+                                        <super::super::super::__buffa::view::QuantityTypeIdView as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    );
+                                }
+                            }
+                        }
+                        _ => {
+                            ::buffa::encoding::skip_field_depth(
+                                tag,
+                                &mut cur,
+                                ctx.depth(),
+                            )?;
+                            let span_len = before_tag.len() - cur.len();
+                            view.__buffa_unknown_fields
+                                .push_record(before_tag, span_len, ctx)?;
+                        }
+                    }
+                    ::core::result::Result::Ok(cur)
+                }
+                fn to_owned_message(
+                    &self,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative14,
+                    ::buffa::DecodeError,
+                > {
+                    self.to_owned_from_source(None)
+                }
+                #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn to_owned_from_source(
+                    &self,
+                    __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative14,
+                    ::buffa::DecodeError,
+                > {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::alloc::string::ToString as _;
+                    let _ = __buffa_src;
+                    ::core::result::Result::Ok(super::super::super::structural_value::Alternative14 {
+                        value: match self.value.as_option() {
+                            Some(v) => {
+                                ::buffa::MessageField::<
+                                    super::super::super::QuantityTypeId,
+                                    ::buffa::Inline<super::super::super::QuantityTypeId>,
+                                >::some(v.to_owned_from_source(__buffa_src)?)
+                            }
+                            None => ::buffa::MessageField::none(),
+                        },
+                        __buffa_unknown_fields: self
+                            .__buffa_unknown_fields
+                            .to_owned()?
+                            .into(),
+                        ..::core::default::Default::default()
+                    })
+                }
+            }
+            impl<'a> ::buffa::ViewEncode<'a> for Alternative14View<'a> {
+                #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    let mut size = 0u64;
+                    if self.value.is_set() {
+                        let __slot = __cache.reserve();
+                        let inner_size = self.value.compute_size(__cache);
+                        __cache.set(__slot, inner_size);
+                        size
+                            += 1u64
+                                + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                                + inner_size as u64;
+                    }
+                    size += self.__buffa_unknown_fields.encoded_len() as u64;
+                    ::buffa::saturate_size(size)
+                }
+                #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn write_to(
+                    &self,
+                    __cache: &mut ::buffa::SizeCache,
+                    buf: &mut impl ::buffa::EncodeSink,
+                ) {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    if self.value.is_set() {
+                        ::buffa::types::put_len_delimited_header(
+                            1u32,
+                            u64::from(__cache.consume_next()),
+                            buf,
+                        );
+                        self.value.write_to(__cache, buf);
+                    }
+                    self.__buffa_unknown_fields.write_to(buf);
+                }
+            }
+            /// Serializes this view as protobuf JSON.
+            ///
+            /// Implicit-presence fields with default values are omitted, `required`
+            /// fields are always emitted, explicit-presence (`optional`) fields are
+            /// emitted only when set, bytes fields are base64-encoded, and enum
+            /// values are their proto name strings.
+            ///
+            /// This impl uses `serialize_map(None)` because the number of emitted
+            /// fields depends on default-omission rules; serializers that require
+            /// known map lengths (e.g. `bincode`) will return a runtime error.
+            /// Use the owned message type for those formats.
+            impl<'__a> ::serde::Serialize for Alternative14View<'__a> {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    use ::serde::ser::SerializeMap as _;
+                    let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                    {
+                        if let ::core::option::Option::Some(__v) = self.value.as_option()
+                        {
+                            __map.serialize_entry("value", __v)?;
+                        }
+                    }
+                    __map.end()
+                }
+            }
+            impl<'a> ::buffa::MessageName for Alternative14View<'a> {
+                const PACKAGE: &'static str = "pse.engineering.v1";
+                const NAME: &'static str = "StructuralValue.Alternative14";
+                const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative14";
+                const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative14";
+            }
+            ::buffa::impl_default_view_instance!(Alternative14View);
+            ::buffa::impl_view_reborrow!(Alternative14View);
+            /** Self-contained, `'static` owned view of a `Alternative14` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`Alternative14View`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`Alternative14View`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+            #[derive(Clone, Debug)]
+            pub struct Alternative14OwnedView(
+                ::buffa::OwnedView<Alternative14View<'static>>,
+            );
+            impl Alternative14OwnedView {
+                /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+                ///
+                /// The view borrows directly from the buffer's data; the buffer is
+                /// retained inside the returned handle.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+                /// protobuf data.
+                pub fn decode(
+                    bytes: ::buffa::bytes::Bytes,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative14OwnedView(::buffa::OwnedView::decode(bytes)?),
+                    )
+                }
+                /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+                /// max message size).
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+                /// exceeds the configured limits.
+                pub fn decode_with_options(
+                    bytes: ::buffa::bytes::Bytes,
+                    opts: &::buffa::DecodeOptions,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative14OwnedView(
+                            ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                        ),
+                    )
+                }
+                /// Build from an owned message via an encode → decode round-trip.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+                /// message's encoded size exceeds the 2 GiB protobuf limit, or
+                /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+                /// somehow invalid (should not happen for well-formed messages).
+                pub fn from_owned(
+                    msg: &super::super::super::structural_value::Alternative14,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative14OwnedView(::buffa::OwnedView::from_owned(msg)?),
+                    )
+                }
+                /// Borrow the full [`Alternative14View`] with its lifetime tied to `&self`.
+                #[must_use]
+                pub fn view(&self) -> &Alternative14View<'_> {
+                    self.0.reborrow()
+                }
+                /// Convert to the owned message type.
+                ///
+                /// Infallible: this type's constructors wire-decode their
+                /// buffer, and a view produced by wire decoding always
+                /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+                /// whose contract also governs handles converted from a raw
+                /// [`::buffa::OwnedView`].
+                #[must_use]
+                pub fn to_owned_message(
+                    &self,
+                ) -> super::super::super::structural_value::Alternative14 {
+                    self.0.to_owned_message()
+                }
+                /// The underlying bytes buffer.
+                #[must_use]
+                pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                    self.0.bytes()
+                }
+                /// Consume the handle, returning the underlying bytes buffer.
+                #[must_use]
+                pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                    self.0.into_bytes()
+                }
+                /// Field 1: `value`
+                #[must_use]
+                pub fn value(
+                    &self,
+                ) -> &::buffa::MessageFieldView<
+                    super::super::super::__buffa::view::QuantityTypeIdView<'_>,
+                > {
+                    &self.0.reborrow().value
+                }
+            }
+            impl ::core::convert::From<::buffa::OwnedView<Alternative14View<'static>>>
+            for Alternative14OwnedView {
+                fn from(inner: ::buffa::OwnedView<Alternative14View<'static>>) -> Self {
+                    Alternative14OwnedView(inner)
+                }
+            }
+            impl ::core::convert::From<Alternative14OwnedView>
+            for ::buffa::OwnedView<Alternative14View<'static>> {
+                fn from(wrapper: Alternative14OwnedView) -> Self {
+                    wrapper.0
+                }
+            }
+            impl ::core::convert::AsRef<::buffa::OwnedView<Alternative14View<'static>>>
+            for Alternative14OwnedView {
+                fn as_ref(&self) -> &::buffa::OwnedView<Alternative14View<'static>> {
+                    &self.0
+                }
+            }
+            impl ::buffa::HasMessageView
+            for super::super::super::structural_value::Alternative14 {
+                type View<'a> = Alternative14View<'a>;
+                type ViewHandle = Alternative14OwnedView;
+            }
+            impl ::serde::Serialize for Alternative14OwnedView {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    ::serde::Serialize::serialize(&self.0, __s)
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+            for Alternative14View<'a> {
+                fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                        .message(Self::__buffa_reflect_message_index())
+                }
+                fn pool(
+                    &self,
+                ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                }
+                fn get(
+                    &self,
+                    field: &::buffa_descriptor::FieldDescriptor,
+                ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    match field.number() {
+                        1u32 => {
+                            ::buffa_descriptor::reflect::ValueRef::Message(
+                                ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                    &*self.value,
+                                ),
+                            )
+                        }
+                        _ => {
+                            ::core::debug_assert!(
+                                false,
+                                "field number {} is not a member of this view's reflect get()",
+                                field.number(),
+                            );
+                            ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                        }
+                    }
+                }
+                fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                    match field.number() {
+                        1u32 => self.value.is_set(),
+                        _ => false,
+                    }
+                }
+                fn for_each_set(
+                    &self,
+                    f: &mut dyn ::core::ops::FnMut(
+                        &::buffa_descriptor::FieldDescriptor,
+                        ::buffa_descriptor::reflect::ValueRef<'_>,
+                    ),
+                ) {
+                    let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                        self,
+                    );
+                    for fd in md.fields() {
+                        if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                            f(
+                                fd,
+                                ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                            );
+                        }
+                    }
+                }
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                    let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                    let options = ::buffa::DecodeOptions::new()
+                        .with_element_memory_limit(
+                            bytes
+                                .len()
+                                .saturating_mul(128)
+                                .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                        )
+                        .with_unknown_field_limit(
+                            bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                        );
+                    ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                            ::buffa::alloc::sync::Arc::clone(
+                                super::super::super::__buffa::reflect::descriptor_pool(),
+                            ),
+                            Self::__buffa_reflect_message_index(),
+                            &bytes,
+                            &options,
+                        )
+                        .expect(
+                            "view re-encodes to bytes decodable against its own descriptor",
+                        )
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectElement
+            for Alternative14View<'a> {
+                fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                    )
+                }
+            }
+            impl<'a> Alternative14View<'a> {
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                /// Memoized `MessageIndex` for this view's message type, resolved
+                /// once against the package's embedded descriptor pool. An inherent
+                /// associated fn (not a free fn) so sibling views in the same module
+                /// do not collide.
+                #[doc(hidden)]
+                fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                    static IDX: ::std::sync::OnceLock<
+                        ::buffa_descriptor::MessageIndex,
+                    > = ::std::sync::OnceLock::new();
+                    *IDX
+                        .get_or_init(|| {
+                            super::super::super::__buffa::reflect::descriptor_pool()
+                                .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                                .expect(
+                                    "generated view type is registered in the embedded descriptor pool",
+                                )
+                        })
+                }
+            }
+            #[derive(Clone, Debug, Default)]
+            pub struct Alternative15View<'a> {
+                /// Field 1: `value`
+                pub value: ::buffa::MessageFieldView<
+                    super::super::super::__buffa::view::ReferenceStateIdView<'a>,
+                >,
+                pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+            }
+            impl<'a> ::buffa::MessageView<'a> for Alternative15View<'a> {
+                type Owned = super::super::super::structural_value::Alternative15;
+                fn decode_view(
+                    buf: &'a [u8],
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    let __limit = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                    );
+                    let __elem = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                    );
+                    <Self as ::buffa::MessageView>::decode_view_ctx(
+                        buf,
+                        ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                            .with_element_memory(&__elem),
+                    )
+                }
+                fn decode_view_with_ctx(
+                    buf: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+                }
+                #[inline]
+                fn merge_view_field(
+                    &mut self,
+                    tag: ::buffa::encoding::Tag,
+                    cur: &'a [u8],
+                    before_tag: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                    let _ = ctx;
+                    #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    let view = self;
+                    let mut cur = cur;
+                    match tag.field_number() {
+                        1u32 => {
+                            ::buffa::encoding::check_wire_type(
+                                tag,
+                                ::buffa::encoding::WireType::LengthDelimited,
+                            )?;
+                            let __sub_ctx = ctx.descend()?;
+                            let sub = ::buffa::types::borrow_bytes(&mut cur)?;
+                            match view.value.as_mut() {
+                                Some(existing) => {
+                                    ::buffa::MessageView::merge_into_view(
+                                        existing,
+                                        sub,
+                                        __sub_ctx,
+                                    )?
+                                }
+                                None => {
+                                    view.value = ::buffa::MessageFieldView::set(
+                                        <super::super::super::__buffa::view::ReferenceStateIdView as ::buffa::MessageView>::decode_view_ctx(
+                                            sub,
+                                            __sub_ctx,
+                                        )?,
+                                    );
+                                }
+                            }
+                        }
+                        _ => {
+                            ::buffa::encoding::skip_field_depth(
+                                tag,
+                                &mut cur,
+                                ctx.depth(),
+                            )?;
+                            let span_len = before_tag.len() - cur.len();
+                            view.__buffa_unknown_fields
+                                .push_record(before_tag, span_len, ctx)?;
+                        }
+                    }
+                    ::core::result::Result::Ok(cur)
+                }
+                fn to_owned_message(
+                    &self,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative15,
+                    ::buffa::DecodeError,
+                > {
+                    self.to_owned_from_source(None)
+                }
+                #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn to_owned_from_source(
+                    &self,
+                    __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative15,
+                    ::buffa::DecodeError,
+                > {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::alloc::string::ToString as _;
+                    let _ = __buffa_src;
+                    ::core::result::Result::Ok(super::super::super::structural_value::Alternative15 {
+                        value: match self.value.as_option() {
+                            Some(v) => {
+                                ::buffa::MessageField::<
+                                    super::super::super::ReferenceStateId,
+                                    ::buffa::Inline<super::super::super::ReferenceStateId>,
+                                >::some(v.to_owned_from_source(__buffa_src)?)
+                            }
+                            None => ::buffa::MessageField::none(),
+                        },
+                        __buffa_unknown_fields: self
+                            .__buffa_unknown_fields
+                            .to_owned()?
+                            .into(),
+                        ..::core::default::Default::default()
+                    })
+                }
+            }
+            impl<'a> ::buffa::ViewEncode<'a> for Alternative15View<'a> {
+                #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn compute_size(&self, __cache: &mut ::buffa::SizeCache) -> u32 {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    let mut size = 0u64;
+                    if self.value.is_set() {
+                        let __slot = __cache.reserve();
+                        let inner_size = self.value.compute_size(__cache);
+                        __cache.set(__slot, inner_size);
+                        size
+                            += 1u64
+                                + ::buffa::encoding::varint_len(inner_size as u64) as u64
+                                + inner_size as u64;
+                    }
+                    size += self.__buffa_unknown_fields.encoded_len() as u64;
+                    ::buffa::saturate_size(size)
+                }
+                #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn write_to(
+                    &self,
+                    __cache: &mut ::buffa::SizeCache,
+                    buf: &mut impl ::buffa::EncodeSink,
+                ) {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    if self.value.is_set() {
+                        ::buffa::types::put_len_delimited_header(
+                            1u32,
+                            u64::from(__cache.consume_next()),
+                            buf,
+                        );
+                        self.value.write_to(__cache, buf);
+                    }
+                    self.__buffa_unknown_fields.write_to(buf);
+                }
+            }
+            /// Serializes this view as protobuf JSON.
+            ///
+            /// Implicit-presence fields with default values are omitted, `required`
+            /// fields are always emitted, explicit-presence (`optional`) fields are
+            /// emitted only when set, bytes fields are base64-encoded, and enum
+            /// values are their proto name strings.
+            ///
+            /// This impl uses `serialize_map(None)` because the number of emitted
+            /// fields depends on default-omission rules; serializers that require
+            /// known map lengths (e.g. `bincode`) will return a runtime error.
+            /// Use the owned message type for those formats.
+            impl<'__a> ::serde::Serialize for Alternative15View<'__a> {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    use ::serde::ser::SerializeMap as _;
+                    let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                    {
+                        if let ::core::option::Option::Some(__v) = self.value.as_option()
+                        {
+                            __map.serialize_entry("value", __v)?;
+                        }
+                    }
+                    __map.end()
+                }
+            }
+            impl<'a> ::buffa::MessageName for Alternative15View<'a> {
+                const PACKAGE: &'static str = "pse.engineering.v1";
+                const NAME: &'static str = "StructuralValue.Alternative15";
+                const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative15";
+                const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative15";
+            }
+            ::buffa::impl_default_view_instance!(Alternative15View);
+            ::buffa::impl_view_reborrow!(Alternative15View);
+            /** Self-contained, `'static` owned view of a `Alternative15` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`Alternative15View`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`Alternative15View`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+            #[derive(Clone, Debug)]
+            pub struct Alternative15OwnedView(
+                ::buffa::OwnedView<Alternative15View<'static>>,
+            );
+            impl Alternative15OwnedView {
+                /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+                ///
+                /// The view borrows directly from the buffer's data; the buffer is
+                /// retained inside the returned handle.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+                /// protobuf data.
+                pub fn decode(
+                    bytes: ::buffa::bytes::Bytes,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative15OwnedView(::buffa::OwnedView::decode(bytes)?),
+                    )
+                }
+                /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+                /// max message size).
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+                /// exceeds the configured limits.
+                pub fn decode_with_options(
+                    bytes: ::buffa::bytes::Bytes,
+                    opts: &::buffa::DecodeOptions,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative15OwnedView(
+                            ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                        ),
+                    )
+                }
+                /// Build from an owned message via an encode → decode round-trip.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+                /// message's encoded size exceeds the 2 GiB protobuf limit, or
+                /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+                /// somehow invalid (should not happen for well-formed messages).
+                pub fn from_owned(
+                    msg: &super::super::super::structural_value::Alternative15,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative15OwnedView(::buffa::OwnedView::from_owned(msg)?),
+                    )
+                }
+                /// Borrow the full [`Alternative15View`] with its lifetime tied to `&self`.
+                #[must_use]
+                pub fn view(&self) -> &Alternative15View<'_> {
+                    self.0.reborrow()
+                }
+                /// Convert to the owned message type.
+                ///
+                /// Infallible: this type's constructors wire-decode their
+                /// buffer, and a view produced by wire decoding always
+                /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+                /// whose contract also governs handles converted from a raw
+                /// [`::buffa::OwnedView`].
+                #[must_use]
+                pub fn to_owned_message(
+                    &self,
+                ) -> super::super::super::structural_value::Alternative15 {
+                    self.0.to_owned_message()
+                }
+                /// The underlying bytes buffer.
+                #[must_use]
+                pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                    self.0.bytes()
+                }
+                /// Consume the handle, returning the underlying bytes buffer.
+                #[must_use]
+                pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                    self.0.into_bytes()
+                }
+                /// Field 1: `value`
+                #[must_use]
+                pub fn value(
+                    &self,
+                ) -> &::buffa::MessageFieldView<
+                    super::super::super::__buffa::view::ReferenceStateIdView<'_>,
+                > {
+                    &self.0.reborrow().value
+                }
+            }
+            impl ::core::convert::From<::buffa::OwnedView<Alternative15View<'static>>>
+            for Alternative15OwnedView {
+                fn from(inner: ::buffa::OwnedView<Alternative15View<'static>>) -> Self {
+                    Alternative15OwnedView(inner)
+                }
+            }
+            impl ::core::convert::From<Alternative15OwnedView>
+            for ::buffa::OwnedView<Alternative15View<'static>> {
+                fn from(wrapper: Alternative15OwnedView) -> Self {
+                    wrapper.0
+                }
+            }
+            impl ::core::convert::AsRef<::buffa::OwnedView<Alternative15View<'static>>>
+            for Alternative15OwnedView {
+                fn as_ref(&self) -> &::buffa::OwnedView<Alternative15View<'static>> {
+                    &self.0
+                }
+            }
+            impl ::buffa::HasMessageView
+            for super::super::super::structural_value::Alternative15 {
+                type View<'a> = Alternative15View<'a>;
+                type ViewHandle = Alternative15OwnedView;
+            }
+            impl ::serde::Serialize for Alternative15OwnedView {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    ::serde::Serialize::serialize(&self.0, __s)
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+            for Alternative15View<'a> {
+                fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                        .message(Self::__buffa_reflect_message_index())
+                }
+                fn pool(
+                    &self,
+                ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                }
+                fn get(
+                    &self,
+                    field: &::buffa_descriptor::FieldDescriptor,
+                ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    match field.number() {
+                        1u32 => {
+                            ::buffa_descriptor::reflect::ValueRef::Message(
+                                ::buffa_descriptor::reflect::ReflectCow::Borrowed(
+                                    &*self.value,
+                                ),
+                            )
+                        }
+                        _ => {
+                            ::core::debug_assert!(
+                                false,
+                                "field number {} is not a member of this view's reflect get()",
+                                field.number(),
+                            );
+                            ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                        }
+                    }
+                }
+                fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                    match field.number() {
+                        1u32 => self.value.is_set(),
+                        _ => false,
+                    }
+                }
+                fn for_each_set(
+                    &self,
+                    f: &mut dyn ::core::ops::FnMut(
+                        &::buffa_descriptor::FieldDescriptor,
+                        ::buffa_descriptor::reflect::ValueRef<'_>,
+                    ),
+                ) {
+                    let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                        self,
+                    );
+                    for fd in md.fields() {
+                        if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                            f(
+                                fd,
+                                ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                            );
+                        }
+                    }
+                }
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                    let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                    let options = ::buffa::DecodeOptions::new()
+                        .with_element_memory_limit(
+                            bytes
+                                .len()
+                                .saturating_mul(128)
+                                .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                        )
+                        .with_unknown_field_limit(
+                            bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                        );
+                    ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                            ::buffa::alloc::sync::Arc::clone(
+                                super::super::super::__buffa::reflect::descriptor_pool(),
+                            ),
+                            Self::__buffa_reflect_message_index(),
+                            &bytes,
+                            &options,
+                        )
+                        .expect(
+                            "view re-encodes to bytes decodable against its own descriptor",
+                        )
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectElement
+            for Alternative15View<'a> {
+                fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                    )
+                }
+            }
+            impl<'a> Alternative15View<'a> {
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                /// Memoized `MessageIndex` for this view's message type, resolved
+                /// once against the package's embedded descriptor pool. An inherent
+                /// associated fn (not a free fn) so sibling views in the same module
+                /// do not collide.
+                #[doc(hidden)]
+                fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                    static IDX: ::std::sync::OnceLock<
+                        ::buffa_descriptor::MessageIndex,
+                    > = ::std::sync::OnceLock::new();
+                    *IDX
+                        .get_or_init(|| {
+                            super::super::super::__buffa::reflect::descriptor_pool()
+                                .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                                .expect(
+                                    "generated view type is registered in the embedded descriptor pool",
+                                )
+                        })
+                }
+            }
+            #[derive(Clone, Debug, Default)]
+            pub struct Alternative16View<'a> {
+                pub __buffa_unknown_fields: ::buffa::UnknownFieldsView<'a>,
+            }
+            impl<'a> ::buffa::MessageView<'a> for Alternative16View<'a> {
+                type Owned = super::super::super::structural_value::Alternative16;
+                fn decode_view(
+                    buf: &'a [u8],
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    let __limit = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT,
+                    );
+                    let __elem = ::core::cell::Cell::new(
+                        ::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT,
+                    );
+                    <Self as ::buffa::MessageView>::decode_view_ctx(
+                        buf,
+                        ::buffa::DecodeContext::new(::buffa::RECURSION_LIMIT, &__limit)
+                            .with_element_memory(&__elem),
+                    )
+                }
+                fn decode_view_with_ctx(
+                    buf: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    <Self as ::buffa::MessageView>::decode_view_ctx(buf, ctx)
+                }
+                #[inline]
+                fn merge_view_field(
+                    &mut self,
+                    tag: ::buffa::encoding::Tag,
+                    cur: &'a [u8],
+                    before_tag: &'a [u8],
+                    ctx: ::buffa::DecodeContext<'_>,
+                ) -> ::core::result::Result<&'a [u8], ::buffa::DecodeError> {
+                    let _ = ctx;
+                    #[allow(unused_variables, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    let view = self;
+                    let mut cur = cur;
+                    match tag.field_number() {
+                        _ => {
+                            ::buffa::encoding::skip_field_depth(
+                                tag,
+                                &mut cur,
+                                ctx.depth(),
+                            )?;
+                            let span_len = before_tag.len() - cur.len();
+                            view.__buffa_unknown_fields
+                                .push_record(before_tag, span_len, ctx)?;
+                        }
+                    }
+                    ::core::result::Result::Ok(cur)
+                }
+                fn to_owned_message(
+                    &self,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative16,
+                    ::buffa::DecodeError,
+                > {
+                    self.to_owned_from_source(None)
+                }
+                #[allow(clippy::useless_conversion, clippy::needless_update, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn to_owned_from_source(
+                    &self,
+                    __buffa_src: ::core::option::Option<&::buffa::bytes::Bytes>,
+                ) -> ::core::result::Result<
+                    super::super::super::structural_value::Alternative16,
+                    ::buffa::DecodeError,
+                > {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::alloc::string::ToString as _;
+                    let _ = __buffa_src;
+                    ::core::result::Result::Ok(super::super::super::structural_value::Alternative16 {
+                        __buffa_unknown_fields: self
+                            .__buffa_unknown_fields
+                            .to_owned()?
+                            .into(),
+                        ..::core::default::Default::default()
+                    })
+                }
+            }
+            impl<'a> ::buffa::ViewEncode<'a> for Alternative16View<'a> {
+                #[allow(clippy::needless_borrow, clippy::let_and_return, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn compute_size(&self, _cache: &mut ::buffa::SizeCache) -> u32 {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    let mut size = 0u64;
+                    size += self.__buffa_unknown_fields.encoded_len() as u64;
+                    ::buffa::saturate_size(size)
+                }
+                #[allow(clippy::needless_borrow, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                fn write_to(
+                    &self,
+                    _cache: &mut ::buffa::SizeCache,
+                    buf: &mut impl ::buffa::EncodeSink,
+                ) {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    self.__buffa_unknown_fields.write_to(buf);
+                }
+            }
+            /// Serializes this view as protobuf JSON.
+            ///
+            /// Implicit-presence fields with default values are omitted, `required`
+            /// fields are always emitted, explicit-presence (`optional`) fields are
+            /// emitted only when set, bytes fields are base64-encoded, and enum
+            /// values are their proto name strings.
+            ///
+            /// This impl uses `serialize_map(None)` because the number of emitted
+            /// fields depends on default-omission rules; serializers that require
+            /// known map lengths (e.g. `bincode`) will return a runtime error.
+            /// Use the owned message type for those formats.
+            impl<'__a> ::serde::Serialize for Alternative16View<'__a> {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    use ::serde::ser::SerializeMap as _;
+                    let mut __map = __s.serialize_map(::core::option::Option::None)?;
+                    __map.end()
+                }
+            }
+            impl<'a> ::buffa::MessageName for Alternative16View<'a> {
+                const PACKAGE: &'static str = "pse.engineering.v1";
+                const NAME: &'static str = "StructuralValue.Alternative16";
+                const FULL_NAME: &'static str = "pse.engineering.v1.StructuralValue.Alternative16";
+                const TYPE_URL: &'static str = "type.googleapis.com/pse.engineering.v1.StructuralValue.Alternative16";
+            }
+            ::buffa::impl_default_view_instance!(Alternative16View);
+            ::buffa::impl_view_reborrow!(Alternative16View);
+            /** Self-contained, `'static` owned view of a `Alternative16` message.
+
+ Wraps [`::buffa::OwnedView`]`<`[`Alternative16View`]`<'static>>`: the decoded view and the [`::buffa::bytes::Bytes`] buffer it borrows from travel together, so the handle is `'static` and `Send + Sync` — suitable for async handlers, spawned tasks, and anywhere a `'static` bound is required.
+
+ Field accessors return borrows tied to `&self`. Use [`Self::view`] to get the full [`Alternative16View`] when you need struct patterns, iteration helpers, or to pass the view to lifetime-parameterised code.*/
+            #[derive(Clone, Debug)]
+            pub struct Alternative16OwnedView(
+                ::buffa::OwnedView<Alternative16View<'static>>,
+            );
+            impl Alternative16OwnedView {
+                /// Decode an owned view from a [`::buffa::bytes::Bytes`] buffer.
+                ///
+                /// The view borrows directly from the buffer's data; the buffer is
+                /// retained inside the returned handle.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer contains invalid
+                /// protobuf data.
+                pub fn decode(
+                    bytes: ::buffa::bytes::Bytes,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative16OwnedView(::buffa::OwnedView::decode(bytes)?),
+                    )
+                }
+                /// Decode with custom [`::buffa::DecodeOptions`] (recursion limit,
+                /// max message size).
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError`] if the buffer is invalid or
+                /// exceeds the configured limits.
+                pub fn decode_with_options(
+                    bytes: ::buffa::bytes::Bytes,
+                    opts: &::buffa::DecodeOptions,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative16OwnedView(
+                            ::buffa::OwnedView::decode_with_options(bytes, opts)?,
+                        ),
+                    )
+                }
+                /// Build from an owned message via an encode → decode round-trip.
+                ///
+                /// # Errors
+                ///
+                /// Returns [`::buffa::DecodeError::MessageTooLarge`] if the
+                /// message's encoded size exceeds the 2 GiB protobuf limit, or
+                /// another [`::buffa::DecodeError`] if the re-encoded bytes are
+                /// somehow invalid (should not happen for well-formed messages).
+                pub fn from_owned(
+                    msg: &super::super::super::structural_value::Alternative16,
+                ) -> ::core::result::Result<Self, ::buffa::DecodeError> {
+                    ::core::result::Result::Ok(
+                        Alternative16OwnedView(::buffa::OwnedView::from_owned(msg)?),
+                    )
+                }
+                /// Borrow the full [`Alternative16View`] with its lifetime tied to `&self`.
+                #[must_use]
+                pub fn view(&self) -> &Alternative16View<'_> {
+                    self.0.reborrow()
+                }
+                /// Convert to the owned message type.
+                ///
+                /// Infallible: this type's constructors wire-decode their
+                /// buffer, and a view produced by wire decoding always
+                /// converts. Delegates to [`::buffa::OwnedView::to_owned_message`],
+                /// whose contract also governs handles converted from a raw
+                /// [`::buffa::OwnedView`].
+                #[must_use]
+                pub fn to_owned_message(
+                    &self,
+                ) -> super::super::super::structural_value::Alternative16 {
+                    self.0.to_owned_message()
+                }
+                /// The underlying bytes buffer.
+                #[must_use]
+                pub fn bytes(&self) -> &::buffa::bytes::Bytes {
+                    self.0.bytes()
+                }
+                /// Consume the handle, returning the underlying bytes buffer.
+                #[must_use]
+                pub fn into_bytes(self) -> ::buffa::bytes::Bytes {
+                    self.0.into_bytes()
+                }
+            }
+            impl ::core::convert::From<::buffa::OwnedView<Alternative16View<'static>>>
+            for Alternative16OwnedView {
+                fn from(inner: ::buffa::OwnedView<Alternative16View<'static>>) -> Self {
+                    Alternative16OwnedView(inner)
+                }
+            }
+            impl ::core::convert::From<Alternative16OwnedView>
+            for ::buffa::OwnedView<Alternative16View<'static>> {
+                fn from(wrapper: Alternative16OwnedView) -> Self {
+                    wrapper.0
+                }
+            }
+            impl ::core::convert::AsRef<::buffa::OwnedView<Alternative16View<'static>>>
+            for Alternative16OwnedView {
+                fn as_ref(&self) -> &::buffa::OwnedView<Alternative16View<'static>> {
+                    &self.0
+                }
+            }
+            impl ::buffa::HasMessageView
+            for super::super::super::structural_value::Alternative16 {
+                type View<'a> = Alternative16View<'a>;
+                type ViewHandle = Alternative16OwnedView;
+            }
+            impl ::serde::Serialize for Alternative16OwnedView {
+                fn serialize<__S: ::serde::Serializer>(
+                    &self,
+                    __s: __S,
+                ) -> ::core::result::Result<__S::Ok, __S::Error> {
+                    ::serde::Serialize::serialize(&self.0, __s)
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectMessage
+            for Alternative16View<'a> {
+                fn message_descriptor(&self) -> &::buffa_descriptor::MessageDescriptor {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                        .message(Self::__buffa_reflect_message_index())
+                }
+                fn pool(
+                    &self,
+                ) -> &::buffa::alloc::sync::Arc<::buffa_descriptor::DescriptorPool> {
+                    super::super::super::__buffa::reflect::descriptor_pool()
+                }
+                fn get(
+                    &self,
+                    field: &::buffa_descriptor::FieldDescriptor,
+                ) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                    use ::buffa::Enumeration as _;
+                    match field.number() {
+                        _ => {
+                            ::core::debug_assert!(
+                                false,
+                                "field number {} is not a member of this view's reflect get()",
+                                field.number(),
+                            );
+                            ::buffa_descriptor::reflect::ValueRef::Bool(false)
+                        }
+                    }
+                }
+                fn has(&self, field: &::buffa_descriptor::FieldDescriptor) -> bool {
+                    match field.number() {
+                        _ => false,
+                    }
+                }
+                fn for_each_set(
+                    &self,
+                    f: &mut dyn ::core::ops::FnMut(
+                        &::buffa_descriptor::FieldDescriptor,
+                        ::buffa_descriptor::reflect::ValueRef<'_>,
+                    ),
+                ) {
+                    let md = ::buffa_descriptor::reflect::ReflectMessage::message_descriptor(
+                        self,
+                    );
+                    for fd in md.fields() {
+                        if ::buffa_descriptor::reflect::ReflectMessage::has(self, fd) {
+                            f(
+                                fd,
+                                ::buffa_descriptor::reflect::ReflectMessage::get(self, fd),
+                            );
+                        }
+                    }
+                }
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                fn to_dynamic(&self) -> ::buffa_descriptor::reflect::DynamicMessage {
+                    let bytes = ::buffa::ViewEncode::encode_to_vec(self);
+                    let options = ::buffa::DecodeOptions::new()
+                        .with_element_memory_limit(
+                            bytes
+                                .len()
+                                .saturating_mul(128)
+                                .max(::buffa::DEFAULT_ELEMENT_MEMORY_LIMIT),
+                        )
+                        .with_unknown_field_limit(
+                            bytes.len().max(::buffa::DEFAULT_UNKNOWN_FIELD_LIMIT),
+                        );
+                    ::buffa_descriptor::reflect::DynamicMessage::decode_with_options(
+                            ::buffa::alloc::sync::Arc::clone(
+                                super::super::super::__buffa::reflect::descriptor_pool(),
+                            ),
+                            Self::__buffa_reflect_message_index(),
+                            &bytes,
+                            &options,
+                        )
+                        .expect(
+                            "view re-encodes to bytes decodable against its own descriptor",
+                        )
+                }
+            }
+            impl<'a> ::buffa_descriptor::reflect::ReflectElement
+            for Alternative16View<'a> {
+                fn as_value_ref(&self) -> ::buffa_descriptor::reflect::ValueRef<'_> {
+                    ::buffa_descriptor::reflect::ValueRef::Message(
+                        ::buffa_descriptor::reflect::ReflectCow::Borrowed(self),
+                    )
+                }
+            }
+            impl<'a> Alternative16View<'a> {
+                #[allow(clippy::expect_used, reason = "Pinned generator asserts only its immutable embedded descriptor/type registration and self-encoding invariants; acquired input decoding remains fallible")]
+                /// Memoized `MessageIndex` for this view's message type, resolved
+                /// once against the package's embedded descriptor pool. An inherent
+                /// associated fn (not a free fn) so sibling views in the same module
+                /// do not collide.
+                #[doc(hidden)]
+                fn __buffa_reflect_message_index() -> ::buffa_descriptor::MessageIndex {
+                    static IDX: ::std::sync::OnceLock<
+                        ::buffa_descriptor::MessageIndex,
+                    > = ::std::sync::OnceLock::new();
+                    *IDX
+                        .get_or_init(|| {
+                            super::super::super::__buffa::reflect::descriptor_pool()
+                                .message_index(<Self as ::buffa::MessageName>::FULL_NAME)
+                                .expect(
+                                    "generated view type is registered in the embedded descriptor pool",
+                                )
+                        })
+                }
+            }
+        }
+        #[derive(Clone, Debug, Default)]
         pub struct UnitIdView<'a> {
             /// Field 1: `id`
             pub id: ::core::option::Option<&'a [u8]>,
@@ -18689,6 +35099,125 @@ pub mod __buffa {
                     ),
                 }
             }
+            pub mod structural_value {
+                #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+                use super::*;
+                #[derive(Clone, Debug)]
+                pub enum Kind<'a> {
+                    Boolean(
+                        ::buffa::alloc::boxed::Box<
+                            super::super::super::super::__buffa::view::structural_value::Alternative1View<
+                                'a,
+                            >,
+                        >,
+                    ),
+                    Integer(
+                        ::buffa::alloc::boxed::Box<
+                            super::super::super::super::__buffa::view::structural_value::Alternative2View<
+                                'a,
+                            >,
+                        >,
+                    ),
+                    Number(
+                        ::buffa::alloc::boxed::Box<
+                            super::super::super::super::__buffa::view::structural_value::Alternative3View<
+                                'a,
+                            >,
+                        >,
+                    ),
+                    Coordinate(
+                        ::buffa::alloc::boxed::Box<
+                            super::super::super::super::__buffa::view::structural_value::Alternative4View<
+                                'a,
+                            >,
+                        >,
+                    ),
+                    Text(
+                        ::buffa::alloc::boxed::Box<
+                            super::super::super::super::__buffa::view::structural_value::Alternative5View<
+                                'a,
+                            >,
+                        >,
+                    ),
+                    Entity(
+                        ::buffa::alloc::boxed::Box<
+                            super::super::super::super::__buffa::view::structural_value::Alternative6View<
+                                'a,
+                            >,
+                        >,
+                    ),
+                    Enum(
+                        ::buffa::alloc::boxed::Box<
+                            super::super::super::super::__buffa::view::structural_value::Alternative7View<
+                                'a,
+                            >,
+                        >,
+                    ),
+                    Identifier(
+                        ::buffa::alloc::boxed::Box<
+                            super::super::super::super::__buffa::view::structural_value::Alternative8View<
+                                'a,
+                            >,
+                        >,
+                    ),
+                    Definition(
+                        ::buffa::alloc::boxed::Box<
+                            super::super::super::super::__buffa::view::structural_value::Alternative9View<
+                                'a,
+                            >,
+                        >,
+                    ),
+                    Function(
+                        ::buffa::alloc::boxed::Box<
+                            super::super::super::super::__buffa::view::structural_value::Alternative10View<
+                                'a,
+                            >,
+                        >,
+                    ),
+                    Row(
+                        ::buffa::alloc::boxed::Box<
+                            super::super::super::super::__buffa::view::structural_value::Alternative11View<
+                                'a,
+                            >,
+                        >,
+                    ),
+                    Set(
+                        ::buffa::alloc::boxed::Box<
+                            super::super::super::super::__buffa::view::structural_value::Alternative12View<
+                                'a,
+                            >,
+                        >,
+                    ),
+                    Tuple(
+                        ::buffa::alloc::boxed::Box<
+                            super::super::super::super::__buffa::view::structural_value::Alternative13View<
+                                'a,
+                            >,
+                        >,
+                    ),
+                    QuantityType(
+                        ::buffa::alloc::boxed::Box<
+                            super::super::super::super::__buffa::view::structural_value::Alternative14View<
+                                'a,
+                            >,
+                        >,
+                    ),
+                    ReferenceState(
+                        ::buffa::alloc::boxed::Box<
+                            super::super::super::super::__buffa::view::structural_value::Alternative15View<
+                                'a,
+                            >,
+                        >,
+                    ),
+                    Missing(
+                        ::buffa::alloc::boxed::Box<
+                            super::super::super::super::__buffa::view::structural_value::Alternative16View<
+                                'a,
+                            >,
+                        >,
+                    ),
+                }
+            }
         }
     }
     pub mod oneof {
@@ -18771,6 +35300,358 @@ pub mod __buffa {
                 }
             }
         }
+        pub mod structural_value {
+            #[allow(unused_imports, reason = "Pinned protobuf generator emits portable schema spelling and implementation scaffolding")]
+            use super::*;
+            #[derive(Clone, PartialEq, Debug)]
+            pub enum Kind {
+                Boolean(
+                    ::buffa::alloc::boxed::Box<
+                        super::super::super::structural_value::Alternative1,
+                    >,
+                ),
+                Integer(
+                    ::buffa::alloc::boxed::Box<
+                        super::super::super::structural_value::Alternative2,
+                    >,
+                ),
+                Number(
+                    ::buffa::alloc::boxed::Box<
+                        super::super::super::structural_value::Alternative3,
+                    >,
+                ),
+                Coordinate(
+                    ::buffa::alloc::boxed::Box<
+                        super::super::super::structural_value::Alternative4,
+                    >,
+                ),
+                Text(
+                    ::buffa::alloc::boxed::Box<
+                        super::super::super::structural_value::Alternative5,
+                    >,
+                ),
+                Entity(
+                    ::buffa::alloc::boxed::Box<
+                        super::super::super::structural_value::Alternative6,
+                    >,
+                ),
+                Enum(
+                    ::buffa::alloc::boxed::Box<
+                        super::super::super::structural_value::Alternative7,
+                    >,
+                ),
+                Identifier(
+                    ::buffa::alloc::boxed::Box<
+                        super::super::super::structural_value::Alternative8,
+                    >,
+                ),
+                Definition(
+                    ::buffa::alloc::boxed::Box<
+                        super::super::super::structural_value::Alternative9,
+                    >,
+                ),
+                Function(
+                    ::buffa::alloc::boxed::Box<
+                        super::super::super::structural_value::Alternative10,
+                    >,
+                ),
+                Row(
+                    ::buffa::alloc::boxed::Box<
+                        super::super::super::structural_value::Alternative11,
+                    >,
+                ),
+                Set(
+                    ::buffa::alloc::boxed::Box<
+                        super::super::super::structural_value::Alternative12,
+                    >,
+                ),
+                Tuple(
+                    ::buffa::alloc::boxed::Box<
+                        super::super::super::structural_value::Alternative13,
+                    >,
+                ),
+                QuantityType(
+                    ::buffa::alloc::boxed::Box<
+                        super::super::super::structural_value::Alternative14,
+                    >,
+                ),
+                ReferenceState(
+                    ::buffa::alloc::boxed::Box<
+                        super::super::super::structural_value::Alternative15,
+                    >,
+                ),
+                Missing(
+                    ::buffa::alloc::boxed::Box<
+                        super::super::super::structural_value::Alternative16,
+                    >,
+                ),
+            }
+            impl ::buffa::Oneof for Kind {}
+            impl From<super::super::super::structural_value::Alternative1> for Kind {
+                fn from(v: super::super::super::structural_value::Alternative1) -> Self {
+                    Self::Boolean(::buffa::alloc::boxed::Box::new(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative1>
+            for ::core::option::Option<Kind> {
+                fn from(v: super::super::super::structural_value::Alternative1) -> Self {
+                    Self::Some(Kind::from(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative2> for Kind {
+                fn from(v: super::super::super::structural_value::Alternative2) -> Self {
+                    Self::Integer(::buffa::alloc::boxed::Box::new(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative2>
+            for ::core::option::Option<Kind> {
+                fn from(v: super::super::super::structural_value::Alternative2) -> Self {
+                    Self::Some(Kind::from(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative3> for Kind {
+                fn from(v: super::super::super::structural_value::Alternative3) -> Self {
+                    Self::Number(::buffa::alloc::boxed::Box::new(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative3>
+            for ::core::option::Option<Kind> {
+                fn from(v: super::super::super::structural_value::Alternative3) -> Self {
+                    Self::Some(Kind::from(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative4> for Kind {
+                fn from(v: super::super::super::structural_value::Alternative4) -> Self {
+                    Self::Coordinate(::buffa::alloc::boxed::Box::new(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative4>
+            for ::core::option::Option<Kind> {
+                fn from(v: super::super::super::structural_value::Alternative4) -> Self {
+                    Self::Some(Kind::from(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative5> for Kind {
+                fn from(v: super::super::super::structural_value::Alternative5) -> Self {
+                    Self::Text(::buffa::alloc::boxed::Box::new(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative5>
+            for ::core::option::Option<Kind> {
+                fn from(v: super::super::super::structural_value::Alternative5) -> Self {
+                    Self::Some(Kind::from(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative6> for Kind {
+                fn from(v: super::super::super::structural_value::Alternative6) -> Self {
+                    Self::Entity(::buffa::alloc::boxed::Box::new(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative6>
+            for ::core::option::Option<Kind> {
+                fn from(v: super::super::super::structural_value::Alternative6) -> Self {
+                    Self::Some(Kind::from(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative7> for Kind {
+                fn from(v: super::super::super::structural_value::Alternative7) -> Self {
+                    Self::Enum(::buffa::alloc::boxed::Box::new(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative7>
+            for ::core::option::Option<Kind> {
+                fn from(v: super::super::super::structural_value::Alternative7) -> Self {
+                    Self::Some(Kind::from(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative8> for Kind {
+                fn from(v: super::super::super::structural_value::Alternative8) -> Self {
+                    Self::Identifier(::buffa::alloc::boxed::Box::new(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative8>
+            for ::core::option::Option<Kind> {
+                fn from(v: super::super::super::structural_value::Alternative8) -> Self {
+                    Self::Some(Kind::from(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative9> for Kind {
+                fn from(v: super::super::super::structural_value::Alternative9) -> Self {
+                    Self::Definition(::buffa::alloc::boxed::Box::new(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative9>
+            for ::core::option::Option<Kind> {
+                fn from(v: super::super::super::structural_value::Alternative9) -> Self {
+                    Self::Some(Kind::from(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative10> for Kind {
+                fn from(
+                    v: super::super::super::structural_value::Alternative10,
+                ) -> Self {
+                    Self::Function(::buffa::alloc::boxed::Box::new(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative10>
+            for ::core::option::Option<Kind> {
+                fn from(
+                    v: super::super::super::structural_value::Alternative10,
+                ) -> Self {
+                    Self::Some(Kind::from(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative11> for Kind {
+                fn from(
+                    v: super::super::super::structural_value::Alternative11,
+                ) -> Self {
+                    Self::Row(::buffa::alloc::boxed::Box::new(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative11>
+            for ::core::option::Option<Kind> {
+                fn from(
+                    v: super::super::super::structural_value::Alternative11,
+                ) -> Self {
+                    Self::Some(Kind::from(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative12> for Kind {
+                fn from(
+                    v: super::super::super::structural_value::Alternative12,
+                ) -> Self {
+                    Self::Set(::buffa::alloc::boxed::Box::new(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative12>
+            for ::core::option::Option<Kind> {
+                fn from(
+                    v: super::super::super::structural_value::Alternative12,
+                ) -> Self {
+                    Self::Some(Kind::from(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative13> for Kind {
+                fn from(
+                    v: super::super::super::structural_value::Alternative13,
+                ) -> Self {
+                    Self::Tuple(::buffa::alloc::boxed::Box::new(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative13>
+            for ::core::option::Option<Kind> {
+                fn from(
+                    v: super::super::super::structural_value::Alternative13,
+                ) -> Self {
+                    Self::Some(Kind::from(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative14> for Kind {
+                fn from(
+                    v: super::super::super::structural_value::Alternative14,
+                ) -> Self {
+                    Self::QuantityType(::buffa::alloc::boxed::Box::new(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative14>
+            for ::core::option::Option<Kind> {
+                fn from(
+                    v: super::super::super::structural_value::Alternative14,
+                ) -> Self {
+                    Self::Some(Kind::from(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative15> for Kind {
+                fn from(
+                    v: super::super::super::structural_value::Alternative15,
+                ) -> Self {
+                    Self::ReferenceState(::buffa::alloc::boxed::Box::new(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative15>
+            for ::core::option::Option<Kind> {
+                fn from(
+                    v: super::super::super::structural_value::Alternative15,
+                ) -> Self {
+                    Self::Some(Kind::from(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative16> for Kind {
+                fn from(
+                    v: super::super::super::structural_value::Alternative16,
+                ) -> Self {
+                    Self::Missing(::buffa::alloc::boxed::Box::new(v))
+                }
+            }
+            impl From<super::super::super::structural_value::Alternative16>
+            for ::core::option::Option<Kind> {
+                fn from(
+                    v: super::super::super::structural_value::Alternative16,
+                ) -> Self {
+                    Self::Some(Kind::from(v))
+                }
+            }
+            impl ::serde::Serialize for Kind {
+                fn serialize<S: ::serde::Serializer>(
+                    &self,
+                    s: S,
+                ) -> ::core::result::Result<S::Ok, S::Error> {
+                    use ::serde::ser::SerializeMap;
+                    let mut map = s.serialize_map(Some(1))?;
+                    match self {
+                        Self::Boolean(v) => {
+                            map.serialize_entry("boolean", &**v)?;
+                        }
+                        Self::Integer(v) => {
+                            map.serialize_entry("integer", &**v)?;
+                        }
+                        Self::Number(v) => {
+                            map.serialize_entry("number", &**v)?;
+                        }
+                        Self::Coordinate(v) => {
+                            map.serialize_entry("coordinate", &**v)?;
+                        }
+                        Self::Text(v) => {
+                            map.serialize_entry("text", &**v)?;
+                        }
+                        Self::Entity(v) => {
+                            map.serialize_entry("entity", &**v)?;
+                        }
+                        Self::Enum(v) => {
+                            map.serialize_entry("enum", &**v)?;
+                        }
+                        Self::Identifier(v) => {
+                            map.serialize_entry("identifier", &**v)?;
+                        }
+                        Self::Definition(v) => {
+                            map.serialize_entry("definition", &**v)?;
+                        }
+                        Self::Function(v) => {
+                            map.serialize_entry("function", &**v)?;
+                        }
+                        Self::Row(v) => {
+                            map.serialize_entry("row", &**v)?;
+                        }
+                        Self::Set(v) => {
+                            map.serialize_entry("set", &**v)?;
+                        }
+                        Self::Tuple(v) => {
+                            map.serialize_entry("tuple", &**v)?;
+                        }
+                        Self::QuantityType(v) => {
+                            map.serialize_entry("quantity_type", &**v)?;
+                        }
+                        Self::ReferenceState(v) => {
+                            map.serialize_entry("reference_state", &**v)?;
+                        }
+                        Self::Missing(v) => {
+                            map.serialize_entry("missing", &**v)?;
+                        }
+                    }
+                    map.end()
+                }
+            }
+        }
     }
     /// Register this package's `Any` type entries and extension entries.
     pub fn register_types(reg: &mut ::buffa::type_registry::TypeRegistry) {
@@ -18794,8 +35675,26 @@ pub mod __buffa {
         reg.register_json_any(super::__OPERATION_SOURCE_JSON_ANY);
         reg.register_json_any(super::__PREPARATION_SETTINGS_JSON_ANY);
         reg.register_json_any(super::__QUANTITY_TYPE_ID_JSON_ANY);
+        reg.register_json_any(super::__REFERENCE_STATE_ID_JSON_ANY);
         reg.register_json_any(super::__RESEARCH_SOURCE_JSON_ANY);
         reg.register_json_any(super::__SOURCE_REVISION_HASH_JSON_ANY);
+        reg.register_json_any(super::__STRUCTURAL_VALUE_JSON_ANY);
+        reg.register_json_any(super::structural_value::__ALTERNATIVE1_JSON_ANY);
+        reg.register_json_any(super::structural_value::__ALTERNATIVE2_JSON_ANY);
+        reg.register_json_any(super::structural_value::__ALTERNATIVE3_JSON_ANY);
+        reg.register_json_any(super::structural_value::__ALTERNATIVE4_JSON_ANY);
+        reg.register_json_any(super::structural_value::__ALTERNATIVE5_JSON_ANY);
+        reg.register_json_any(super::structural_value::__ALTERNATIVE6_JSON_ANY);
+        reg.register_json_any(super::structural_value::__ALTERNATIVE7_JSON_ANY);
+        reg.register_json_any(super::structural_value::__ALTERNATIVE8_JSON_ANY);
+        reg.register_json_any(super::structural_value::__ALTERNATIVE9_JSON_ANY);
+        reg.register_json_any(super::structural_value::__ALTERNATIVE10_JSON_ANY);
+        reg.register_json_any(super::structural_value::__ALTERNATIVE11_JSON_ANY);
+        reg.register_json_any(super::structural_value::__ALTERNATIVE12_JSON_ANY);
+        reg.register_json_any(super::structural_value::__ALTERNATIVE13_JSON_ANY);
+        reg.register_json_any(super::structural_value::__ALTERNATIVE14_JSON_ANY);
+        reg.register_json_any(super::structural_value::__ALTERNATIVE15_JSON_ANY);
+        reg.register_json_any(super::structural_value::__ALTERNATIVE16_JSON_ANY);
         reg.register_json_any(super::__UNIT_ID_JSON_ANY);
         reg.register_text_any(super::__CANONICAL_CONTEXT_CUT_TEXT_ANY);
         reg.register_text_any(super::__CANONICAL_CONTEXT_SELECTION_TEXT_ANY);
@@ -18817,8 +35716,26 @@ pub mod __buffa {
         reg.register_text_any(super::__OPERATION_SOURCE_TEXT_ANY);
         reg.register_text_any(super::__PREPARATION_SETTINGS_TEXT_ANY);
         reg.register_text_any(super::__QUANTITY_TYPE_ID_TEXT_ANY);
+        reg.register_text_any(super::__REFERENCE_STATE_ID_TEXT_ANY);
         reg.register_text_any(super::__RESEARCH_SOURCE_TEXT_ANY);
         reg.register_text_any(super::__SOURCE_REVISION_HASH_TEXT_ANY);
+        reg.register_text_any(super::__STRUCTURAL_VALUE_TEXT_ANY);
+        reg.register_text_any(super::structural_value::__ALTERNATIVE1_TEXT_ANY);
+        reg.register_text_any(super::structural_value::__ALTERNATIVE2_TEXT_ANY);
+        reg.register_text_any(super::structural_value::__ALTERNATIVE3_TEXT_ANY);
+        reg.register_text_any(super::structural_value::__ALTERNATIVE4_TEXT_ANY);
+        reg.register_text_any(super::structural_value::__ALTERNATIVE5_TEXT_ANY);
+        reg.register_text_any(super::structural_value::__ALTERNATIVE6_TEXT_ANY);
+        reg.register_text_any(super::structural_value::__ALTERNATIVE7_TEXT_ANY);
+        reg.register_text_any(super::structural_value::__ALTERNATIVE8_TEXT_ANY);
+        reg.register_text_any(super::structural_value::__ALTERNATIVE9_TEXT_ANY);
+        reg.register_text_any(super::structural_value::__ALTERNATIVE10_TEXT_ANY);
+        reg.register_text_any(super::structural_value::__ALTERNATIVE11_TEXT_ANY);
+        reg.register_text_any(super::structural_value::__ALTERNATIVE12_TEXT_ANY);
+        reg.register_text_any(super::structural_value::__ALTERNATIVE13_TEXT_ANY);
+        reg.register_text_any(super::structural_value::__ALTERNATIVE14_TEXT_ANY);
+        reg.register_text_any(super::structural_value::__ALTERNATIVE15_TEXT_ANY);
+        reg.register_text_any(super::structural_value::__ALTERNATIVE16_TEXT_ANY);
         reg.register_text_any(super::__UNIT_ID_TEXT_ANY);
     }
     /// Reflection support: this package's view onto the crate-wide
@@ -18922,6 +35839,10 @@ pub use self::__buffa::view::QuantityTypeIdView;
 #[doc(inline)]
 pub use self::__buffa::view::QuantityTypeIdOwnedView;
 #[doc(inline)]
+pub use self::__buffa::view::ReferenceStateIdView;
+#[doc(inline)]
+pub use self::__buffa::view::ReferenceStateIdOwnedView;
+#[doc(inline)]
 pub use self::__buffa::view::ResearchSourceView;
 #[doc(inline)]
 pub use self::__buffa::view::ResearchSourceOwnedView;
@@ -18929,6 +35850,10 @@ pub use self::__buffa::view::ResearchSourceOwnedView;
 pub use self::__buffa::view::SourceRevisionHashView;
 #[doc(inline)]
 pub use self::__buffa::view::SourceRevisionHashOwnedView;
+#[doc(inline)]
+pub use self::__buffa::view::StructuralValueView;
+#[doc(inline)]
+pub use self::__buffa::view::StructuralValueOwnedView;
 #[doc(inline)]
 pub use self::__buffa::view::UnitIdView;
 #[doc(inline)]

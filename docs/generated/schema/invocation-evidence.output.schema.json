@@ -2519,6 +2519,16 @@
       "description": "Native record availability, separate from physical sample/period coverage.",
       "oneOf": [
         {
+          "const": "original_study_members",
+          "description": "Actual native attempt evidence belongs to the retained original finite child studies.",
+          "type": "string"
+        },
+        {
+          "const": "no_native_records",
+          "description": "Pure original mathematical observations dispatch no native solver.",
+          "type": "string"
+        },
+        {
           "const": "strategy_attempts",
           "description": "All native reports produced by retained strategy operations have compact records.",
           "type": "string"

@@ -6371,6 +6371,62 @@
         }
       ]
     },
+    "Bindings": {
+      "additionalProperties": false,
+      "description": "Root structural bindings and demands. Numeric runtime values have a separate owner.",
+      "properties": {
+        "arguments": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Value"
+          },
+          "description": "Explicit root arguments override presets and definition defaults.",
+          "type": "object"
+        },
+        "demand": {
+          "description": "Additional member paths requested by the caller.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "facts": {
+          "description": "Reserved compile-time facts: the analysis route, the objective level and the\nselected stages (ADR-0123 Outcome 1).",
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "$ref": "#/$defs/Fact"
+              },
+              {
+                "$ref": "#/$defs/Value"
+              }
+            ],
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "formulation": {
+          "$ref": "#/$defs/Formulation",
+          "description": "Immutable equation omission and elastic policy, applied after source specialization."
+        },
+        "scope": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Value"
+          },
+          "description": "Explicitly published ancestor scope values.",
+          "type": "object"
+        }
+      },
+      "required": [
+        "formulation",
+        "arguments",
+        "scope",
+        "facts",
+        "demand"
+      ],
+      "type": "object"
+    },
     "BlockSolveOverrideBody": {
       "additionalProperties": false,
       "description": "Native realization and finite work controls of one compiler-issued block.",
@@ -8096,6 +8152,39 @@
       ],
       "type": "string"
     },
+    "Fact": {
+      "description": "A reserved fact. Every member of a namespace is a variant, so an undeclared fact is\nunrepresentable rather than refused by its spelling.",
+      "oneOf": [
+        {
+          "const": "Route",
+          "description": "The selected analysis route, a [`Route`] member.",
+          "type": "string"
+        },
+        {
+          "const": "Dynamic",
+          "description": "Whether the route integrates in time; always derived from the route.",
+          "type": "string"
+        },
+        {
+          "const": "ObjectiveLevel",
+          "description": "The zero-based objective level of a staged lexicographic step (ADR-0111).",
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Whether the named initialization stage is selected.",
+          "properties": {
+            "Stage": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "Stage"
+          ],
+          "type": "object"
+        }
+      ]
+    },
     "FeralOrdering": {
       "enum": [
         "amd",
@@ -8404,6 +8493,37 @@
       },
       "required": [
         "level"
+      ],
+      "type": "object"
+    },
+    "Formulation": {
+      "additionalProperties": false,
+      "description": "Generic analysis overlay over selected semantic equations. Science remains in source.",
+      "properties": {
+        "elastic": {
+          "additionalProperties": false,
+          "description": "Positive canonical physical nominal for each independently relaxed outer row.",
+          "patternProperties": {
+            "^[0-9a-fA-F]{32}$": {
+              "$ref": "#/$defs/Value"
+            }
+          },
+          "type": "object"
+        },
+        "omitted": {
+          "description": "Remove these outer equations from this attempt only.",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "omitted",
+        "elastic"
       ],
       "type": "object"
     },
@@ -11749,6 +11869,24 @@
             "request"
           ],
           "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Original physically typed selected scalar observations.",
+          "properties": {
+            "kind": {
+              "const": "selected_observation",
+              "type": "string"
+            },
+            "request": {
+              "$ref": "#/$defs/SelectedObservationOperation"
+            }
+          },
+          "required": [
+            "kind",
+            "request"
+          ],
+          "type": "object"
         }
       ]
     },
@@ -14766,6 +14904,70 @@
       ],
       "type": "object"
     },
+    "SelectedObservationOperation": {
+      "additionalProperties": false,
+      "description": "Original physically admitted scalar observations, distinct from equation residuals and solves.",
+      "properties": {
+        "bindings": {
+          "$ref": "#/$defs/Bindings",
+          "description": "Structural inputs; numerical point values use the ordinary binding owner."
+        },
+        "instance": {
+          "description": "Original specialized occurrence.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "InstanceId"
+        },
+        "outputs": {
+          "description": "Ordered actual physical scalar outputs.",
+          "items": {
+            "$ref": "#/$defs/SelectedObservationOutput"
+          },
+          "type": "array"
+        },
+        "root": {
+          "description": "Original selected source definition.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "DeclarationId"
+        }
+      },
+      "required": [
+        "root",
+        "instance",
+        "bindings",
+        "outputs"
+      ],
+      "type": "object"
+    },
+    "SelectedObservationOutput": {
+      "additionalProperties": false,
+      "description": "One authored scalar output and its requested physical representation.",
+      "properties": {
+        "member": {
+          "$ref": "#/$defs/BindingTarget",
+          "description": "Contextually resolved member in the original source; never a formula string."
+        },
+        "quantity": {
+          "description": "Required output quantity, checked against actual inferred source support.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "QuantityTypeId"
+        },
+        "unit": {
+          "description": "Registered output representation unit.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "UnitId"
+        }
+      },
+      "required": [
+        "member",
+        "quantity",
+        "unit"
+      ],
+      "type": "object"
+    },
     "SelectedStudyVariant": {
       "additionalProperties": false,
       "description": "One selected Cartesian ordinal and its explicit scientific intent.",
@@ -16297,6 +16499,372 @@
         "members"
       ],
       "type": "object"
+    },
+    "Value": {
+      "description": "A fully explicit structural value.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Predicate.",
+          "properties": {
+            "Boolean": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "Boolean"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Exact integer.",
+          "properties": {
+            "Integer": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "Integer"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Finite scalar with its complete physical type.",
+          "properties": {
+            "Number": {
+              "additionalProperties": false,
+              "properties": {
+                "bits": {
+                  "description": "Bit pattern of the canonical `f64` value.",
+                  "format": "uint64",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "quantity": {
+                  "description": "Physical quantity type.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "QuantityTypeId"
+                }
+              },
+              "required": [
+                "bits",
+                "quantity"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Number"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Generated continuous coordinate; identity is independent of its floating value.",
+          "properties": {
+            "Coordinate": {
+              "additionalProperties": false,
+              "properties": {
+                "bits": {
+                  "description": "Bit pattern of the canonical `f64` position.",
+                  "format": "uint64",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "id": {
+                  "description": "Coordinate identity.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "SemanticId"
+                },
+                "quantity": {
+                  "description": "Physical quantity type of the axis.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "QuantityTypeId"
+                }
+              },
+              "required": [
+                "id",
+                "bits",
+                "quantity"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Coordinate"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Textual label.",
+          "properties": {
+            "Text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "Text"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Entity identity and its concrete kind; the kind is content, not identity\n(ADR-0123 Outcome 2).",
+          "properties": {
+            "Entity": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "description": "The entity declaration, or a keyed row's derived identity.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                },
+                "kind": {
+                  "description": "The most-derived kind of the entity.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                }
+              },
+              "required": [
+                "id",
+                "kind"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Entity"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Value of an authored closed enumeration.",
+          "properties": {
+            "Enum": {
+              "additionalProperties": false,
+              "properties": {
+                "enumeration": {
+                  "description": "Enumeration declaration.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                },
+                "member": {
+                  "description": "Member identity: renaming a member keeps it (ADR-0123 Outcome 2).",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "SemanticId"
+                }
+              },
+              "required": [
+                "enumeration",
+                "member"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Enum"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "An opaque value of a declared identifier scheme, compared byte-exactly and never\nparsed (ADR-0123 Outcome 2).",
+          "properties": {
+            "Identifier": {
+              "additionalProperties": false,
+              "properties": {
+                "scheme": {
+                  "description": "Identifier scheme declaration.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                },
+                "value": {
+                  "description": "The value as written.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "scheme",
+                "value"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Identifier"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Definition identity with named partial bindings.",
+          "properties": {
+            "Definition": {
+              "additionalProperties": false,
+              "properties": {
+                "bindings": {
+                  "additionalProperties": {
+                    "$ref": "#/$defs/Value"
+                  },
+                  "description": "Bound arguments by name.",
+                  "type": "object"
+                },
+                "id": {
+                  "description": "Definition declaration.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                }
+              },
+              "required": [
+                "id",
+                "bindings"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Definition"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A pure function declaration selected as structural data.",
+          "properties": {
+            "Function": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "DeclarationId"
+            }
+          },
+          "required": [
+            "Function"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Typed heterogeneous table row: positional cells and the column names they bind.",
+          "properties": {
+            "Row": {
+              "additionalProperties": false,
+              "properties": {
+                "fields": {
+                  "description": "Values in column order, shared with the admitted row.",
+                  "items": {
+                    "$ref": "#/$defs/Value"
+                  },
+                  "type": "array"
+                },
+                "names": {
+                  "description": "Column names in column order, shared with the admitted table.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "table": {
+                  "description": "Table declaration.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                }
+              },
+              "required": [
+                "table",
+                "names",
+                "fields"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Row"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Ordered finite set with no duplicates.",
+          "properties": {
+            "Set": {
+              "items": {
+                "$ref": "#/$defs/Value"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "Set"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Ragged coordinate or table key.",
+          "properties": {
+            "Tuple": {
+              "items": {
+                "$ref": "#/$defs/Value"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "Tuple"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A named quantity type of the physical document (ADR-0123 Outcome 6).",
+          "properties": {
+            "QuantityType": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "QuantityTypeId"
+            }
+          },
+          "required": [
+            "QuantityType"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A named reference state of the physical document (ADR-0123 Outcome 6).",
+          "properties": {
+            "ReferenceState": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "ReferenceStateId"
+            }
+          },
+          "required": [
+            "ReferenceState"
+          ],
+          "type": "object"
+        },
+        {
+          "const": "Missing",
+          "description": "Explicit absence, never numeric zero.",
+          "type": "string"
+        }
+      ]
     },
     "VersionRequirement": {
       "additionalProperties": false,

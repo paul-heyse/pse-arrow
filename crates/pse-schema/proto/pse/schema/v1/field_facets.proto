@@ -26,6 +26,18 @@ message RegistryFieldFacets {
   // Standard Arrow IPC Schema Message containing exactly the actual native Field.
   // The domain reader verifies raw metadata uniqueness before Arrow conversion.
   optional bytes native_field_ipc = 16;
+  // Source-owned result lookup role and stable row ordering, never read permission.
+  optional ResultSelectionRole result_selection = 17;
+  optional uint64 result_sort = 18;
+}
+
+enum ResultSelectionRole {
+  RESULT_SELECTION_ROLE_UNSPECIFIED = 0;
+  RESULT_SELECTION_ROLE_RUN = 1;
+  RESULT_SELECTION_ROLE_OWNER = 2;
+  RESULT_SELECTION_ROLE_STEP = 3;
+  RESULT_SELECTION_ROLE_EXPERIMENT = 4;
+  RESULT_SELECTION_ROLE_VALUE = 5;
 }
 
 message CanonicalFieldContract {

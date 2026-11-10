@@ -383,6 +383,247 @@
         }
       ]
     },
+    "AnalyticalOperation": {
+      "description": "Scientific requests select original members and physical axes, never formula strings.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Exact repeated derivative in original physical coordinate order.",
+          "properties": {
+            "coordinates": {
+              "description": "Ordered actual original independent members.",
+              "items": {
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": "string",
+                "x-pse-identity": "SemanticId"
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "derivative",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "coordinates"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Native formal series around another original selected member.",
+          "properties": {
+            "coordinate": {
+              "description": "Actual original independent member.",
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "SemanticId"
+            },
+            "kind": {
+              "const": "series",
+              "type": "string"
+            },
+            "order": {
+              "description": "Explicit bounded native depth.",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "point_member": {
+              "description": "Original exact source member supplying the expansion point.",
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "SemanticId"
+            },
+            "relative": {
+              "description": "Select relative rather than absolute native depth.",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "kind",
+            "coordinate",
+            "point_member",
+            "order",
+            "relative"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Compare an original derivative or value with another original output.",
+          "properties": {
+            "coordinates": {
+              "description": "Ordered original derivative axes; empty compares values.",
+              "items": {
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": "string",
+                "x-pse-identity": "SemanticId"
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "identity",
+              "type": "string"
+            },
+            "multiplier": {
+              "default": null,
+              "description": "Optional original physical multiplier, applied after differentiation.",
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": [
+                "string",
+                "null"
+              ],
+              "x-pse-identity": "SemanticId"
+            },
+            "other": {
+              "description": "Original comparison output.",
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "SemanticId"
+            }
+          },
+          "required": [
+            "kind",
+            "other",
+            "coordinates",
+            "multiplier"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Canonicalize the original supported whole finite contraction.",
+          "properties": {
+            "kind": {
+              "const": "indexed",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Formal native Padé product; never executable replacement or interval certificate.",
+          "properties": {
+            "coordinate": {
+              "description": "Actual original independent member.",
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "SemanticId"
+            },
+            "denominator_degree": {
+              "description": "Maximum denominator degree.",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "kind": {
+              "const": "rational_approximation",
+              "type": "string"
+            },
+            "numerator_degree": {
+              "description": "Maximum numerator degree.",
+              "format": "uint32",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "point_member": {
+              "description": "Original exact source expansion point.",
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "SemanticId"
+            }
+          },
+          "required": [
+            "kind",
+            "coordinate",
+            "point_member",
+            "numerator_degree",
+            "denominator_degree"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Opt-in bounded native relation research with independent exact verification.",
+          "properties": {
+            "kind": {
+              "const": "integer_relation",
+              "type": "string"
+            },
+            "others": {
+              "description": "Other original closed selected outputs, in integer coefficient order.",
+              "items": {
+                "pattern": "^[0-9a-fA-F]{32}$",
+                "type": "string",
+                "x-pse-identity": "SemanticId"
+              },
+              "type": "array"
+            },
+            "request": {
+              "$ref": "#/$defs/RelationRequest",
+              "description": "Actual finite native search controls and numerical tolerance."
+            }
+          },
+          "required": [
+            "kind",
+            "others",
+            "request"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "AnalyticalOperationRequest": {
+      "additionalProperties": false,
+      "description": "An original authored analytical selection; mathematical requests contain no parser input.",
+      "properties": {
+        "bindings": {
+          "$ref": "#/$defs/Bindings",
+          "description": "Original structural demand."
+        },
+        "instance": {
+          "description": "Original specialized occurrence.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "InstanceId"
+        },
+        "limits": {
+          "$ref": "#/$defs/EvaluationLimits",
+          "description": "Explicit mathematical construction bounds."
+        },
+        "member": {
+          "description": "Actual original mathematical output.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "operation": {
+          "$ref": "#/$defs/AnalyticalOperation",
+          "description": "Actual bounded native mathematical operation."
+        },
+        "root": {
+          "description": "Original authored definition.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "DeclarationId"
+        }
+      },
+      "required": [
+        "root",
+        "instance",
+        "bindings",
+        "member",
+        "operation",
+        "limits"
+      ],
+      "type": "object"
+    },
     "AppliedRestart": {
       "additionalProperties": false,
       "description": "The interior-point restart an adapter applied to a submitted primal-dual seed.",
@@ -2008,6 +2249,34 @@
       ],
       "type": "object"
     },
+    "BindingQuantity": {
+      "additionalProperties": false,
+      "description": "One finite quantity with complete declared physical meaning and a representation unit.",
+      "properties": {
+        "magnitude": {
+          "$ref": "#/$defs/FiniteBound",
+          "description": "Supplied finite magnitude."
+        },
+        "quantity": {
+          "description": "Complete quantity type, including basis, datum and subject.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "QuantityTypeId"
+        },
+        "unit": {
+          "description": "Registered representation unit.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "UnitId"
+        }
+      },
+      "required": [
+        "magnitude",
+        "quantity",
+        "unit"
+      ],
+      "type": "object"
+    },
     "BindingTarget": {
       "description": "A submitted reference; paths are attribution after admission.",
       "oneOf": [
@@ -2050,6 +2319,62 @@
           "type": "object"
         }
       ]
+    },
+    "Bindings": {
+      "additionalProperties": false,
+      "description": "Root structural bindings and demands. Numeric runtime values have a separate owner.",
+      "properties": {
+        "arguments": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Value"
+          },
+          "description": "Explicit root arguments override presets and definition defaults.",
+          "type": "object"
+        },
+        "demand": {
+          "description": "Additional member paths requested by the caller.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "facts": {
+          "description": "Reserved compile-time facts: the analysis route, the objective level and the\nselected stages (ADR-0123 Outcome 1).",
+          "items": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "$ref": "#/$defs/Fact"
+              },
+              {
+                "$ref": "#/$defs/Value"
+              }
+            ],
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "formulation": {
+          "$ref": "#/$defs/Formulation",
+          "description": "Immutable equation omission and elastic policy, applied after source specialization."
+        },
+        "scope": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Value"
+          },
+          "description": "Explicitly published ancestor scope values.",
+          "type": "object"
+        }
+      },
+      "required": [
+        "formulation",
+        "arguments",
+        "scope",
+        "facts",
+        "demand"
+      ],
+      "type": "object"
     },
     "BlockSolveOverrideBody": {
       "additionalProperties": false,
@@ -2177,6 +2502,32 @@
         "unusable"
       ],
       "type": "string"
+    },
+    "CaseOperation": {
+      "additionalProperties": false,
+      "description": "One existing authored solve and its native settings document.",
+      "properties": {
+        "case": {
+          "description": "Authored case identity.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "DeclarationId"
+        },
+        "route": {
+          "$ref": "#/$defs/ModelingAnalysisRoute",
+          "description": "Route captured from the declaration's admission."
+        },
+        "settings": {
+          "$ref": "#/$defs/SolveSettings",
+          "description": "Complete existing solve settings."
+        }
+      },
+      "required": [
+        "case",
+        "route",
+        "settings"
+      ],
+      "type": "object"
     },
     "ClarabelDirect": {
       "enum": [
@@ -2430,6 +2781,125 @@
         }
       ]
     },
+    "DiagnosticClaim": {
+      "description": "Distinct claims; estimates never acquire enclosure fields.",
+      "oneOf": [
+        {
+          "const": "ordinary",
+          "description": "Ordinary binary64 realization without a new accuracy certificate.",
+          "type": "string"
+        },
+        {
+          "const": "double_float",
+          "description": "Native double-float estimate at its actual 106-bit domain precision.",
+          "type": "string"
+        },
+        {
+          "const": "chosen_precision",
+          "description": "Multiprecision estimate at the explicitly selected binary precision.",
+          "type": "string"
+        },
+        {
+          "const": "propagated_error",
+          "description": "Native propagated error estimate, without containment certification.",
+          "type": "string"
+        },
+        {
+          "const": "exact_identity",
+          "description": "Exact rational-function structure under explicit original conditions.",
+          "type": "string"
+        },
+        {
+          "const": "validated_enclosure",
+          "description": "Directed basic arithmetic enclosing the complete requested real input set.",
+          "type": "string"
+        }
+      ]
+    },
+    "DiagnosticInput": {
+      "additionalProperties": false,
+      "description": "A point when `upper` is absent; otherwise an exact closed input interval.",
+      "properties": {
+        "coordinate": {
+          "description": "Original scalar coordinate identity.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "lower": {
+          "$ref": "#/$defs/ExactValue",
+          "description": "Exact lower endpoint, or the sole point value."
+        },
+        "upper": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExactValue"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional exact upper endpoint; absence denotes a point."
+        }
+      },
+      "required": [
+        "coordinate",
+        "lower",
+        "upper"
+      ],
+      "type": "object"
+    },
+    "DiagnosticLimits": {
+      "additionalProperties": false,
+      "description": "Mathematical workload limits, independent of host capacity placement.",
+      "properties": {
+        "bytes": {
+          "description": "Maximum mathematical construction backing for this request.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "coefficient_bits": {
+          "description": "Maximum admitted exact coefficient or requested precision extent.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "coordinates": {
+          "description": "Maximum admitted original unknown and parameter count.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "rows": {
+          "description": "Maximum admitted selected original row count.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "terms": {
+          "description": "Maximum admitted native polynomial or evaluator population.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "work": {
+          "description": "Maximum native work population for an admitted pass.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "rows",
+        "coordinates",
+        "terms",
+        "work",
+        "bytes",
+        "coefficient_bits"
+      ],
+      "type": "object"
+    },
     "DiagnosticNonfiniteObservation": {
       "enum": [
         "nan",
@@ -2437,6 +2907,84 @@
         "negative_infinity"
       ],
       "type": "string"
+    },
+    "DiagnosticRequest": {
+      "additionalProperties": false,
+      "description": "Ordered original demand, with symbolic parameters retained until specialization.",
+      "properties": {
+        "claim": {
+          "$ref": "#/$defs/DiagnosticClaim",
+          "description": "Actual mathematical assurance requested or delivered."
+        },
+        "derivatives": {
+          "default": [],
+          "description": "Ordered first/second derivative coordinate sequences; empty requests values only.",
+          "items": {
+            "items": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "SemanticId"
+            },
+            "type": "array"
+          },
+          "type": "array"
+        },
+        "inputs": {
+          "description": "Exact points or closed intervals bound to original coordinate identities.",
+          "items": {
+            "$ref": "#/$defs/DiagnosticInput"
+          },
+          "type": "array"
+        },
+        "limits": {
+          "$ref": "#/$defs/DiagnosticLimits",
+          "description": "Explicit mathematical workload admission."
+        },
+        "parameters": {
+          "description": "Ordered symbolic parameters, retained until an explicit specialization.",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "type": "array"
+        },
+        "precision": {
+          "description": "Requested or actual binary arithmetic precision.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "rows": {
+          "description": "Ordered original selected row identities.",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "type": "array"
+        },
+        "unknowns": {
+          "description": "Ordered coordinates solved by exact block inspection.",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "rows",
+        "unknowns",
+        "parameters",
+        "inputs",
+        "claim",
+        "precision",
+        "limits",
+        "derivatives"
+      ],
+      "type": "object"
     },
     "DiffsolInitialConditionOptions": {
       "additionalProperties": false,
@@ -2867,6 +3415,508 @@
         }
       ]
     },
+    "ExactValue": {
+      "additionalProperties": false,
+      "description": "Exact rational transport. Denominators must be nonzero; admission bounds digits.",
+      "properties": {
+        "denominator": {
+          "description": "Exact nonzero integer denominator in decimal notation.",
+          "type": "string"
+        },
+        "numerator": {
+          "description": "Exact signed integer numerator in decimal notation.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "numerator",
+        "denominator"
+      ],
+      "type": "object"
+    },
+    "ExpectationAdaptiveSettings": {
+      "additionalProperties": false,
+      "description": "Explicit positive-support adaptive-grid controls, validated before construction.",
+      "properties": {
+        "bin_evolution": {
+          "description": "Optional nonempty positive bin evolution.",
+          "items": {
+            "format": "uint",
+            "minimum": 0,
+            "type": "integer"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "bins": {
+          "description": "Positive continuous bin count.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "continuous_learning_rate": {
+          "description": "Finite continuous learning rate in [0,1].",
+          "format": "double",
+          "type": "number"
+        },
+        "discrete_learning_rate": {
+          "description": "Finite categorical learning rate in [0,1].",
+          "format": "double",
+          "type": "number"
+        },
+        "maximum_probability_ratio": {
+          "description": "Finite categorical probability ratio at least one.",
+          "format": "double",
+          "type": "number"
+        },
+        "minimum_training_samples": {
+          "description": "Positive training population threshold.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "uniform_mixture": {
+          "description": "Joint uniform mixture probability in (0,1].",
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "bins",
+        "minimum_training_samples",
+        "bin_evolution",
+        "uniform_mixture",
+        "maximum_probability_ratio",
+        "discrete_learning_rate",
+        "continuous_learning_rate"
+      ],
+      "type": "object"
+    },
+    "ExpectationCategory": {
+      "additionalProperties": false,
+      "description": "One original category; equal values do not collapse identity.",
+      "properties": {
+        "category": {
+          "description": "Original authored category identity.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "probability": {
+          "description": "Explicit target probability, including retained zero mass.",
+          "format": "double",
+          "type": "number"
+        },
+        "value": {
+          "$ref": "#/$defs/BindingQuantity",
+          "description": "Submitted finite physical value."
+        }
+      },
+      "required": [
+        "category",
+        "value",
+        "probability"
+      ],
+      "type": "object"
+    },
+    "ExpectationControls": {
+      "additionalProperties": false,
+      "description": "Finite scientific population and replay controls; native allocation is separate.",
+      "properties": {
+        "lanes": {
+          "description": "Positive finite number of independently owned sampling lanes.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "maximum_iterations": {
+          "description": "Positive finite iteration limit.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "maximum_samples": {
+          "description": "Total finite population limit; fewer than two remaining draws issue no statistical child.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "normalization_tolerance": {
+          "description": "Explicit probability-sum admission tolerance; no hidden renormalization policy.",
+          "format": "double",
+          "type": "number"
+        },
+        "samples_per_iteration": {
+          "description": "Finite original sample population per child study, at least two.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "seed": {
+          "description": "Root RNG seed, combined with original stream and consumed state.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "seed",
+        "lanes",
+        "samples_per_iteration",
+        "maximum_iterations",
+        "maximum_samples",
+        "normalization_tolerance"
+      ],
+      "type": "object"
+    },
+    "ExpectationCoordinate": {
+      "description": "Initial bounded product-law coordinates, separate from DOE generators.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Uniform probability over a finite physical interval.",
+          "properties": {
+            "kind": {
+              "const": "uniform",
+              "type": "string"
+            },
+            "lower": {
+              "$ref": "#/$defs/BindingQuantity",
+              "description": "Lower endpoint with its physical representation."
+            },
+            "target": {
+              "$ref": "#/$defs/BindingTarget",
+              "description": "Original contextual input reference."
+            },
+            "upper": {
+              "$ref": "#/$defs/BindingQuantity",
+              "description": "Upper endpoint with its physical representation."
+            }
+          },
+          "required": [
+            "kind",
+            "target",
+            "lower",
+            "upper"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Finite ordered target population with explicit masses.",
+          "properties": {
+            "categories": {
+              "description": "Complete original alternatives, retaining zero masses.",
+              "items": {
+                "$ref": "#/$defs/ExpectationCategory"
+              },
+              "type": "array"
+            },
+            "kind": {
+              "const": "categorical",
+              "type": "string"
+            },
+            "target": {
+              "$ref": "#/$defs/BindingTarget",
+              "description": "Original contextual input reference."
+            }
+          },
+          "required": [
+            "kind",
+            "target",
+            "categories"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ExpectationEstimator": {
+      "description": "Distinct selected probability estimators with no implicit fallback.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Draw directly from the target law and average each output once.",
+          "properties": {
+            "kind": {
+              "const": "fixed_monte_carlo",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Adapt a common frozen Numerica proposal at declared iteration barriers.",
+          "properties": {
+            "kind": {
+              "const": "adaptive",
+              "type": "string"
+            },
+            "settings": {
+              "$ref": "#/$defs/ExpectationAdaptiveSettings"
+            }
+          },
+          "required": [
+            "kind",
+            "settings"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ExpectationMember": {
+      "description": "Original scientific member, with an explicit pure observation choice.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Existing ordinary authored solve owner.",
+          "properties": {
+            "kind": {
+              "const": "case",
+              "type": "string"
+            },
+            "request": {
+              "$ref": "#/$defs/CaseOperation"
+            }
+          },
+          "required": [
+            "kind",
+            "request"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Selected actual physical outputs under the pure observation owner.",
+          "properties": {
+            "kind": {
+              "const": "observation",
+              "type": "string"
+            },
+            "request": {
+              "$ref": "#/$defs/SelectedObservationOperation"
+            }
+          },
+          "required": [
+            "kind",
+            "request"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ExpectationOutput": {
+      "additionalProperties": false,
+      "description": "One requested physical scalar estimand and its interval-valued controls.",
+      "properties": {
+        "absolute_error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BindingQuantity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional absolute nominal standard-error target, as a physical interval."
+        },
+        "output": {
+          "description": "Exact selected physical member output identity.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "quantity": {
+          "description": "Full physical quantity requested from the original member.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "QuantityTypeId"
+        },
+        "reference": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BindingQuantity"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Admitted reference point; mandatory for origin-sensitive point outputs."
+        },
+        "relative_error": {
+          "description": "Optional relative nominal standard-error target against the reference-centered mean.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "scale": {
+          "$ref": "#/$defs/BindingQuantity",
+          "description": "Positive characteristic interval used by dimensionless training."
+        },
+        "train": {
+          "description": "Whether this output participates in the max-norm adaptation target.",
+          "type": "boolean"
+        },
+        "unit": {
+          "description": "Result representation unit.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "UnitId"
+        }
+      },
+      "required": [
+        "output",
+        "quantity",
+        "unit",
+        "reference",
+        "scale",
+        "absolute_error",
+        "relative_error",
+        "train"
+      ],
+      "type": "object"
+    },
+    "ExpectationReplay": {
+      "description": "The initially supported replay meaning, declared independently of a seed.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Reproduce original points, categories, proposal weights and sealed iteration state.",
+          "properties": {
+            "kind": {
+              "const": "population_and_boundary",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "ExpectationRequest": {
+      "additionalProperties": false,
+      "description": "Scientific expectation request, independent of operating allocation settings.",
+      "properties": {
+        "controls": {
+          "$ref": "#/$defs/ExpectationControls",
+          "description": "Finite scientific population and replay controls."
+        },
+        "coordinates": {
+          "description": "Ordered bounded unit-cube and categorical law coordinates.",
+          "items": {
+            "$ref": "#/$defs/ExpectationCoordinate"
+          },
+          "type": "array"
+        },
+        "estimator": {
+          "$ref": "#/$defs/ExpectationEstimator",
+          "description": "Selected fixed or adaptive numerical realization."
+        },
+        "failure_probability": {
+          "description": "Explicitly request a scientific-failure probability alongside physical outputs.",
+          "type": "boolean"
+        },
+        "member": {
+          "$ref": "#/$defs/ExpectationMember",
+          "description": "Ordinary authored case or typed selected-observation member."
+        },
+        "outputs": {
+          "description": "Ordered physical estimands, retaining per-output availability.",
+          "items": {
+            "$ref": "#/$defs/ExpectationOutput"
+          },
+          "type": "array"
+        },
+        "preparation": {
+          "$ref": "#/$defs/PreparationSettingsBody",
+          "description": "Existing numerical preparation settings."
+        },
+        "replay": {
+          "$ref": "#/$defs/ExpectationReplay",
+          "description": "Explicit population/boundary replay policy; no cross-platform bitwise sum promise."
+        },
+        "source": {
+          "$ref": "#/$defs/OperationSourceBody",
+          "description": "Original immutable model, context and research ancestry."
+        },
+        "transform": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ExpectationTransform"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Optional explicit joint pushforward; no density Jacobian is inferred."
+        }
+      },
+      "required": [
+        "source",
+        "preparation",
+        "member",
+        "coordinates",
+        "transform",
+        "outputs",
+        "estimator",
+        "controls",
+        "failure_probability",
+        "replay"
+      ],
+      "type": "object"
+    },
+    "ExpectationTransform": {
+      "additionalProperties": false,
+      "description": "A selected authored mathematical operation mapping base variables jointly.",
+      "properties": {
+        "operation": {
+          "$ref": "#/$defs/SelectedObservationOperation",
+          "description": "Source-bound selected physical observation operation."
+        },
+        "outputs": {
+          "description": "Ordered admitted output-to-member assignments.",
+          "items": {
+            "$ref": "#/$defs/ExpectationTransformOutput"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "operation",
+        "outputs"
+      ],
+      "type": "object"
+    },
+    "ExpectationTransformOutput": {
+      "additionalProperties": false,
+      "description": "One physical result of an authored joint pushforward.",
+      "properties": {
+        "output": {
+          "description": "Selected authored physical output, never an equation residual relabeling.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "SemanticId"
+        },
+        "target": {
+          "$ref": "#/$defs/BindingTarget",
+          "description": "Original member target receiving that physical value."
+        }
+      },
+      "required": [
+        "output",
+        "target"
+      ],
+      "type": "object"
+    },
     "ExternalDerivativeSource": {
       "enum": [
         "analytic",
@@ -2876,6 +3926,39 @@
         "implicit"
       ],
       "type": "string"
+    },
+    "Fact": {
+      "description": "A reserved fact. Every member of a namespace is a variant, so an undeclared fact is\nunrepresentable rather than refused by its spelling.",
+      "oneOf": [
+        {
+          "const": "Route",
+          "description": "The selected analysis route, a [`Route`] member.",
+          "type": "string"
+        },
+        {
+          "const": "Dynamic",
+          "description": "Whether the route integrates in time; always derived from the route.",
+          "type": "string"
+        },
+        {
+          "const": "ObjectiveLevel",
+          "description": "The zero-based objective level of a staged lexicographic step (ADR-0111).",
+          "type": "string"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Whether the named initialization stage is selected.",
+          "properties": {
+            "Stage": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "Stage"
+          ],
+          "type": "object"
+        }
+      ]
     },
     "FeralOrdering": {
       "enum": [
@@ -3117,6 +4200,37 @@
       "required": [
         "level",
         "predictions"
+      ],
+      "type": "object"
+    },
+    "Formulation": {
+      "additionalProperties": false,
+      "description": "Generic analysis overlay over selected semantic equations. Science remains in source.",
+      "properties": {
+        "elastic": {
+          "additionalProperties": false,
+          "description": "Positive canonical physical nominal for each independently relaxed outer row.",
+          "patternProperties": {
+            "^[0-9a-fA-F]{32}$": {
+              "$ref": "#/$defs/Value"
+            }
+          },
+          "type": "object"
+        },
+        "omitted": {
+          "description": "Remove these outer equations from this attempt only.",
+          "items": {
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "type": "string",
+            "x-pse-identity": "SemanticId"
+          },
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "omitted",
+        "elastic"
       ],
       "type": "object"
     },
@@ -4225,6 +5339,92 @@
       ],
       "type": "object"
     },
+    "MathematicalDiagnosticOperation": {
+      "additionalProperties": false,
+      "description": "An authored original-source mathematical demand with explicit fixed member values.",
+      "properties": {
+        "bindings": {
+          "$ref": "#/$defs/Bindings",
+          "description": "Original selected source demand and specialization."
+        },
+        "case_members": {
+          "additionalProperties": false,
+          "description": "Fixed physical inputs in their admitted canonical representation.",
+          "patternProperties": {
+            "^[0-9a-fA-F]{32}$": {
+              "format": "double",
+              "type": "number"
+            }
+          },
+          "type": "object"
+        },
+        "instance": {
+          "description": "Original specialized instance.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "InstanceId"
+        },
+        "request": {
+          "$ref": "#/$defs/DiagnosticRequest",
+          "description": "Ordered exact/assurance mathematical demand."
+        },
+        "root": {
+          "description": "Original modeling declaration.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "DeclarationId"
+        }
+      },
+      "required": [
+        "root",
+        "instance",
+        "bindings",
+        "case_members",
+        "request"
+      ],
+      "type": "object"
+    },
+    "MathematicalRequest": {
+      "description": "Source-bound mathematical operations share custody, not mathematical claim strength.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Original authored exact analytical selection.",
+          "properties": {
+            "kind": {
+              "const": "analytical",
+              "type": "string"
+            },
+            "request": {
+              "$ref": "#/$defs/AnalyticalOperationRequest"
+            }
+          },
+          "required": [
+            "kind",
+            "request"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Original authored exact/numerical assurance selection.",
+          "properties": {
+            "kind": {
+              "const": "diagnostic",
+              "type": "string"
+            },
+            "request": {
+              "$ref": "#/$defs/MathematicalDiagnosticOperation"
+            }
+          },
+          "required": [
+            "kind",
+            "request"
+          ],
+          "type": "object"
+        }
+      ]
+    },
     "Mechanism": {
       "additionalProperties": false,
       "description": "One operation description. Applicability, supplied derivatives and method mathematics\nremain with its support producers; this declaration owns bounded composition only.",
@@ -4300,6 +5500,14 @@
         "transitions"
       ],
       "type": "object"
+    },
+    "ModelingAnalysisRoute": {
+      "enum": [
+        "steady",
+        "integrated",
+        "simultaneous"
+      ],
+      "type": "string"
     },
     "ModelingInitialization": {
       "additionalProperties": false,
@@ -5715,6 +6923,53 @@
       ],
       "type": "object"
     },
+    "OperationSourceBody": {
+      "additionalProperties": false,
+      "description": "Exact source/context required when reconstructing an operation from stored bundles.",
+      "properties": {
+        "context": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContextSelectionBody"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Original effective-time and recorded-cut selection, if explicitly selected."
+        },
+        "physical_context": {
+          "description": "Complete admitted physical context identity.",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": "string",
+          "x-pse-identity": "ContentHash"
+        },
+        "research": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResearchSource"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Frozen research attribution consumed by this exact operation."
+        },
+        "revision": {
+          "description": "Immutable modeling revision, including included scientific data.",
+          "pattern": "^blake3:[0-9a-fA-F]{64}$",
+          "type": "string",
+          "x-pse-identity": "ContentHash"
+        }
+      },
+      "required": [
+        "research",
+        "context",
+        "revision",
+        "physical_context"
+      ],
+      "type": "object"
+    },
     "Optimization": {
       "additionalProperties": false,
       "description": "Explicit optimizer controls; no target-dependent or unbounded defaults.",
@@ -6333,6 +7588,25 @@
       ],
       "type": "object"
     },
+    "RationalView": {
+      "additionalProperties": false,
+      "description": "Exact rational exponent/order, with arbitrary precision decimal integer components.",
+      "properties": {
+        "denominator": {
+          "description": "Exact nonzero denominator or its native mathematical view.",
+          "type": "string"
+        },
+        "numerator": {
+          "description": "Exact numerator or its native mathematical view.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "numerator",
+        "denominator"
+      ],
+      "type": "object"
+    },
     "RawMapContextKind": {
       "description": "Whether an actual inner solve has a supplied frozen scientific context.",
       "oneOf": [
@@ -6719,6 +7993,41 @@
       ],
       "type": "object"
     },
+    "RelationRequest": {
+      "additionalProperties": false,
+      "description": "Opt-in research controls. A tolerance hit is not an exact identity proof.",
+      "properties": {
+        "max_coefficient": {
+          "description": "Explicit absolute coefficient bound.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "max_iterations": {
+          "description": "Explicit finite native iteration bound.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "precision": {
+          "description": "Actual binary precision of the native numerical realization.",
+          "format": "uint32",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "tolerance": {
+          "$ref": "#/$defs/RationalView",
+          "description": "Exact positive absolute numerical tolerance, smaller than one."
+        }
+      },
+      "required": [
+        "precision",
+        "tolerance",
+        "max_iterations",
+        "max_coefficient"
+      ],
+      "type": "object"
+    },
     "ReplayBoundOverride": {
       "description": "Explicit structural bound override; infinity is preserved in its original IEEE bits.",
       "oneOf": [
@@ -6990,6 +8299,113 @@
     "ReplayConstructor": {
       "description": "Mutually exclusive original scientific inputs. Auxiliary constructors stay in their family.",
       "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Original measure and sample policy. A fresh replay is a same-seed population replay, not an independent statistical replicate.",
+          "properties": {
+            "kind": {
+              "const": "expectation",
+              "type": "string"
+            },
+            "parent": {
+              "description": "Original immutable statistical parent.",
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "StudyId"
+            },
+            "request": {
+              "$ref": "#/$defs/ExpectationRequest",
+              "description": "Actual admitted request; no supplier Grid or private checkpoint is accepted here."
+            },
+            "source_position": {
+              "description": "Original positional scientific source.",
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind",
+            "source_position",
+            "parent",
+            "request"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Original selected mathematical operation without supplier executable state.",
+          "properties": {
+            "kind": {
+              "const": "mathematical",
+              "type": "string"
+            },
+            "preparation": {
+              "$ref": "#/$defs/PreparationSettingsBody",
+              "description": "Exact original preparation policy."
+            },
+            "request": {
+              "$ref": "#/$defs/MathematicalRequest",
+              "description": "Actual selected source members and requested mathematical meaning."
+            },
+            "source_position": {
+              "description": "Original positional immutable source.",
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind",
+            "source_position",
+            "request",
+            "preparation"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Exact original source-bound selected physical observation.",
+          "properties": {
+            "kind": {
+              "const": "selected_observation",
+              "type": "string"
+            },
+            "operation": {
+              "$ref": "#/$defs/SelectedObservationOperation",
+              "description": "Original selected members and physical representations."
+            },
+            "settings": {
+              "$ref": "#/$defs/PreparationSettingsBody",
+              "description": "Actual preparation policy."
+            },
+            "source_position": {
+              "description": "Position in the retained immutable source inventory.",
+              "format": "uint",
+              "minimum": 0,
+              "type": "integer"
+            },
+            "values": {
+              "additionalProperties": false,
+              "description": "Actual canonical physical input coordinates.",
+              "patternProperties": {
+                "^[0-9a-fA-F]{32}$": {
+                  "format": "double",
+                  "type": "number"
+                }
+              },
+              "type": "object"
+            }
+          },
+          "required": [
+            "kind",
+            "source_position",
+            "operation",
+            "settings",
+            "values"
+          ],
+          "type": "object"
+        },
         {
           "additionalProperties": false,
           "description": "Original authored initialization, without manufacturing a prepared numerical point.",
@@ -7762,6 +9178,16 @@
     "ReplayNativeRecordCoverage": {
       "description": "Native record availability, separate from physical sample/period coverage.",
       "oneOf": [
+        {
+          "const": "original_study_members",
+          "description": "Actual native attempt evidence belongs to the retained original finite child studies.",
+          "type": "string"
+        },
+        {
+          "const": "no_native_records",
+          "description": "Pure original mathematical observations dispatch no native solver.",
+          "type": "string"
+        },
         {
           "const": "strategy_attempts",
           "description": "All native reports produced by retained strategy operations have compact records.",
@@ -9292,6 +10718,70 @@
         }
       ]
     },
+    "SelectedObservationOperation": {
+      "additionalProperties": false,
+      "description": "Original physically admitted scalar observations, distinct from equation residuals and solves.",
+      "properties": {
+        "bindings": {
+          "$ref": "#/$defs/Bindings",
+          "description": "Structural inputs; numerical point values use the ordinary binding owner."
+        },
+        "instance": {
+          "description": "Original specialized occurrence.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "InstanceId"
+        },
+        "outputs": {
+          "description": "Ordered actual physical scalar outputs.",
+          "items": {
+            "$ref": "#/$defs/SelectedObservationOutput"
+          },
+          "type": "array"
+        },
+        "root": {
+          "description": "Original selected source definition.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "DeclarationId"
+        }
+      },
+      "required": [
+        "root",
+        "instance",
+        "bindings",
+        "outputs"
+      ],
+      "type": "object"
+    },
+    "SelectedObservationOutput": {
+      "additionalProperties": false,
+      "description": "One authored scalar output and its requested physical representation.",
+      "properties": {
+        "member": {
+          "$ref": "#/$defs/BindingTarget",
+          "description": "Contextually resolved member in the original source; never a formula string."
+        },
+        "quantity": {
+          "description": "Required output quantity, checked against actual inferred source support.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "QuantityTypeId"
+        },
+        "unit": {
+          "description": "Registered output representation unit.",
+          "pattern": "^[0-9a-fA-F]{32}$",
+          "type": "string",
+          "x-pse-identity": "UnitId"
+        }
+      },
+      "required": [
+        "member",
+        "quantity",
+        "unit"
+      ],
+      "type": "object"
+    },
     "SemanticProductKey": {
       "additionalProperties": false,
       "description": "Actual consumed dependencies of a semantic product. Omitted fields were not consumed;\nproducer ownership determines compatibility, including lawful transport between values.",
@@ -9553,6 +11043,207 @@
         "reuse",
         "start",
         "options"
+      ],
+      "type": "object"
+    },
+    "SolveSettings": {
+      "additionalProperties": false,
+      "description": "Settings of one solve; original per-field defaults and admission stay authoritative.",
+      "properties": {
+        "backend": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NativeBackend"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An explicitly selected eligible backend; absent is deterministic routing."
+        },
+        "block_overrides": {
+          "additionalProperties": false,
+          "default": {},
+          "description": "Compiler stable block identities and admitted native realization overrides.\nValidated against the actual compiler scope even when direct execution wins;\napplied only if the governing policy selects the block mechanism.",
+          "patternProperties": {
+            "^blake3:[0-9a-fA-F]{64}$": {
+              "$ref": "#/$defs/BlockSolveOverrideBody"
+            }
+          },
+          "propertyNames": {
+            "description": "Stable identity of semantic block membership within an admitted scope.",
+            "pattern": "^blake3:[0-9a-fA-F]{64}$",
+            "type": "string",
+            "x-pse-identity": "ContentHash"
+          },
+          "type": "object"
+        },
+        "block_workers": {
+          "default": 1,
+          "description": "Maximum independent ready blocks; actual capacity is admitted by the existing owner.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "composition": {
+          "$ref": "#/$defs/CompositionRequestBody",
+          "default": {
+            "branch": {
+              "connected": null,
+              "kind": "any_qualified"
+            },
+            "limits": null,
+            "policy": "auto",
+            "recovery": []
+          },
+          "description": "Requested composition; omission chooses automatic resolution without replacement starts."
+        },
+        "controls": {
+          "$ref": "#/$defs/SolveControls",
+          "default": {
+            "hessian": "auto",
+            "history": 256,
+            "iterations": 3000,
+            "options": {},
+            "reuse": "allow_rebuild",
+            "start": "no_prior_start",
+            "threads": 1,
+            "time_limit": 300.0
+          },
+          "description": "Shared finite attempt controls."
+        },
+        "convexity_absolute": {
+          "default": null,
+          "description": "Absolute eigenvalue budget of a numerical convexity assessment; with the relative\nbudget, it permits numerical assessment, and absent both, only exact certification.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "convexity_relative": {
+          "default": null,
+          "description": "Relative eigenvalue budget of a numerical convexity assessment.",
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "intent": {
+          "$ref": "#/$defs/NativeSolveIntent",
+          "default": "optimize",
+          "description": "Mathematical purpose."
+        },
+        "numerics": {
+          "$ref": "#/$defs/NumericalPolicy",
+          "default": {
+            "acceptable": null,
+            "caloric_requirements": [],
+            "closure": "require_closed",
+            "engineering_relative_fraction": 0.001,
+            "engineering_rules": [],
+            "engineering_scales": [],
+            "gap_absolute": 0.001,
+            "gap_relative": 0.001,
+            "goals": [],
+            "incumbent": "refuse",
+            "integrality": 1e-8,
+            "kkt": {
+              "complementarity": 0.001,
+              "stationarity": 0.001
+            },
+            "linear_backward_error": 0.001,
+            "mip_absolute_gap": 0.001,
+            "mip_relative_gap": 0.001,
+            "native_scaling": true,
+            "requirements": [],
+            "strict_engineering_context": false,
+            "strict_nominals": false,
+            "supplier_action_accuracy": 0.001,
+            "version": 1
+          },
+          "description": "ID-keyed numerical requirements and acceptance budgets."
+        },
+        "presolve": {
+          "$ref": "#/$defs/PresolvePolicyKind",
+          "default": "auto",
+          "description": "Library presolve policy."
+        },
+        "presolve_options": {
+          "additionalProperties": {
+            "$ref": "#/$defs/OptionValue"
+          },
+          "default": {},
+          "description": "Native presolve options; an explicit policy only.",
+          "type": "object"
+        },
+        "reconstruction": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReconstructionAccuracy"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Explicit reconstruction evidence class and finite refinement allowances."
+        },
+        "required_passes": {
+          "default": [],
+          "description": "Passes that may not silently become unavailable; an explicit policy only.",
+          "items": {
+            "$ref": "#/$defs/PresolvePass"
+          },
+          "type": "array",
+          "uniqueItems": true
+        },
+        "sensitivity": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SensitivityRequest"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Physical parameter sensitivities at a regular square Root or optimizing candidate;\nabsent computes none. An absent request is not encoded, so a document without\none keeps its identity."
+        },
+        "settings": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BackendSettingsBody"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Typed settings of one backend; absent is the routed backend's native defaults."
+        },
+        "version": {
+          "const": 5,
+          "default": 5,
+          "description": "Document version.",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "block_overrides",
+        "block_workers",
+        "version",
+        "composition",
+        "intent",
+        "backend",
+        "settings",
+        "presolve",
+        "presolve_options",
+        "required_passes",
+        "controls",
+        "numerics",
+        "convexity_absolute",
+        "convexity_relative"
       ],
       "type": "object"
     },
@@ -10004,6 +11695,372 @@
         "initial"
       ],
       "type": "object"
+    },
+    "Value": {
+      "description": "A fully explicit structural value.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "Predicate.",
+          "properties": {
+            "Boolean": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "Boolean"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Exact integer.",
+          "properties": {
+            "Integer": {
+              "format": "int64",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "Integer"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Finite scalar with its complete physical type.",
+          "properties": {
+            "Number": {
+              "additionalProperties": false,
+              "properties": {
+                "bits": {
+                  "description": "Bit pattern of the canonical `f64` value.",
+                  "format": "uint64",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "quantity": {
+                  "description": "Physical quantity type.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "QuantityTypeId"
+                }
+              },
+              "required": [
+                "bits",
+                "quantity"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Number"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Generated continuous coordinate; identity is independent of its floating value.",
+          "properties": {
+            "Coordinate": {
+              "additionalProperties": false,
+              "properties": {
+                "bits": {
+                  "description": "Bit pattern of the canonical `f64` position.",
+                  "format": "uint64",
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                "id": {
+                  "description": "Coordinate identity.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "SemanticId"
+                },
+                "quantity": {
+                  "description": "Physical quantity type of the axis.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "QuantityTypeId"
+                }
+              },
+              "required": [
+                "id",
+                "bits",
+                "quantity"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Coordinate"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Textual label.",
+          "properties": {
+            "Text": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "Text"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Entity identity and its concrete kind; the kind is content, not identity\n(ADR-0123 Outcome 2).",
+          "properties": {
+            "Entity": {
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "description": "The entity declaration, or a keyed row's derived identity.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                },
+                "kind": {
+                  "description": "The most-derived kind of the entity.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                }
+              },
+              "required": [
+                "id",
+                "kind"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Entity"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Value of an authored closed enumeration.",
+          "properties": {
+            "Enum": {
+              "additionalProperties": false,
+              "properties": {
+                "enumeration": {
+                  "description": "Enumeration declaration.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                },
+                "member": {
+                  "description": "Member identity: renaming a member keeps it (ADR-0123 Outcome 2).",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "SemanticId"
+                }
+              },
+              "required": [
+                "enumeration",
+                "member"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Enum"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "An opaque value of a declared identifier scheme, compared byte-exactly and never\nparsed (ADR-0123 Outcome 2).",
+          "properties": {
+            "Identifier": {
+              "additionalProperties": false,
+              "properties": {
+                "scheme": {
+                  "description": "Identifier scheme declaration.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                },
+                "value": {
+                  "description": "The value as written.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "scheme",
+                "value"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Identifier"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Definition identity with named partial bindings.",
+          "properties": {
+            "Definition": {
+              "additionalProperties": false,
+              "properties": {
+                "bindings": {
+                  "additionalProperties": {
+                    "$ref": "#/$defs/Value"
+                  },
+                  "description": "Bound arguments by name.",
+                  "type": "object"
+                },
+                "id": {
+                  "description": "Definition declaration.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                }
+              },
+              "required": [
+                "id",
+                "bindings"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Definition"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A pure function declaration selected as structural data.",
+          "properties": {
+            "Function": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "DeclarationId"
+            }
+          },
+          "required": [
+            "Function"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Typed heterogeneous table row: positional cells and the column names they bind.",
+          "properties": {
+            "Row": {
+              "additionalProperties": false,
+              "properties": {
+                "fields": {
+                  "description": "Values in column order, shared with the admitted row.",
+                  "items": {
+                    "$ref": "#/$defs/Value"
+                  },
+                  "type": "array"
+                },
+                "names": {
+                  "description": "Column names in column order, shared with the admitted table.",
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "table": {
+                  "description": "Table declaration.",
+                  "pattern": "^[0-9a-fA-F]{32}$",
+                  "type": "string",
+                  "x-pse-identity": "DeclarationId"
+                }
+              },
+              "required": [
+                "table",
+                "names",
+                "fields"
+              ],
+              "type": "object"
+            }
+          },
+          "required": [
+            "Row"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Ordered finite set with no duplicates.",
+          "properties": {
+            "Set": {
+              "items": {
+                "$ref": "#/$defs/Value"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "Set"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "Ragged coordinate or table key.",
+          "properties": {
+            "Tuple": {
+              "items": {
+                "$ref": "#/$defs/Value"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "Tuple"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A named quantity type of the physical document (ADR-0123 Outcome 6).",
+          "properties": {
+            "QuantityType": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "QuantityTypeId"
+            }
+          },
+          "required": [
+            "QuantityType"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "A named reference state of the physical document (ADR-0123 Outcome 6).",
+          "properties": {
+            "ReferenceState": {
+              "pattern": "^[0-9a-fA-F]{32}$",
+              "type": "string",
+              "x-pse-identity": "ReferenceStateId"
+            }
+          },
+          "required": [
+            "ReferenceState"
+          ],
+          "type": "object"
+        },
+        {
+          "const": "Missing",
+          "description": "Explicit absence, never numeric zero.",
+          "type": "string"
+        }
+      ]
     },
     "WarmPayloadSnapshot": {
       "description": "Portable seed data with explicit numerical observations.",

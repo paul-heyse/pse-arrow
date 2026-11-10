@@ -417,6 +417,76 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
 | `minimal` | `Boolean` | false | `payload` | — | — |
 | `disposition` | `Utf8` | false | `payload` | — | — |
 
+## `canonical_expectation_boundaries`
+
+Sealed exactly-once estimator checkpoint and original output contributions after its finite child settles; no unconsumed lane delta is restorable.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `parent` | `Utf8` | false | `payload` | — | — |
+| `ordinal` | `UInt64` | false | `payload` | — | — |
+| `child` | `Utf8` | false | `payload` | — | — |
+| `checkpoint` | `Binary` | true | `payload` | — | — |
+| `report` | `Binary` | false | `payload` | — | — |
+| `observations` | `Binary` | false | `payload` | — | — |
+
+## `canonical_expectation_finalizations`
+
+Immutable original terminal-parent report, including between-barrier cancellation. A sealed adaptation checkpoint alone never asserts completion of the parent estimand.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `latest_boundary` | `UInt64` | true | `payload` | — | — |
+| `report` | `Binary` | false | `payload` | — | — |
+
+## `canonical_expectation_proposals`
+
+One immutable proposal population and ordinary finite child definition, retained before child activation. Reconciliation never resamples an acknowledged child.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `parent` | `Utf8` | false | `payload` | — | — |
+| `ordinal` | `UInt64` | false | `payload` | — | — |
+| `child` | `Utf8` | false | `payload` | — | — |
+| `samples` | `Binary` | false | `payload` | — | — |
+| `definition` | `Binary` | false | `payload` | — | — |
+
+## `canonical_expectation_publications`
+
+Original expectation result publication receipt: an exact sealed ordinary run/attempt/manifest, separate from internal sampler recovery state.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `run` | `Utf8` | false | `payload` | — | — |
+| `attempt` | `Utf8` | false | `payload` | — | — |
+| `manifest` | `Utf8` | false | `payload` | — | — |
+
+## `canonical_expectations`
+
+Immutable explicit-measure parent intent. Frozen proposals and sealed boundaries retain original finite children independently of live estimator ownership.
+
+Version: 1. Snapshot class: `sidecar`. Primary key: `key`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `key` | `Utf8` | false | `key` | — | — |
+| `request` | `Binary` | false | `payload` | — | — |
+| `supplier` | `Utf8` | false | `payload` | — | — |
+| `revision` | `Utf8` | false | `payload` | — | — |
+| `physical` | `Utf8` | false | `payload` | — | — |
+
 ## `canonical_file_admission`
 
 Selected file placement incarnation and jointly locked admission/collection freeze; ordinary opening never provisions missing placement.
@@ -1842,6 +1912,88 @@ Version: 1. Snapshot class: `sidecar`. Primary key: `name`.
 | `name` | `Utf8` | false | `key` | — | — |
 | `count` | `Int64` | true | `payload` | — | — |
 
+## `expectation_estimates`
+
+Original terminal parent output estimates with physical meaning, actual coverage, precision and stopping status; a completed adaptation subset is not a completed parent expectation.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, parent_id, output_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `parent_id` | `semantic_id` | false | `key` | — | — |
+| `output_id` | `semantic_id` | false | `key` | — | — |
+| `quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `unit_id` | `semantic_id` | false | `payload` | — | — |
+| `completed_iterations` | `Int64` | false | `payload` | — | — |
+| `issued` | `Int64` | false | `payload` | — | — |
+| `available` | `Int64` | false | `payload` | — | — |
+| `unavailable_ordinals` | `List` | false | `payload` | — | — |
+| `unavailable_ordinals.item` | `Int64` | false | `payload` | — | — |
+| `reference` | `Float64` | false | `payload` | — | — |
+| `estimate` | `Float64` | true | `payload` | — | — |
+| `standard_error` | `Float64` | true | `payload` | — | — |
+| `complete` | `Boolean` | false | `payload` | — | — |
+| `precision_met` | `Boolean` | false | `payload` | — | — |
+| `interrupted` | `Boolean` | false | `payload` | — | — |
+| `limit_reached` | `Boolean` | false | `payload` | — | — |
+
+## `expectation_samples`
+
+Original finite sample attribution and physical observations from a settled child. Equal values remain distinct occurrences. Missing values do not shrink the expectation denominator.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, parent_id, iteration, ordinal`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `parent_id` | `semantic_id` | false | `key` | — | — |
+| `child_id` | `semantic_id` | false | `payload` | — | — |
+| `iteration` | `Int64` | false | `key` | — | — |
+| `ordinal` | `Int64` | false | `key` | — | — |
+| `point_index` | `Int64` | false | `payload` | — | — |
+| `lane` | `Int64` | false | `payload` | — | — |
+| `lane_ordinal` | `Int64` | false | `payload` | — | — |
+| `target_mass` | `Float64` | false | `payload` | — | — |
+| `proposal_weight` | `Float64` | false | `payload` | — | — |
+| `categories` | `List` | false | `payload` | — | — |
+| `categories.item` | `semantic_id` | false | `payload` | — | — |
+| `base_coordinates` | `List` | false | `payload` | — | — |
+| `base_coordinates.item` | `Float64` | false | `payload` | — | — |
+| `inputs` | `List` | false | `payload` | — | — |
+| `inputs.item` | `Struct ExpectationPhysicalInput` | false | `payload` | — | — |
+| `inputs.item.member` | `semantic_id` | false | `payload` | — | — |
+| `inputs.item.quantity` | `semantic_id` | false | `payload` | — | — |
+| `inputs.item.canonical` | `Float64` | false | `payload` | — | — |
+| `outputs` | `List` | false | `payload` | — | — |
+| `outputs.item` | `Struct ExpectationOriginalOutput` | false | `payload` | — | — |
+| `outputs.item.member` | `semantic_id` | false | `payload` | — | — |
+| `outputs.item.canonical` | `Float64` | true | `payload` | — | — |
+| `scientific_failure` | `Boolean` | true | `payload` | — | — |
+| `operational_incomplete` | `Boolean` | false | `payload` | — | — |
+
+## `expectation_summaries`
+
+Original terminal explicit-measure parent observation published through the ordinary run/attempt result manifest. Sampling uncertainty is not a physical enclosure.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, parent_id`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `parent_id` | `semantic_id` | false | `key` | — | — |
+| `source_revision` | `content_hash` | false | `payload` | — | — |
+| `physical_context` | `content_hash` | false | `payload` | — | — |
+| `completed_iterations` | `Int64` | false | `payload` | — | — |
+| `recorded_iterations` | `Int64` | false | `payload` | — | — |
+| `issued` | `Int64` | false | `payload` | — | — |
+| `interrupted` | `Boolean` | false | `payload` | — | — |
+| `limit_reached` | `Boolean` | false | `payload` | — | — |
+| `failure_probability` | `Float64` | true | `payload` | — | — |
+| `failure_standard_error` | `Float64` | true | `payload` | — | — |
+| `failure_probability_complete` | `Boolean` | false | `payload` | — | — |
+| `original_report` | `Utf8` | false | `payload` | — | — |
+
 ## `fit_constraints`
 
 Independently evaluated original steady physical constraints and declared acceptance tolerances.
@@ -2231,6 +2383,32 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step, quantity`.
 | `validity.root_backward_error` | `Float64` | true | `payload` | — | — |
 | `validity.root_backward_error_limit` | `Float64` | true | `payload` | — | — |
 | `validity.root_neighborhood` | `Utf8` | true | `payload` | — | — |
+
+## `mathematical_products`
+
+Original selected mathematical products, persisted by the producing run and terminal attempt under sealed ordinary result manifests and physical closure. Formula strings are native presentation, not identity, execution input or proof. Partial reader pages do not change the original operation's scope or support.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, ordinal`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `ordinal` | `Int64` | false | `key` | — | — |
+| `source_id` | `semantic_id` | false | `payload` | — | — |
+| `source_revision` | `content_hash` | false | `payload` | — | — |
+| `product_kind` | `Utf8` | false | `payload` | — | — |
+| `operation` | `Utf8` | false | `payload` | — | — |
+| `claim` | `Utf8` | false | `payload` | — | — |
+| `supported` | `Boolean` | false | `payload` | — | — |
+| `support_reason` | `Utf8` | true | `payload` | — | — |
+| `source_context` | `Utf8` | false | `payload` | — | — |
+| `result_context` | `Utf8` | false | `payload` | — | — |
+| `native_views` | `List` | false | `payload` | — | — |
+| `native_views.item` | `Struct MathematicalNativeView` | false | `payload` | — | — |
+| `native_views.item.path` | `Utf8` | false | `payload` | — | — |
+| `native_views.item.symbolica` | `Utf8` | false | `payload` | — | — |
+| `native_views.item.latex` | `Utf8` | false | `payload` | — | — |
+| `native_views.item.typst` | `Utf8` | false | `payload` | — | — |
 
 ## `modeling_checks`
 
@@ -3958,6 +4136,22 @@ Version: 1. Snapshot class: `derived`. Primary key: `run_id, step`.
 | `mode_names.item` | `Utf8` | false | `payload` | — | — |
 | `mode_identities` | `List` | false | `payload` | — | — |
 | `mode_identities.item` | `content_hash` | false | `payload` | — | — |
+
+## `selected_observations`
+
+Original typed scalar observations from an authored member selection.
+
+Version: 1. Snapshot class: `derived`. Primary key: `run_id, ordinal`.
+
+| Field path | Type | Nullable | Role | Reference | Quantity |
+|---|---|---|---|---|---|
+| `run_id` | `semantic_id` | false | `key` | — | — |
+| `ordinal` | `Int64` | false | `key` | — | — |
+| `member_id` | `semantic_id` | false | `payload` | — | — |
+| `quantity_id` | `semantic_id` | false | `payload` | — | — |
+| `unit_id` | `semantic_id` | false | `payload` | — | — |
+| `canonical` | `Float64` | false | `payload` | — | — |
+| `value` | `Float64` | false | `payload` | — | — |
 
 ## `simulation_events`
 

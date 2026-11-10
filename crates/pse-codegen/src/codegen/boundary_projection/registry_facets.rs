@@ -10,7 +10,7 @@ use pse_schema::model::{
     BoundaryShape, CanonicalKeyKind, CollectionContract, CollectionOrder, ColumnRole,
     ExpressionBinder, ExpressionGrammar, ExpressionOrdinal, ExpressionSourceContract, ExtensionUse,
     FieldContract, IdentityContract, IntegerRange, ReferenceContract, ReferenceNullPolicy,
-    TaggedAlternative, field_facets as keys,
+    ResultSelectionRole, TaggedAlternative, field_facets as keys,
 };
 
 use super::{ProjectionCodegenError, error};
@@ -34,6 +34,10 @@ const SOURCE_FIELDS: &[(&str, &str)] = &[
     (keys::EXTENSION, "extension"),
     (keys::PARAMETER, "extension"),
     (keys::ROLE, "role"),
+    (keys::RESULT_SELECTION, "result_selection"),
+    (keys::KEY_RESULT_SELECTION, "result_selection"),
+    (keys::RESULT_SORT, "result_sort"),
+    (keys::KEY_RESULT_SORT, "result_sort"),
     (keys::DOC, "documentation"),
     (keys::STRUCTURE, "structure_name"),
     (keys::QUANTITY, "quantity"),
@@ -105,6 +109,17 @@ fn vocabularies(pool: &buffa_descriptor::DescriptorPool) -> Result<(), Projectio
                 "COLUMN_ROLE_LABEL",
                 "COLUMN_ROLE_PAYLOAD",
                 "COLUMN_ROLE_PROVENANCE",
+            ][..],
+        ),
+        (
+            "ResultSelectionRole",
+            &[
+                "RESULT_SELECTION_ROLE_UNSPECIFIED",
+                "RESULT_SELECTION_ROLE_RUN",
+                "RESULT_SELECTION_ROLE_OWNER",
+                "RESULT_SELECTION_ROLE_STEP",
+                "RESULT_SELECTION_ROLE_EXPERIMENT",
+                "RESULT_SELECTION_ROLE_VALUE",
             ][..],
         ),
         (
@@ -213,7 +228,7 @@ fn vocabularies(pool: &buffa_descriptor::DescriptorPool) -> Result<(), Projectio
 fn schema_shapes(pool: &buffa_descriptor::DescriptorPool) -> Result<(), ProjectionCodegenError> {
     use buffa_descriptor::{
         FieldKind::{List, Singular},
-        ScalarType::{Bool, Bytes, Int64, String, Uint32},
+        ScalarType::{Bool, Bytes, Int64, String, Uint32, Uint64},
         SingularKind::{Enum, Message, Scalar},
     };
     let message = |name: &str| {
@@ -254,6 +269,8 @@ fn schema_shapes(pool: &buffa_descriptor::DescriptorPool) -> Result<(), Projecti
                     Singular(message("ExpressionSourceContract")?),
                 ),
                 ("native_field_ipc", scalar(Bytes)),
+                ("result_selection", enumeration("ResultSelectionRole")?),
+                ("result_sort", scalar(Uint64)),
             ],
         ),
         (
@@ -491,6 +508,42 @@ pub(super) fn field_options(
     Ok(value)
 }
 
+fn result_facet<T: Copy + PartialEq>(
+    domain: Option<&str>,
+    materialized: Option<&str>,
+    path: &str,
+    key: &str,
+    parse: impl Fn(&str) -> Option<T>,
+) -> Result<Option<T>, ProjectionCodegenError> {
+    let parsed = |value: Option<&str>| {
+        value
+            .map(|value| {
+                parse(value)
+                    .ok_or_else(|| error(format!("{path}.{key}: invalid native result annotation")))
+            })
+            .transpose()
+    };
+    let domain = parsed(domain)?;
+    let materialized = parsed(materialized)?;
+    if let (Some(domain), Some(materialized)) = (domain, materialized)
+        && domain != materialized
+    {
+        return Err(error(format!(
+            "{path}.{key}: domain and materialized result annotations disagree"
+        )));
+    }
+    Ok(domain.or(materialized))
+}
+fn result_selection_number(role: ResultSelectionRole) -> i32 {
+    match role {
+        ResultSelectionRole::Run => 1,
+        ResultSelectionRole::Owner => 2,
+        ResultSelectionRole::Step => 3,
+        ResultSelectionRole::Experiment => 4,
+        ResultSelectionRole::Value => 5,
+    }
+}
+
 fn lower_field_options(
     field: &Field,
     graph: &ProjectionGraph,
@@ -503,6 +556,30 @@ fn lower_field_options(
     let invalid = |key: &str, reason: &str| error(format!("{path}.{key}: {reason}"));
     let get = |key: &str| field.named_facets.get(key).map(String::as_str);
     let mut fields = vec![("metadata_version", Value::U32(2))];
+    if let Some(role) = result_facet(
+        get(keys::RESULT_SELECTION),
+        get(keys::KEY_RESULT_SELECTION),
+        path,
+        keys::RESULT_SELECTION,
+        ResultSelectionRole::from_name,
+    )? {
+        fields.push((
+            "result_selection",
+            Value::EnumNumber(result_selection_number(role)),
+        ));
+    }
+    if let Some(ordinal) = result_facet(
+        get(keys::RESULT_SORT),
+        get(keys::KEY_RESULT_SORT),
+        path,
+        keys::RESULT_SORT,
+        FieldContract::parse_result_sort_ordinal,
+    )? {
+        let ordinal = u64::try_from(ordinal)
+            .ok()
+            .ok_or_else(|| invalid(keys::RESULT_SORT, "invalid result-sort ordinal"))?;
+        fields.push(("result_sort", Value::U64(ordinal)));
+    }
     if let Some(source) = get(super::REGISTRY_FIELD_SOURCE) {
         let native: arrow_schema::Field = serde_json::from_str(source)?;
         if native.name() != &field.name {
@@ -1099,10 +1176,32 @@ pub(super) fn check_option(option: &DynamicMessage) -> Result<(), ProjectionCode
             "canonical",
             "expression_source",
             "native_field_ipc",
+            "result_selection",
+            "result_sort",
         ],
     )?;
     if required(option, "metadata_version")? != &Value::U32(2) {
         return Err(error("unknown registry metadata version"));
+    }
+    if value(option, "result_selection").is_some() {
+        let role = match enumeration(option, "result_selection", 5)? {
+            1 => "run",
+            2 => "owner",
+            3 => "step",
+            4 => "experiment",
+            _ => "value",
+        };
+        if ResultSelectionRole::from_name(role).is_none() {
+            return Err(error("typed result-selection role is unavailable"));
+        }
+    }
+    if let Some(ordinal) = value(option, "result_sort") {
+        let Value::U64(ordinal) = ordinal else {
+            return Err(error("result-sort ordinal is not uint64"));
+        };
+        if FieldContract::parse_result_sort_ordinal(&ordinal.to_string()).is_none() {
+            return Err(error("typed result-sort ordinal is unavailable"));
+        }
     }
     if value(option, "role").is_some() {
         enumeration(option, "role", 6)?;

@@ -673,3 +673,178 @@ fn acquired_native_collection_references_keep_correlated_components() {
         "changing either correlated target remains semantic"
     );
 }
+
+#[test]
+fn registry_options_preserve_result_roles_sort_and_original_native_carriers() {
+    use arrow_schema::DataType;
+    use buffa_descriptor::ReflectMessageMut;
+    let encoder = encoder();
+    let mut graph = ProjectionGraph::default();
+    for (role, number, ordinal) in [
+        (ResultSelectionRole::Run, 1, 0),
+        (ResultSelectionRole::Owner, 2, 1),
+        (ResultSelectionRole::Step, 3, 0),
+        (ResultSelectionRole::Experiment, 4, 1),
+        (ResultSelectionRole::Value, 5, 0),
+    ] {
+        let native = FieldContract::native(if role == ResultSelectionRole::Value {
+            DataType::Float64
+        } else {
+            DataType::FixedSizeBinary(16)
+        })
+        .with_result_selection(role)
+        .with_result_sort(ordinal)
+        .with_boundary_tag(7)
+        .into_field()
+        .with_name("native_field");
+        let mut facets = native
+            .metadata()
+            .iter()
+            .map(|(key, value)| (key.clone(), value.clone()))
+            .collect::<BTreeMap<_, _>>();
+        facets.insert(
+            super::super::REGISTRY_FIELD_SOURCE.into(),
+            pse_schema::model::field::render_field(&native).unwrap(),
+        );
+        let selected = Field::of::<u64>(&mut graph, "native_field", 7, Direction::Both, vec![])
+            .unwrap()
+            .with_named_facets(facets);
+        let option = field_options(&selected, &graph, &encoder).unwrap().unwrap();
+        assert_eq!(enumeration(&option, "result_selection", 5).unwrap(), number);
+        assert_eq!(
+            required(&option, "result_sort").unwrap(),
+            &Value::U64(ordinal as u64)
+        );
+        assert!(normalize_option(&option).unwrap().is_some());
+        let mut changed = option.clone();
+        let pool = std::sync::Arc::clone(changed.pool());
+        let sort = pool
+            .message(changed.message_index())
+            .field_by_name("result_sort")
+            .unwrap();
+        changed
+            .try_set(sort, Value::U64(ordinal as u64 + 1))
+            .unwrap();
+        assert!(
+            check_option(&changed)
+                .unwrap_err()
+                .to_string()
+                .contains("native IPC field disagrees")
+        );
+        let mut changed = option.clone();
+        let pool = std::sync::Arc::clone(changed.pool());
+        let selection = pool
+            .message(changed.message_index())
+            .field_by_name("result_selection")
+            .unwrap();
+        changed
+            .try_set(
+                selection,
+                Value::EnumNumber(if number == 1 { 2 } else { 1 }),
+            )
+            .unwrap();
+        assert!(
+            check_option(&changed)
+                .unwrap_err()
+                .to_string()
+                .contains("native IPC field disagrees")
+        );
+    }
+    // These are source usage annotations; changing a role or sort ordinal stays
+    // significant to the existing execution normalization, without value admission.
+    let original = field::<u64>(
+        &mut graph,
+        &[
+            (keys::RESULT_SELECTION, "run".into()),
+            (keys::RESULT_SORT, "0".into()),
+        ],
+    );
+    let owner = field::<u64>(
+        &mut graph,
+        &[
+            (keys::RESULT_SELECTION, "owner".into()),
+            (keys::RESULT_SORT, "0".into()),
+        ],
+    );
+    let later = field::<u64>(
+        &mut graph,
+        &[
+            (keys::RESULT_SELECTION, "run".into()),
+            (keys::RESULT_SORT, "1".into()),
+        ],
+    );
+    let normalized = |field: &Field| {
+        normalize_option(&field_options(field, &graph, &encoder).unwrap().unwrap()).unwrap()
+    };
+    assert_ne!(normalized(&original), normalized(&owner));
+    assert_ne!(normalized(&original), normalized(&later));
+}
+
+#[test]
+fn registry_options_refuse_unknown_result_roles_malformed_ordinals_and_conflicting_spellings() {
+    let encoder = encoder();
+    let mut graph = ProjectionGraph::default();
+    for (key, text) in [
+        (keys::RESULT_SELECTION, "future"),
+        (keys::KEY_RESULT_SELECTION, "future"),
+        (keys::RESULT_SORT, "-1"),
+        (keys::RESULT_SORT, "1.5"),
+        (keys::RESULT_SORT, "18446744073709551616"),
+        (keys::KEY_RESULT_SORT, ""),
+    ] {
+        let selected = field::<u64>(&mut graph, &[(key, text.into())]);
+        assert!(
+            field_options(&selected, &graph, &encoder).is_err(),
+            "{key}={text}"
+        );
+    }
+    for facets in [
+        vec![
+            (keys::RESULT_SELECTION, "run".into()),
+            (keys::KEY_RESULT_SELECTION, "value".into()),
+        ],
+        vec![
+            (keys::RESULT_SORT, "0".into()),
+            (keys::KEY_RESULT_SORT, "1".into()),
+        ],
+    ] {
+        let selected = field::<u64>(&mut graph, &facets);
+        assert!(field_options(&selected, &graph, &encoder).is_err());
+    }
+    for (selection, sort) in [
+        (keys::RESULT_SELECTION, keys::RESULT_SORT),
+        (keys::KEY_RESULT_SELECTION, keys::KEY_RESULT_SORT),
+    ] {
+        let selected = field::<u64>(&mut graph, &[(selection, "run".into()), (sort, "0".into())]);
+        let option = field_options(&selected, &graph, &encoder).unwrap().unwrap();
+        assert_eq!(required(&option, "result_sort").unwrap(), &Value::U64(0));
+        check_option(&option).unwrap();
+    }
+    let equivalent = field::<u64>(
+        &mut graph,
+        &[
+            (keys::RESULT_SORT, "00".into()),
+            (keys::KEY_RESULT_SORT, "0".into()),
+        ],
+    );
+    let equivalent = field_options(&equivalent, &graph, &encoder)
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        required(&equivalent, "result_sort").unwrap(),
+        &Value::U64(0),
+        "both spellings use the same native ordinal parser"
+    );
+    for number in [0, 99] {
+        let option = encoder
+            .message(
+                "pse.schema.v1.RegistryFieldFacets",
+                &[
+                    ("metadata_version", Value::U32(2)),
+                    ("result_selection", Value::EnumNumber(number)),
+                ],
+            )
+            .unwrap();
+        assert!(check_option(&option).is_err());
+    }
+}
