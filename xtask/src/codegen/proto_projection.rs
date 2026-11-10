@@ -54,6 +54,8 @@ pub(super) struct ProjectionTarget<'a> {
     pub file: &'a str,
     pub destination: &'a str,
     pub rust_module: &'a str,
+    /// Publish interpretation constants only for a native policy consumer.
+    pub native_policy: bool,
     pub document_root: &'a str,
     pub generator_path: &'a str,
     pub generator_symbol: &'a str,
@@ -119,6 +121,7 @@ pub(super) fn publish_projection_owned(
         file,
         destination,
         rust_module,
+        native_policy,
         document_root,
         generator_path,
         generator_symbol,
@@ -137,30 +140,32 @@ pub(super) fn publish_projection_owned(
     let destination = PathBuf::from(destination);
     let composed = composition::generate(&output.generation, rust_module)
         .with_context(|| format!("{package}: compose admitted source projection"))?;
+    let mut auxiliary_files = vec!["descriptor.bin", "descriptor-source.bin"];
+    if native_policy {
+        auxiliary_files.push("native-policy.rs");
+    }
     composed.admit(
         output.sources().map(|(name, _)| name),
         &destination,
-        &[
-            "native-policy.rs",
-            "descriptor.bin",
-            "descriptor-source.bin",
-        ],
+        &auxiliary_files,
     )?;
     let mut tree = GeneratedTree::empty(vec![destination.clone()]);
     for (name, source) in output.sources() {
         insert(&mut tree, &destination, name, source.as_bytes())?;
     }
-    let policy = boundary_projection::native_policy_source(
-        graph,
-        package,
-        pse_contract::BoundaryDirection::Both,
-    )?;
-    insert(
-        &mut tree,
-        &destination,
-        "native-policy.rs",
-        policy.as_bytes(),
-    )?;
+    if native_policy {
+        let policy = boundary_projection::native_policy_source(
+            graph,
+            package,
+            pse_contract::BoundaryDirection::Both,
+        )?;
+        insert(
+            &mut tree,
+            &destination,
+            "native-policy.rs",
+            policy.as_bytes(),
+        )?;
+    }
     insert(
         &mut tree,
         &destination,

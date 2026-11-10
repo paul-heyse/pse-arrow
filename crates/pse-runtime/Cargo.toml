@@ -13,6 +13,26 @@ homepage.workspace = true
 authors.workspace = true
 publish.workspace = true
 
+# These exact files are linked by #[path]/include! in host_operations/engineering,
+# reference_exchange/generated.rs and scientific_worker/{generated,wire}.rs.
+# Cargo-shear 1.14.0 does not normalize their parent-relative paths:
+# https://github.com/Boshen/cargo-shear/issues/589
+[package.metadata.cargo-shear]
+ignored-paths = [
+  "src/generated/engineering/mod.rs",
+  "src/generated/engineering/services/pse.engineering.v1.mod.rs",
+  "src/generated/engineering/validation/mod.rs",
+  "src/generated/engineering-inspection/mod.rs",
+  "src/generated/engineering-inspection/native-adapters.rs",
+  "src/generated/engineering-inspection/validation/mod.rs",
+  "src/generated/reference-exchange/mod.rs",
+  "src/generated/reference-exchange/validation/mod.rs",
+  "src/generated/scientific-worker/mod.rs",
+  "src/generated/scientific-worker/native-adapters.rs",
+  "src/generated/scientific-worker/services/pse.scientific_worker.v2.mod.rs",
+  "src/generated/scientific-worker/validation/mod.rs",
+]
+
 [lints]
 workspace = true
 

@@ -12,6 +12,11 @@ homepage.workspace = true
 authors.workspace = true
 publish.workspace = true
 
+# Linked from src/schema/compare/semantics.rs. Cargo-shear 1.14.0 does not
+# normalize parent-relative #[path] links: https://github.com/Boshen/cargo-shear/issues/589
+[package.metadata.cargo-shear]
+ignored-paths = ["src/generated/recorded-result-policy/native-policy.rs"]
+
 [[bin]]
 name = "pse"
 path = "src/bin/pse.rs"

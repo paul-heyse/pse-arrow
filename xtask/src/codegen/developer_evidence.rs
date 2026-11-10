@@ -18,6 +18,7 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
             file: "developer_evidence.proto",
             destination: "crates/pse-host/src/generated/developer-evidence",
             rust_module: "crate::developer_evidence_contracts::pb",
+            native_policy: true,
             document_root: super::DEVELOPER_EVIDENCE_DOCUMENT_ROOT,
             generator_path: "xtask/src/codegen/proto_projection.rs",
             generator_symbol: "projection",

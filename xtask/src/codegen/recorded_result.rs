@@ -96,6 +96,7 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
             file: FILE,
             destination: DESTINATION,
             rust_module: MODULE,
+            native_policy: true,
             document_root: super::RECORDED_RESULT_DOCUMENT_ROOT,
             generator_path: "xtask/src/codegen/recorded_result.rs",
             generator_symbol: "generate",

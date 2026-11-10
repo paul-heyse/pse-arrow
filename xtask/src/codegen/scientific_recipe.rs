@@ -61,6 +61,7 @@ pub(super) fn generate(root: &Path) -> Result<GeneratedTree> {
             file: FILE,
             destination: DESTINATION,
             rust_module: RUST_MODULE,
+            native_policy: true,
             document_root: super::ENGINEERING_DOCUMENT_ROOT,
             generator_path: "xtask/src/codegen/scientific_recipe.rs",
             generator_symbol: "generate",

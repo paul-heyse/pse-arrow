@@ -22,6 +22,7 @@ pub(super) fn generate(imports: &FileDescriptorSet) -> Result<GeneratedTree> {
             file: "reference.proto",
             destination: "crates/pse-runtime/src/generated/reference-exchange",
             rust_module: "crate::reference_exchange::generated::pb",
+            native_policy: false,
             document_root: super::ENGINEERING_DOCUMENT_ROOT,
             generator_path: "xtask/src/codegen/reference_exchange.rs",
             generator_symbol: "generate",

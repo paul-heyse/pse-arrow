@@ -19,6 +19,7 @@ pub(super) fn generate(imports: &FileDescriptorSet) -> Result<GeneratedTree> {
             file: "scientific_worker.proto",
             destination: "crates/pse-runtime/src/generated/scientific-worker",
             rust_module: "crate::scientific_worker::generated::pb",
+            native_policy: false,
             document_root: super::ENGINEERING_DOCUMENT_ROOT,
             generator_path: "xtask/src/codegen/scientific_worker.rs",
             generator_symbol: "generate",
