@@ -11,8 +11,9 @@ mod session;
 pub use readiness::{EngineeringFixtureReady, EngineeringFrontendReady};
 #[cfg(feature = "engineering-service")]
 pub use session::{
-    EngineeringExpectationOutput, EngineeringExpectationSamplesOutput, EngineeringModelingOutput, EngineeringPhysicalOutput, EngineeringProviderPreparation,
-    EngineeringResultOutput, EngineeringService, EngineeringServiceError, EngineeringStudyOutput,
+    EngineeringExpectationOutput, EngineeringExpectationSamplesOutput, EngineeringModelingOutput,
+    EngineeringPhysicalOutput, EngineeringProviderPreparation, EngineeringResultOutput,
+    EngineeringService, EngineeringServiceError, EngineeringStudyOutput,
 };
 
 /// Complete encoded ceiling for fixed contract, workbench and prepared-study documents.

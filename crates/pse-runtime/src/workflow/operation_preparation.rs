@@ -119,7 +119,9 @@ impl RuntimeOperationRequest {
     pub fn into_study(self) -> Result<OperationRequest, WorkflowError> {
         match self {
             Self::Study { operation, .. } => Ok(*operation),
-            Self::Mathematical(_) => Err(projection_refusal("mathematical observations have their own original-result contract")),
+            Self::Mathematical(_) => Err(projection_refusal(
+                "mathematical observations have their own original-result contract",
+            )),
             Self::DeclaredCase { .. } => Err(projection_refusal(
                 "study projection requires the runtime-admitted declared route",
             )),
@@ -160,7 +162,7 @@ impl PreparedOperation {
         cancel: &CancelSource,
     ) -> Result<super::IssuedRunStart, WorkflowError> {
         match self {
-            Self::Mathematical(prepared) => prepared.start_issued(services,identity,cancel).await,
+            Self::Mathematical(prepared) => prepared.start_issued(services, identity, cancel).await,
             Self::Study(PreparedStudyOperation::DeclaredCase(case)) => {
                 services
                     .start_modeling_issued(vec![case.as_ref().clone()], identity, cancel)
@@ -184,7 +186,9 @@ impl PreparedOperation {
                 .map(|key| key.as_id())
                 .map_err(crate::math::MathRuntimeError::from)
                 .map_err(Into::into),
-            Self::Study(PreparedStudyOperation::SelectedObservation(prepared)) => prepared.identity(),
+            Self::Study(PreparedStudyOperation::SelectedObservation(prepared)) => {
+                prepared.identity()
+            }
             Self::Study(PreparedStudyOperation::Simulation(prepared)) => Ok(prepared.identity()),
             Self::Study(PreparedStudyOperation::Fit(prepared)) => Ok(prepared.identity()),
             Self::Study(PreparedStudyOperation::Horizon(_)) => Err(contract(
@@ -201,7 +205,9 @@ impl PreparedOperation {
     /// Shooting cannot enter the persisted Version<8> operation set.
     pub fn into_study(self) -> Result<PreparedStudyOperation, WorkflowError> {
         match self {
-            Self::Mathematical(_) => Err(projection_refusal("mathematical observations are outside the persisted Study operation set")),
+            Self::Mathematical(_) => Err(projection_refusal(
+                "mathematical observations are outside the persisted Study operation set",
+            )),
             Self::Initialization(_) => Err(projection_refusal(
                 "initialization requires an explicit persisted operation contract, outside StudyOperation Version<8>",
             )),
@@ -221,7 +227,7 @@ impl PreparedOperation {
         cancel: &CancelSource,
     ) -> Result<RunHandle, WorkflowError> {
         match self {
-            Self::Mathematical(prepared) => prepared.start(services,cancel),
+            Self::Mathematical(prepared) => prepared.start(services, cancel),
             Self::Initialization(initialization) => {
                 services.start_initialization(initialization.as_ref().clone(), cancel)
             }
@@ -253,10 +259,18 @@ impl ModelingPackage {
         match request {
             RuntimeOperationRequest::Mathematical(request) => {
                 if binding.is_some_and(|binding| !binding.entries.is_empty()) {
-                    return Err(contract("selected mathematics requires original typed input demand, without a study input overlay"));
+                    return Err(contract(
+                        "selected mathematics requires original typed input demand, without a study input overlay",
+                    ));
                 }
-                cancel.checkpoint().map_err(|_|crate::math::MathRuntimeError::Cancelled)?;
-                let prepared=super::PreparedMathematicalOperation{source:self.clone(),request,preparation:preparation.clone()};
+                cancel
+                    .checkpoint()
+                    .map_err(|_| crate::math::MathRuntimeError::Cancelled)?;
+                let prepared = super::PreparedMathematicalOperation {
+                    source: self.clone(),
+                    request,
+                    preparation: preparation.clone(),
+                };
                 prepared.identity()?;
                 Ok(PreparedOperation::Mathematical(Box::new(prepared)))
             }

@@ -514,7 +514,19 @@ impl OperationPreparation<'_> {
         let compiler = self.preparation.compiler;
         let limits = self.preparation.limits;
         match &self.operation {
-            OperationRequest::SelectedObservation(operation) => Ok(PreparedStudyOperation::SelectedObservation(Box::new(package.prepare_selected_observation(services, operation, self.preparation, self.binding, cancel).await?))),
+            OperationRequest::SelectedObservation(operation) => {
+                Ok(PreparedStudyOperation::SelectedObservation(Box::new(
+                    package
+                        .prepare_selected_observation(
+                            services,
+                            operation,
+                            self.preparation,
+                            self.binding,
+                            cancel,
+                        )
+                        .await?,
+                )))
+            }
             OperationRequest::DeclaredCase(case) => package
                 .prepare_case_operation(
                     services,
@@ -893,7 +905,15 @@ impl StudyOperation {
             }
             match &self.operation {
                 OperationRequest::SelectedObservation(operation) => {
-                    package.prepare_selected_observation(services, operation, &self.preparation, Some(binding), cancel).await?;
+                    package
+                        .prepare_selected_observation(
+                            services,
+                            operation,
+                            &self.preparation,
+                            Some(binding),
+                            cancel,
+                        )
+                        .await?;
                 }
                 OperationRequest::Simulation(simulation) => {
                     let execution = package
@@ -1054,9 +1074,11 @@ impl PreparedStudyOperation {
     pub fn seed_need(&self) -> SeedNeed {
         match self {
             Self::DeclaredCase(case) if case.solve.compatibility().is_some() => SeedNeed::Required,
-            Self::SelectedObservation(_) | Self::DeclaredCase(_) | Self::Simulation(_) | Self::Fit(_) | Self::Horizon(_) => {
-                SeedNeed::NotNeeded
-            }
+            Self::SelectedObservation(_)
+            | Self::DeclaredCase(_)
+            | Self::Simulation(_)
+            | Self::Fit(_)
+            | Self::Horizon(_) => SeedNeed::NotNeeded,
         }
     }
     /// Exact dispatch and selected branch storage, admitted before a worker claim.
@@ -1074,7 +1096,9 @@ impl PreparedStudyOperation {
         }
         let dispatch = extent(|attempt| self.start_attempt(services, cancel, attempt));
         let branch = match self {
-            Self::SelectedObservation(observation) => extent(|attempt| observation.start_attempt(services, attempt, cancel)),
+            Self::SelectedObservation(observation) => {
+                extent(|attempt| observation.start_attempt(services, attempt, cancel))
+            }
             Self::DeclaredCase(case) => extent(|attempt| {
                 services.start_attempt(vec![case.as_ref().clone()], attempt, cancel)
             }),
@@ -1109,7 +1133,11 @@ impl PreparedStudyOperation {
     ) -> Result<RunHandle, WorkflowError> {
         let mut work: futures_util::future::BoxFuture<'_, Result<RunHandle, WorkflowError>> =
             match self {
-                Self::SelectedObservation(observation) => super::worker::boxed_worker_action(|| observation.start_attempt(services, attempt, cancel)),
+                Self::SelectedObservation(observation) => {
+                    super::worker::boxed_worker_action(|| {
+                        observation.start_attempt(services, attempt, cancel)
+                    })
+                }
                 Self::DeclaredCase(case) => super::worker::boxed_worker_action(|| {
                     services.start_attempt(vec![case.as_ref().clone()], attempt, cancel)
                 }),

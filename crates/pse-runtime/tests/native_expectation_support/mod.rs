@@ -503,15 +503,23 @@ async fn journey(science: &Science) {
         }
         let temperature = physical_value(&package, "Temperature", "K", 0.).quantity;
         let flow = physical_value(&package, "Flow", "mol/s", 1.).quantity;
-        let next_page=runtime.expectation_samples(parent,1,0,32,&CancelSource::new()).await.unwrap();
-        let next_rows=pse_model::generated::runtime::expectation_samples::Row::rows(&next_page).unwrap();
-        assert_eq!(next_rows.len(),32);
-        let mut finite_sums=[0_f64;2];
-        for (index,row) in rows.iter().chain(&next_rows).enumerate() {
+        let next_page = runtime
+            .expectation_samples(parent, 1, 0, 32, &CancelSource::new())
+            .await
+            .unwrap();
+        let next_rows =
+            pse_model::generated::runtime::expectation_samples::Row::rows(&next_page).unwrap();
+        assert_eq!(next_rows.len(), 32);
+        let mut finite_sums = [0_f64; 2];
+        for (index, row) in rows.iter().chain(&next_rows).enumerate() {
             assert_eq!(row.parent_id, parent);
-            assert_eq!(row.ordinal,index as i64);
-            assert_eq!(row.iteration,(index/32)as i64);
-            if index<32 {assert_eq!(row.child_id.to_string(), original.child);}else{assert_ne!(row.child_id,rows[0].child_id);}
+            assert_eq!(row.ordinal, index as i64);
+            assert_eq!(row.iteration, (index / 32) as i64);
+            if index < 32 {
+                assert_eq!(row.child_id.to_string(), original.child);
+            } else {
+                assert_ne!(row.child_id, rows[0].child_id);
+            }
             let outlet = row
                 .inputs
                 .iter()
@@ -524,21 +532,42 @@ async fn journey(science: &Science) {
                 .find(|input| input.quantity == flow)
                 .unwrap()
                 .canonical;
-            let u=row.base_coordinates[0];
-            let expected_outlet=310.+20.*if squared{u*u}else{u};
-            assert!((outlet-expected_outlet).abs()<1e-12,"the retained physical point follows its declared base-law pushforward");
+            let u = row.base_coordinates[0];
+            let expected_outlet = 310. + 20. * if squared { u * u } else { u };
+            assert!(
+                (outlet - expected_outlet).abs() < 1e-12,
+                "the retained physical point follows its declared base-law pushforward"
+            );
             let enthalpy = 30. * (outlet - 300.);
-            let (mass,expected_flow)=match row.categories.as_slice(){[category] if *category==SemanticId::from_bytes([1;16])=>(0.25,1.),[category] if *category==SemanticId::from_bytes([2;16])=>(0.75,2.),_=>panic!("original authored flow category required")};
-            assert_eq!(flow,expected_flow);
-            assert_eq!(row.target_mass,mass);
-            let correction=if ordinary{1.}else{mass*row.proposal_weight};
-            assert_eq!(row.outputs.len(),2);
-            for (output_index,(output, expected)) in row.outputs.iter().zip([flow * enthalpy, enthalpy]).enumerate() {
+            let (mass, expected_flow) = match row.categories.as_slice() {
+                [category] if *category == SemanticId::from_bytes([1; 16]) => (0.25, 1.),
+                [category] if *category == SemanticId::from_bytes([2; 16]) => (0.75, 2.),
+                _ => panic!("original authored flow category required"),
+            };
+            assert_eq!(flow, expected_flow);
+            assert_eq!(row.target_mass, mass);
+            let correction = if ordinary {
+                1.
+            } else {
+                mass * row.proposal_weight
+            };
+            assert_eq!(row.outputs.len(), 2);
+            for (output_index, (output, expected)) in row
+                .outputs
+                .iter()
+                .zip([flow * enthalpy, enthalpy])
+                .enumerate()
+            {
                 assert!((output.canonical.unwrap() - expected).abs() < 1e-5);
-                finite_sums[output_index]+=correction*expected;
+                finite_sums[output_index] += correction * expected;
             }
         }
-        for (output,sum) in report.outputs.iter().zip(finite_sums){assert!((output.estimate.unwrap()-sum/64.).abs()<1e-5,"public expectation equals the independent corrected sum of all original physical members");}
+        for (output, sum) in report.outputs.iter().zip(finite_sums) {
+            assert!(
+                (output.estimate.unwrap() - sum / 64.).abs() < 1e-5,
+                "public expectation equals the independent corrected sum of all original physical members"
+            );
+        }
         let estimates = runtime
             .expectation_estimates(parent, &CancelSource::new())
             .await

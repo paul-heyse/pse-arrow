@@ -716,28 +716,85 @@ impl RunResult {
             .identity();
         match &self.outcome {
             super::RunOutcome::Expectation { result, .. } => {
-                let available = result.as_ref().is_ok_and(|product| product.permits_result());
-                let refusal = result.as_ref().map_or(CandidateRefusal::NativeOutcome, |product| {
-                    if product.report.interrupted || product.report.outputs.iter().any(|output| !output.complete) || (product.report.request.failure_probability && !product.report.failure_probability_complete) { CandidateRefusal::CoverageUnavailable } else { CandidateRefusal::AccuracyUnresolved }
+                let available = result
+                    .as_ref()
+                    .is_ok_and(|product| product.permits_result());
+                let refusal = result
+                    .as_ref()
+                    .map_or(CandidateRefusal::NativeOutcome, |product| {
+                        if product.report.interrupted
+                            || product.report.outputs.iter().any(|output| !output.complete)
+                            || (product.report.request.failure_probability
+                                && !product.report.failure_probability_complete)
+                        {
+                            CandidateRefusal::CoverageUnavailable
+                        } else {
+                            CandidateRefusal::AccuracyUnresolved
+                        }
+                    });
+                product.permission = Some(ScientificPermission {
+                    reference_point: None,
+                    step: None,
+                    requested: 1,
+                    observed: usize::from(result.is_ok()),
+                    report_succeeded: result.is_ok(),
+                    decision: if available {
+                        CandidateUse::Usable
+                    } else {
+                        CandidateUse::DiagnosticOnly
+                    },
+                    refusals: if available { vec![] } else { vec![refusal] },
+                    qualifiers: vec![],
                 });
-                product.permission = Some(ScientificPermission { reference_point: None, step: None, requested:1, observed:usize::from(result.is_ok()), report_succeeded:result.is_ok(), decision:if available {CandidateUse::Usable} else {CandidateUse::DiagnosticOnly}, refusals:if available {vec![]}else{vec![refusal]}, qualifiers:vec![] });
             }
             super::RunOutcome::Mathematical { result, .. } => {
-                let available = result.as_ref().is_ok_and(|product| product.succeeded && product.supported);
+                let available = result
+                    .as_ref()
+                    .is_ok_and(|product| product.succeeded && product.supported);
                 product.permission = Some(ScientificPermission {
-                    reference_point: None, step: None, requested: 1,
+                    reference_point: None,
+                    step: None,
+                    requested: 1,
                     observed: usize::from(result.as_ref().is_ok_and(|product| product.succeeded)),
-                    report_succeeded: result.is_ok(), decision: if available { CandidateUse::DiagnosticOnly } else { CandidateUse::Unusable },
-                    refusals: if available { vec![] } else { vec![CandidateRefusal::CoverageUnavailable] }, qualifiers: vec![],
+                    report_succeeded: result.is_ok(),
+                    decision: if available {
+                        CandidateUse::DiagnosticOnly
+                    } else {
+                        CandidateUse::Unusable
+                    },
+                    refusals: if available {
+                        vec![]
+                    } else {
+                        vec![CandidateRefusal::CoverageUnavailable]
+                    },
+                    qualifiers: vec![],
                 });
             }
             super::RunOutcome::SelectedObservation { request, result } => {
-                let accepted = result.as_ref().is_ok_and(|values| values.canonical.len() == request.members.len() && values.applicability.iter().filter(|claim| claim.required).all(|claim| claim.admitted));
+                let accepted = result.as_ref().is_ok_and(|values| {
+                    values.canonical.len() == request.members.len()
+                        && values
+                            .applicability
+                            .iter()
+                            .filter(|claim| claim.required)
+                            .all(|claim| claim.admitted)
+                });
                 product.permission = Some(ScientificPermission {
-                    reference_point: Some(self.run_id.as_id()), step: None,
-                    requested: request.members.len(), observed: result.as_ref().map_or(0, |values| values.canonical.len()),
-                    report_succeeded: result.is_ok(), decision: if accepted { CandidateUse::Usable } else { CandidateUse::Unusable },
-                    refusals: if accepted { vec![] } else { vec![CandidateRefusal::NativeOutcome] },
+                    reference_point: Some(self.run_id.as_id()),
+                    step: None,
+                    requested: request.members.len(),
+                    observed: result.as_ref().map_or(0, |values| values.canonical.len()),
+                    report_succeeded: result.is_ok(),
+                    decision: if accepted {
+                        CandidateUse::Usable
+                    } else {
+                        CandidateUse::Unusable
+                    },
+                    refusals: if accepted {
+                        vec![]
+                    } else {
+                        vec![CandidateRefusal::NativeOutcome]
+                    },
                     qualifiers: Vec::new(),
                 });
             }

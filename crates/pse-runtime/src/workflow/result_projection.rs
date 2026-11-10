@@ -1243,7 +1243,13 @@ mod result_projection_unit {
         assert_eq!(selection.run, "run_id");
         assert_eq!(selection.owner, "source_id");
         assert!(selection.values.is_empty());
-        for field in ["source_context", "result_context", "native_views", "supported", "value"] {
+        for field in [
+            "source_context",
+            "result_context",
+            "native_views",
+            "supported",
+            "value",
+        ] {
             assert!(scalar_expression(relation, field, None, None, None).is_err());
             assert!(scalar_expression(relation, field, Some(0.0), None, Some(false)).is_err());
         }

@@ -227,7 +227,9 @@ impl super::Runtime {
         }
         let primary = self.managed_primary(cancel).await?;
         let handle = match issued {
-            Some(issued) => Box::pin(self.start_issued_study(definition.clone(), issued, cancel)).await?,
+            Some(issued) => {
+                Box::pin(self.start_issued_study(definition.clone(), issued, cancel)).await?
+            }
             None => Box::pin(self.start_recorded_study(definition.clone(), cancel)).await?,
         };
         let inventory = wait_study_inventory(
@@ -318,10 +320,14 @@ impl super::Runtime {
         maximum_points: usize,
         cancel: &crate::CancelSource,
     ) -> Result<StudyReport, WorkflowError> {
-        self.execute_study_with_issuance(definition, maximum_points, cancel, None).await
+        self.execute_study_with_issuance(definition, maximum_points, cancel, None)
+            .await
     }
     pub(in crate::workflow) async fn execute_study_with_issuance(
-        &self, definition: &StudyDefinition, maximum_points: usize, cancel: &crate::CancelSource,
+        &self,
+        definition: &StudyDefinition,
+        maximum_points: usize,
+        cancel: &crate::CancelSource,
         issued: Option<super::IssuedStudyIdentity>,
     ) -> Result<StudyReport, WorkflowError> {
         super::study::creation_checkpoint(cancel)?;
@@ -1431,29 +1437,77 @@ async fn execute_lane_inner(
             staged,
         };
     }
-    if members.iter().all(|member| matches!(member.preparation.operation, PreparedStudyOperation::SelectedObservation(_))) {
-        let prepared = members.iter().filter_map(|member| match &member.preparation.operation { PreparedStudyOperation::SelectedObservation(observation) => Some(observation.as_ref().clone()), _ => None }).collect::<Vec<_>>();
-        let population = super::PreparedSelectedObservation::evaluate_population(&prepared, services.preparation(), cancel).await;
+    if members.iter().all(|member| {
+        matches!(
+            member.preparation.operation,
+            PreparedStudyOperation::SelectedObservation(_)
+        )
+    }) {
+        let prepared = members
+            .iter()
+            .filter_map(|member| match &member.preparation.operation {
+                PreparedStudyOperation::SelectedObservation(observation) => {
+                    Some(observation.as_ref().clone())
+                }
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        let population = super::PreparedSelectedObservation::evaluate_population(
+            &prepared,
+            services.preparation(),
+            cancel,
+        )
+        .await;
         let mut points = Vec::with_capacity(members.len());
         match population {
             Ok(completed) if completed.len() == members.len() => {
-                let publications = members.drain(..).zip(completed).map(|(member, completed)| async move {
-                    let result = async {
-                        let original = completed.start(services, cancel)?.wait().await?;
-                        settle_occurrence(original, &member.output, member.revision, member.continuation_owner).await
-                    }.await;
-                    ExecutedPoint { index: member.index, revision: member.revision, start: member.start, result }
-                });
+                let publications =
+                    members
+                        .drain(..)
+                        .zip(completed)
+                        .map(|(member, completed)| async move {
+                            let result = async {
+                                let original = completed.start(services, cancel)?.wait().await?;
+                                settle_occurrence(
+                                    original,
+                                    &member.output,
+                                    member.revision,
+                                    member.continuation_owner,
+                                )
+                                .await
+                            }
+                            .await;
+                            ExecutedPoint {
+                                index: member.index,
+                                revision: member.revision,
+                                start: member.start,
+                                result,
+                            }
+                        });
                 points = futures_util::future::join_all(publications).await;
             }
             outcome => {
-                let error = Arc::new(match outcome { Ok(_) => super::contract("selected observation population original extent differs"), Err(error) => error });
+                let error = Arc::new(match outcome {
+                    Ok(_) => {
+                        super::contract("selected observation population original extent differs")
+                    }
+                    Err(error) => error,
+                });
                 for member in members.drain(..) {
-                    points.push(ExecutedPoint { index: member.index, revision: member.revision, start: member.start, result: Err(WorkflowError::Shared(error.clone())) });
+                    points.push(ExecutedPoint {
+                        index: member.index,
+                        revision: member.revision,
+                        start: member.start,
+                        result: Err(WorkflowError::Shared(error.clone())),
+                    });
                 }
             }
         }
-        return LaneCompletion::Executed { lanes: Vec::new(), points, staged: None };
+        return LaneCompletion::Executed {
+            lanes: Vec::new(),
+            points,
+            staged: None,
+        };
     }
     let mut points = Vec::with_capacity(members.len());
     let deadline = members

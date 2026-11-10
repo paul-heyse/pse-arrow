@@ -98,15 +98,43 @@ fn fit_id(doc: &'static str) -> T {
 pub(super) fn declare(b: &mut RegistryBuilder) {
     declare_physical_boundary(b);
     relation(
-        b, N::Runtime, "selected_observations", S::Derived,
+        b,
+        N::Runtime,
+        "selected_observations",
+        S::Derived,
         &["run_id", "ordinal"],
         vec![
-            run_id().with_result_selection(R::Run).with_result_sort(0), column("ordinal", ordinal()).with_result_sort(1),
-            documented("member_id", T::id(), "Original authored physical scalar member; never an equation residual row.").with_result_selection(R::Owner),
-            documented("quantity_id", T::id(), "Complete source-checked physical scalar meaning.").with_identity("quantity_type"),
-            documented("unit_id", T::id(), "Registered requested physical representation.").with_identity("unit"),
-            documented("canonical", real(), "Original finite canonical physical magnitude."),
-            documented("value", real(), "Magnitude expressed in the admitted requested unit.").with_result_selection(R::Value),
+            run_id().with_result_selection(R::Run).with_result_sort(0),
+            column("ordinal", ordinal()).with_result_sort(1),
+            documented(
+                "member_id",
+                T::id(),
+                "Original authored physical scalar member; never an equation residual row.",
+            )
+            .with_result_selection(R::Owner),
+            documented(
+                "quantity_id",
+                T::id(),
+                "Complete source-checked physical scalar meaning.",
+            )
+            .with_identity("quantity_type"),
+            documented(
+                "unit_id",
+                T::id(),
+                "Registered requested physical representation.",
+            )
+            .with_identity("unit"),
+            documented(
+                "canonical",
+                real(),
+                "Original finite canonical physical magnitude.",
+            ),
+            documented(
+                "value",
+                real(),
+                "Magnitude expressed in the admitted requested unit.",
+            )
+            .with_result_selection(R::Value),
         ],
         "Original typed scalar observations from an authored member selection.",
     );

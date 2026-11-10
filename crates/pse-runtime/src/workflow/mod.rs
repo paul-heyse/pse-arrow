@@ -23,8 +23,7 @@
 //! None of these local operations requires a canonical deployment, Python or a CLI.
 mod conformance_documents;
 pub use conformance_documents::{ConformanceManifest, ConformanceRun, RunSettings};
-pub use modeling::{
-    AuthoredAnalyticalResult,ConformanceObservation, with_conformance_observer};
+pub use modeling::{AuthoredAnalyticalResult, ConformanceObservation, with_conformance_observer};
 mod diagnostic_request;
 mod reduction;
 mod reproducer;
@@ -129,13 +128,13 @@ pub use progress_documents::{
 mod progress;
 pub use progress::ProgressStream;
 mod bindings;
+pub mod expectation;
 mod native_deployment;
 #[cfg(all(test, feature = "native-service", feature = "solver-kinsol"))]
 mod native_study_tests;
 mod native_worker;
 mod physical_cache;
 pub mod sampling;
-pub mod expectation;
 mod worker;
 pub use bindings::{
     AdmittedBinding, AdmittedBindingEntry, BindingAssignment, BindingQuantity, BindingTarget,
@@ -198,7 +197,8 @@ pub use study_operations::{
     ControllerPrediction, EstimatorInput, EstimatorMeasurement, EstimatorOperation, FitOperation,
     HorizonBinding, HorizonInputDocument, HorizonOperation, HorizonSignalDocument,
     OperationRequest, OperationSource, PreparationSettings, PreparedStudyOperation,
-    SelectedObservationOperation, SelectedObservationOutput, SimulationOperation, StudyOperation, StudyResultRole,
+    SelectedObservationOperation, SelectedObservationOutput, SimulationOperation, StudyOperation,
+    StudyResultRole,
 };
 pub(crate) mod numerics;
 mod objectives;
@@ -304,9 +304,12 @@ pub mod uncertainty;
 #[cfg(feature = "solver-idas")]
 pub use modeling::ConsistentInitializationResult;
 pub use modeling::ModelingNativeAnalysis;
-pub use modeling::{CompletedSelectedObservation, MathematicalDiagnosticOperation, PreparedSelectedObservation, SelectedObservationPopulation, SelectedObservationValues};
 pub use modeling::ModelingStructuralAnalysis;
 pub use modeling::scientific_intake;
+pub use modeling::{
+    CompletedSelectedObservation, MathematicalDiagnosticOperation, PreparedSelectedObservation,
+    SelectedObservationPopulation, SelectedObservationValues,
+};
 pub use modeling::{
     DeclaredAlgebraicOutcome, DeclaredExecution, DeclaredProcedure, DiagnosticSampleStop,
     DiscreteInitialization, ElasticObservation, InitializationOverrides, ModelingAnalysis,
@@ -359,9 +362,12 @@ use pse_engine::{
     session::{BoundModel, EngineFactory},
 };
 pub use run::{IssuedRunIdentity, IssuedRunStart, RunHandle, RunResult, StoredStart};
-mod run_outcome;
 mod mathematical_products;
-pub use mathematical_products::{AnalyticalOperationRequest,MathematicalRequest,PreparedMathematicalOperation,MathematicalProduct,StoredMathematicalView};
+mod run_outcome;
+pub use mathematical_products::{
+    AnalyticalOperationRequest, MathematicalProduct, MathematicalRequest,
+    PreparedMathematicalOperation, StoredMathematicalView,
+};
 pub use run_outcome::{HorizonRunOutcome, RunOutcome, RunReport, RunRequest};
 mod live_simulation;
 pub use live_simulation::{

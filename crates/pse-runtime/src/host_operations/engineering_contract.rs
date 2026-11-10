@@ -8,7 +8,10 @@ use pse_model::engineering::OPERATION_ID_RULE;
 mod analytical;
 pub use analytical::EngineeringExecuteMathematical;
 mod expectation;
-pub use expectation::{EngineeringExecuteExpectation, EngineeringReadExpectation, EngineeringReadExpectationSamples, EngineeringExpectationSamples};
+pub use expectation::{
+    EngineeringExecuteExpectation, EngineeringExpectationSamples, EngineeringReadExpectation,
+    EngineeringReadExpectationSamples,
+};
 mod inspection;
 mod study;
 pub use inspection::{EngineeringInspectModeling, EngineeringInspectProviders};

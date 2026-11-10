@@ -11,13 +11,13 @@
     reason = "independent scientific assertions and explicit original-fixture settlement"
 )]
 
-#[path = "../../../tests/fixtures/native-worker-environment.rs"]
-mod native_worker_environment;
-#[path = "native_expectation_support/mod.rs"]
-mod expectation;
 #[cfg(feature = "engineering-service")]
 #[path = "native_diagnostic_support/mod.rs"]
 mod diagnostic;
+#[path = "native_expectation_support/mod.rs"]
+mod expectation;
+#[path = "../../../tests/fixtures/native-worker-environment.rs"]
+mod native_worker_environment;
 
 use futures_util::{FutureExt, future::BoxFuture};
 use pse_admission::authoring_driver::document::{OwnedDocumentSet, load_package_documents_owned};

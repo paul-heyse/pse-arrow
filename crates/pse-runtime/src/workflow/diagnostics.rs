@@ -466,7 +466,12 @@ impl RunResult {
             }
         };
         match self.report() {
-            Ok(RunReport::Expectation(_) | RunReport::Mathematical(_) | RunReport::SelectedObservation(_) | RunReport::Horizon(_)) => {}
+            Ok(
+                RunReport::Expectation(_)
+                | RunReport::Mathematical(_)
+                | RunReport::SelectedObservation(_)
+                | RunReport::Horizon(_),
+            ) => {}
             Ok(RunReport::Initialization(report)) => {
                 for result in report
                     .attempts

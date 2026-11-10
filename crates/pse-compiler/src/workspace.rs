@@ -235,21 +235,21 @@ impl From<MathError> for CompileError {
 type Result<T> = std::result::Result<T, CompileError>;
 mod modeling;
 pub use modeling::{
-    AnalyticalOperation, AnalyticalCoordinate, AnalyticalOutput, AnalyticalSource, CompiledAnalyticalResult,
-    AdmittedImplicit, AdmittedModeling, AnnotationObservation, AutomaticCausalUnit, BoundLookup,
-    BoundLookupKey, BoundStructure, CompilerView, ConditionalUnitInventory, Derivation, Derived,
-    FlowConnectionDocument, FlowSelectionDocument, ImplicitAlgorithm, ImplicitCapabilities,
-    ImplicitMeaning, ImplicitProgramRequest, ImplicitPrograms, ImplicitScale, ImplicitSelection,
-    ModelingBodyRetention, ModelingCaseBindings, ModelingExpectationResult, ModelingFlowSelection,
-    ModelingHint, ModelingOccurrenceIdentity, ModelingOutput, ModelingPointChecks,
-    ModelingPreparationFrontier, ModelingRevision, ModelingTestValue, ModelingValidityResult,
-    ModelingVariableState, NumericalAdmission, NumericalAnnotation, NumericalAnnotationMode,
-    NumericalAnnotations, NumericalLocation, NumericalObservationArtifact,
-    NumericalObservationBuildRecipe, NumericalObservationInstanceRequest,
-    NumericalObservationRequest, NumericalScale, NumericalStartSource, NumericalStartValues,
-    NumericalTargetFact, NumericalTargetRole, ObjectiveBound, PreparedModeling,
-    ScalingObservations, SelectionEquivalence, SelectionNeighborhood, SemanticModeling, ViewChoice,
-    ViewPolicy, ViewReason, ViewRoles,
+    AdmittedImplicit, AdmittedModeling, AnalyticalCoordinate, AnalyticalOperation,
+    AnalyticalOutput, AnalyticalSource, AnnotationObservation, AutomaticCausalUnit, BoundLookup,
+    BoundLookupKey, BoundStructure, CompiledAnalyticalResult, CompilerView,
+    ConditionalUnitInventory, Derivation, Derived, FlowConnectionDocument, FlowSelectionDocument,
+    ImplicitAlgorithm, ImplicitCapabilities, ImplicitMeaning, ImplicitProgramRequest,
+    ImplicitPrograms, ImplicitScale, ImplicitSelection, ModelingBodyRetention,
+    ModelingCaseBindings, ModelingExpectationResult, ModelingFlowSelection, ModelingHint,
+    ModelingOccurrenceIdentity, ModelingOutput, ModelingPointChecks, ModelingPreparationFrontier,
+    ModelingRevision, ModelingTestValue, ModelingValidityResult, ModelingVariableState,
+    NumericalAdmission, NumericalAnnotation, NumericalAnnotationMode, NumericalAnnotations,
+    NumericalLocation, NumericalObservationArtifact, NumericalObservationBuildRecipe,
+    NumericalObservationInstanceRequest, NumericalObservationRequest, NumericalScale,
+    NumericalStartSource, NumericalStartValues, NumericalTargetFact, NumericalTargetRole,
+    ObjectiveBound, PreparedModeling, ScalingObservations, SelectionEquivalence,
+    SelectionNeighborhood, SemanticModeling, ViewChoice, ViewPolicy, ViewReason, ViewRoles,
 };
 #[salsa::db]
 trait CompilerDb: Database {

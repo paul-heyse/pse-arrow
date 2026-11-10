@@ -7,15 +7,18 @@ use pse_authoring::dsl::{self, EquationSense};
 use pse_modeling::specialize::symbol_name;
 use pse_quantity::scheme::Substitution;
 use std::collections::BTreeSet;
+mod analytical;
 mod conformance;
 mod dependencies;
 mod derived;
 mod factorable;
 mod grouped;
-mod numerical_observation;
 mod mathematical_diagnostics;
-mod analytical;
-pub use analytical::{AnalyticalOperation,AnalyticalSource,AnalyticalCoordinate, AnalyticalOutput,CompiledAnalyticalResult};
+mod numerical_observation;
+pub use analytical::{
+    AnalyticalCoordinate, AnalyticalOperation, AnalyticalOutput, AnalyticalSource,
+    CompiledAnalyticalResult,
+};
 pub use numerical_observation::{
     NumericalObservationArtifact, NumericalObservationBuildRecipe,
     NumericalObservationInstanceRequest, NumericalObservationRequest,

@@ -13,9 +13,9 @@ pub use pse_host::engineering_client::EngineeringEndpoint;
 use std::sync::Arc;
 
 mod adoption;
-mod ingress;
 mod analytical;
 mod expectation;
+mod ingress;
 mod inspection;
 mod outgoing;
 mod responses;

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Explicit-measure parents use native original-operation custody and protected report reads.
-use pse_contract::boundary_projection::{Direction, LocalRule, ProjectionError, ProjectionGraph, Service};
+use pse_contract::boundary_projection::{
+    Direction, LocalRule, ProjectionError, ProjectionGraph, Service,
+};
 use pse_model::engineering::OPERATION_ID_RULE;
 
 pse_contract::projection_struct! {
@@ -63,11 +65,24 @@ pub struct EngineeringExpectationSamples {
     pub next_offset: Option<u64> => { tag: 5, direction: Direction::Output, rules: [] };
 }
 }
-pub(super) fn service(service: Service, graph: &mut ProjectionGraph) -> Result<Service, ProjectionError> {
-    service.unary::<EngineeringExecuteExpectation, crate::workflow::expectation::ExpectationReport>(graph, "ExecuteExpectation")?
+pub(super) fn service(
+    service: Service,
+    graph: &mut ProjectionGraph,
+) -> Result<Service, ProjectionError> {
+    service
+        .unary::<EngineeringExecuteExpectation, crate::workflow::expectation::ExpectationReport>(
+            graph,
+            "ExecuteExpectation",
+        )?
         .effects(pse_contract::operation_effects::EffectFacts::NATIVE_EXECUTION)?
-        .unary::<EngineeringReadExpectation, crate::workflow::expectation::ExpectationReport>(graph, "ReadExpectation")?
+        .unary::<EngineeringReadExpectation, crate::workflow::expectation::ExpectationReport>(
+            graph,
+            "ReadExpectation",
+        )?
         .effects(pse_contract::operation_effects::EffectFacts::OBSERVATION)?
-        .unary::<EngineeringReadExpectationSamples, EngineeringExpectationSamples>(graph, "ReadExpectationSamples")?
+        .unary::<EngineeringReadExpectationSamples, EngineeringExpectationSamples>(
+            graph,
+            "ReadExpectationSamples",
+        )?
         .effects(pse_contract::operation_effects::EffectFacts::OBSERVATION)
 }

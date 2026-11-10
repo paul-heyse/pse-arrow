@@ -1,25 +1,45 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 //! Immutable parent, original finite proposal and exactly-once expectation barriers.
-use crate::{canonical::{CanonicalError, CanonicalStore, REQUEST_TIMEOUT, bounded_query, protected_query, transport::{original_deadline, within_clock}}, canonical_script::{Envelope, GuardedScript, ResultSlot}, generated::surreal as wire};
-use surrealdb_types::Object;
-pub use pse_model::generated::runtime::{canonical_expectations::Row as Expectation, canonical_expectation_proposals::Row as Proposal, canonical_expectation_boundaries::Row as Boundary};
+use crate::{
+    canonical::{
+        CanonicalError, CanonicalStore, REQUEST_TIMEOUT, bounded_query, protected_query,
+        transport::{original_deadline, within_clock},
+    },
+    canonical_script::{Envelope, GuardedScript, ResultSlot},
+    generated::surreal as wire,
+};
 pub use pse_model::generated::runtime::canonical_expectation_finalizations::Row as Finalization;
 pub use pse_model::generated::runtime::canonical_expectation_publications::Row as Publication;
+pub use pse_model::generated::runtime::{
+    canonical_expectation_boundaries::Row as Boundary,
+    canonical_expectation_proposals::Row as Proposal, canonical_expectations::Row as Expectation,
+};
+use surrealdb_types::Object;
 
 const DOCUMENT_BYTES: usize = 16 << 20;
 fn key(value: &str) -> Result<(), CanonicalError> {
-    if value.is_empty() || value.len() > 4096 { return Err(CanonicalError::PayloadLimit); }
+    if value.is_empty() || value.len() > 4096 {
+        return Err(CanonicalError::PayloadLimit);
+    }
     Ok(())
 }
 fn document(value: &[u8]) -> Result<(), CanonicalError> {
-    if value.is_empty() || value.len() > DOCUMENT_BYTES { return Err(CanonicalError::PayloadLimit); }
+    if value.is_empty() || value.len() > DOCUMENT_BYTES {
+        return Err(CanonicalError::PayloadLimit);
+    }
     Ok(())
 }
 impl CanonicalStore {
     /// Bind terminal expectation data to its existing sealed ordinary result manifest.
-    pub async fn publish_expectation(&self, row: Publication) -> Result<Publication, CanonicalError> {
-        key(&row.key)?; key(&row.run)?; key(&row.attempt)?; key(&row.manifest)?;
+    pub async fn publish_expectation(
+        &self,
+        row: Publication,
+    ) -> Result<Publication, CanonicalError> {
+        key(&row.key)?;
+        key(&row.run)?;
+        key(&row.attempt)?;
+        key(&row.manifest)?;
         let object = wire::create_canonical_expectation_publications(&(&row).into())?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -31,7 +51,10 @@ impl CanonicalStore {
         })).await
     }
     /// Read the original publication locator, without recreating unavailable scientific rows.
-    pub async fn expectation_publication(&self, parent: &str) -> Result<Option<Publication>, CanonicalError> {
+    pub async fn expectation_publication(
+        &self,
+        parent: &str,
+    ) -> Result<Option<Publication>, CanonicalError> {
         key(parent)?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -40,8 +63,12 @@ impl CanonicalStore {
         })).await
     }
     /// Retain the original terminal parent decision independently of its last adaptive barrier.
-    pub async fn finalize_expectation(&self, row: Finalization) -> Result<Finalization, CanonicalError> {
-        key(&row.key)?; document(row.report.as_slice())?;
+    pub async fn finalize_expectation(
+        &self,
+        row: Finalization,
+    ) -> Result<Finalization, CanonicalError> {
+        key(&row.key)?;
+        document(row.report.as_slice())?;
         let object = wire::create_canonical_expectation_finalizations(&(&row).into())?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -53,7 +80,10 @@ impl CanonicalStore {
         })).await
     }
     /// Read original terminal parent custody; a prior checkpoint never substitutes for it.
-    pub async fn expectation_finalization(&self, parent: &str) -> Result<Option<Finalization>, CanonicalError> {
+    pub async fn expectation_finalization(
+        &self,
+        parent: &str,
+    ) -> Result<Option<Finalization>, CanonicalError> {
         key(parent)?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -62,8 +92,15 @@ impl CanonicalStore {
         })).await
     }
     /// Retain one exact immutable request before any random sample or child effect.
-    pub async fn create_expectation(&self, row: Expectation) -> Result<Expectation, CanonicalError> {
-        key(&row.key)?; key(&row.supplier)?; key(&row.revision)?; key(&row.physical)?; document(row.request.as_slice())?;
+    pub async fn create_expectation(
+        &self,
+        row: Expectation,
+    ) -> Result<Expectation, CanonicalError> {
+        key(&row.key)?;
+        key(&row.supplier)?;
+        key(&row.revision)?;
+        key(&row.physical)?;
+        document(row.request.as_slice())?;
         let object = wire::create_canonical_expectations(&(&row).into())?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -78,15 +115,40 @@ impl CanonicalStore {
     pub async fn expectation(&self, parent: &str) -> Result<Option<Expectation>, CanonicalError> {
         key(parent)?;
         let activity = self.admit_activity()?;
-        activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
-            let mut response = bounded_query(self.db.script(GuardedScript::new(Envelope::ReadOnly).returning::<Option<Object>>("", "SELECT * FROM ONLY type::record('canonical_expectations',$key)")?).bind(("key", parent.to_owned()))).await?;
-            ResultSlot::<Option<Object>>::returned().take(&mut response)?.map(wire::decode_canonical_expectations).transpose().map_err(Into::into)
-        })).await
+        activity
+            .scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
+                let mut response = bounded_query(
+                    self.db
+                        .script(
+                            GuardedScript::new(Envelope::ReadOnly).returning::<Option<Object>>(
+                                "",
+                                "SELECT * FROM ONLY type::record('canonical_expectations',$key)",
+                            )?,
+                        )
+                        .bind(("key", parent.to_owned())),
+                )
+                .await?;
+                ResultSlot::<Option<Object>>::returned()
+                    .take(&mut response)?
+                    .map(wire::decode_canonical_expectations)
+                    .transpose()
+                    .map_err(Into::into)
+            }))
+            .await
     }
     /// Append an immutable original proposal before its ordinary finite child activates.
-    pub async fn retain_expectation_proposal(&self, row: Proposal) -> Result<Proposal, CanonicalError> {
-        key(&row.key)?; key(&row.parent)?; key(&row.child)?; document(row.samples.as_slice())?; document(row.definition.as_slice())?;
-        if row.key != format!("{}/{}", row.parent, row.ordinal) { return Err(CanonicalError::PayloadLimit); }
+    pub async fn retain_expectation_proposal(
+        &self,
+        row: Proposal,
+    ) -> Result<Proposal, CanonicalError> {
+        key(&row.key)?;
+        key(&row.parent)?;
+        key(&row.child)?;
+        document(row.samples.as_slice())?;
+        document(row.definition.as_slice())?;
+        if row.key != format!("{}/{}", row.parent, row.ordinal) {
+            return Err(CanonicalError::PayloadLimit);
+        }
         let object = wire::create_canonical_expectation_proposals(&(&row).into())?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -98,7 +160,11 @@ impl CanonicalStore {
         })).await
     }
     /// Read one original frozen child definition without resampling its population.
-    pub async fn expectation_proposal(&self, parent: &str, ordinal: u64) -> Result<Option<Proposal>, CanonicalError> {
+    pub async fn expectation_proposal(
+        &self,
+        parent: &str,
+        ordinal: u64,
+    ) -> Result<Option<Proposal>, CanonicalError> {
         key(parent)?;
         let record = format!("{parent}/{ordinal}");
         let activity = self.admit_activity()?;
@@ -108,10 +174,21 @@ impl CanonicalStore {
         })).await
     }
     /// Seal exactly one original child's consumed deltas and its resulting report.
-    pub async fn seal_expectation_boundary(&self, row: Boundary) -> Result<Boundary, CanonicalError> {
-        key(&row.key)?; key(&row.parent)?; key(&row.child)?; document(row.report.as_slice())?; document(row.observations.as_slice())?;
-        if let Some(checkpoint) = &row.checkpoint { document(checkpoint.as_slice())?; }
-        if row.key != format!("{}/{}", row.parent, row.ordinal) { return Err(CanonicalError::PayloadLimit); }
+    pub async fn seal_expectation_boundary(
+        &self,
+        row: Boundary,
+    ) -> Result<Boundary, CanonicalError> {
+        key(&row.key)?;
+        key(&row.parent)?;
+        key(&row.child)?;
+        document(row.report.as_slice())?;
+        document(row.observations.as_slice())?;
+        if let Some(checkpoint) = &row.checkpoint {
+            document(checkpoint.as_slice())?;
+        }
+        if row.key != format!("{}/{}", row.parent, row.ordinal) {
+            return Err(CanonicalError::PayloadLimit);
+        }
         let object = wire::create_canonical_expectation_boundaries(&(&row).into())?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -123,7 +200,10 @@ impl CanonicalStore {
         })).await
     }
     /// Read the latest immutable sealed checkpoint/report; no library state is reconstructed.
-    pub async fn expectation_boundary(&self, parent: &str) -> Result<Option<Boundary>, CanonicalError> {
+    pub async fn expectation_boundary(
+        &self,
+        parent: &str,
+    ) -> Result<Option<Boundary>, CanonicalError> {
         key(parent)?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async {
@@ -132,7 +212,11 @@ impl CanonicalStore {
         })).await
     }
     /// Read one exact original sealed iteration without selecting a later boundary.
-    pub async fn expectation_boundary_at(&self, parent: &str, ordinal: u64) -> Result<Option<Boundary>, CanonicalError> {
+    pub async fn expectation_boundary_at(
+        &self,
+        parent: &str,
+        ordinal: u64,
+    ) -> Result<Option<Boundary>, CanonicalError> {
         key(parent)?;
         let record = format!("{parent}/{ordinal}");
         let activity = self.admit_activity()?;

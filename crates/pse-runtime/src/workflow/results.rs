@@ -482,15 +482,33 @@ impl RunResult {
             super::RunRequest::Expectation(_) => self.project_expectation(projection).await,
             super::RunRequest::Mathematical(_) => {
                 if let Ok(super::RunReport::Mathematical(product)) = self.report() {
-                    product.encode(self.run_id, &self.services, projection, self.result_validation_context().as_ref()).await
+                    product
+                        .encode(
+                            self.run_id,
+                            &self.services,
+                            projection,
+                            self.result_validation_context().as_ref(),
+                        )
+                        .await
                 } else {
                     let pool = self.services.preparation().pool();
                     let validation = self.result_validation_context();
-                    let rows = super::result_export::Rows::<pse_model::generated::runtime::mathematical_products::Row>::new(projection, self.services.preparation().registry(), &pool, &projection.cancel, &validation).map_err(relation)?;
+                    let rows = super::result_export::Rows::<
+                        pse_model::generated::runtime::mathematical_products::Row,
+                    >::new(
+                        projection,
+                        self.services.preparation().registry(),
+                        &pool,
+                        &projection.cancel,
+                        &validation,
+                    )
+                    .map_err(relation)?;
                     rows.finish().await.map_err(relation)
                 }
-            },
-            super::RunRequest::SelectedObservation(_) => self.project_selected_observations(projection).await,
+            }
+            super::RunRequest::SelectedObservation(_) => {
+                self.project_selected_observations(projection).await
+            }
             super::RunRequest::Horizon(_) => Err(contract("horizon detail was not selected")),
             super::RunRequest::Simulation(_) => self.encode_simulation(projection).await,
             super::RunRequest::Modeling(_) | super::RunRequest::Initialization(_) => {

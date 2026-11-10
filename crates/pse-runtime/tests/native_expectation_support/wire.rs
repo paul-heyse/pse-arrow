@@ -308,14 +308,17 @@ async fn exercise(
     )
     .unwrap();
     assert_eq!(page.rows.len(), 16);
-    let mut finite_sum=0_f64;
+    let mut finite_sum = 0_f64;
     for row in &page.rows {
-        let original=row.base_coordinates[0];
-        assert!((row.inputs[0].canonical-original).abs()<1e-14);
-        assert!((row.outputs[0].canonical.unwrap()-original).abs()<1e-14,"the reconstructed selected parameter remains the physical output, not its case residual");
-        finite_sum+=original;
+        let original = row.base_coordinates[0];
+        assert!((row.inputs[0].canonical - original).abs() < 1e-14);
+        assert!(
+            (row.outputs[0].canonical.unwrap() - original).abs() < 1e-14,
+            "the reconstructed selected parameter remains the physical output, not its case residual"
+        );
+        finite_sum += original;
     }
-    assert!((report.outputs[0].estimate.unwrap()-finite_sum/16.).abs()<1e-14);
+    assert!((report.outputs[0].estimate.unwrap() - finite_sum / 16.).abs() < 1e-14);
     (parent, report, page.rows)
 }
 

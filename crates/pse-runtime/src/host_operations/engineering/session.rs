@@ -23,9 +23,9 @@ use std::{
     },
 };
 use tokio::sync::Notify;
+mod analytical;
 mod contract;
 mod edit;
-mod analytical;
 mod expectation;
 pub use expectation::{EngineeringExpectationOutput, EngineeringExpectationSamplesOutput};
 mod inspection;
