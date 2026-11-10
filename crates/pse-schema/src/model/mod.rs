@@ -20,6 +20,7 @@ pub mod algorithm;
 pub mod boundary;
 pub mod boundary_shape;
 pub mod canonical;
+pub mod canonical_input;
 pub mod canonical_policy;
 pub mod collection;
 pub mod document;
@@ -44,6 +45,7 @@ pub use canonical::{
     CanonicalBackup, CanonicalFieldContract, CanonicalKeyKind, CanonicalRelation,
     CanonicalRetention,
 };
+pub use canonical_input::{CanonicalCreatePresence, CanonicalInputPolicy};
 pub use canonical_policy::{
     CanonicalExpression, CanonicalExpressionParseError, CanonicalFieldPolicy,
 };
