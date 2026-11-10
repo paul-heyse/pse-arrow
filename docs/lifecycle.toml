@@ -7869,3 +7869,104 @@ id_column = 0
 id_pattern = '^(I[0-9]+)\b'
 status_profile = "packet"
 status_column = 1
+
+# Plan73 owns ecosystem improvement dispositions and native package progress.
+[[scope_tables]]
+path = "docs/plans/73-symbolica-ecosystem-improvements.md"
+name = "opportunity-dispositions"
+heading = "Opportunity dispositions"
+headers = ["Opportunity", "Disposition", "Work owner", "Evidence or revisit trigger"]
+kind = "finding"
+id_column = 0
+id_pattern = '^(O[0-9]+)\b'
+status_profile = "finding"
+status_column = 1
+owner_column = 2
+
+[[scope_tables]]
+path = "docs/plans/73a-shared-mathematical-preparation.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(A[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/73b-supplier-controls-and-qualified-receiving.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(B[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/73c-stable-operations-and-batch-execution.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(C[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/73d-exact-structure-and-numerical-assurance.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(D[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/73e-analytical-products-and-native-presentation.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(E[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/73f-explicit-measure-expectation-studies.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(F[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/73g-finite-topology-exploration.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(G[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
+
+[[scope_tables]]
+path = "docs/plans/73h-build-boundaries-and-integrated-acceptance.md"
+name = "packages"
+heading = "Packages"
+headers = ["ID", "Status", "Prerequisites", "Completion"]
+kind = "packet"
+id_column = 0
+id_pattern = '^(H[0-9]+)\b'
+status_profile = "packet"
+status_column = 1
