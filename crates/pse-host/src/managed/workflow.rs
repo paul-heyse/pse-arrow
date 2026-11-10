@@ -387,9 +387,19 @@ fn require_fixture_settlement(original: &CapturedReport) -> Result<(), HostError
     for captured in captured {
         let outcome: crate::fixtures::CanonicalRunReport =
             serde_json::from_slice(&captured.original).map_err(host)?;
-        if outcome.version != 1 || outcome.runner_exit.is_none() || !outcome.fixture_settled {
-            return Err(host(invalid("original borrowed fixture did not settle")));
-        }
+        require_fixture_outcome_settlement(&outcome)?;
+    }
+    Ok(())
+}
+
+fn require_fixture_outcome_settlement(
+    outcome: &crate::fixtures::CanonicalRunReport,
+) -> Result<(), HostError> {
+    // Setup can fail before Nextest starts. The fixture owner still shuts down and
+    // disposes its actual service, then publishes settlement independently. Missing
+    // runner evidence remains a failed/incomplete test outcome, not a live fixture.
+    if outcome.version != 1 || !outcome.fixture_settled {
+        return Err(host(invalid("original borrowed fixture did not settle")));
     }
     Ok(())
 }
@@ -1652,5 +1662,32 @@ mod tests {
                 .await
                 .is_err()
         );
+    }
+}
+
+#[cfg(test)]
+mod fixture_settlement_tests {
+    use super::*;
+    #[test]
+    fn setup_failure_can_settle_fixture_without_claiming_a_runner_outcome() {
+        let setup_failure = crate::fixtures::CanonicalRunReport {
+            version: 1,
+            runner_exit: None,
+            fixture_settled: true,
+        };
+        assert!(require_fixture_outcome_settlement(&setup_failure).is_ok());
+        assert!(setup_failure.runner_exit.is_none());
+        let unresolved = crate::fixtures::CanonicalRunReport {
+            version: 1,
+            runner_exit: Some(0),
+            fixture_settled: false,
+        };
+        assert!(require_fixture_outcome_settlement(&unresolved).is_err());
+        let unsupported = crate::fixtures::CanonicalRunReport {
+            version: 2,
+            runner_exit: None,
+            fixture_settled: true,
+        };
+        assert!(require_fixture_outcome_settlement(&unsupported).is_err());
     }
 }
