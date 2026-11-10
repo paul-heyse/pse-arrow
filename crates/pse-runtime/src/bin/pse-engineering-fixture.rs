@@ -385,6 +385,8 @@ async fn run(args: Args) -> Result<(), Error> {
         }
     }
     let mut service = NativeCanonicalService::new(NativeServiceSpec {
+        query_memory: None,
+        telemetry: None,
         server: pse_host::server::select(&environment)?,
         helper: args.service_helper,
         module_source,

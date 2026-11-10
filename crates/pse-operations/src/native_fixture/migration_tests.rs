@@ -20,15 +20,6 @@ fn current_fixture() -> Result<NativeCanonicalService, NativeServiceError> {
     );
     Ok(service)
 }
-fn report_ingresses(service: &NativeCanonicalService) {
-    for intent in service.ingress_intents() {
-        eprintln!(
-            "native fixture state={} original_ingress={}",
-            service.state().display(),
-            intent.unit()
-        );
-    }
-}
 
 #[tokio::test]
 async fn native_service_final_apply_lost_ack_reads_original_commit_after_reopen() {

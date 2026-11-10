@@ -17,6 +17,10 @@ use crate::{
     },
 };
 use futures_util::FutureExt;
+mod telemetry;
+pub use telemetry::{NativeMetricSource, NativePersistenceObservation, NativeTelemetry};
+mod persistence;
+pub use persistence::inspect_owned_persistence;
 use pse_host::{
     HostError, HostManager, LaunchIntent, OwnedUnit, ResourceControls, ServiceSpec,
     UnitObservation,
@@ -148,14 +152,34 @@ const QUERY_MEMORY_KEYS: [&str; 3] = [
     "SURREAL_QUERY_MEMORY_MAX",
 ];
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct QueryMemory {
+/// Explicit native query-accounting byte settings, independent of host resource placement.
+pub struct NativeQueryMemory {
     node_limit: Option<NonZeroUsize>,
     query_minimum: Option<NonZeroUsize>,
     query_maximum: Option<NonZeroUsize>,
 }
-impl QueryMemory {
+impl NativeQueryMemory {
+    /// Select explicit positive native query byte allowances; absent values retain supplier defaults.
+    /// These are query accounting settings, not process or workstation resource caps.
+    /// # Errors
+    /// Zero byte allowances are refused.
+    pub fn bytes(
+        node_limit: Option<usize>,
+        query_minimum: Option<usize>,
+        query_maximum: Option<usize>,
+    ) -> Result<Self, NativeServiceError> {
+        Self::select(|name| {
+            match name {
+                "SURREAL_MEMORY_LIMIT" => node_limit,
+                "SURREAL_QUERY_MEMORY_MINIMUM" => query_minimum,
+                "SURREAL_QUERY_MEMORY_MAX" => query_maximum,
+                _ => None,
+            }
+            .map(|bytes| bytes.to_string().into())
+        })
+    }
     fn select(
         mut read: impl FnMut(&str) -> Option<std::ffi::OsString>,
     ) -> Result<Self, NativeServiceError> {
@@ -312,6 +336,10 @@ impl NativeModuleSource {
 /// Explicit already-prepared inputs; construction performs no source build or discovery.
 #[derive(Clone, Debug)]
 pub struct NativeServiceSpec {
+    /// Explicit native query allowances; None selects configured environment settings.
+    pub query_memory: Option<NativeQueryMemory>,
+    /// Explicit existing Collector selection; ordinary services do not export implicitly.
+    pub telemetry: Option<NativeTelemetry>,
     /// Exact immutable server capability, including admitted import provenance.
     pub server: PreparedServer,
     /// Explicit application helper executable built with native-service.
@@ -365,6 +393,8 @@ impl NativeServiceSpec {
                 "absolute already-built canonical-service helper required",
             ))?;
         Ok(Self {
+            query_memory: None,
+            telemetry: None,
             server: server::select(&std::env::vars_os().collect())?,
             helper,
             module_source,
@@ -386,6 +416,7 @@ struct StartupPayload {
     version: u32,
     state: PathBuf,
     run: PathBuf,
+    unit: String,
     module_root: PathBuf,
     generation: PathBuf,
     recipe: String,
@@ -393,7 +424,9 @@ struct StartupPayload {
     nonce: String,
     module_capacity: ModuleServiceCapacity,
     #[serde(default)]
-    query_memory: QueryMemory,
+    query_memory: NativeQueryMemory,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    telemetry: Option<NativeTelemetry>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     qualification_sha256: Option<String>,
 }
@@ -714,6 +747,7 @@ impl StoppedCanonicalState {
             private_directory(&run)?;
             let next = StartupPayload {
                 run: run.clone(),
+                unit: intent.unit().to_owned(),
                 ..payload
             };
             private_write(&run.join("startup.json"), &next)?;
@@ -768,6 +802,9 @@ impl NativeCanonicalService {
         spec: NativeServiceSpec,
         companion: Option<StudyModuleReceipt>,
     ) -> Result<Self, NativeServiceError> {
+        if let Some(telemetry) = &spec.telemetry {
+            telemetry.validate()?;
+        }
         if !spec.helper.is_absolute() || !spec.helper.is_file() {
             return Err(NativeServiceError::Refused(
                 "explicit native application helper is required",
@@ -828,13 +865,18 @@ impl NativeCanonicalService {
             version: 1,
             state: path.clone(),
             run: run.clone(),
+            unit: intent.unit().to_owned(),
             module_root: module_root.clone(),
             generation: spec.server.generation().to_path_buf(),
             recipe: spec.server.recipe().into(),
             bind,
             nonce: nonce.clone(),
             module_capacity: ModuleServiceCapacity::environment(module.limits.max_pool_size)?,
-            query_memory: QueryMemory::select(|key| std::env::var_os(key))?,
+            query_memory: match spec.query_memory {
+                Some(selected) => selected,
+                None => NativeQueryMemory::select(|key| std::env::var_os(key))?,
+            },
+            telemetry: spec.telemetry,
             qualification_sha256: qualification.as_ref().map(|receipt| receipt.sha256.clone()),
         };
         private_write(&run.join("startup.json"), &payload)?;
@@ -913,6 +955,50 @@ impl NativeCanonicalService {
     /// State created by this owner, retained across failures for diagnosis.
     pub fn state(&self) -> &Path {
         &self.state.path
+    }
+    /// Project a Collector record only for this original physical server invocation.
+    /// Reading an observation grants neither liveness nor maintenance authority.
+    /// # Errors
+    /// Startup ownership, bounded metrics or incarnation attribution differs.
+    pub fn persistence_observation(
+        &self,
+        collector_record: &[u8],
+        observed_at_ms: u64,
+    ) -> Result<NativePersistenceObservation, NativeServiceError> {
+        self.state.verify()?;
+        let claim: StartupClaim = private_read(&self.run.join("started.json"))?;
+        if claim.nonce != self.state.nonce {
+            return Err(NativeServiceError::Refused(
+                "native metrics startup identity differs",
+            ));
+        }
+        NativePersistenceObservation::from_collector_json(
+            collector_record,
+            &claim.invocation,
+            observed_at_ms,
+        )
+    }
+    /// Read native MX metrics from this original server's authenticated operator endpoint.
+    /// Metrics are observations, not proof of allocator release or returned disk space.
+    /// # Errors
+    /// Original listener changed, metrics are unavailable/denied, limits or original deadline fail.
+    pub async fn inspect_persistence(
+        &self,
+        deadline: Instant,
+    ) -> Result<NativePersistenceObservation, NativeServiceError> {
+        self.state.verify()?;
+        self.records.verify(&self.state.path)?;
+        let before = self.wait_owned_listener(deadline).await?;
+        let observed = inspect_owned_persistence(&self.state.path, deadline).await?;
+        let after = self.wait_owned_listener(deadline).await?;
+        if before.invocation != after.invocation
+            || observed.service_invocation != hex_bytes(&after.invocation)
+        {
+            return Err(NativeServiceError::Refused(
+                "native metric original producer changed",
+            ));
+        }
+        Ok(observed)
     }
     /// Issue the private child selection only from this original ready physical owner.
     /// The descriptor grants no shutdown or disposal authority.
@@ -1070,6 +1156,11 @@ impl NativeCanonicalService {
                 }
                 if owns_listener(observed.main_pid, self.bind)? {
                     let payload: StartupPayload = private_read(&self.run.join("startup.json"))?;
+                    if payload.unit != self.intent.unit() {
+                        return Err(NativeServiceError::Refused(
+                            "native startup unit differs from original owner",
+                        ));
+                    }
                     let exact = server::reopen_generation(&payload.generation, &payload.recipe)?;
                     if fs::read_link(format!("/proc/{}/exe", observed.main_pid))?
                         != exact.executable()
@@ -1738,7 +1829,7 @@ pub fn exec_startup(path: &Path) -> Result<(), NativeServiceError> {
         &StartupClaim {
             nonce: payload.nonce,
             pid: std::process::id(),
-            invocation,
+            invocation: invocation.clone(),
         },
     )?;
     let log = OpenOptions::new()
@@ -1780,6 +1871,15 @@ pub fn exec_startup(path: &Path) -> Result<(), NativeServiceError> {
         .env("SURREAL_CAPS_ALLOW_EXPERIMENTAL", "surrealism")
         .env("SURREAL_BUCKET_FOLDER_ALLOWLIST", &payload.module_root)
         .envs(payload.query_memory.environment())
+        .envs(
+            payload
+                .telemetry
+                .as_ref()
+                .map(|telemetry| telemetry.environment(&invocation))
+                .transpose()?
+                .into_iter()
+                .flatten(),
+        )
         .env(
             "SURREAL_SURREALISM_CACHE_SIZE",
             payload.module_capacity.cached_modules.to_string(),
@@ -2453,14 +2553,14 @@ mod tests {
 
     #[test]
     fn native_service_query_memory_preserves_only_explicit_byte_limits() {
-        let selected = QueryMemory::select(|key| match key {
+        let selected = NativeQueryMemory::select(|key| match key {
             "SURREAL_MEMORY_LIMIT" => Some("16777216".into()),
             "SURREAL_QUERY_MEMORY_MAX" => Some("8388608".into()),
             _ => None,
         })
         .unwrap();
         let record = serde_json::to_vec(&selected).unwrap();
-        let restored: QueryMemory = serde_json::from_slice(&record).unwrap();
+        let restored: NativeQueryMemory = serde_json::from_slice(&record).unwrap();
         assert_eq!(
             restored.environment().collect::<Vec<_>>(),
             [
@@ -2469,11 +2569,14 @@ mod tests {
             ],
         );
         assert_eq!(
-            QueryMemory::select(|_| None).unwrap().environment().count(),
+            NativeQueryMemory::select(|_| None)
+                .unwrap()
+                .environment()
+                .count(),
             0
         );
         for invalid in ["0", "-1", "8MiB", ""] {
-            assert!(QueryMemory::select(|_| Some(invalid.into())).is_err());
+            assert!(NativeQueryMemory::select(|_| Some(invalid.into())).is_err());
         }
     }
 }

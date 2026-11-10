@@ -104,6 +104,7 @@ pub fn selected_module(
 /// This does not own a service or grant fixture disposal authority.
 #[derive(Debug)]
 pub struct PreparedExecution {
+    collector: Option<(PathBuf, PathBuf, String)>,
     module: Option<study_module::StudyModuleReceipt>,
     tools: BTreeMap<Input, Executable>,
     scientific_workers: BTreeMap<usize, Executable>,
@@ -200,6 +201,24 @@ impl ExecutionInputs {
                 continue;
             }
             match input {
+                Input::Collector => {
+                    let selected = (|| {
+                        let tool = crate::diagnostic_tools::Tool::Collector;
+                        let path = crate::diagnostic_tools::verify(root, tool, environment)?;
+                        let identity = crate::diagnostic_tools::tool_spec(root, tool)?
+                            .binary_sha256
+                            .ok_or_else(|| {
+                                invalid("Collector selection requires an executable digest")
+                            })?;
+                        Ok::<_, FixtureError>((path, identity))
+                    })();
+                    match selected {
+                        Ok((path, identity)) => {
+                            states.insert(input, InputState::Selected { path, identity });
+                        }
+                        Err(cause) => record_refusal(&mut states, &mut failures, input, cause),
+                    }
+                }
                 Input::StudyModule if borrowed || !recorded_module_selected(environment) => {
                     match selected_module(root, environment) {
                         Ok(selected) => {
@@ -316,12 +335,21 @@ impl ExecutionInputs {
             .iter()
             .any(|requirement| requirement.ownership() == Ownership::RunnerBorrowed);
         let mut selected = PreparedExecution {
+            collector: None,
             module,
             tools: BTreeMap::new(),
             scientific_workers: BTreeMap::new(),
             runner: None,
             reader: None,
         };
+        if demand.contains(&Input::Collector) {
+            let tool = crate::diagnostic_tools::Tool::Collector;
+            let path = crate::diagnostic_tools::verify(root, tool, environment)?;
+            let identity = crate::diagnostic_tools::tool_spec(root, tool)?
+                .binary_sha256
+                .ok_or_else(|| invalid("Collector requires an executable digest"))?;
+            selected.collector = Some((root.into(), path, identity));
+        }
         if demand.contains(&Input::ServiceHelper) || borrowed {
             let mut bins = vec!["pse-canonical-service"];
             if borrowed {
@@ -450,6 +478,25 @@ impl PreparedExecution {
             .iter()
             .flat_map(|requirement| requirement.inputs().iter().copied())
             .collect();
+        if demand.contains(&Input::Collector) {
+            let (root, expected, identity) = self
+                .collector
+                .as_ref()
+                .ok_or_else(|| invalid("Collector selection is absent"))?;
+            let tool = crate::diagnostic_tools::Tool::Collector;
+            let path = crate::diagnostic_tools::verify(root, tool, &command.environment)?;
+            if &path != expected
+                || crate::diagnostic_tools::tool_spec(root, tool)?
+                    .binary_sha256
+                    .as_ref()
+                    != Some(identity)
+            {
+                return Err(invalid("original Collector selection changed"));
+            }
+            command
+                .environment
+                .insert("PSE_NATIVE_FIXTURE_COLLECTOR".into(), path.into_os_string());
+        }
         for (input, variable) in [
             (
                 Input::QualificationStudyModule,
@@ -646,6 +693,7 @@ fn original_input_variable(input: Input) -> Option<&'static str> {
         | Input::ScientificWorker
         | Input::ProductReader
         | Input::ObservationHelper => None,
+        Input::Collector => None,
         Input::EngineeringEndpoint => Some("PSE_ENGINEERING_ENDPOINT"),
         Input::CanonicalTools => Some("PSE_CANONICAL_TOOLS"),
         Input::DiagnosticEvidence => Some("PSE_DIAGNOSTIC_EVIDENCE"),

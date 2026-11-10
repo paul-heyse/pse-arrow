@@ -33,6 +33,7 @@ canonical-maintenance = ["dep:surrealdb-expr"]
 native-service = ["dep:pse-host"]
 
 [dependencies]
+base64.workspace = true
 pse-study-module.workspace = true
 pse-contract.workspace = true
 datafusion-execution.workspace = true
@@ -91,7 +92,6 @@ reqwest.workspace = true
 tracing-subscriber.workspace = true
 pse-engine.workspace = true
 datafusion.workspace = true
-base64.workspace = true
 arrow-schema.workspace = true
 pse-codegen.workspace = true
 url.workspace = true
@@ -264,9 +264,32 @@ scope.tests = [
   "canonical_execution::canonical_execution_server_unit::retained_canonical_store_recovers_a_new_generation_after_external_server_restart",
 ]
 
+[[package.metadata.pse.test-fixtures]]
+id = "telemetry-owned"
+target = "pse_operations"
+kind = "lib"
+required-features = ["native-service"]
+ownership = "target-owned"
+inputs = ["server", "study-module", "service-helper", "collector"]
+scope.modules = ["native_fixture::telemetry_tests"]
+
+[[package.metadata.pse.test-fixtures]]
+id = "spill-owned"
+target = "pse_operations"
+kind = "lib"
+required-features = ["native-service"]
+ownership = "target-owned"
+inputs = ["server", "study-module", "service-helper"]
+scope.modules = ["native_fixture::spill_tests"]
+
 [[bin]]
 name = "pse-canonical-test"
 path = "src/bin/pse-canonical-test.rs"
+required-features = ["native-service"]
+
+[[bin]]
+name = "pse-surreal-contract-reader"
+path = "src/bin/pse-surreal-contract-reader.rs"
 required-features = ["native-service"]
 
 [[test]]

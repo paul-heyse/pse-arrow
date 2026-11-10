@@ -42,6 +42,7 @@ const PATCHES: &[&str] = &[
     "surrealdb-v4-extension-runtime.patch",
     "surrealdb-v4-diskann-resolution.patch",
     "surrealdb-v4-pinned-compiler.patch",
+    "surrealdb-v4-owned-scratch.patch",
 ];
 const BUILD_ENV: &[&str] = &[
     "HOME",

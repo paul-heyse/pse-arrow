@@ -122,6 +122,8 @@ pub enum Input {
     PidReferencePython,
     /// Explicit Trace Processor binary for its ignored consumer qualification.
     TraceProcessor,
+    /// Existing checksum-verified Collector, selected by the diagnostic-tools owner.
+    Collector,
     /// External owned server-restart rendezvous, interpreted by the original lifecycle owner.
     CanonicalRestartControl,
 }
@@ -500,6 +502,12 @@ fn prepare(input: Input) -> Vec<String> {
         Input::StudyModule => &["scripts/pse", "fixture", "prepare", "study-module"],
         Input::QualificationStudyModule => &["just", "surreal-module", "--qualification"],
         Input::LongHoldStudyModule => &["just", "surreal-module", "--qualification", "--long-hold"],
+        Input::Collector => &[
+            "scripts/pse-host",
+            "diagnostic-tools",
+            "install",
+            "collector",
+        ],
         _ => &[],
     };
     args.iter()

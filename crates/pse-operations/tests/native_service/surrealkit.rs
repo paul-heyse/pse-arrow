@@ -20,7 +20,10 @@ use std::{
     fs,
     io::Read as _,
     net::SocketAddr,
-    os::unix::{fs::OpenOptionsExt as _, process::ExitStatusExt as _},
+    os::unix::{
+        fs::{OpenOptionsExt as _, PermissionsExt as _},
+        process::ExitStatusExt as _,
+    },
     path::{Path, PathBuf},
     process::{Command, ExitStatus, Stdio},
     sync::{
@@ -53,6 +56,14 @@ const ROLLOUT_SUITE_NAME: &str = "authored_rollout_contract";
 const DATABASE_PREFIX: &str = "contract";
 const SETUP_REFUSAL: &str = "pse_surrealkit_fixture_setup_failed";
 const SEED_REFUSAL: &str = "pse_surrealkit_fixture_seed_failed";
+
+fn exec_command(fail: bool) -> &'static str {
+    if fail {
+        "./contract-reader --expected-generation 1"
+    } else {
+        "./contract-reader"
+    }
+}
 
 fn prepared_tool() -> Result<PathBuf, NativeServiceError> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -183,6 +194,7 @@ struct SuiteTool<'a> {
     endpoint: &'a str,
     setup_password: &'a str,
     inspection_password: &'a str,
+    original_options: &'a CanonicalOptions,
     work_end: Instant,
     settlement_end: Instant,
     child_pending: Arc<AtomicBool>,
@@ -193,12 +205,17 @@ enum SuiteSelection {
     CurrentSchema,
     SeedMutation,
     AuthoredRollout,
+    ExternalReadback { fail: bool },
+    ExternalInterrupted,
 }
 
 impl SuiteSelection {
     fn cli(self) -> (&'static str, &'static str) {
         match self {
-            Self::CurrentSchema | Self::SeedMutation => ("sync", SUITE_NAME),
+            Self::CurrentSchema
+            | Self::SeedMutation
+            | Self::ExternalReadback { .. }
+            | Self::ExternalInterrupted => ("sync", SUITE_NAME),
             Self::AuthoredRollout => ("both", ROLLOUT_SUITE_NAME),
         }
     }
@@ -213,7 +230,10 @@ impl SuiteTool<'_> {
     ) -> Result<(ExitStatus, Vec<u8>), NativeServiceError> {
         let (schema_source, suite) = selection.cli();
         let allowance = match selection {
-            SuiteSelection::CurrentSchema | SuiteSelection::SeedMutation => Duration::from_secs(30),
+            SuiteSelection::CurrentSchema
+            | SuiteSelection::SeedMutation
+            | SuiteSelection::ExternalReadback { .. }
+            | SuiteSelection::ExternalInterrupted => Duration::from_secs(30),
             SuiteSelection::AuthoredRollout => Duration::from_secs(120),
         };
         let mut command = Command::new(self.binary);
@@ -252,6 +272,12 @@ impl SuiteTool<'_> {
         if matches!(selection, SuiteSelection::SeedMutation) {
             command.args(["--tag", "seed-mutation"]);
         }
+        if let SuiteSelection::ExternalReadback { fail } = selection {
+            command.args(["--exec", exec_command(fail)]);
+        }
+        if matches!(selection, SuiteSelection::ExternalInterrupted) {
+            command.args(["--exec", "./contract-reader --wait-for-interruption"]);
+        }
         let deadline = (Instant::now() + allowance).min(self.work_end);
         if deadline <= Instant::now() {
             return Err(NativeServiceError::Refused(
@@ -262,7 +288,7 @@ impl SuiteTool<'_> {
             (deadline + Duration::from_secs(10)).min(self.settlement_end - Duration::from_secs(30));
         let child_pending = self.child_pending.clone();
         let state = folder.to_owned();
-        tokio::task::spawn_blocking(move || {
+        let result = tokio::task::spawn_blocking(move || {
             child_pending.store(true, Ordering::Release);
             let mut child =
                 SupervisedChild::spawn_captured(&mut command, 64 * 1024, 64 * 1024, child_end)?;
@@ -301,7 +327,116 @@ impl SuiteTool<'_> {
             Ok((status, output.stderr.prefix.clone()))
         })
         .await
-        .map_err(|_| NativeServiceError::Refused("SurrealKit child owner task failed"))?
+        .map_err(|_| NativeServiceError::Refused("SurrealKit child owner task failed"))?;
+        if self.child_pending.load(Ordering::Acquire) {
+            return result;
+        }
+        let cleanup=self.cleanup_logical_databases().await.and_then(|removed| {
+            if result.as_ref().is_ok_and(|(status,_)|status.signal().is_none()) && removed!=0 {
+                Err(NativeServiceError::Refused("SurrealKit logical cleanup failed; native owner recovered its isolated databases"))
+            } else { Ok(()) }
+        });
+        match (result, cleanup) {
+            (result, Ok(())) => result,
+            (Err(work), Err(cleanup)) => Err(NativeServiceError::Settlement {
+                state: folder.into(),
+                failures: vec![work, cleanup],
+            }),
+            (Ok((status, _)), Err(cleanup)) => {
+                let mut failures = Vec::new();
+                if !status.success() {
+                    failures.push(NativeServiceError::Command {
+                        stage: "SurrealKit suite or external consumer",
+                        status,
+                    });
+                }
+                failures.push(cleanup);
+                Err(NativeServiceError::Settlement {
+                    state: folder.into(),
+                    failures,
+                })
+            }
+        }
+    }
+
+    async fn cleanup_logical_databases(&self) -> Result<usize, NativeServiceError> {
+        // Only the already verified test-owned endpoint and namespace are eligible.
+        let address = owned_address(self.endpoint, &self.original_options.endpoint)?;
+        let deadline = self.settlement_end;
+        let client = Client::connect(address, MESSAGE_BYTES)
+            .await
+            .map_err(|_| NativeServiceError::Refused("logical cleanup did not connect"))?;
+        let operation = async {
+            client
+                .signin(Root {
+                    username: self.original_options.username.clone(),
+                    password: self.original_options.password.clone(),
+                })
+                .request_context(RequestContext::control(deadline))
+                .await
+                .map_err(|_| {
+                    NativeServiceError::Refused("logical cleanup authentication failed")
+                })?;
+            client
+                .use_ns(NAMESPACE)
+                .request_context(RequestContext::control(deadline))
+                .await
+                .map_err(|_| NativeServiceError::Refused("logical cleanup context failed"))?;
+            let mut response = bounded_query(
+                client
+                    .query("INFO FOR NS;")
+                    .request_context(RequestContext::control(deadline)),
+            )
+            .await
+            .map_err(|_| NativeServiceError::Refused("logical cleanup inventory failed"))?;
+            let info: surrealdb_types::Value = response.take(0).map_err(|_| {
+                NativeServiceError::Refused("logical cleanup inventory is malformed")
+            })?;
+            let surrealdb_types::Value::Object(info) = info else {
+                return Err(NativeServiceError::Refused(
+                    "logical cleanup namespace inventory is malformed",
+                ));
+            };
+            let Some(surrealdb_types::Value::Object(databases)) = info.get("databases") else {
+                return Err(NativeServiceError::Refused(
+                    "logical cleanup database inventory is absent",
+                ));
+            };
+            let names: Vec<_> = databases
+                .keys()
+                .filter(|name| name.starts_with(&format!("{DATABASE_PREFIX}_sk_test_")))
+                .cloned()
+                .collect();
+            for name in &names {
+                if !name
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || byte == b'_')
+                {
+                    return Err(NativeServiceError::Refused(
+                        "logical cleanup name is outside its original scope",
+                    ));
+                }
+                bounded_query(
+                    client
+                        .query(format!("REMOVE DATABASE {name};"))
+                        .request_context(RequestContext::control(deadline)),
+                )
+                .await
+                .map_err(|_| {
+                    NativeServiceError::Refused("logical cleanup database removal failed")
+                })?;
+            }
+            Ok(names.len())
+        }
+        .await;
+        let drain = client.disconnect().await;
+        match (operation, drain) {
+            (Err(error), _) => Err(error),
+            (Ok(_), Err(_)) => Err(NativeServiceError::Refused(
+                "logical cleanup connection did not drain",
+            )),
+            (Ok(count), Ok(())) => Ok(count),
+        }
     }
 }
 
@@ -351,6 +486,8 @@ struct CaseReport {
     name: String,
     kind: String,
     passed: bool,
+    #[serde(default)]
+    message: Option<String>,
     assertions: Vec<AssertionReport>,
 }
 
@@ -384,6 +521,15 @@ fn verify_report(
     status: ExitStatus,
     expected_failure: Option<&str>,
 ) -> Result<usize, NativeServiceError> {
+    verify_report_population(path, status, expected_failure, None)
+}
+
+fn verify_report_population(
+    path: &Path,
+    status: ExitStatus,
+    expected_failure: Option<&str>,
+    exec: Option<&str>,
+) -> Result<usize, NativeServiceError> {
     let source: SuiteIdentity = toml::from_str(SUITE)
         .map_err(|_| NativeServiceError::Refused("invalid authored SurrealKit suite"))?;
     let report = read_report(path)?;
@@ -393,11 +539,15 @@ fn verify_report(
         ));
     };
     let authored: BTreeSet<_> = source.cases.iter().map(|case| case.name.as_str()).collect();
-    let names = if expected_failure.is_some() {
+    let mut names = if expected_failure.is_some() && exec.is_none() {
         BTreeSet::from(SEED_MUTATION_CASES)
     } else {
         authored.clone()
     };
+    let valid_authored_population = names.is_subset(&authored);
+    if let Some(name) = exec {
+        names.insert(name);
+    }
     let observed: BTreeSet<_> = suite.cases.iter().map(|case| case.name.as_str()).collect();
     if report.suites_total != 1
         || report.suites.len() != 1
@@ -406,10 +556,16 @@ fn verify_report(
         || !suite
             .database
             .starts_with(&format!("{DATABASE_PREFIX}_sk_test_"))
-        || !names.is_subset(&authored)
+        || !valid_authored_population
         || report.cases_total != names.len()
         || suite.cases.len() != names.len()
         || observed != names
+        || exec.is_some_and(|name| {
+            !suite
+                .cases
+                .iter()
+                .any(|case| case.name == name && case.kind == "exec")
+        })
     {
         return Err(NativeServiceError::Refused(
             "partial or unexpected SurrealKit suite report",
@@ -428,6 +584,24 @@ fn verify_report(
         || failures.iter().copied().ne(expected_failure)
     {
         eprintln!("Unexpected SurrealKit assertion failures: {failures:?}");
+        for case in suite
+            .cases
+            .iter()
+            .filter(|case| !case.passed && case.kind == "exec")
+        {
+            if let Some(message) = &case.message {
+                eprintln!(
+                    "External native consumer: {}",
+                    message.chars().take(4096).collect::<String>()
+                );
+            }
+            for assertion in case.assertions.iter().filter(|assertion| !assertion.passed) {
+                // This fixture's connection-only helper emits sanitized failures;
+                // credentials are environment inputs, never command/report fields.
+                let message = assertion.message.chars().take(4096).collect::<String>();
+                eprintln!("External native consumer {}: {message}", assertion.name);
+            }
+        }
         return Err(NativeServiceError::Command {
             stage: "SurrealKit suite assertions",
             status,
@@ -780,6 +954,63 @@ async fn exercise_suite(
         .run(&passing, SuiteSelection::CurrentSchema, None)
         .await?;
     let passed = verify_report(&passing.join("result.json"), status, None)?;
+    for fail in [false, true] {
+        let project = root.join(if fail {
+            "external-failure"
+        } else {
+            "external-readback"
+        });
+        stage_project(&project, SCHEMA, Some(SEED))?;
+        let reader = Path::new(env!("CARGO_BIN_EXE_pse-surreal-contract-reader"));
+        fs::copy(reader, project.join("contract-reader"))?;
+        fs::set_permissions(
+            project.join("contract-reader"),
+            fs::Permissions::from_mode(0o500),
+        )?;
+        let (status, stderr) = tool
+            .run(&project, SuiteSelection::ExternalReadback { fail }, None)
+            .await?;
+        if !fail && !status.success() {
+            for line in String::from_utf8_lossy(&stderr)
+                .lines()
+                .filter(|line| line.starts_with("contract reader:"))
+                .take(4)
+            {
+                eprintln!("{}", line.chars().take(4096).collect::<String>());
+            }
+        }
+        let name = format!("exec: {}", exec_command(fail));
+        verify_report_population(
+            &project.join("result.json"),
+            status,
+            fail.then_some(name.as_str()),
+            Some(&name),
+        )?;
+    }
+    let interrupted = root.join("external-interrupted");
+    stage_project(&interrupted, SCHEMA, Some(SEED))?;
+    fs::copy(
+        Path::new(env!("CARGO_BIN_EXE_pse-surreal-contract-reader")),
+        interrupted.join("contract-reader"),
+    )?;
+    fs::set_permissions(
+        interrupted.join("contract-reader"),
+        fs::Permissions::from_mode(0o500),
+    )?;
+    let wait = interrupted.join("exec-wait");
+    stage_fifo(&wait)?;
+    let (status, _) = tool
+        .run(
+            &interrupted,
+            SuiteSelection::ExternalInterrupted,
+            Some(wait),
+        )
+        .await?;
+    if status.success() || interrupted.join("result.json").try_exists()? {
+        return Err(NativeServiceError::Refused(
+            "interrupted external consumer falsely completed",
+        ));
+    }
     exercise_schema_feedback(tool, root, options).await?;
 
     let assertion_failure = root.join("assertion-failure");
@@ -943,6 +1174,7 @@ async fn surrealkit_generated_contract_uses_owned_service_and_disposes() {
                     endpoint: &options.endpoint,
                     setup_password: &setup_password,
                     inspection_password: &inspection_password,
+                    original_options: &options,
                     work_end,
                     settlement_end,
                     child_pending: pending,

@@ -58,6 +58,8 @@ fn run(cli: Cli) -> Result<std::process::ExitStatus, NativeServiceError> {
         pse_host::study_module::Variant::Production,
     )?;
     let spec = NativeServiceSpec {
+        query_memory: None,
+        telemetry: None,
         server,
         helper: cli.helper,
         module_source: NativeModuleSource::Prepared(module),

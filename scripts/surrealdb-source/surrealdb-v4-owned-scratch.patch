@@ -1,0 +1,40 @@
+diff --git a/surrealdb/core/src/kvs/ds.rs b/surrealdb/core/src/kvs/ds.rs
+--- a/surrealdb/core/src/kvs/ds.rs
++++ b/surrealdb/core/src/kvs/ds.rs
+@@ -2419,6 +2419,13 @@
+ 				}
+ 			})
+ 			.clone()
++	}
++
++	/// Initialize the real execution store and refuse silent loss of spill support.
++	/// An explicit native scratch selection is part of startup readiness.
++	pub fn require_temporary_store(&self) -> Result<()> {
++		ensure!(self.memory_host().store.is_some(), "explicit temporary store could not initialize");
++		Ok(())
+ 	}
+ 
+ 	/// The node memory limit the datastore holds its queries to, or `None`
+diff --git a/surrealdb/server/src/dbs/mod.rs b/surrealdb/server/src/dbs/mod.rs
+--- a/surrealdb/server/src/dbs/mod.rs
++++ b/surrealdb/server/src/dbs/mod.rs
+@@ -1076,6 +1076,8 @@
+ 		.with_observer(observer);
+ 
+ 	#[cfg(storage)]
++	let explicit_temporary_directory = temporary_directory.is_some();
++	#[cfg(storage)]
+ 	let builder = builder.with_temporary_directory(temporary_directory);
+ 
+ 	let builder = if let Some(slow_log_threshold) = slow_log_threshold {
+@@ -1090,6 +1092,10 @@
+ 
+ 	let (dbs, router_state) =
+ 		builder.build_with_factory_path_and_router_state::<C>(&opt.path, composer).await?;
++	#[cfg(storage)]
++	if explicit_temporary_directory {
++		dbs.require_temporary_store()?;
++	}
+ 	// Building the datastore is all this function does: every startup step that
+ 	// opens a transaction is handed back for the caller to run through
+ 	// [`initialise_datastore`] and [`finish_startup`] once the HTTP listener is

@@ -35,6 +35,12 @@ pub use logical::{canonical_fixture_store, canonical_fixture_with_options};
 #[path = "native_fixture/migration_tests.rs"]
 mod migration_tests;
 #[cfg(all(test, feature = "native-service"))]
+#[path = "native_fixture/spill_tests.rs"]
+mod spill_tests;
+#[cfg(all(test, feature = "native-service"))]
+#[path = "native_fixture/telemetry_tests.rs"]
+mod telemetry_tests;
+#[cfg(all(test, feature = "native-service"))]
 #[path = "native_fixture/transition_tests.rs"]
 mod transition_tests;
 
@@ -448,6 +454,8 @@ mod command {
             command.env("PSE_SCIENTIFIC_INPUTS", scientific_inputs);
         }
         let service = NativeCanonicalService::new(NativeServiceSpec {
+            query_memory: None,
+            telemetry: None,
             server,
             helper: helper.captured,
             module_source: crate::native_service::NativeModuleSource::Prepared(module),
