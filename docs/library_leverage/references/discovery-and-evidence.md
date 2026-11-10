@@ -23,12 +23,20 @@ The evidence workflow exports observations. Agents interpret those observations 
 repository's general objectives and configuration. A generated inventory is neither a ranked
 recommendation nor a complete semantic model of the library.
 
-## Shape the briefing
+## Shape the briefings
 
-Place one `briefing.md` in the library-family account. State the inspection date/source and
-whether the briefing consumes generated evidence or representative reads alone. Keep a compact
-capability-family map, current usage explanation and a reasoned research shortlist. Link to
-the broad overview, exact API/source evidence and reusable technical accounts.
+Use `briefing.md` as the entry point in the library-family account. It may contain the complete
+discovery or summarize and link to focused briefings under `briefings/`. Choose the organization,
+document boundaries and level of detail that sufficiently explain the opportunities. No fixed
+segmentation scheme or document count is required. When using multiple briefings, the summary
+connects their findings, explains research priorities across topics and identifies useful compositions;
+the focused briefings carry supporting analysis and context for selective reading.
+
+State the inspection date/source and whether the discovery consumes generated evidence or
+representative reads alone. Shared baseline and coverage context can be linked, with differing
+dates or source conditions explicit. Include a capability-family map, current usage explanation
+and a reasoned research shortlist. Link to the broad overview, exact API/source evidence and
+reusable technical accounts.
 
 Explain both promising and less relevant territory. This prevents discovery from becoming a
 list of APIs the repository already happens to use. Qualify absent evidence as not observed

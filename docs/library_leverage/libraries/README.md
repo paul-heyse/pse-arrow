@@ -7,7 +7,7 @@ and evidence limits are separate from the older whole-collection assessment belo
 ## Library-led briefings
 
 The optional [discovery skill](../../../.codex/skills/leverage-library-discovery/SKILL.md)
-maintains concise current-usage accounts and proposed research priorities, including before a
+maintains current-usage accounts and proposed research priorities, including before a
 concrete codebase opportunity exists. The initial pilots are
 [DataFusion/Arrow](datafusion/briefing.md), [Tokio](tokio/briefing.md), and
 [Symbolica](symbolica/briefing.md). Their baselines and coverage are separate from the older

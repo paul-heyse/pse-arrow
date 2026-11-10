@@ -20,7 +20,7 @@ same footing; promotion into base guidance is a manual operator decision.
 
 Invoke the relevant skill with the intended scope, for example:
 
-- `$leverage-library-discovery` — produce a concise library-family briefing from broad capability
+- `$leverage-library-discovery` — produce library-family discovery briefings from broad capability
   knowledge, repository objectives and current usage evidence, without a prior `CBO`.
 - `$leverage-codebase-audit` — identify library-leverage opportunities in a selected operation,
   subsystem or the codebase.

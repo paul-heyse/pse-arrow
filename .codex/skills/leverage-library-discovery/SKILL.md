@@ -1,6 +1,6 @@
 ---
 name: leverage-library-discovery
-description: Discover and prioritize promising library capabilities from repository objectives, current usage evidence and broad library knowledge; maintain concise contextual briefings before detailed opportunity assessment.
+description: Discover and prioritize promising library capabilities from repository objectives, current usage evidence and broad library knowledge; maintain contextual briefings before detailed opportunity assessment.
 ---
 
 # Discover capabilities worth investigating
@@ -10,8 +10,13 @@ and which additional or underused capabilities merit deeper review. This is an o
 library-led entry point alongside the codebase-led audit. It requires neither a `CBO`
 nor a diagnosed defect, and does not select an implementation target.
 
-Maintain `briefing.md` in the relevant account under
+Maintain discovery briefings in the relevant account under
 [library assessments](../../../docs/library_leverage/libraries/README.md).
+Use `briefing.md` as the entry point. It may contain the complete discovery or summarize
+and link to focused briefings under `briefings/`. Choose the organization, document boundaries
+and level of detail that sufficiently explain the opportunities, without a fixed segmentation
+scheme or document count.
+
 Use the [discovery and evidence guide](../../../docs/library_leverage/references/discovery-and-evidence.md)
 for evidence interpretation and the
 [framework](../../../docs/library_leverage/library-leverage-framework.md) for handoffs.
@@ -37,9 +42,13 @@ may describe functionality requiring different features, a platform or an upgrad
 
 ## Explain and prioritize
 
-Keep the briefing short enough to read before a deeper review. Connect the major capability
-families to current usage, then explain the most promising research directions. For each
-shortlisted direction, give a concrete mechanism, why it could matter to these objectives,
+When using multiple briefings, use the summary to connect their findings, explain research
+priorities across topics and identify useful compositions. Focused briefings carry the
+supporting analysis and enough context to be understood when read selectively.
+
+Across the briefings, connect the major capability families to current usage, then explain
+the most promising research directions. For each shortlisted direction, give a concrete
+mechanism, why it could matter to these objectives,
 the conditions that could defeat its value, and the next discriminating question.
 
 Judge priority qualitatively by potential improvement and uncertainty worth resolving.
@@ -54,16 +63,18 @@ when selected questions need implementation-level depth.
 
 ## Hand off and refresh
 
-A briefing owns current usage interpretation and proposed research priorities. Its hypotheses
-are not applicability conclusions, new `CBO`s, accepted adoption or execution status.
+The discovery account owns current usage interpretation and proposed research priorities.
+Its hypotheses are not applicability conclusions, new `CBO`s, accepted adoption or execution status.
 When a concrete responsibility merits inspection, use `leverage-codebase-audit`; investigate
 fit with `leverage-library-assessment`, then compare complete options with
 `leverage-opportunity-review` within the authorized scope. Focused work can still enter
 any existing stage directly. A reusable technical type may be researched without inventing
 a current codebase match.
 
-Refresh the briefing in place when objectives, usage or the available capability set change.
-Record the actual inspected baseline and evidence limits; preserve inherited research dates.
+Refresh the discovery account in place when objectives, usage or the available capability set change.
+Keep the summary and affected focused briefings consistent. Record the actual inspected baseline
+and evidence limits, using shared context where appropriate and making differing dates or source
+conditions explicit; preserve inherited research dates.
 Explain changed priorities rather than silently treating generated diffs as recommendations.
 Leave broad overviews repository-agnostic. Discovery changes research documents, not product
 code, dependency selection or implementation authority.

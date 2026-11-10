@@ -14,7 +14,7 @@ machinery, better execution, stronger guarantees or a valuable new capability.
 Codebase-led inquiry starts from responsibilities, complete operations, credible changes and
 intended workflows. An optional library-led inquiry starts from broad capability knowledge,
 repository objectives and observed usage to shortlist promising research. Neither entry is a
-prerequisite to the other. Broad library overviews remain repository-agnostic; concise contextual
+prerequisite to the other. Broad library overviews remain repository-agnostic; contextual
 briefings live in the existing library collection and link to selective technical analysis.
 
 Keep the three assessment skills distinct. They answer different questions, support useful agent assignments
@@ -23,7 +23,7 @@ the distinction concerns responsibility for the resulting judgment, not a fixed 
 
 | Stage and skill | Main judgment | Owns | Leaves for later |
 | --- | --- | --- | --- |
-| Optional `leverage-library-discovery` | Which capability families merit investigation here? | Condensed contextual briefings, usage interpretation and proposed research priorities | Concrete opportunity evidence, applicability and comparative choice |
+| Optional `leverage-library-discovery` | Which capability families merit investigation here? | Contextual briefings, usage interpretation and proposed research priorities | Concrete opportunity evidence, applicability and comparative choice |
 | 1. `leverage-codebase-audit` | A concrete responsibility or activity is worth investigating for library leverage | Current codebase opportunities, their evidence, preservation constraints and coverage | Whether a candidate capability fits, and which option is best |
 | 2. `leverage-library-assessment` | Particular library capabilities could address an opportunity under stated conditions | Reusable library opportunity types and context-specific applicability assessments | Comparative selection of the best complete option |
 | 3. `leverage-opportunity-review` | A particular realization is preferable here, or a decision remains unsettled | Comparative reasoning, recommended target, interactions and decisive unknowns | Accepted implementation scope, detailed work packages and execution status |
@@ -60,7 +60,7 @@ adoption can introduce one.
 
 | Concept | Meaning | Primary home |
 | --- | --- | --- |
-| Library briefing | Concise contextual current usage and research shortlist, before detailed opportunity evidence | `libraries/<library>/briefing.md` |
+| Library discovery briefings | Contextual current usage and research priorities, before detailed opportunity evidence | `libraries/<library>/briefing.md`, optionally supported by `briefings/*.md` |
 | Leverage pattern | A generally recognizable opportunity shape, from the base framework or assessment discoveries | Base `patterns.md`; additional patterns in output `assessment-patterns.md` |
 | Codebase opportunity | A concrete occurrence or related footprint worth investigating | `codebase/` |
 | Library opportunity type | A reusable account of a focused capability, needs it can serve, mechanisms and limits | `libraries/<library>/` |
@@ -143,7 +143,9 @@ docs/library_leverage/
     README.md                             researched libraries, type routes, coverage
     <library>/
       README.md                           focused type index and version coverage
-      briefing.md                         optional contextual usage and research shortlist
+      briefing.md                         complete discovery or summary and reading route
+      briefings/                          optional focused discovery briefings
+        <topic>.md                        supporting analysis grouped as useful
       <opportunity-type>.md                reusable capability analysis
       applicability.md                    current contextual matches, when large enough
   reviews/                                comparative judgment account
@@ -184,8 +186,10 @@ being prerequisites for identifying an opportunity or binding adoption choices.
 
 ### Library assessment account
 
-Optional discovery briefings summarize usage and proposed priorities from library capabilities
-and general repository objectives. They need no prior opportunity. Keep their inspected baseline
+Optional discovery briefings explain usage and proposed priorities from library capabilities
+and general repository objectives. The entry `briefing.md` may hold the complete discovery or
+synthesize focused briefings under `briefings/`. Agents choose organization and depth to explain
+the opportunities. They need no prior opportunity. Keep their inspected baseline
 and evidence limits distinct from applicability; no reference match establishes fit or adoption.
 The [discovery guide](references/discovery-and-evidence.md) owns evidence interpretation and
 local collection commands. Briefings link to reusable technical accounts rather than duplicating them.

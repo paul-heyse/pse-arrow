@@ -20,7 +20,7 @@ or external library-skill selection.
 
 | Process skill | Use |
 |---|---|
-| [leverage-library-discovery](leverage-library-discovery/SKILL.md) | Build concise library-led briefings of current usage and promising capabilities before detailed opportunity assessment |
+| [leverage-library-discovery](leverage-library-discovery/SKILL.md) | Build library-led briefings of current usage and promising capabilities before detailed opportunity assessment |
 | [leverage-codebase-audit](leverage-codebase-audit/SKILL.md) | Identify concrete codebase opportunities for library leverage and refresh their living account |
 | [leverage-library-assessment](leverage-library-assessment/SKILL.md) | Research focused capability applicability and accumulate reusable library opportunity types |
 | [leverage-opportunity-review](leverage-opportunity-review/SKILL.md) | Compare complete options and develop bounded target recommendations |
