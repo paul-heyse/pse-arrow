@@ -73,7 +73,7 @@ hyper-util = { workspace = true, features = ["server-auto", "service"] }
 http.workspace = true
 tower-service.workspace = true
 tracing.workspace = true
-protovalidate-buffa.workspace = true
+protovalidate-buffa = { workspace = true, features = ["connect"] }
 ra_ap_hir = { workspace = true, optional = true }
 ra_ap_ide = { workspace = true, optional = true }
 ra_ap_ide_db = { workspace = true, optional = true }
