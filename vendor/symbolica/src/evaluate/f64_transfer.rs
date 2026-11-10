@@ -38,15 +38,18 @@ impl F64KnownHead {
         u64::from(self.tag) | (u64::from(self.version) << 32)
     }
 }
-fn check_heads(heads: &[F64KnownHead]) -> Result<(), F64TransferError> {
+pub(super) fn check_heads(heads: &[F64KnownHead]) -> Result<(), F64TransferError> {
     for (index, head) in heads.iter().enumerate() {
-        if head.tag == 0 || head.version == 0 || !(1..=2).contains(&head.arity)
+        if head.tag == 0
+            || head.version == 0
+            || !(1..=2).contains(&head.arity)
             || head.export_name.is_empty()
             || !head.export_name.bytes().enumerate().all(|(i, byte)| {
                 byte == b'_' || byte.is_ascii_alphabetic() || (i > 0 && byte.is_ascii_digit())
             })
             || heads[..index].iter().any(|previous| {
-                previous.tag == head.tag || previous.symbol == head.symbol
+                previous.tag == head.tag
+                    || previous.symbol == head.symbol
                     || previous.export_name == head.export_name
             })
         {
@@ -56,7 +59,9 @@ fn check_heads(heads: &[F64KnownHead]) -> Result<(), F64TransferError> {
     Ok(())
 }
 fn head_by_key(heads: &[F64KnownHead], key: u64) -> Result<usize, F64TransferError> {
-    heads.iter().position(|head| head.key() == key)
+    heads
+        .iter()
+        .position(|head| head.key() == key)
         .ok_or(F64TransferError::Unsupported("unknown head tag/version"))
 }
 
@@ -222,11 +227,15 @@ impl F64ProgramExtents {
             backing::<usize>(self.nary_operands, "operand backing")?,
             "instruction backing",
         )?;
-        self.retained_bytes = add(add(
-            add(self.stack_bytes, self.instruction_bytes, "retained backing")?,
-            self.result_bytes,
-            "retained backing",
-        )?, self.external_bytes, "known-head backing")?;
+        self.retained_bytes = add(
+            add(
+                add(self.stack_bytes, self.instruction_bytes, "retained backing")?,
+                self.result_bytes,
+                "retained backing",
+            )?,
+            self.external_bytes,
+            "known-head backing",
+        )?;
         self.peak_bytes = self.retained_bytes.max(self.validation_bytes);
         Ok(self)
     }
@@ -259,15 +268,20 @@ impl ExpressionEvaluator<f64> {
     /// Materialized constant bits are copied; hidden bodies, tags, fixed argument
     /// generators and unknown numerical heads are not transferable.
     pub fn f64_transfer_with_heads<'a>(
-        &'a self, heads: &'a [F64KnownHead],
+        &'a self,
+        heads: &'a [F64KnownHead],
     ) -> Result<F64ProgramRef<'a>, F64TransferError> {
         check_heads(heads)?;
         for external in &self.external_fns {
             if external.body.is_some() || !external.tags.is_empty() {
                 return Err(F64TransferError::Unsupported("external body/tags"));
             }
-            let head = heads.iter().find(|head| head.symbol == external.symbol)
-                .ok_or(F64TransferError::Unsupported("unqualified external implementation"))?;
+            let head = heads
+                .iter()
+                .find(|head| head.symbol == external.symbol)
+                .ok_or(F64TransferError::Unsupported(
+                    "unqualified external implementation",
+                ))?;
             if let Some(index) = external.constant_index {
                 let index = add(self.param_count, index, "constant index")?;
                 if index >= self.reserved_indices {
@@ -277,7 +291,9 @@ impl ExpressionEvaluator<f64> {
                     return Err(F64TransferError::Unsupported("known constant arity"));
                 }
             } else if !external.fixed_args.is_empty() || external.imp.is_none() {
-                return Err(F64TransferError::Unsupported("unqualified external implementation"));
+                return Err(F64TransferError::Unsupported(
+                    "unqualified external implementation",
+                ));
             }
         }
         let mut extents = shape(
@@ -291,7 +307,8 @@ impl ExpressionEvaluator<f64> {
             check_index(*index, extents.stack, "result")?;
         }
         for (instruction, phase) in &self.instructions {
-            let wire = NativeInstruction::from_instr(instruction, *phase, &self.external_fns, heads)?;
+            let wire =
+                NativeInstruction::from_instr(instruction, *phase, &self.external_fns, heads)?;
             validate_instruction(wire, &mut extents, heads)?;
             extents.encoded_bytes = add(
                 extents.encoded_bytes,
@@ -311,7 +328,13 @@ impl F64ProgramRef<'_> {
     pub fn operation_count(&self) -> Result<OperationCount, F64TransferError> {
         let mut count = OperationCount::default();
         for (instruction, phase) in &self.evaluator.instructions {
-            NativeInstruction::from_instr(instruction, *phase, &self.evaluator.external_fns, self.heads)?.count_into(&mut count)?;
+            NativeInstruction::from_instr(
+                instruction,
+                *phase,
+                &self.evaluator.external_fns,
+                self.heads,
+            )?
+            .count_into(&mut count)?;
         }
         Ok(count)
     }
@@ -354,7 +377,13 @@ impl F64ProgramRef<'_> {
             writer.index(*result);
         }
         for (instruction, phase) in &self.evaluator.instructions {
-            NativeInstruction::from_instr(instruction, *phase, &self.evaluator.external_fns, self.heads)?.write(&mut writer);
+            NativeInstruction::from_instr(
+                instruction,
+                *phase,
+                &self.evaluator.external_fns,
+                self.heads,
+            )?
+            .write(&mut writer);
         }
         debug_assert_eq!(writer.position, self.extents.encoded_bytes);
         Ok(())
@@ -423,8 +452,11 @@ impl<'a> NativeInstruction<'a> {
         }
         Ok(())
     }
-    fn from_instr(instruction: &'a Instr, phase: ComplexPhase,
-        externals: &[ExternalFunctionContainer<f64>], heads: &[F64KnownHead],
+    fn from_instr(
+        instruction: &'a Instr,
+        phase: ComplexPhase,
+        externals: &[ExternalFunctionContainer<f64>],
+        heads: &[F64KnownHead],
     ) -> Result<Self, F64TransferError> {
         let mut result = Self {
             opcode: 0,
@@ -460,12 +492,17 @@ impl<'a> NativeInstruction<'a> {
                 result.first = *argument;
             }
             Instr::ExternalFun(destination, index, arguments) => {
-                let external = externals.get(*index)
+                let external = externals
+                    .get(*index)
                     .ok_or(F64TransferError::Index("external function", *index))?;
-                let head = heads.iter().find(|head| head.symbol == external.symbol)
+                let head = heads
+                    .iter()
+                    .find(|head| head.symbol == external.symbol)
                     .ok_or(F64TransferError::Unsupported("unknown source head"))?;
                 if external.constant_index.is_some() || arguments.len() != head.arity {
-                    return Err(F64TransferError::Unsupported("known-head arity/constant call"));
+                    return Err(F64TransferError::Unsupported(
+                        "known-head arity/constant call",
+                    ));
                 }
                 result.opcode = 11;
                 result.destination = *destination;
@@ -511,7 +548,9 @@ impl<'a> NativeInstruction<'a> {
         writer.index(self.destination);
         match self.opcode {
             0 | 1 | 11 => {
-                if self.opcode == 11 { writer.bytes(&self.head.to_le_bytes()); }
+                if self.opcode == 11 {
+                    writer.bytes(&self.head.to_le_bytes());
+                }
                 writer.index(self.operands.len());
                 for index in 0..self.operands.len() {
                     writer.index(self.operands.get(index));
@@ -599,11 +638,24 @@ fn validate_instruction(
                 }
                 if extents.external_functions == 0 {
                     extents.external_functions = heads.len();
-                    let mut bytes = backing::<ExternalFunctionContainer<f64>>(heads.len(), "known-head descriptors")?;
+                    let mut bytes = backing::<ExternalFunctionContainer<f64>>(
+                        heads.len(),
+                        "known-head descriptors",
+                    )?;
                     for head in heads {
-                        bytes = add(bytes, add(head.export_name.len(),
-                            add(size_of::<fn(&[f64]) -> f64>(), backing::<f64>(head.arity, "known-head arguments")?, "known-head callable")?,
-                            "known-head name")?, "known-head backing")?;
+                        bytes = add(
+                            bytes,
+                            add(
+                                head.export_name.len(),
+                                add(
+                                    size_of::<fn(&[f64]) -> f64>(),
+                                    backing::<f64>(head.arity, "known-head arguments")?,
+                                    "known-head callable",
+                                )?,
+                                "known-head name",
+                            )?,
+                            "known-head backing",
+                        )?;
                     }
                     extents.external_bytes = bytes;
                 }
@@ -692,7 +744,9 @@ impl<'a> Cursor<'a> {
         };
         match opcode {
             0 | 1 | 11 => {
-                if opcode == 11 { result.head = self.u64()?; }
+                if opcode == 11 {
+                    result.head = self.u64()?;
+                }
                 let count = self.index()?;
                 let bytes = self.take(backing::<u64>(count, "operand encoding")?)?;
                 // Validate every encoded usize conversion before the borrowed fast accessor.
@@ -746,7 +800,10 @@ impl<'a> F64ProgramView<'a> {
     }
     /// Inspect against a trusted local operation table. Unknown operation
     /// tags/versions and arities refuse before any evaluator allocation.
-    pub fn inspect_with_heads(bytes: &'a [u8], heads: &'a [F64KnownHead]) -> Result<Self, F64TransferError> {
+    pub fn inspect_with_heads(
+        bytes: &'a [u8],
+        heads: &'a [F64KnownHead],
+    ) -> Result<Self, F64TransferError> {
         check_heads(heads)?;
         let mut cursor = Cursor { bytes, position: 0 };
         if cursor.take(8)? != MAGIC
@@ -855,8 +912,11 @@ impl<'a> F64ProgramView<'a> {
                         operands.push(wire.operands.get(index));
                     }
                     if wire.opcode == 11 {
-                        Instr::ExternalFun(wire.destination,
-                            head_by_key(self.heads, wire.head)?, operands)
+                        Instr::ExternalFun(
+                            wire.destination,
+                            head_by_key(self.heads, wire.head)?,
+                            operands,
+                        )
                     } else if wire.opcode == 0 {
                         Instr::Add(wire.destination, operands)
                     } else {
@@ -869,18 +929,24 @@ impl<'a> F64ProgramView<'a> {
             };
             instructions.push((instruction, wire.phase));
         }
-        let mut external_fns = reserve(self.extents.external_functions)
-            .map_err(F64RestoreError::Allocation)?;
+        let mut external_fns =
+            reserve(self.extents.external_functions).map_err(F64RestoreError::Allocation)?;
         for head in self.heads.iter().take(self.extents.external_functions) {
             let mut name = String::new();
-            name.try_reserve_exact(head.export_name.len()).map_err(F64RestoreError::Allocation)?;
+            name.try_reserve_exact(head.export_name.len())
+                .map_err(F64RestoreError::Allocation)?;
             name.push_str(head.export_name);
             let mut arguments = reserve(head.arity).map_err(F64RestoreError::Allocation)?;
             arguments.resize(head.arity, f64::NAN);
             external_fns.push(ExternalFunctionContainer {
-                export_name: name, symbol: head.symbol, tags: Vec::new(),
-                fixed_args: Vec::new(), imp: Some(Box::new(head.evaluate)),
-                constant_index: None, stack: arguments, body: None,
+                export_name: name,
+                symbol: head.symbol,
+                tags: Vec::new(),
+                fixed_args: Vec::new(),
+                imp: Some(Box::new(head.evaluate)),
+                constant_index: None,
+                stack: arguments,
+                body: None,
             });
         }
         Ok(ExpressionEvaluator {

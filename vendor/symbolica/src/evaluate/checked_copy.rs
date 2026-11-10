@@ -187,6 +187,150 @@ mod tests {
     };
     use std::convert::Infallible;
 
+    #[test]
+    fn checked_mapping_admits_post_horner_payload_without_cached_capacity() {
+        let x = parse!("checked_mapping_x");
+        let expression = parse!("(2*checked_mapping_x+2)^512 + checked_mapping_x");
+        let source = expression
+            .evaluator(&[x])
+            .direct_translation(true)
+            .horner_iterations(1)
+            .build()
+            .unwrap();
+        let original_payload = source
+            .stack
+            .iter()
+            .map(|value| control::payload::<Infallible>(value).unwrap())
+            .sum::<usize>();
+        assert!(original_payload > 64);
+        let warmed = (0..32)
+            .map(|_| {
+                MultiPrecisionInteger::from_raw(RawMultiPrecisionInteger::from(1) << 1_000_000_u32)
+            })
+            .collect::<Vec<_>>();
+        drop(warmed);
+        let mut peak = 0;
+        let mut final_bytes = 0;
+        let mut mapped = source
+            .try_map_f64_with(&mut |extent: OperationExtent| {
+                peak = peak.max(extent.peak_bytes().unwrap());
+                if extent.stage == OperationStage::Finalization {
+                    final_bytes = extent.output_bytes;
+                }
+                Ok::<_, Infallible>(())
+            })
+            .unwrap();
+        assert!(peak < 2_000_000);
+        assert_eq!(
+            final_bytes,
+            extent::<_, Infallible>(&mapped, |_| Ok(0))
+                .unwrap()
+                .input_bytes
+        );
+        assert_eq!(mapped.evaluate_single(&[0.]), 2_f64.powi(512));
+        assert_eq!(
+            source
+                .stack
+                .iter()
+                .map(|value| control::payload::<Infallible>(value).unwrap())
+                .sum::<usize>(),
+            original_payload
+        );
+        #[derive(Debug, PartialEq, Eq)]
+        struct Refused;
+        assert_eq!(
+            source
+                .try_map_f64_with(&mut |extent: OperationExtent| {
+                    if extent.peak_bytes().unwrap() >= peak {
+                        Err(Refused)
+                    } else {
+                        Ok(())
+                    }
+                })
+                .unwrap_err(),
+            OperationError::Control(Refused)
+        );
+    }
+
+    #[test]
+    fn checked_mapping_uses_fixed_implementations_and_native_constant_rounding() {
+        use std::sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        };
+        struct Capture(Arc<AtomicUsize>);
+        impl Capture {
+            fn value(&self) -> f64 {
+                1.
+            }
+        }
+        impl Clone for Capture {
+            fn clone(&self) -> Self {
+                self.0.fetch_add(1, Ordering::SeqCst);
+                Self(self.0.clone())
+            }
+        }
+        let clones = Arc::new(AtomicUsize::new(0));
+        let capture = Capture(clones.clone());
+        let symbol = crate::symbol!(
+            "checked_copy::fixed_mapping_head",
+            eval = EvaluationInfo::new().register(move |args: &[f64]| args[0] + capture.value())
+        );
+        let value = parse!("4611686018427387903/4611686018427387907");
+        let source = symbol
+            .call(&[value][..])
+            .evaluator::<Atom>(&[])
+            .direct_translation(true)
+            .build()
+            .unwrap();
+        let head = F64KnownHead {
+            tag: 1,
+            version: 1,
+            symbol,
+            arity: 1,
+            export_name: "checked_copy_fixed_mapping_head",
+            evaluate: |args| args[0] + 1.,
+        };
+        let before = clones.load(Ordering::SeqCst);
+        let mut final_bytes = 0;
+        let mut mapped = source
+            .try_map_f64_known_with(&[head], &mut |extent: OperationExtent| {
+                if extent.stage == OperationStage::Finalization {
+                    final_bytes = extent.output_bytes;
+                }
+                Ok::<_, Infallible>(())
+            })
+            .unwrap();
+        assert_eq!(
+            clones.load(Ordering::SeqCst),
+            before,
+            "registered callback is never cloned"
+        );
+        assert_eq!(
+            final_bytes,
+            extent::<_, Infallible>(&mapped, |_| Ok(0))
+                .unwrap()
+                .input_bytes
+        );
+        let mut ordinary = source.clone().map_coeff(&|value| value.re.to_f64());
+        assert!(clones.load(Ordering::SeqCst) > before);
+        assert_eq!(
+            mapped.evaluate_single(&[]).to_bits(),
+            ordinary.evaluate_single(&[]).to_bits()
+        );
+        let stopped = source.try_map_f64_known_with(&[head], &mut |extent: OperationExtent| {
+            if extent.stage == OperationStage::Finalization {
+                Err("current stop")
+            } else {
+                Ok(())
+            }
+        });
+        assert_eq!(
+            stopped.unwrap_err(),
+            OperationError::Control("current stop")
+        );
+    }
+
     fn exported_backing(e: &ExportedInstructions<Complex<Rational>>) -> usize {
         let mut bytes = e.instructions.capacity() * size_of::<Instruction>()
             + e.constants.capacity() * size_of::<Complex<Rational>>()
@@ -267,5 +411,176 @@ mod tests {
             }
         });
         assert_eq!(stopped.unwrap_err(), OperationError::Control(Refused(91)));
+    }
+}
+
+impl ExpressionEvaluator<Complex<Rational>> {
+    /// Copy and map the native programme to binary64 after admitting the actual
+    /// post-normalization exact payload, target backing and simultaneous copies.
+    /// Only fixed implementations from the trusted table are materialized;
+    /// arbitrary registered/tagged generators are never cloned or invoked.
+    pub fn try_map_f64_known_with<C: OperationControl>(
+        &self,
+        heads: &[F64KnownHead],
+        control: &mut C,
+    ) -> Result<ExpressionEvaluator<f64>, OperationError<C::Error>> {
+        control
+            .check(OperationExtent {
+                stage: OperationStage::Construction,
+                ..OperationExtent::default()
+            })
+            .map_err(OperationError::Control)?;
+        super::f64_transfer::check_heads(heads)
+            .map_err(|_| OperationError::Unsupported("invalid fixed binary64 head table"))?;
+        let source = extent(self, control::payload)?;
+        if self.settings.abort_check.is_some() {
+            return Err(OperationError::Unsupported(
+                "retained producer abort callback",
+            ));
+        }
+        let mut fixed_values = 0usize;
+        for external in &self.external_fns {
+            if external.imp.is_some() || !external.stack.is_empty() {
+                return Err(OperationError::Unsupported(
+                    "materialized exact external callback",
+                ));
+            }
+            let builtin_constant = external.constant_index.is_some()
+                && external.fixed_args.is_empty()
+                && [Symbol::PI, Symbol::E].contains(&external.symbol);
+            let head = heads.iter().find(|head| head.symbol == external.symbol);
+            if !builtin_constant && head.is_none() {
+                return Err(OperationError::Unsupported(
+                    "unqualified binary64 numerical head",
+                ));
+            }
+            if let Some(index) = external.constant_index {
+                if index >= self.reserved_indices - self.param_count {
+                    return Err(OperationError::Unsupported("invalid constant-head slot"));
+                }
+                if !builtin_constant
+                    && head.is_some_and(|head| external.fixed_args.len() != head.arity)
+                {
+                    return Err(OperationError::Unsupported("fixed constant-head arity"));
+                }
+                if external.fixed_args.iter().any(|value| !value.im.is_zero()) {
+                    return Err(OperationError::Unsupported(
+                        "nonreal fixed numerical argument",
+                    ));
+                }
+            } else if !external.fixed_args.is_empty() {
+                return Err(OperationError::Unsupported("nonconstant fixed arguments"));
+            }
+            fixed_values = add(fixed_values, external.fixed_args.len())?;
+        }
+        for (instruction, _) in &self.instructions {
+            if let Instr::ExternalFun(_, index, args) = instruction {
+                let external = self
+                    .external_fns
+                    .get(*index)
+                    .ok_or(OperationError::Unsupported("external index"))?;
+                let head = heads
+                    .iter()
+                    .find(|head| head.symbol == external.symbol)
+                    .ok_or(OperationError::Unsupported(
+                        "unqualified binary64 numerical head",
+                    ))?;
+                if args.len() != head.arity || external.constant_index.is_some() {
+                    return Err(OperationError::Unsupported("fixed numerical call arity"));
+                }
+            }
+        }
+        let values = add(self.stack.len(), fixed_values)?;
+        // Fresh Clone does not adopt cleared backing. Two carry limbs per copied
+        // integer cover native destination rounding independently of source cache.
+        let clone_bytes = add(
+            source.input_bytes,
+            values
+                .checked_mul(4 * 2 * size_of::<u64>())
+                .ok_or(OperationError::Overflow)?,
+        )?;
+        let target = add(
+            clone_bytes,
+            add(
+                bytes::<C::Error, f64>(self.stack.len())?,
+                self.external_fns
+                    .len()
+                    .checked_mul(size_of::<fn(&[f64]) -> f64>())
+                    .ok_or(OperationError::Overflow)?,
+            )?,
+        )?;
+        // Native mapping holds the source clone, target stack, copied external
+        // fixed args, and at most one two-argument MPFR53 conversion at once.
+        // Internal GMP/MPFR algorithm scratch stays in the caller's foreign allowance.
+        let temporary = add(
+            clone_bytes.checked_mul(2).ok_or(OperationError::Overflow)?,
+            add(
+                source.output_bytes,
+                4 * (size_of::<Float>() + 2 * size_of::<u64>()),
+            )?,
+        )?;
+        let admitted = OperationExtent {
+            stage: OperationStage::Construction,
+            work: self.stack.len(),
+            input_bytes: source.input_bytes,
+            temporary_bytes: temporary,
+            output_bytes: target,
+            output_entries: self.stack.len(),
+        };
+        admitted.peak_bytes().ok_or(OperationError::Overflow)?;
+        control.check(admitted).map_err(OperationError::Control)?;
+        IntegerAllocationContext::fresh().run(|| {
+            let product = self.clone().map_coeff_impl(
+                &|value| value.re.to_f64(),
+                |external| {
+                    let builtin = external.constant_index.is_some()
+                        && external.fixed_args.is_empty()
+                        && [Symbol::PI, Symbol::E].contains(&external.symbol);
+                    let implementation = if builtin {
+                        None
+                    } else {
+                        heads
+                            .iter()
+                            .find(|head| head.symbol == external.symbol)
+                            .map(|head| Box::new(head.evaluate) as Box<dyn ExternalFunction<f64>>)
+                    };
+                    external.map_with_implementation(implementation)
+                },
+                |external| {
+                    let builtin = external.fixed_args.is_empty()
+                        && [Symbol::PI, Symbol::E].contains(&external.symbol);
+                    if !builtin
+                        && let Some(head) = heads.iter().find(|head| head.symbol == external.symbol)
+                    {
+                        let arguments = external.fixed_argument_values::<f64>(53).unwrap();
+                        (head.evaluate)(&arguments)
+                    } else {
+                        // Fixed supplier pi/e registrations, never arbitrary
+                        // user constant evaluators or tag generators.
+                        external.evaluate_constant::<f64>(53).unwrap()
+                    }
+                },
+            );
+            let resident = extent(&product, |_| Ok(0))?;
+            control
+                .check(OperationExtent {
+                    stage: OperationStage::Finalization,
+                    work: 0,
+                    input_bytes: source.input_bytes,
+                    temporary_bytes: 0,
+                    output_bytes: resident.input_bytes,
+                    output_entries: product.stack.len(),
+                })
+                .map_err(OperationError::Control)?;
+            Ok(product)
+        })
+    }
+
+    /// Copy/map a builtin-only programme to binary64 with current admission.
+    pub fn try_map_f64_with<C: OperationControl>(
+        &self,
+        control: &mut C,
+    ) -> Result<ExpressionEvaluator<f64>, OperationError<C::Error>> {
+        self.try_map_f64_known_with(&[], control)
     }
 }

@@ -37,9 +37,13 @@ copying, and the checked shape entry admits native HyperDual/Dualizer metadata
 before constructing it. Returned programs retain no producer control. These
 profiles cover visible integer/MPFR, Atom/workspace, staging and optimizer backing;
 private GMP/MPFR algorithm scratch retains the separate opaque foreign allowance.
-Legacy EvalTree construction, new exact numerical fractional-power normalization
-and remaining constructor/copy ingress need their own qualified contracts; these
-entries do not grant those profiles eligibility.
+Checked borrowed-alias builder construction admits native map/tag staging before
+copying. Checked exact-to-binary64 mapping admits the actual post-Horner payload
+and fresh source/target overlap, using the shared native mapping and constant
+rounding algorithms with only fixed trusted implementations. It does not resolve
+arbitrary registered generators. Legacy EvalTree construction, new exact numerical
+fractional-power normalization and tighter large-DAG/optimizer stage facts remain
+separate qualifications; these entries do not grant those profiles eligibility.
 
 Cargo cache markers and `.cargo-checksum.json` are omitted. The original package
 checksums in the linked archive table identify the imported sources; they do not authenticate patched

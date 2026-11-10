@@ -655,17 +655,29 @@ impl<T: Default> ExpressionEvaluator<T> {
         f: &F,
         binary_prec: u32,
     ) -> ExpressionEvaluator<T2> {
+        self.map_coeff_impl(
+            f,
+            |external| external.map(),
+            |external| external.evaluate_constant::<T2>(binary_prec).unwrap(),
+        )
+    }
+
+    pub(super) fn map_coeff_impl<T2: EvaluationDomain, F: Fn(&T) -> T2>(
+        self,
+        f: &F,
+        map_external: impl FnMut(&ExternalFunctionContainer<T>) -> ExternalFunctionContainer<T2>,
+        mut resolve_constant: impl FnMut(&ExternalFunctionContainer<T2>) -> T2,
+    ) -> ExpressionEvaluator<T2> {
         let mut stack: Vec<_> = self.stack.iter().map(f).collect();
 
         let external_fns = self
             .external_fns
             .iter()
-            .map(|x| x.map())
+            .map(map_external)
             .collect::<Vec<_>>();
         for external in &external_fns {
             if let Some(i) = external.constant_index {
-                stack[self.param_count + i] =
-                    external.evaluate_constant::<T2>(binary_prec).unwrap();
+                stack[self.param_count + i] = resolve_constant(external);
             }
         }
 

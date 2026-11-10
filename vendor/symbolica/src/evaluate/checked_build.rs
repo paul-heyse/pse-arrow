@@ -920,6 +920,54 @@ mod tests {
         assert_eq!(INVOCATIONS.load(Ordering::SeqCst), 0);
     }
 
+    #[test]
+    fn checked_alias_constructor_admits_native_map_before_growth_and_shares_builder() {
+        let x = parse!("checked_ctor_x");
+        let first = parse!("checked_ctor_alias(3)");
+        let second = parse!("checked_ctor_result");
+        let aliases = [
+            (first.clone(), &x * Atom::num(2)),
+            (second.clone(), &first + Atom::num(1)),
+        ];
+        let expressions = [second];
+        #[derive(Debug, PartialEq, Eq)]
+        struct Refused;
+        let refused = EvaluatorBuilder::try_new_aliases_with(
+            &expressions,
+            &[x.clone()],
+            &aliases,
+            &mut |extent: OperationExtent| {
+                if extent.output_bytes > 0 {
+                    Err(Refused)
+                } else {
+                    Ok(())
+                }
+            },
+        );
+        assert_eq!(refused.unwrap_err(), OperationError::Control(Refused));
+        let mut reports = 0;
+        let builder = EvaluatorBuilder::try_new_aliases_with(
+            &expressions,
+            &[x],
+            &aliases,
+            &mut |extent: OperationExtent| {
+                assert!(extent.peak_bytes().is_some());
+                if extent.output_bytes > 0 {
+                    reports += 1;
+                }
+                Ok::<_, std::convert::Infallible>(())
+            },
+        )
+        .unwrap();
+        assert!(reports >= 2);
+        let mut product = builder
+            .direct_translation(true)
+            .try_build_with(&mut |_: OperationExtent| Ok::<_, std::convert::Infallible>(()))
+            .unwrap()
+            .map_coeff(&|value| value.re.to_f64());
+        assert_eq!(product.evaluate_single(&[4.]), 9.);
+    }
+
     #[derive(Default)]
     struct Probe {
         active: AtomicUsize,

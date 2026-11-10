@@ -270,33 +270,46 @@ impl<T> ExternalFunctionContainer<T> {
         if self.fixed_args.is_empty() {
             T2::try_from_complex_float(info.evaluate_constant(&tags, binary_prec)?)
         } else {
-            let args = self
-                .fixed_args
-                .iter()
-                .map(|c| {
-                    T2::try_from_complex_float(Complex::new(
-                        c.re.to_multi_prec_float(binary_prec),
-                        c.im.to_multi_prec_float(binary_prec),
-                    ))
-                })
-                .collect::<Result<Vec<_>, _>>()?;
+            let args = self.fixed_argument_values::<T2>(binary_prec)?;
             let eval = T2::resolve_function(&tags, info)
                 .ok_or_else(|| format!("External constant '{}' has no implementation", self))?;
             Ok(eval(&args))
         }
     }
 
+    pub(super) fn fixed_argument_values<T2: EvaluationDomain>(
+        &self,
+        binary_prec: u32,
+    ) -> Result<Vec<T2>, String> {
+        self.fixed_args
+            .iter()
+            .map(|c| {
+                T2::try_from_complex_float(Complex::new(
+                    c.re.to_multi_prec_float(binary_prec),
+                    c.im.to_multi_prec_float(binary_prec),
+                ))
+            })
+            .collect::<Result<Vec<_>, _>>()
+    }
+
     pub(super) fn map<T2: EvaluationDomain>(&self) -> ExternalFunctionContainer<T2> {
+        self.map_with_implementation(if self.body.is_none() {
+            self.fetch_impl_for::<T2>()
+        } else {
+            None
+        })
+    }
+
+    pub(super) fn map_with_implementation<T2>(
+        &self,
+        implementation: Option<Box<dyn ExternalFunction<T2>>>,
+    ) -> ExternalFunctionContainer<T2> {
         ExternalFunctionContainer {
             export_name: self.export_name.clone(),
             symbol: self.symbol,
             tags: self.tags.clone(),
             fixed_args: self.fixed_args.clone(),
-            imp: if self.body.is_none() {
-                self.fetch_impl_for::<T2>()
-            } else {
-                None
-            },
+            imp: implementation,
             stack: Vec::new(),
             constant_index: self.constant_index,
             body: self.body.clone(),

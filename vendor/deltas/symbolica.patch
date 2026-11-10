@@ -1148,10 +1148,10 @@ index 1fad7aac401041e024cd169e0fe0c824bc47545a..f842990feabadd5ffdc62c45971a0606
          self.library.borrow_dependent().dimensions.input_len
 diff --git a/src/evaluate/checked_build.rs b/src/evaluate/checked_build.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..a95f8791cef885279c472aac2102ce9ee92744b8
+index 0000000000000000000000000000000000000000..333ee4df55cd2c21d832228bb99ad9f82610ccf7
 --- /dev/null
 +++ b/src/evaluate/checked_build.rs
-@@ -0,0 +1,1032 @@
+@@ -0,0 +1,1080 @@
 +//! Borrowed controls on the shared direct translator and its actual workers.
 +use super::*;
 +use crate::coefficient::{SerializedFloat, SerializedRational};
@@ -2074,6 +2074,54 @@ index 0000000000000000000000000000000000000000..a95f8791cef885279c472aac2102ce9e
 +        assert_eq!(INVOCATIONS.load(Ordering::SeqCst), 0);
 +    }
 +
++    #[test]
++    fn checked_alias_constructor_admits_native_map_before_growth_and_shares_builder() {
++        let x = parse!("checked_ctor_x");
++        let first = parse!("checked_ctor_alias(3)");
++        let second = parse!("checked_ctor_result");
++        let aliases = [
++            (first.clone(), &x * Atom::num(2)),
++            (second.clone(), &first + Atom::num(1)),
++        ];
++        let expressions = [second];
++        #[derive(Debug, PartialEq, Eq)]
++        struct Refused;
++        let refused = EvaluatorBuilder::try_new_aliases_with(
++            &expressions,
++            &[x.clone()],
++            &aliases,
++            &mut |extent: OperationExtent| {
++                if extent.output_bytes > 0 {
++                    Err(Refused)
++                } else {
++                    Ok(())
++                }
++            },
++        );
++        assert_eq!(refused.unwrap_err(), OperationError::Control(Refused));
++        let mut reports = 0;
++        let builder = EvaluatorBuilder::try_new_aliases_with(
++            &expressions,
++            &[x],
++            &aliases,
++            &mut |extent: OperationExtent| {
++                assert!(extent.peak_bytes().is_some());
++                if extent.output_bytes > 0 {
++                    reports += 1;
++                }
++                Ok::<_, std::convert::Infallible>(())
++            },
++        )
++        .unwrap();
++        assert!(reports >= 2);
++        let mut product = builder
++            .direct_translation(true)
++            .try_build_with(&mut |_: OperationExtent| Ok::<_, std::convert::Infallible>(()))
++            .unwrap()
++            .map_coeff(&|value| value.re.to_f64());
++        assert_eq!(product.evaluate_single(&[4.]), 9.);
++    }
++
 +    #[derive(Default)]
 +    struct Probe {
 +        active: AtomicUsize,
@@ -2186,10 +2234,10 @@ index 0000000000000000000000000000000000000000..a95f8791cef885279c472aac2102ce9e
 +}
 diff --git a/src/evaluate/checked_copy.rs b/src/evaluate/checked_copy.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..20a6aacce70280b18e4212001e7a597f35c2ddf5
+index 0000000000000000000000000000000000000000..ef4381d2268af3c8179ddc0a25332d14d0c36fdf
 --- /dev/null
 +++ b/src/evaluate/checked_copy.rs
-@@ -0,0 +1,271 @@
+@@ -0,0 +1,586 @@
 +//! Passive admission of the public instruction representation's actual widening.
 +use super::*;
 +use numerica::domains::backend::integer::IntegerAllocationContext;
@@ -2379,6 +2427,150 @@ index 0000000000000000000000000000000000000000..20a6aacce70280b18e4212001e7a597f
 +    };
 +    use std::convert::Infallible;
 +
++    #[test]
++    fn checked_mapping_admits_post_horner_payload_without_cached_capacity() {
++        let x = parse!("checked_mapping_x");
++        let expression = parse!("(2*checked_mapping_x+2)^512 + checked_mapping_x");
++        let source = expression
++            .evaluator(&[x])
++            .direct_translation(true)
++            .horner_iterations(1)
++            .build()
++            .unwrap();
++        let original_payload = source
++            .stack
++            .iter()
++            .map(|value| control::payload::<Infallible>(value).unwrap())
++            .sum::<usize>();
++        assert!(original_payload > 64);
++        let warmed = (0..32)
++            .map(|_| {
++                MultiPrecisionInteger::from_raw(RawMultiPrecisionInteger::from(1) << 1_000_000_u32)
++            })
++            .collect::<Vec<_>>();
++        drop(warmed);
++        let mut peak = 0;
++        let mut final_bytes = 0;
++        let mut mapped = source
++            .try_map_f64_with(&mut |extent: OperationExtent| {
++                peak = peak.max(extent.peak_bytes().unwrap());
++                if extent.stage == OperationStage::Finalization {
++                    final_bytes = extent.output_bytes;
++                }
++                Ok::<_, Infallible>(())
++            })
++            .unwrap();
++        assert!(peak < 2_000_000);
++        assert_eq!(
++            final_bytes,
++            extent::<_, Infallible>(&mapped, |_| Ok(0))
++                .unwrap()
++                .input_bytes
++        );
++        assert_eq!(mapped.evaluate_single(&[0.]), 2_f64.powi(512));
++        assert_eq!(
++            source
++                .stack
++                .iter()
++                .map(|value| control::payload::<Infallible>(value).unwrap())
++                .sum::<usize>(),
++            original_payload
++        );
++        #[derive(Debug, PartialEq, Eq)]
++        struct Refused;
++        assert_eq!(
++            source
++                .try_map_f64_with(&mut |extent: OperationExtent| {
++                    if extent.peak_bytes().unwrap() >= peak {
++                        Err(Refused)
++                    } else {
++                        Ok(())
++                    }
++                })
++                .unwrap_err(),
++            OperationError::Control(Refused)
++        );
++    }
++
++    #[test]
++    fn checked_mapping_uses_fixed_implementations_and_native_constant_rounding() {
++        use std::sync::{
++            Arc,
++            atomic::{AtomicUsize, Ordering},
++        };
++        struct Capture(Arc<AtomicUsize>);
++        impl Capture {
++            fn value(&self) -> f64 {
++                1.
++            }
++        }
++        impl Clone for Capture {
++            fn clone(&self) -> Self {
++                self.0.fetch_add(1, Ordering::SeqCst);
++                Self(self.0.clone())
++            }
++        }
++        let clones = Arc::new(AtomicUsize::new(0));
++        let capture = Capture(clones.clone());
++        let symbol = crate::symbol!(
++            "checked_copy::fixed_mapping_head",
++            eval = EvaluationInfo::new().register(move |args: &[f64]| args[0] + capture.value())
++        );
++        let value = parse!("4611686018427387903/4611686018427387907");
++        let source = symbol
++            .call(&[value][..])
++            .evaluator::<Atom>(&[])
++            .direct_translation(true)
++            .build()
++            .unwrap();
++        let head = F64KnownHead {
++            tag: 1,
++            version: 1,
++            symbol,
++            arity: 1,
++            export_name: "checked_copy_fixed_mapping_head",
++            evaluate: |args| args[0] + 1.,
++        };
++        let before = clones.load(Ordering::SeqCst);
++        let mut final_bytes = 0;
++        let mut mapped = source
++            .try_map_f64_known_with(&[head], &mut |extent: OperationExtent| {
++                if extent.stage == OperationStage::Finalization {
++                    final_bytes = extent.output_bytes;
++                }
++                Ok::<_, Infallible>(())
++            })
++            .unwrap();
++        assert_eq!(
++            clones.load(Ordering::SeqCst),
++            before,
++            "registered callback is never cloned"
++        );
++        assert_eq!(
++            final_bytes,
++            extent::<_, Infallible>(&mapped, |_| Ok(0))
++                .unwrap()
++                .input_bytes
++        );
++        let mut ordinary = source.clone().map_coeff(&|value| value.re.to_f64());
++        assert!(clones.load(Ordering::SeqCst) > before);
++        assert_eq!(
++            mapped.evaluate_single(&[]).to_bits(),
++            ordinary.evaluate_single(&[]).to_bits()
++        );
++        let stopped = source.try_map_f64_known_with(&[head], &mut |extent: OperationExtent| {
++            if extent.stage == OperationStage::Finalization {
++                Err("current stop")
++            } else {
++                Ok(())
++            }
++        });
++        assert_eq!(
++            stopped.unwrap_err(),
++            OperationError::Control("current stop")
++        );
++    }
++
 +    fn exported_backing(e: &ExportedInstructions<Complex<Rational>>) -> usize {
 +        let mut bytes = e.instructions.capacity() * size_of::<Instruction>()
 +            + e.constants.capacity() * size_of::<Complex<Rational>>()
@@ -2459,6 +2651,177 @@ index 0000000000000000000000000000000000000000..20a6aacce70280b18e4212001e7a597f
 +            }
 +        });
 +        assert_eq!(stopped.unwrap_err(), OperationError::Control(Refused(91)));
++    }
++}
++
++impl ExpressionEvaluator<Complex<Rational>> {
++    /// Copy and map the native programme to binary64 after admitting the actual
++    /// post-normalization exact payload, target backing and simultaneous copies.
++    /// Only fixed implementations from the trusted table are materialized;
++    /// arbitrary registered/tagged generators are never cloned or invoked.
++    pub fn try_map_f64_known_with<C: OperationControl>(
++        &self,
++        heads: &[F64KnownHead],
++        control: &mut C,
++    ) -> Result<ExpressionEvaluator<f64>, OperationError<C::Error>> {
++        control
++            .check(OperationExtent {
++                stage: OperationStage::Construction,
++                ..OperationExtent::default()
++            })
++            .map_err(OperationError::Control)?;
++        super::f64_transfer::check_heads(heads)
++            .map_err(|_| OperationError::Unsupported("invalid fixed binary64 head table"))?;
++        let source = extent(self, control::payload)?;
++        if self.settings.abort_check.is_some() {
++            return Err(OperationError::Unsupported(
++                "retained producer abort callback",
++            ));
++        }
++        let mut fixed_values = 0usize;
++        for external in &self.external_fns {
++            if external.imp.is_some() || !external.stack.is_empty() {
++                return Err(OperationError::Unsupported(
++                    "materialized exact external callback",
++                ));
++            }
++            let builtin_constant = external.constant_index.is_some()
++                && external.fixed_args.is_empty()
++                && [Symbol::PI, Symbol::E].contains(&external.symbol);
++            let head = heads.iter().find(|head| head.symbol == external.symbol);
++            if !builtin_constant && head.is_none() {
++                return Err(OperationError::Unsupported(
++                    "unqualified binary64 numerical head",
++                ));
++            }
++            if let Some(index) = external.constant_index {
++                if index >= self.reserved_indices - self.param_count {
++                    return Err(OperationError::Unsupported("invalid constant-head slot"));
++                }
++                if !builtin_constant
++                    && head.is_some_and(|head| external.fixed_args.len() != head.arity)
++                {
++                    return Err(OperationError::Unsupported("fixed constant-head arity"));
++                }
++                if external.fixed_args.iter().any(|value| !value.im.is_zero()) {
++                    return Err(OperationError::Unsupported(
++                        "nonreal fixed numerical argument",
++                    ));
++                }
++            } else if !external.fixed_args.is_empty() {
++                return Err(OperationError::Unsupported("nonconstant fixed arguments"));
++            }
++            fixed_values = add(fixed_values, external.fixed_args.len())?;
++        }
++        for (instruction, _) in &self.instructions {
++            if let Instr::ExternalFun(_, index, args) = instruction {
++                let external = self
++                    .external_fns
++                    .get(*index)
++                    .ok_or(OperationError::Unsupported("external index"))?;
++                let head = heads
++                    .iter()
++                    .find(|head| head.symbol == external.symbol)
++                    .ok_or(OperationError::Unsupported(
++                        "unqualified binary64 numerical head",
++                    ))?;
++                if args.len() != head.arity || external.constant_index.is_some() {
++                    return Err(OperationError::Unsupported("fixed numerical call arity"));
++                }
++            }
++        }
++        let values = add(self.stack.len(), fixed_values)?;
++        // Fresh Clone does not adopt cleared backing. Two carry limbs per copied
++        // integer cover native destination rounding independently of source cache.
++        let clone_bytes = add(
++            source.input_bytes,
++            values
++                .checked_mul(4 * 2 * size_of::<u64>())
++                .ok_or(OperationError::Overflow)?,
++        )?;
++        let target = add(
++            clone_bytes,
++            add(
++                bytes::<C::Error, f64>(self.stack.len())?,
++                self.external_fns
++                    .len()
++                    .checked_mul(size_of::<fn(&[f64]) -> f64>())
++                    .ok_or(OperationError::Overflow)?,
++            )?,
++        )?;
++        // Native mapping holds the source clone, target stack, copied external
++        // fixed args, and at most one two-argument MPFR53 conversion at once.
++        // Internal GMP/MPFR algorithm scratch stays in the caller's foreign allowance.
++        let temporary = add(
++            clone_bytes.checked_mul(2).ok_or(OperationError::Overflow)?,
++            add(
++                source.output_bytes,
++                4 * (size_of::<Float>() + 2 * size_of::<u64>()),
++            )?,
++        )?;
++        let admitted = OperationExtent {
++            stage: OperationStage::Construction,
++            work: self.stack.len(),
++            input_bytes: source.input_bytes,
++            temporary_bytes: temporary,
++            output_bytes: target,
++            output_entries: self.stack.len(),
++        };
++        admitted.peak_bytes().ok_or(OperationError::Overflow)?;
++        control.check(admitted).map_err(OperationError::Control)?;
++        IntegerAllocationContext::fresh().run(|| {
++            let product = self.clone().map_coeff_impl(
++                &|value| value.re.to_f64(),
++                |external| {
++                    let builtin = external.constant_index.is_some()
++                        && external.fixed_args.is_empty()
++                        && [Symbol::PI, Symbol::E].contains(&external.symbol);
++                    let implementation = if builtin {
++                        None
++                    } else {
++                        heads
++                            .iter()
++                            .find(|head| head.symbol == external.symbol)
++                            .map(|head| Box::new(head.evaluate) as Box<dyn ExternalFunction<f64>>)
++                    };
++                    external.map_with_implementation(implementation)
++                },
++                |external| {
++                    let builtin = external.fixed_args.is_empty()
++                        && [Symbol::PI, Symbol::E].contains(&external.symbol);
++                    if !builtin
++                        && let Some(head) = heads.iter().find(|head| head.symbol == external.symbol)
++                    {
++                        let arguments = external.fixed_argument_values::<f64>(53).unwrap();
++                        (head.evaluate)(&arguments)
++                    } else {
++                        // Fixed supplier pi/e registrations, never arbitrary
++                        // user constant evaluators or tag generators.
++                        external.evaluate_constant::<f64>(53).unwrap()
++                    }
++                },
++            );
++            let resident = extent(&product, |_| Ok(0))?;
++            control
++                .check(OperationExtent {
++                    stage: OperationStage::Finalization,
++                    work: 0,
++                    input_bytes: source.input_bytes,
++                    temporary_bytes: 0,
++                    output_bytes: resident.input_bytes,
++                    output_entries: product.stack.len(),
++                })
++                .map_err(OperationError::Control)?;
++            Ok(product)
++        })
++    }
++
++    /// Copy/map a builtin-only programme to binary64 with current admission.
++    pub fn try_map_f64_with<C: OperationControl>(
++        &self,
++        control: &mut C,
++    ) -> Result<ExpressionEvaluator<f64>, OperationError<C::Error>> {
++        self.try_map_f64_known_with(&[], control)
 +    }
 +}
 diff --git a/src/evaluate/checked_export.rs b/src/evaluate/checked_export.rs
@@ -4344,6 +4707,44 @@ index 0b33aa61e586a3a78a83197eb96afbb57e405506..8443ebf1a8d25abcb6cfbd588f195ccb
          }
  
          fn scalar_add<T: DualNumberStructure>(
+diff --git a/src/evaluate/evaluator.rs b/src/evaluate/evaluator.rs
+index 597dbcf8f935bfd135bb924b864fa576db24ad97..c48694e66ab0468647b71f58c2951311d447a899 100644
+--- a/src/evaluate/evaluator.rs
++++ b/src/evaluate/evaluator.rs
+@@ -654,18 +654,30 @@ impl<T: Default> ExpressionEvaluator<T> {
+         self,
+         f: &F,
+         binary_prec: u32,
++    ) -> ExpressionEvaluator<T2> {
++        self.map_coeff_impl(
++            f,
++            |external| external.map(),
++            |external| external.evaluate_constant::<T2>(binary_prec).unwrap(),
++        )
++    }
++
++    pub(super) fn map_coeff_impl<T2: EvaluationDomain, F: Fn(&T) -> T2>(
++        self,
++        f: &F,
++        map_external: impl FnMut(&ExternalFunctionContainer<T>) -> ExternalFunctionContainer<T2>,
++        mut resolve_constant: impl FnMut(&ExternalFunctionContainer<T2>) -> T2,
+     ) -> ExpressionEvaluator<T2> {
+         let mut stack: Vec<_> = self.stack.iter().map(f).collect();
+ 
+         let external_fns = self
+             .external_fns
+             .iter()
+-            .map(|x| x.map())
++            .map(map_external)
+             .collect::<Vec<_>>();
+         for external in &external_fns {
+             if let Some(i) = external.constant_index {
+-                stack[self.param_count + i] =
+-                    external.evaluate_constant::<T2>(binary_prec).unwrap();
++                stack[self.param_count + i] = resolve_constant(external);
+             }
+         }
+ 
 diff --git a/src/evaluate/export.rs b/src/evaluate/export.rs
 index 4d591671e2548718f7ccc51b64765733bc921cb7..168a91c32be8644798cb0e6eadcd3edeb4650cf2 100644
 --- a/src/evaluate/export.rs
@@ -4588,12 +4989,78 @@ index 4d591671e2548718f7ccc51b64765733bc921cb7..168a91c32be8644798cb0e6eadcd3ede
 +#[path = "checked_export.rs"]
 +mod checked_export;
 +pub use checked_export::*;
+diff --git a/src/evaluate/external.rs b/src/evaluate/external.rs
+index 8de2b2b8e9df944ecec55ab22cf4c184f37c7f93..c220d4f76a2f1ce6a42d9be845b5848fb74fdd97 100644
+--- a/src/evaluate/external.rs
++++ b/src/evaluate/external.rs
+@@ -270,33 +270,46 @@ impl<T> ExternalFunctionContainer<T> {
+         if self.fixed_args.is_empty() {
+             T2::try_from_complex_float(info.evaluate_constant(&tags, binary_prec)?)
+         } else {
+-            let args = self
+-                .fixed_args
+-                .iter()
+-                .map(|c| {
+-                    T2::try_from_complex_float(Complex::new(
+-                        c.re.to_multi_prec_float(binary_prec),
+-                        c.im.to_multi_prec_float(binary_prec),
+-                    ))
+-                })
+-                .collect::<Result<Vec<_>, _>>()?;
++            let args = self.fixed_argument_values::<T2>(binary_prec)?;
+             let eval = T2::resolve_function(&tags, info)
+                 .ok_or_else(|| format!("External constant '{}' has no implementation", self))?;
+             Ok(eval(&args))
+         }
+     }
+ 
++    pub(super) fn fixed_argument_values<T2: EvaluationDomain>(
++        &self,
++        binary_prec: u32,
++    ) -> Result<Vec<T2>, String> {
++        self.fixed_args
++            .iter()
++            .map(|c| {
++                T2::try_from_complex_float(Complex::new(
++                    c.re.to_multi_prec_float(binary_prec),
++                    c.im.to_multi_prec_float(binary_prec),
++                ))
++            })
++            .collect::<Result<Vec<_>, _>>()
++    }
++
+     pub(super) fn map<T2: EvaluationDomain>(&self) -> ExternalFunctionContainer<T2> {
++        self.map_with_implementation(if self.body.is_none() {
++            self.fetch_impl_for::<T2>()
++        } else {
++            None
++        })
++    }
++
++    pub(super) fn map_with_implementation<T2>(
++        &self,
++        implementation: Option<Box<dyn ExternalFunction<T2>>>,
++    ) -> ExternalFunctionContainer<T2> {
+         ExternalFunctionContainer {
+             export_name: self.export_name.clone(),
+             symbol: self.symbol,
+             tags: self.tags.clone(),
+             fixed_args: self.fixed_args.clone(),
+-            imp: if self.body.is_none() {
+-                self.fetch_impl_for::<T2>()
+-            } else {
+-                None
+-            },
++            imp: implementation,
+             stack: Vec::new(),
+             constant_index: self.constant_index,
+             body: self.body.clone(),
 diff --git a/src/evaluate/f64_transfer.rs b/src/evaluate/f64_transfer.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..fd8b22984993bd61bd21655ec31b22ed51692c2b
+index 0000000000000000000000000000000000000000..042791e84d4373a608082f00fa3688b7c3d9e7e9
 --- /dev/null
 +++ b/src/evaluate/f64_transfer.rs
-@@ -0,0 +1,919 @@
+@@ -0,0 +1,985 @@
 +//! Checked transfer of the existing straight-line binary64 interpreter program.
 +//!
 +//! This is execution correspondence, not symbolic/preparation-state serialization.
@@ -4634,15 +5101,18 @@ index 0000000000000000000000000000000000000000..fd8b22984993bd61bd21655ec31b22ed
 +        u64::from(self.tag) | (u64::from(self.version) << 32)
 +    }
 +}
-+fn check_heads(heads: &[F64KnownHead]) -> Result<(), F64TransferError> {
++pub(super) fn check_heads(heads: &[F64KnownHead]) -> Result<(), F64TransferError> {
 +    for (index, head) in heads.iter().enumerate() {
-+        if head.tag == 0 || head.version == 0 || !(1..=2).contains(&head.arity)
++        if head.tag == 0
++            || head.version == 0
++            || !(1..=2).contains(&head.arity)
 +            || head.export_name.is_empty()
 +            || !head.export_name.bytes().enumerate().all(|(i, byte)| {
 +                byte == b'_' || byte.is_ascii_alphabetic() || (i > 0 && byte.is_ascii_digit())
 +            })
 +            || heads[..index].iter().any(|previous| {
-+                previous.tag == head.tag || previous.symbol == head.symbol
++                previous.tag == head.tag
++                    || previous.symbol == head.symbol
 +                    || previous.export_name == head.export_name
 +            })
 +        {
@@ -4652,7 +5122,9 @@ index 0000000000000000000000000000000000000000..fd8b22984993bd61bd21655ec31b22ed
 +    Ok(())
 +}
 +fn head_by_key(heads: &[F64KnownHead], key: u64) -> Result<usize, F64TransferError> {
-+    heads.iter().position(|head| head.key() == key)
++    heads
++        .iter()
++        .position(|head| head.key() == key)
 +        .ok_or(F64TransferError::Unsupported("unknown head tag/version"))
 +}
 +
@@ -4818,11 +5290,15 @@ index 0000000000000000000000000000000000000000..fd8b22984993bd61bd21655ec31b22ed
 +            backing::<usize>(self.nary_operands, "operand backing")?,
 +            "instruction backing",
 +        )?;
-+        self.retained_bytes = add(add(
-+            add(self.stack_bytes, self.instruction_bytes, "retained backing")?,
-+            self.result_bytes,
-+            "retained backing",
-+        )?, self.external_bytes, "known-head backing")?;
++        self.retained_bytes = add(
++            add(
++                add(self.stack_bytes, self.instruction_bytes, "retained backing")?,
++                self.result_bytes,
++                "retained backing",
++            )?,
++            self.external_bytes,
++            "known-head backing",
++        )?;
 +        self.peak_bytes = self.retained_bytes.max(self.validation_bytes);
 +        Ok(self)
 +    }
@@ -4855,15 +5331,20 @@ index 0000000000000000000000000000000000000000..fd8b22984993bd61bd21655ec31b22ed
 +    /// Materialized constant bits are copied; hidden bodies, tags, fixed argument
 +    /// generators and unknown numerical heads are not transferable.
 +    pub fn f64_transfer_with_heads<'a>(
-+        &'a self, heads: &'a [F64KnownHead],
++        &'a self,
++        heads: &'a [F64KnownHead],
 +    ) -> Result<F64ProgramRef<'a>, F64TransferError> {
 +        check_heads(heads)?;
 +        for external in &self.external_fns {
 +            if external.body.is_some() || !external.tags.is_empty() {
 +                return Err(F64TransferError::Unsupported("external body/tags"));
 +            }
-+            let head = heads.iter().find(|head| head.symbol == external.symbol)
-+                .ok_or(F64TransferError::Unsupported("unqualified external implementation"))?;
++            let head = heads
++                .iter()
++                .find(|head| head.symbol == external.symbol)
++                .ok_or(F64TransferError::Unsupported(
++                    "unqualified external implementation",
++                ))?;
 +            if let Some(index) = external.constant_index {
 +                let index = add(self.param_count, index, "constant index")?;
 +                if index >= self.reserved_indices {
@@ -4873,7 +5354,9 @@ index 0000000000000000000000000000000000000000..fd8b22984993bd61bd21655ec31b22ed
 +                    return Err(F64TransferError::Unsupported("known constant arity"));
 +                }
 +            } else if !external.fixed_args.is_empty() || external.imp.is_none() {
-+                return Err(F64TransferError::Unsupported("unqualified external implementation"));
++                return Err(F64TransferError::Unsupported(
++                    "unqualified external implementation",
++                ));
 +            }
 +        }
 +        let mut extents = shape(
@@ -4887,7 +5370,8 @@ index 0000000000000000000000000000000000000000..fd8b22984993bd61bd21655ec31b22ed
 +            check_index(*index, extents.stack, "result")?;
 +        }
 +        for (instruction, phase) in &self.instructions {
-+            let wire = NativeInstruction::from_instr(instruction, *phase, &self.external_fns, heads)?;
++            let wire =
++                NativeInstruction::from_instr(instruction, *phase, &self.external_fns, heads)?;
 +            validate_instruction(wire, &mut extents, heads)?;
 +            extents.encoded_bytes = add(
 +                extents.encoded_bytes,
@@ -4907,7 +5391,13 @@ index 0000000000000000000000000000000000000000..fd8b22984993bd61bd21655ec31b22ed
 +    pub fn operation_count(&self) -> Result<OperationCount, F64TransferError> {
 +        let mut count = OperationCount::default();
 +        for (instruction, phase) in &self.evaluator.instructions {
-+            NativeInstruction::from_instr(instruction, *phase, &self.evaluator.external_fns, self.heads)?.count_into(&mut count)?;
++            NativeInstruction::from_instr(
++                instruction,
++                *phase,
++                &self.evaluator.external_fns,
++                self.heads,
++            )?
++            .count_into(&mut count)?;
 +        }
 +        Ok(count)
 +    }
@@ -4950,7 +5440,13 @@ index 0000000000000000000000000000000000000000..fd8b22984993bd61bd21655ec31b22ed
 +            writer.index(*result);
 +        }
 +        for (instruction, phase) in &self.evaluator.instructions {
-+            NativeInstruction::from_instr(instruction, *phase, &self.evaluator.external_fns, self.heads)?.write(&mut writer);
++            NativeInstruction::from_instr(
++                instruction,
++                *phase,
++                &self.evaluator.external_fns,
++                self.heads,
++            )?
++            .write(&mut writer);
 +        }
 +        debug_assert_eq!(writer.position, self.extents.encoded_bytes);
 +        Ok(())
@@ -5019,8 +5515,11 @@ index 0000000000000000000000000000000000000000..fd8b22984993bd61bd21655ec31b22ed
 +        }
 +        Ok(())
 +    }
-+    fn from_instr(instruction: &'a Instr, phase: ComplexPhase,
-+        externals: &[ExternalFunctionContainer<f64>], heads: &[F64KnownHead],
++    fn from_instr(
++        instruction: &'a Instr,
++        phase: ComplexPhase,
++        externals: &[ExternalFunctionContainer<f64>],
++        heads: &[F64KnownHead],
 +    ) -> Result<Self, F64TransferError> {
 +        let mut result = Self {
 +            opcode: 0,
@@ -5056,12 +5555,17 @@ index 0000000000000000000000000000000000000000..fd8b22984993bd61bd21655ec31b22ed
 +                result.first = *argument;
 +            }
 +            Instr::ExternalFun(destination, index, arguments) => {
-+                let external = externals.get(*index)
++                let external = externals
++                    .get(*index)
 +                    .ok_or(F64TransferError::Index("external function", *index))?;
-+                let head = heads.iter().find(|head| head.symbol == external.symbol)
++                let head = heads
++                    .iter()
++                    .find(|head| head.symbol == external.symbol)
 +                    .ok_or(F64TransferError::Unsupported("unknown source head"))?;
 +                if external.constant_index.is_some() || arguments.len() != head.arity {
-+                    return Err(F64TransferError::Unsupported("known-head arity/constant call"));
++                    return Err(F64TransferError::Unsupported(
++                        "known-head arity/constant call",
++                    ));
 +                }
 +                result.opcode = 11;
 +                result.destination = *destination;
@@ -5107,7 +5611,9 @@ index 0000000000000000000000000000000000000000..fd8b22984993bd61bd21655ec31b22ed
 +        writer.index(self.destination);
 +        match self.opcode {
 +            0 | 1 | 11 => {
-+                if self.opcode == 11 { writer.bytes(&self.head.to_le_bytes()); }
++                if self.opcode == 11 {
++                    writer.bytes(&self.head.to_le_bytes());
++                }
 +                writer.index(self.operands.len());
 +                for index in 0..self.operands.len() {
 +                    writer.index(self.operands.get(index));
@@ -5195,11 +5701,24 @@ index 0000000000000000000000000000000000000000..fd8b22984993bd61bd21655ec31b22ed
 +                }
 +                if extents.external_functions == 0 {
 +                    extents.external_functions = heads.len();
-+                    let mut bytes = backing::<ExternalFunctionContainer<f64>>(heads.len(), "known-head descriptors")?;
++                    let mut bytes = backing::<ExternalFunctionContainer<f64>>(
++                        heads.len(),
++                        "known-head descriptors",
++                    )?;
 +                    for head in heads {
-+                        bytes = add(bytes, add(head.export_name.len(),
-+                            add(size_of::<fn(&[f64]) -> f64>(), backing::<f64>(head.arity, "known-head arguments")?, "known-head callable")?,
-+                            "known-head name")?, "known-head backing")?;
++                        bytes = add(
++                            bytes,
++                            add(
++                                head.export_name.len(),
++                                add(
++                                    size_of::<fn(&[f64]) -> f64>(),
++                                    backing::<f64>(head.arity, "known-head arguments")?,
++                                    "known-head callable",
++                                )?,
++                                "known-head name",
++                            )?,
++                            "known-head backing",
++                        )?;
 +                    }
 +                    extents.external_bytes = bytes;
 +                }
@@ -5288,7 +5807,9 @@ index 0000000000000000000000000000000000000000..fd8b22984993bd61bd21655ec31b22ed
 +        };
 +        match opcode {
 +            0 | 1 | 11 => {
-+                if opcode == 11 { result.head = self.u64()?; }
++                if opcode == 11 {
++                    result.head = self.u64()?;
++                }
 +                let count = self.index()?;
 +                let bytes = self.take(backing::<u64>(count, "operand encoding")?)?;
 +                // Validate every encoded usize conversion before the borrowed fast accessor.
@@ -5342,7 +5863,10 @@ index 0000000000000000000000000000000000000000..fd8b22984993bd61bd21655ec31b22ed
 +    }
 +    /// Inspect against a trusted local operation table. Unknown operation
 +    /// tags/versions and arities refuse before any evaluator allocation.
-+    pub fn inspect_with_heads(bytes: &'a [u8], heads: &'a [F64KnownHead]) -> Result<Self, F64TransferError> {
++    pub fn inspect_with_heads(
++        bytes: &'a [u8],
++        heads: &'a [F64KnownHead],
++    ) -> Result<Self, F64TransferError> {
 +        check_heads(heads)?;
 +        let mut cursor = Cursor { bytes, position: 0 };
 +        if cursor.take(8)? != MAGIC
@@ -5451,8 +5975,11 @@ index 0000000000000000000000000000000000000000..fd8b22984993bd61bd21655ec31b22ed
 +                        operands.push(wire.operands.get(index));
 +                    }
 +                    if wire.opcode == 11 {
-+                        Instr::ExternalFun(wire.destination,
-+                            head_by_key(self.heads, wire.head)?, operands)
++                        Instr::ExternalFun(
++                            wire.destination,
++                            head_by_key(self.heads, wire.head)?,
++                            operands,
++                        )
 +                    } else if wire.opcode == 0 {
 +                        Instr::Add(wire.destination, operands)
 +                    } else {
@@ -5465,18 +5992,24 @@ index 0000000000000000000000000000000000000000..fd8b22984993bd61bd21655ec31b22ed
 +            };
 +            instructions.push((instruction, wire.phase));
 +        }
-+        let mut external_fns = reserve(self.extents.external_functions)
-+            .map_err(F64RestoreError::Allocation)?;
++        let mut external_fns =
++            reserve(self.extents.external_functions).map_err(F64RestoreError::Allocation)?;
 +        for head in self.heads.iter().take(self.extents.external_functions) {
 +            let mut name = String::new();
-+            name.try_reserve_exact(head.export_name.len()).map_err(F64RestoreError::Allocation)?;
++            name.try_reserve_exact(head.export_name.len())
++                .map_err(F64RestoreError::Allocation)?;
 +            name.push_str(head.export_name);
 +            let mut arguments = reserve(head.arity).map_err(F64RestoreError::Allocation)?;
 +            arguments.resize(head.arity, f64::NAN);
 +            external_fns.push(ExternalFunctionContainer {
-+                export_name: name, symbol: head.symbol, tags: Vec::new(),
-+                fixed_args: Vec::new(), imp: Some(Box::new(head.evaluate)),
-+                constant_index: None, stack: arguments, body: None,
++                export_name: name,
++                symbol: head.symbol,
++                tags: Vec::new(),
++                fixed_args: Vec::new(),
++                imp: Some(Box::new(head.evaluate)),
++                constant_index: None,
++                stack: arguments,
++                body: None,
 +            });
 +        }
 +        Ok(ExpressionEvaluator {
@@ -6132,12 +6665,191 @@ index 0000000000000000000000000000000000000000..8ff1b4eedcdf04360a3600c9042e6207
 +    assert_eq!(encode(&source), bytes);
 +}
 diff --git a/src/evaluate/function_map.rs b/src/evaluate/function_map.rs
-index 25ba9685ef838b354b87c0d30f02f74e3cefdc2a..cd98aa92c94527734c2eef7bec83840546fa994d 100644
+index 25ba9685ef838b354b87c0d30f02f74e3cefdc2a..1df929e8f17d9da48c71417ffa68feca3cfebcab 100644
 --- a/src/evaluate/function_map.rs
 +++ b/src/evaluate/function_map.rs
-@@ -460,6 +460,41 @@ impl<'a> EvaluatorBuilder<'a> {
+@@ -459,7 +459,220 @@ impl<'a> EvaluatorBuilder<'a> {
+         self
      }
  
++    /// Copy borrowed source/parameters and build the native alias map only after
++    /// its complete staging, table and tag backing has been admitted. The
++    /// returned builder owns no caller control; finalize it with `try_build*`.
++    pub fn try_new_aliases_with<C: OperationControl>(
++        expressions: &'a [Atom],
++        parameters: &[Atom],
++        aliases: &[(Atom, Atom)],
++        control: &mut C,
++    ) -> Result<Self, OperationError<C::Error>> {
++        use numerica::domains::backend::integer::IntegerAllocationContext;
++        control
++            .check(OperationExtent {
++                stage: OperationStage::Construction,
++                ..OperationExtent::default()
++            })
++            .map_err(OperationError::Control)?;
++        let add = |a: usize, b: usize| a.checked_add(b).ok_or(OperationError::<C::Error>::Overflow);
++        let mul = |a: usize, b: usize| a.checked_mul(b).ok_or(OperationError::<C::Error>::Overflow);
++        fn signature(atom: &Atom) -> Option<(Symbol, usize)> {
++            match atom {
++                Atom::Var(v) => Some((v.get_symbol(), 0)),
++                Atom::Fun(f) => Some((f.get_symbol(), f.get_nargs())),
++                _ => None,
++            }
++        }
++        struct AliasKey<'b> {
++            symbol: Symbol,
++            atom: AtomView<'b>,
++        }
++        impl PartialEq for AliasKey<'_> {
++            fn eq(&self, other: &Self) -> bool {
++                if self.symbol != other.symbol {
++                    return false;
++                }
++                match (self.atom, other.atom) {
++                    (AtomView::Fun(a), AtomView::Fun(b)) => {
++                        a.get_nargs() == b.get_nargs()
++                            && a.iter()
++                                .zip(b.iter())
++                                .all(|(a, b)| a.get_data() == b.get_data())
++                    }
++                    (AtomView::Fun(a), _) | (_, AtomView::Fun(a)) => a.get_nargs() == 0,
++                    _ => true,
++                }
++            }
++        }
++        impl Eq for AliasKey<'_> {}
++        impl std::hash::Hash for AliasKey<'_> {
++            fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
++                self.symbol.hash(state);
++                if let AtomView::Fun(f) = self.atom {
++                    f.get_nargs().hash(state);
++                    for arg in f {
++                        arg.get_data().hash(state);
++                    }
++                } else {
++                    0usize.hash(state);
++                }
++            }
++        }
++        fn table<K, V, E>(entries: usize) -> Result<usize, OperationError<E>> {
++            if entries == 0 {
++                return Ok(0);
++            }
++            // Pinned std/hashbrown load factor, four-bucket initial allocation;
++            // include control groups and alignment rather than allocator RSS.
++            let buckets = entries
++                .checked_mul(8)
++                .and_then(|v| v.checked_add(6))
++                .map(|v| v / 7)
++                .and_then(usize::checked_next_power_of_two)
++                .ok_or(OperationError::Overflow)?
++                .max(4);
++            buckets
++                .checked_mul(size_of::<(K, V)>() + 1)
++                .and_then(|v| v.checked_add(16 + std::mem::align_of::<(K, V)>()))
++                .ok_or(OperationError::Overflow)
++        }
++        let input_atoms = expressions
++            .iter()
++            .chain(parameters)
++            .chain(aliases.iter().flat_map(|(from, to)| [from, to]));
++        let mut input = add(
++            mul(expressions.len(), size_of::<Atom>())?,
++            add(
++                mul(parameters.len(), size_of::<Atom>())?,
++                mul(aliases.len(), size_of::<(Atom, Atom)>())?,
++            )?,
++        )?;
++        let mut payload = 0;
++        for atom in input_atoms {
++            input = add(input, atom.get_capacity())?;
++            payload = add(payload, atom.as_view().get_byte_size())?;
++        }
++        let mut tags = 0;
++        for (from, _) in aliases {
++            let (_, count) = signature(from).ok_or(OperationError::Unsupported(
++                "alias key is not an indeterminate",
++            ))?;
++            tags = add(tags, count)?;
++        }
++        let tables = add(
++            table::<(Symbol, Vec<Atom>), Expr, C::Error>(aliases.len())?,
++            table::<Symbol, usize, C::Error>(aliases.len())?,
++        )?;
++        let output = add(
++            add(payload, mul(parameters.len(), size_of::<Atom>())?)?,
++            add(
++                mul(expressions.len(), size_of::<AtomView>())?,
++                add(tables, mul(tags, size_of::<Atom>())?)?,
++            )?,
++        )?;
++        // Native add_aliases keeps the cloned source call plus four transient
++        // tag copies while installing one map key. Table replacement retains
++        // old/new buckets. Source atoms remain live throughout.
++        let validation = add(
++            table::<AliasKey<'_>, (), C::Error>(aliases.len())?,
++            table::<Symbol, usize, C::Error>(aliases.len())?,
++        )?;
++        let temporary = add(
++            mul(6, payload)?,
++            add(
++                mul(2, tables)?.max(validation),
++                mul(mul(4, tags)?, size_of::<Atom>())?,
++            )?,
++        )?;
++        let extent = OperationExtent {
++            stage: OperationStage::Construction,
++            work: add(aliases.len(), tags)?,
++            input_bytes: input,
++            temporary_bytes: temporary,
++            output_bytes: output,
++            output_entries: 0,
++        };
++        extent.peak_bytes().ok_or(OperationError::Overflow)?;
++        control.check(extent).map_err(OperationError::Control)?;
++        // Reject invalid duplicate/signature paths without invoking native error
++        // construction, which would rebuild a symbolic call through callbacks.
++        let mut seen = HashSet::default();
++        seen.try_reserve(aliases.len())
++            .map_err(|_| OperationError::Allocation)?;
++        let mut arities = HashMap::default();
++        arities
++            .try_reserve(aliases.len())
++            .map_err(|_| OperationError::Allocation)?;
++        for (from, _) in aliases {
++            let (symbol, arity) =
++                signature(from).ok_or(OperationError::Unsupported("alias key"))?;
++            if arities
++                .insert(symbol, arity)
++                .is_some_and(|previous| previous != arity)
++                || !seen.insert(AliasKey {
++                    symbol,
++                    atom: from.as_view(),
++                })
++            {
++                return Err(OperationError::Unsupported(
++                    "duplicate or inconsistent alias signature",
++                ));
++            }
++            control
++                .check(OperationExtent { work: 0, ..extent })
++                .map_err(OperationError::Control)?;
++        }
++        drop(seen);
++        drop(arities);
++        IntegerAllocationContext::fresh().run(|| {
++            let mut map = FunctionMap::new();
++            map.add_aliases(aliases.iter().cloned())
++                .map_err(|_| OperationError::Unsupported("invalid native alias map"))?;
++            let builder = Self::new_multiple(expressions, parameters).function_map(map);
++            control
++                .check(OperationExtent { work: 0, ..extent })
++                .map_err(OperationError::Control)?;
++            Ok(builder)
++        })
++    }
++
      /// Build the evaluator.
 +    /// Build the maintained direct profile with borrowed current-operation
 +    /// admission. Horner iterations, parallel workers and CPE settings are kept.

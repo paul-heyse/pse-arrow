@@ -459,6 +459,184 @@ impl<'a> EvaluatorBuilder<'a> {
         self
     }
 
+    /// Copy borrowed source/parameters and build the native alias map only after
+    /// its complete staging, table and tag backing has been admitted. The
+    /// returned builder owns no caller control; finalize it with `try_build*`.
+    pub fn try_new_aliases_with<C: OperationControl>(
+        expressions: &'a [Atom],
+        parameters: &[Atom],
+        aliases: &[(Atom, Atom)],
+        control: &mut C,
+    ) -> Result<Self, OperationError<C::Error>> {
+        use numerica::domains::backend::integer::IntegerAllocationContext;
+        control
+            .check(OperationExtent {
+                stage: OperationStage::Construction,
+                ..OperationExtent::default()
+            })
+            .map_err(OperationError::Control)?;
+        let add = |a: usize, b: usize| a.checked_add(b).ok_or(OperationError::<C::Error>::Overflow);
+        let mul = |a: usize, b: usize| a.checked_mul(b).ok_or(OperationError::<C::Error>::Overflow);
+        fn signature(atom: &Atom) -> Option<(Symbol, usize)> {
+            match atom {
+                Atom::Var(v) => Some((v.get_symbol(), 0)),
+                Atom::Fun(f) => Some((f.get_symbol(), f.get_nargs())),
+                _ => None,
+            }
+        }
+        struct AliasKey<'b> {
+            symbol: Symbol,
+            atom: AtomView<'b>,
+        }
+        impl PartialEq for AliasKey<'_> {
+            fn eq(&self, other: &Self) -> bool {
+                if self.symbol != other.symbol {
+                    return false;
+                }
+                match (self.atom, other.atom) {
+                    (AtomView::Fun(a), AtomView::Fun(b)) => {
+                        a.get_nargs() == b.get_nargs()
+                            && a.iter()
+                                .zip(b.iter())
+                                .all(|(a, b)| a.get_data() == b.get_data())
+                    }
+                    (AtomView::Fun(a), _) | (_, AtomView::Fun(a)) => a.get_nargs() == 0,
+                    _ => true,
+                }
+            }
+        }
+        impl Eq for AliasKey<'_> {}
+        impl std::hash::Hash for AliasKey<'_> {
+            fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+                self.symbol.hash(state);
+                if let AtomView::Fun(f) = self.atom {
+                    f.get_nargs().hash(state);
+                    for arg in f {
+                        arg.get_data().hash(state);
+                    }
+                } else {
+                    0usize.hash(state);
+                }
+            }
+        }
+        fn table<K, V, E>(entries: usize) -> Result<usize, OperationError<E>> {
+            if entries == 0 {
+                return Ok(0);
+            }
+            // Pinned std/hashbrown load factor, four-bucket initial allocation;
+            // include control groups and alignment rather than allocator RSS.
+            let buckets = entries
+                .checked_mul(8)
+                .and_then(|v| v.checked_add(6))
+                .map(|v| v / 7)
+                .and_then(usize::checked_next_power_of_two)
+                .ok_or(OperationError::Overflow)?
+                .max(4);
+            buckets
+                .checked_mul(size_of::<(K, V)>() + 1)
+                .and_then(|v| v.checked_add(16 + std::mem::align_of::<(K, V)>()))
+                .ok_or(OperationError::Overflow)
+        }
+        let input_atoms = expressions
+            .iter()
+            .chain(parameters)
+            .chain(aliases.iter().flat_map(|(from, to)| [from, to]));
+        let mut input = add(
+            mul(expressions.len(), size_of::<Atom>())?,
+            add(
+                mul(parameters.len(), size_of::<Atom>())?,
+                mul(aliases.len(), size_of::<(Atom, Atom)>())?,
+            )?,
+        )?;
+        let mut payload = 0;
+        for atom in input_atoms {
+            input = add(input, atom.get_capacity())?;
+            payload = add(payload, atom.as_view().get_byte_size())?;
+        }
+        let mut tags = 0;
+        for (from, _) in aliases {
+            let (_, count) = signature(from).ok_or(OperationError::Unsupported(
+                "alias key is not an indeterminate",
+            ))?;
+            tags = add(tags, count)?;
+        }
+        let tables = add(
+            table::<(Symbol, Vec<Atom>), Expr, C::Error>(aliases.len())?,
+            table::<Symbol, usize, C::Error>(aliases.len())?,
+        )?;
+        let output = add(
+            add(payload, mul(parameters.len(), size_of::<Atom>())?)?,
+            add(
+                mul(expressions.len(), size_of::<AtomView>())?,
+                add(tables, mul(tags, size_of::<Atom>())?)?,
+            )?,
+        )?;
+        // Native add_aliases keeps the cloned source call plus four transient
+        // tag copies while installing one map key. Table replacement retains
+        // old/new buckets. Source atoms remain live throughout.
+        let validation = add(
+            table::<AliasKey<'_>, (), C::Error>(aliases.len())?,
+            table::<Symbol, usize, C::Error>(aliases.len())?,
+        )?;
+        let temporary = add(
+            mul(6, payload)?,
+            add(
+                mul(2, tables)?.max(validation),
+                mul(mul(4, tags)?, size_of::<Atom>())?,
+            )?,
+        )?;
+        let extent = OperationExtent {
+            stage: OperationStage::Construction,
+            work: add(aliases.len(), tags)?,
+            input_bytes: input,
+            temporary_bytes: temporary,
+            output_bytes: output,
+            output_entries: 0,
+        };
+        extent.peak_bytes().ok_or(OperationError::Overflow)?;
+        control.check(extent).map_err(OperationError::Control)?;
+        // Reject invalid duplicate/signature paths without invoking native error
+        // construction, which would rebuild a symbolic call through callbacks.
+        let mut seen = HashSet::default();
+        seen.try_reserve(aliases.len())
+            .map_err(|_| OperationError::Allocation)?;
+        let mut arities = HashMap::default();
+        arities
+            .try_reserve(aliases.len())
+            .map_err(|_| OperationError::Allocation)?;
+        for (from, _) in aliases {
+            let (symbol, arity) =
+                signature(from).ok_or(OperationError::Unsupported("alias key"))?;
+            if arities
+                .insert(symbol, arity)
+                .is_some_and(|previous| previous != arity)
+                || !seen.insert(AliasKey {
+                    symbol,
+                    atom: from.as_view(),
+                })
+            {
+                return Err(OperationError::Unsupported(
+                    "duplicate or inconsistent alias signature",
+                ));
+            }
+            control
+                .check(OperationExtent { work: 0, ..extent })
+                .map_err(OperationError::Control)?;
+        }
+        drop(seen);
+        drop(arities);
+        IntegerAllocationContext::fresh().run(|| {
+            let mut map = FunctionMap::new();
+            map.add_aliases(aliases.iter().cloned())
+                .map_err(|_| OperationError::Unsupported("invalid native alias map"))?;
+            let builder = Self::new_multiple(expressions, parameters).function_map(map);
+            control
+                .check(OperationExtent { work: 0, ..extent })
+                .map_err(OperationError::Control)?;
+            Ok(builder)
+        })
+    }
+
     /// Build the evaluator.
     /// Build the maintained direct profile with borrowed current-operation
     /// admission. Horner iterations, parallel workers and CPE settings are kept.
