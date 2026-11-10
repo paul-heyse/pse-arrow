@@ -98,6 +98,25 @@ algorithm. The build-freshness corrections retain the existing CMake/compiler op
 bundled SUNDIALS tree also contains the separately described changes below. No speed
 or scientific qualification claim follows from this provenance reconciliation.
 
+## Checked Symbolica Taylor construction
+
+The maintained evaluator additionally exposes borrowed construction control for Taylor
+vectorization through order two. `try_vectorize_with` covers built-in instructions;
+`try_vectorize_known_with` accepts a closed value/first/second local-partial symbol table.
+The supplier constructs finite scalar native Taylor bodies directly, using its multiplication
+table and diagonal half factors. It does not call arbitrary symbolic derivative callbacks or
+the nested symbolic builder for this checked route. Tags, unknown heads, missing demanded
+partials and retained sub-evaluators refuse before expansion.
+
+A passive supplier scan uses checked arithmetic to admit scalar work, numeric slots and
+input/temporary/output overlap before cloning or expanding the program. The same expansion
+engine serves the ordinary API. Borrowed controls run between scalar expansions, generated
+components and optimizer passes; interruption inside a scalar arithmetic call or an optimizer
+pass is not promised. Refusals preserve the caller's original typed error and return no partial
+evaluator. Returned products have no inherited or current abort callback. Exact symbolic
+builder/Horner construction remains a separate migration obligation; this control is not a
+claim that every evaluator construction path is checked.
+
 ## Checked Symbolica binary64 evaluator transfer
 
 The supported borrowed native and inspected-byte profiles also provide checked,

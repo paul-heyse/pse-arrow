@@ -124,7 +124,20 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
     ///
     /// assert!(dest.iter().all(|x| x.abs() < 1e-10));
     /// ```
-    pub fn vectorize<V: Vectorize<T>>(mut self, v: &V) -> Result<ExpressionEvaluator<T>, String> {
+    pub fn vectorize<V: Vectorize<T>>(self, v: &V) -> Result<ExpressionEvaluator<T>, String> {
+        self.vectorize_impl(v, &mut |_| true)
+    }
+
+    // The checked and ordinary entry points use exactly the same expansion engine.
+    // A false safe point returns immediately and never exposes the partially built evaluator.
+    pub(super) fn vectorize_impl<V: Vectorize<T>>(
+        mut self,
+        v: &V,
+        safe_point: &mut impl FnMut(OperationStage) -> bool,
+    ) -> Result<ExpressionEvaluator<T>, String> {
+        if !safe_point(OperationStage::Vectorization) {
+            return Err("Vectorization interrupted".into());
+        }
         let mut new_external_fns = vec![];
         let mut external_fn_index_map = HashMap::default();
         let mut unknown_constants = vec![false; self.reserved_indices - self.param_count];
@@ -151,6 +164,9 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
                 continue;
             }
 
+            if !v.allow_explicit_vector_function() {
+                continue;
+            }
             let Some(s) = get_symbol!(format!("{}_v", external_fn.symbol.get_name())) else {
                 continue;
             };
@@ -170,12 +186,20 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
         for (x, c) in &mut self.instructions {
             match x {
                 Instr::Add(o, a) => {
+                    if a.len() == 1 {
+                        new_instr.push((Instr::Add(*o, a.clone()), *c));
+                        continue;
+                    }
                     new_instr.push((Instr::Add(*o, vec![a[0], a[1]]), *c));
                     for x in a.iter().skip(2) {
                         new_instr.push((Instr::Add(*o, vec![*o, *x]), *c));
                     }
                 }
                 Instr::Mul(o, a) => {
+                    if a.len() == 1 {
+                        new_instr.push((Instr::Mul(*o, a.clone()), *c));
+                        continue;
+                    }
                     new_instr.push((Instr::Mul(*o, vec![a[0], a[1]]), *c));
                     for x in a.iter().skip(2) {
                         new_instr.push((Instr::Mul(*o, vec![*o, *x]), *c));
@@ -251,7 +275,12 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
             .unwrap_or(0);
 
         for (i, _sc) in self.instructions.drain(..) {
+            if !safe_point(OperationStage::Vectorization) {
+                return Err("Vectorization interrupted".into());
+            }
             let (o, instr) = match i {
+                Instr::Add(o, ref a) | Instr::Mul(o, ref a) if a.len() == 1 =>
+                    (o, VectorInstruction::Assign(get_slot!(slot_map[&a[0]]))),
                 Instr::Add(o, a) => (
                     o,
                     VectorInstruction::Add(get_slot!(slot_map[&a[0]]), get_slot!(slot_map[&a[1]])),
@@ -378,6 +407,9 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
             );
         }
 
+        if !safe_point(OperationStage::Vectorization) {
+            return Err("Vectorization interrupted".into());
+        }
         self.stack.clear();
         self.stack.resize(self.param_count, T::default());
         self.stack.extend(ins.constants);
@@ -475,9 +507,18 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
         );
         self.external_fns = new_external_fns;
 
+        if !safe_point(OperationStage::Optimization) {
+            return Err("Vectorization interrupted".into());
+        }
         self.remove_common_pairs();
+        if !safe_point(OperationStage::Optimization) {
+            return Err("Vectorization interrupted".into());
+        }
         self.optimize_stack();
         self.fix_labels();
+        if !safe_point(OperationStage::Finalization) {
+            return Err("Vectorization interrupted".into());
+        }
 
         Ok(self)
     }
@@ -486,6 +527,9 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
 /// A trait to define how to vectorize coefficients and instructions.
 /// Every slot is mapped to `n` slots and every instruction is mapped to `n` instructions, where `n` is the dimension.
 pub trait Vectorize<T> {
+    /// Whether independently registered `_v` functions may override generation.
+    fn allow_explicit_vector_function(&self) -> bool { true }
+
     /// Return `true` if the constants are duplicated across the vector dimension, and
     /// `false` if each constant only appears in the first slot and has zeros for all other slots.
     fn duplicate_constants(&self) -> bool;
@@ -519,8 +563,8 @@ pub trait Vectorize<T> {
 /// You can specify which components of the dual numbers are always zero
 /// by providing a list of `(component index, dual index)` pairs in the constructor.
 pub struct Dualizer<T: DualNumberStructure> {
-    dual: T,
-    zero_components: HashSet<(usize, usize)>, // component, index
+    pub(super) dual: T,
+    pub(super) zero_components: HashSet<(usize, usize)>, // component, index
 }
 
 impl<T: DualNumberStructure> Dualizer<T> {

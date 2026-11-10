@@ -890,18 +890,32 @@ index 8c90a1dd6de9c14c3d47c945b75f0a5a595c8008..36fd188de3ea15c67789dc379b7e8b5e
  const ZERO_DATA: [u8; 3] = [NUM_ID, 1, 0];
  
 diff --git a/src/evaluate.rs b/src/evaluate.rs
-index 565f85db38bdb56e0eaa14e4a6d703a88b26dd51..683b60683f0331d8a47e54d2b1db8d517247319d 100644
+index 565f85db38bdb56e0eaa14e4a6d703a88b26dd51..92df3891d525b40450bb09351d5df1b148dde502 100644
 --- a/src/evaluate.rs
 +++ b/src/evaluate.rs
-@@ -32,6 +32,7 @@ mod evaluator;
+@@ -27,24 +27,29 @@ use symjit::{Applet, Composer, Config, Defuns, Storage, Translator};
+ #[cfg(feature = "native_code_generation")]
+ mod backend;
+ mod domain;
++mod control;
+ mod dual;
+ mod evaluator;
  #[cfg(feature = "native_code_generation")]
  mod export;
  mod external;
 +mod f64_transfer;
  mod function_map;
  mod instruction;
++mod known_head;
  mod optimize;
-@@ -45,6 +46,7 @@ pub use evaluator::*;
+ mod tree;
+ 
+ #[cfg(feature = "native_code_generation")]
+ pub use backend::*;
+ pub use domain::*;
++pub use control::*;
+ pub use dual::*;
+ pub use evaluator::*;
  #[cfg(feature = "native_code_generation")]
  pub use export::*;
  pub use external::*;
@@ -909,6 +923,493 @@ index 565f85db38bdb56e0eaa14e4a6d703a88b26dd51..683b60683f0331d8a47e54d2b1db8d51
  pub use function_map::*;
  pub use instruction::{
      ComplexPhase, ExportedConstantFunction, ExportedInstructions, ExportedSubEvaluator,
+diff --git a/src/evaluate/control.rs b/src/evaluate/control.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..5560a104067924a0c9bc91fb10abf23d75d5d6cf
+--- /dev/null
++++ b/src/evaluate/control.rs
+@@ -0,0 +1,361 @@
++//! Borrowed admission for a single evaluator construction operation.
++//!
++//! Extents describe mathematical backing, including vector capacity overlap, rather
++//! than allocator bookkeeping or an operating-system memory limit. A control is
++//! never installed in an evaluator or shared through thread-local state.
++
++/// A safe-point stage within the checked operation.
++#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
++pub enum OperationStage {
++    /// Scalar instruction expansion and its representation conversion.
++    #[default]
++    Vectorization,
++    /// Common-pair elimination and stack optimization.
++    Optimization,
++    /// Finite scalar native Taylor bodies for qualified local-partial heads.
++    KnownHeadGeneration,
++    /// Complete product, before returning to the caller.
++    Finalization,
++}
++
++/// An extent that must be accepted before the corresponding construction stage.
++#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
++pub struct OperationExtent {
++    /// The stage whose growth or completion is being checked.
++    pub stage: OperationStage,
++    /// Incremental scalar arithmetic work admitted by this stage.
++    pub work: usize,
++    /// Mathematical backing of the immutable input, which remains live.
++    pub input_bytes: usize,
++    /// Peak temporary backing, including old/new capacity and representation overlap.
++    pub temporary_bytes: usize,
++    /// Upper bound for the returned representation's backing.
++    pub output_bytes: usize,
++    /// Upper bound for numeric slots in the returned representation.
++    pub output_entries: usize,
++}
++
++impl OperationExtent {
++    /// Combined live extent; overflow is a refusal, never a saturated allowance.
++    pub fn peak_bytes(self) -> Option<usize> {
++        self.input_bytes
++            .checked_add(self.temporary_bytes)?
++            .checked_add(self.output_bytes)
++    }
++}
++
++/// Current cancellation/deadline and backing admission, borrowed for one call.
++pub trait OperationControl {
++    /// The caller's original typed refusal, preserved unchanged.
++    type Error;
++    /// Check the original operation and admit the extent before growth.
++    fn check(&mut self, extent: OperationExtent) -> Result<(), Self::Error>;
++}
++
++impl<E, F: FnMut(OperationExtent) -> Result<(), E>> OperationControl for F {
++    type Error = E;
++    fn check(&mut self, extent: OperationExtent) -> Result<(), E> {
++        self(extent)
++    }
++}
++
++/// Failure of a checked evaluator operation. No variant carries a partial product.
++#[derive(Debug, PartialEq, Eq)]
++pub enum OperationError<E> {
++    /// The caller refused admission or observed its original stop condition.
++    Control(E),
++    /// An extent or shape could not be represented.
++    Overflow,
++    /// This operation has no maintained growth contract for the requested profile.
++    Unsupported(&'static str),
++    /// The supplied evaluator or vectorizer has inconsistent structure.
++    InvalidProgram(String),
++    /// An optimizer observed interruption; a truncated result is not a product.
++    Interrupted,
++}
++
++impl<E: std::fmt::Display> std::fmt::Display for OperationError<E> {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        match self {
++            Self::Control(error) => write!(f, "operation refused: {error}"),
++            Self::Overflow => f.write_str("evaluator operation extent overflow"),
++            Self::Unsupported(profile) => write!(f, "unsupported checked operation: {profile}"),
++            Self::InvalidProgram(error) => f.write_str(error),
++            Self::Interrupted => f.write_str("evaluator operation interrupted"),
++        }
++    }
++}
++
++impl<E: std::error::Error + 'static> std::error::Error for OperationError<E> {
++    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
++        match self {
++            Self::Control(error) => Some(error),
++            _ => None,
++        }
++    }
++}
++
++use super::*;
++
++/// Closed finite local-partial description for a qualified numerical head.
++/// The caller owns the mathematical meaning of these symbols. The supplier owns
++/// Taylor composition, including mixed components and factorial conventions.
++#[derive(Clone, Copy, Debug)]
++pub struct KnownHead {
++    /// The value head.
++    pub symbol: Symbol,
++    /// Number of ordinary arguments; the maintained profile accepts one or two.
++    pub arity: usize,
++    /// First local partials, in argument order. Missing entries refuse demand.
++    pub first: [Option<Symbol>; 2],
++    /// Symmetric second local partials: 00, 01, 11 (only 00 for arity one).
++    pub second: [Option<Symbol>; 3],
++}
++
++fn add<E>(a: usize, b: usize) -> Result<usize, OperationError<E>> {
++    a.checked_add(b).ok_or(OperationError::Overflow)
++}
++
++fn mul<E>(a: usize, b: usize) -> Result<usize, OperationError<E>> {
++    a.checked_mul(b).ok_or(OperationError::Overflow)
++}
++
++// Count the selected coefficient representation without cloning or formatting it.
++// GMP is the maintained exact profile; a different backend needs its own backing contract.
++fn payload<E>(value: &Complex<Rational>) -> Result<usize, OperationError<E>> {
++    let mut bytes = 0;
++    for value in [&value.re, &value.im] {
++        for integer in [value.numerator_ref(), value.denominator_ref()] {
++            if let Integer::Large(integer) = integer {
++                #[cfg(feature = "integer-gmp")]
++                {
++                    let bits = usize::try_from(integer.as_raw().capacity())
++                        .map_err(|_| OperationError::Overflow)?;
++                    bytes = add(bytes, mul(add(bits, 63)? / 64, 8)?)?;
++                }
++                #[cfg(not(feature = "integer-gmp"))]
++                {
++                    let _ = integer;
++                    return Err(OperationError::Unsupported("exact coefficient backend"));
++                }
++            }
++        }
++    }
++    Ok(bytes)
++}
++
++impl ExpressionEvaluator<Complex<Rational>> {
++    /// Vectorize built-in instructions with a borrowed current-operation control.
++    ///
++    /// The maintained profile is Taylor depth at most two, with no external
++    /// definitions or retained sub-evaluators. Unsupported inputs refuse before
++    /// cloning or expanding the input. A passive scan admits the entire finite
++    /// expansion and optimizer overlap before growth. Safe points surround each
++    /// scalar instruction expansion and each optimizer pass; there is no promise
++    /// of interruption inside a scalar exact-arithmetic call or optimizer pass.
++    /// The returned evaluator has no inherited or current abort callback.
++    pub fn try_vectorize_with<D: DualNumberStructure, C: OperationControl>(
++        &self,
++        dualizer: &Dualizer<D>,
++        control: &mut C,
++    ) -> Result<Self, OperationError<C::Error>> {
++        self.try_vectorize_known_with(dualizer, &[], control)
++    }
++
++    /// Vectorize a closed set of qualified local-partial heads. Unknown external
++    /// definitions, tags, callback derivative generation and retained bodies refuse.
++    /// Local Taylor bodies are emitted directly as scalar native instructions.
++    pub fn try_vectorize_known_with<D: DualNumberStructure, C: OperationControl>(
++        &self,
++        dualizer: &Dualizer<D>,
++        heads: &[KnownHead],
++        control: &mut C,
++    ) -> Result<Self, OperationError<C::Error>> {
++        control.check(OperationExtent::default()).map_err(OperationError::Control)?;
++        let extent = self.vectorization_extent(dualizer, heads)?;
++        control.check(extent).map_err(OperationError::Control)?;
++        let mut generated = HashMap::default();
++        for external in &self.external_fns {
++            if external.constant_index.is_some() || generated.contains_key(&external.symbol) { continue; }
++            control.check(OperationExtent { work: 0, stage: OperationStage::KnownHeadGeneration, ..extent })
++                .map_err(OperationError::Control)?;
++            let head = KnownHead::find(heads, external.symbol)?;
++            generated.insert(external.symbol, super::known_head::generate_known(head, dualizer, control, extent)?);
++        }
++        let vectorizer = super::known_head::KnownDualizer { dualizer, generated };
++        // Producer callbacks never remain installed in the new product.
++        let settings = OptimizationSettings {
++            abort_check: None,
++            abort_level: 0,
++            hot_start: None,
++            horner_iterations: self.settings.horner_iterations,
++            n_cores: self.settings.n_cores,
++            cpe_iterations: self.settings.cpe_iterations,
++            max_horner_scheme_variables: self.settings.max_horner_scheme_variables,
++            max_common_pair_cache_entries: self.settings.max_common_pair_cache_entries,
++            max_common_pair_distance: self.settings.max_common_pair_distance,
++            verbose: self.settings.verbose,
++            direct_translation: self.settings.direct_translation,
++        };
++        let evaluator = Self {
++            stack: self.stack.clone(),
++            param_count: self.param_count,
++            reserved_indices: self.reserved_indices,
++            instructions: self.instructions.clone(),
++            result_indices: self.result_indices.clone(),
++            external_fns: self.external_fns.clone(),
++            settings,
++        };
++        let mut error = None;
++        let stopped_extent = OperationExtent { work: 0, ..extent };
++        let result = evaluator.vectorize_impl(&vectorizer, &mut |stage| {
++            match control.check(OperationExtent { stage, ..stopped_extent }) {
++                Ok(()) => true,
++                Err(refusal) => {
++                    error = Some(refusal);
++                    false
++                }
++            }
++        });
++        if let Some(error) = error {
++            return Err(OperationError::Control(error));
++        }
++        let result = result.map_err(OperationError::InvalidProgram)?;
++        if result.settings.abort_level != 0 {
++            return Err(OperationError::Interrupted);
++        }
++        Ok(result)
++    }
++
++    fn vectorization_extent<E, D: DualNumberStructure>(
++        &self,
++        dualizer: &Dualizer<D>,
++        heads: &[KnownHead],
++    ) -> Result<OperationExtent, OperationError<E>> {
++        if self.param_count > self.reserved_indices || self.reserved_indices > self.stack.len() {
++            return Err(OperationError::Unsupported("invalid evaluator stack"));
++        }
++        for external in &self.external_fns {
++            if external.body.is_some() || !external.tags.is_empty() {
++                return Err(OperationError::Unsupported("retained body or tagged external head"));
++            }
++            let head = KnownHead::find::<E>(heads, external.symbol)?;
++            if external.constant_index.is_some() && external.fixed_args.len() != head.arity {
++                return Err(OperationError::Unsupported("constant head arity"));
++            }
++        }
++        if self.settings.hot_start.is_some() {
++            return Err(OperationError::Unsupported("retained Horner hot start"));
++        }
++        let width = dualizer.dual.get_len();
++        let depth = dualizer.dual.get_max_depth();
++        if width == 0 || depth > 2 {
++            return Err(OperationError::Unsupported("Taylor depth greater than two or empty shape"));
++        }
++        if dualizer.zero_components.iter().any(|&(parameter, component)| {
++            parameter >= self.param_count || component >= width || component == 0
++        }) {
++            return Err(OperationError::Unsupported("invalid structural zero component"));
++        }
++        let table = dualizer.dual.get_multiplication_table();
++        if table.iter().any(|&(a, b, c)| a >= width || b >= width || c >= width) {
++            return Err(OperationError::Unsupported("invalid Taylor multiplication table"));
++        }
++        // mul emits W initial products and a product/add pair for each table entry.
++        // Unary kernels add at most two W-sized setup/final maps and, per Taylor
++        // depth, a convolution, rescale, addition and one scalar setup operation.
++        // Powf is log, a convolution, adjacent assignments and exp. Structural
++        // zeros only remove work. These are the shared map_instruction kernels.
++        let convolution = add(width, mul(2, table.len())?)?;
++        let unary = add(
++            add(mul(depth, add(add(convolution, mul(2, width)?)?, 1)?)?, mul(2, width)?)?,
++            2,
++        )?;
++        let power = add(mul(2, unary)?, convolution)?;
++        let mut work = 0;
++        let mut unfolded = 0;
++        let mut constant_vectors = self.reserved_indices.checked_sub(self.param_count)
++            .ok_or_else(|| OperationError::InvalidProgram("invalid reserved indices".into()))?;
++        let mut operand_capacity = 0;
++        for (instruction, _) in &self.instructions {
++            let (operations, count, constants) = match instruction {
++                Instr::Add(_, args) | Instr::Mul(_, args) => {
++                    if args.is_empty() {
++                        return Err(OperationError::Unsupported("empty arithmetic instruction"));
++                    }
++                    operand_capacity = add(operand_capacity, args.capacity())?;
++                    let count = args.len().saturating_sub(1);
++                    (mul(count, if matches!(instruction, Instr::Add(..)) { width } else { convolution })?, count.max(1), 0)
++                }
++                Instr::Pow(_, _, -1) => (unary, 1, 3),
++                Instr::Pow(..) => return Err(OperationError::Unsupported("integer power other than inversion")),
++                Instr::Powf(..) => (power, 1, 7),
++                Instr::BuiltinFun(_, symbol, _) if [Symbol::EXP_ID, Symbol::LOG_ID,
++                    Symbol::SQRT_ID, Symbol::SIN_ID, Symbol::COS_ID, Symbol::ABS_ID,
++                    Symbol::CONJ_ID].contains(&symbol.get_id()) => (unary, 1, 7),
++                Instr::BuiltinFun(..) => return Err(OperationError::Unsupported("unknown builtin")),
++                Instr::ExternalFun(_, index, args) => {
++                    let external = self.external_fns.get(*index)
++                        .ok_or(OperationError::Unsupported("external function index"))?;
++                    let head = KnownHead::find::<E>(heads, external.symbol)?;
++                    if args.len() != head.arity {
++                        return Err(OperationError::Unsupported("qualified head arity"));
++                    }
++                    head.demand(depth, heads)?;
++                    operand_capacity = add(operand_capacity, args.capacity())?;
++                    (head.instruction_bound(width, table.len())?, 1, 1)
++                },
++                Instr::Join(..) | Instr::IfElse(..) | Instr::Goto(..) | Instr::Label(..) => (0, 1, 0),
++            };
++            work = add(work, operations)?;
++            unfolded = add(unfolded, count)?;
++            constant_vectors = add(constant_vectors, constants)?;
++        }
++        // Assignments are retained instructions but are not mathematical arithmetic.
++        let emitted = add(work, mul(mul(3, width)?, unfolded)?)?;
++        let constants = mul(constant_vectors, width)?;
++        // Common-pair extraction of the binary expanded program can introduce at
++        // most one new binary instruction per original binary instruction: every
++        // extraction consumes at least two operand occurrences. Stack unfolding
++        // and final pair extraction therefore fit the doubled instruction extent.
++        let instructions = mul(2, emitted)?;
++        let entries = add(add(mul(self.param_count, width)?, constants)?, instructions)?;
++        let mut coefficients = self.stack.iter().try_fold(0, |bytes, value| add(bytes, payload(value)?))?;
++        let mut external_bytes = mul(self.external_fns.capacity(), size_of::<ExternalFunctionContainer<Complex<Rational>>>())?;
++        for external in &self.external_fns {
++            external_bytes = add(external_bytes, external.export_name.capacity())?;
++            external_bytes = add(external_bytes, mul(add(external.fixed_args.capacity(), external.stack.capacity())?, size_of::<Complex<Rational>>())?)?;
++            if let Some(implementation) = &external.imp {
++                external_bytes = add(external_bytes, size_of_val(implementation.as_ref()))?;
++            }
++            coefficients = external.stack.iter().try_fold(coefficients, |bytes, value| add(bytes, payload(value)?))?;
++            coefficients = external.fixed_args.iter().try_fold(coefficients, |bytes, value| add(bytes, payload(value)?))?;
++        }
++        let input_bytes = add(external_bytes, add(
++            add(mul(self.stack.capacity(), size_of::<Complex<Rational>>())?, coefficients)?,
++            add(mul(self.instructions.capacity(), size_of::<(Instr, ComplexPhase)>())?,
++                mul(add(operand_capacity, self.result_indices.capacity())?, size_of::<usize>())?)?,
++        )?)?;
++        let outputs = mul(self.result_indices.len(), width)?;
++        let head_bytes = mul(mul(6, self.external_fns.len())?,
++            add(size_of::<ExternalFunctionContainer<Complex<Rational>>>(), 2 * size_of::<usize>())?)?;
++        let output_bytes = add(add(external_bytes, head_bytes)?, add(
++            add(mul(entries, size_of::<Complex<Rational>>())?, coefficients)?,
++            add(mul(instructions, add(size_of::<(Instr, ComplexPhase)>(), 2 * size_of::<usize>())?)?,
++                mul(outputs, size_of::<usize>())?)?,
++        )?)?;
++        // Capacity doubling, simultaneous VectorInstruction/Instr representations,
++        // slot maps, unfold maps, branch/label maps and pair-extraction maps/lists.
++        // Binary instructions have at most one pair: all optimizer records are
++        // linear in emitted instruction count, not in an application-side source
++        // predictor. 64 machine words per instruction covers the simultaneous
++        // maps, per-key table metadata, vectors and geometric capacity overlap.
++        let temporary_bytes = add(
++            add(input_bytes, mul(2, output_bytes)?)?,
++            mul(add(add(emitted, self.reserved_indices)?, outputs)?, 64 * size_of::<usize>())?,
++        )?;
++        let extent = OperationExtent { stage: OperationStage::Vectorization, work, input_bytes, temporary_bytes, output_bytes, output_entries: entries };
++        extent.peak_bytes().ok_or(OperationError::Overflow)?;
++        Ok(extent)
++    }
++}
+diff --git a/src/evaluate/dual.rs b/src/evaluate/dual.rs
+index 0b33aa61e586a3a78a83197eb96afbb57e405506..450549e2e7c82eb78eaaec33b5565c73af62bcf2 100644
+--- a/src/evaluate/dual.rs
++++ b/src/evaluate/dual.rs
+@@ -124,7 +124,20 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
+     ///
+     /// assert!(dest.iter().all(|x| x.abs() < 1e-10));
+     /// ```
+-    pub fn vectorize<V: Vectorize<T>>(mut self, v: &V) -> Result<ExpressionEvaluator<T>, String> {
++    pub fn vectorize<V: Vectorize<T>>(self, v: &V) -> Result<ExpressionEvaluator<T>, String> {
++        self.vectorize_impl(v, &mut |_| true)
++    }
++
++    // The checked and ordinary entry points use exactly the same expansion engine.
++    // A false safe point returns immediately and never exposes the partially built evaluator.
++    pub(super) fn vectorize_impl<V: Vectorize<T>>(
++        mut self,
++        v: &V,
++        safe_point: &mut impl FnMut(OperationStage) -> bool,
++    ) -> Result<ExpressionEvaluator<T>, String> {
++        if !safe_point(OperationStage::Vectorization) {
++            return Err("Vectorization interrupted".into());
++        }
+         let mut new_external_fns = vec![];
+         let mut external_fn_index_map = HashMap::default();
+         let mut unknown_constants = vec![false; self.reserved_indices - self.param_count];
+@@ -151,6 +164,9 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
+                 continue;
+             }
+ 
++            if !v.allow_explicit_vector_function() {
++                continue;
++            }
+             let Some(s) = get_symbol!(format!("{}_v", external_fn.symbol.get_name())) else {
+                 continue;
+             };
+@@ -170,12 +186,20 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
+         for (x, c) in &mut self.instructions {
+             match x {
+                 Instr::Add(o, a) => {
++                    if a.len() == 1 {
++                        new_instr.push((Instr::Add(*o, a.clone()), *c));
++                        continue;
++                    }
+                     new_instr.push((Instr::Add(*o, vec![a[0], a[1]]), *c));
+                     for x in a.iter().skip(2) {
+                         new_instr.push((Instr::Add(*o, vec![*o, *x]), *c));
+                     }
+                 }
+                 Instr::Mul(o, a) => {
++                    if a.len() == 1 {
++                        new_instr.push((Instr::Mul(*o, a.clone()), *c));
++                        continue;
++                    }
+                     new_instr.push((Instr::Mul(*o, vec![a[0], a[1]]), *c));
+                     for x in a.iter().skip(2) {
+                         new_instr.push((Instr::Mul(*o, vec![*o, *x]), *c));
+@@ -251,7 +275,12 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
+             .unwrap_or(0);
+ 
+         for (i, _sc) in self.instructions.drain(..) {
++            if !safe_point(OperationStage::Vectorization) {
++                return Err("Vectorization interrupted".into());
++            }
+             let (o, instr) = match i {
++                Instr::Add(o, ref a) | Instr::Mul(o, ref a) if a.len() == 1 =>
++                    (o, VectorInstruction::Assign(get_slot!(slot_map[&a[0]]))),
+                 Instr::Add(o, a) => (
+                     o,
+                     VectorInstruction::Add(get_slot!(slot_map[&a[0]]), get_slot!(slot_map[&a[1]])),
+@@ -378,6 +407,9 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
+             );
+         }
+ 
++        if !safe_point(OperationStage::Vectorization) {
++            return Err("Vectorization interrupted".into());
++        }
+         self.stack.clear();
+         self.stack.resize(self.param_count, T::default());
+         self.stack.extend(ins.constants);
+@@ -475,9 +507,18 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
+         );
+         self.external_fns = new_external_fns;
+ 
++        if !safe_point(OperationStage::Optimization) {
++            return Err("Vectorization interrupted".into());
++        }
+         self.remove_common_pairs();
++        if !safe_point(OperationStage::Optimization) {
++            return Err("Vectorization interrupted".into());
++        }
+         self.optimize_stack();
+         self.fix_labels();
++        if !safe_point(OperationStage::Finalization) {
++            return Err("Vectorization interrupted".into());
++        }
+ 
+         Ok(self)
+     }
+@@ -486,6 +527,9 @@ impl<T: Default + Clone> ExpressionEvaluator<T> {
+ /// A trait to define how to vectorize coefficients and instructions.
+ /// Every slot is mapped to `n` slots and every instruction is mapped to `n` instructions, where `n` is the dimension.
+ pub trait Vectorize<T> {
++    /// Whether independently registered `_v` functions may override generation.
++    fn allow_explicit_vector_function(&self) -> bool { true }
++
+     /// Return `true` if the constants are duplicated across the vector dimension, and
+     /// `false` if each constant only appears in the first slot and has zeros for all other slots.
+     fn duplicate_constants(&self) -> bool;
+@@ -519,8 +563,8 @@ pub trait Vectorize<T> {
+ /// You can specify which components of the dual numbers are always zero
+ /// by providing a list of `(component index, dual index)` pairs in the constructor.
+ pub struct Dualizer<T: DualNumberStructure> {
+-    dual: T,
+-    zero_components: HashSet<(usize, usize)>, // component, index
++    pub(super) dual: T,
++    pub(super) zero_components: HashSet<(usize, usize)>, // component, index
+ }
+ 
+ impl<T: DualNumberStructure> Dualizer<T> {
 diff --git a/src/evaluate/f64_transfer.rs b/src/evaluate/f64_transfer.rs
 new file mode 100644
 index 0000000000000000000000000000000000000000..317daa7610be43403edf5aae0db610585a149b5b
@@ -2250,6 +2751,156 @@ index 0000000000000000000000000000000000000000..528dd057c6b175e6f9772a65dc5c6992
 +        assert!(after.iter().all(|value| value.is_finite()));
 +    }
 +    assert_eq!(encode(&source), bytes);
++}
+diff --git a/src/evaluate/known_head.rs b/src/evaluate/known_head.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..002f687a8942ca6fea661b70a155a89cdf2df844
+--- /dev/null
++++ b/src/evaluate/known_head.rs
+@@ -0,0 +1,144 @@
++//! Finite Taylor composition of closed local-partial descriptions.
++use super::*;
++
++impl KnownHead {
++    pub(super) fn find<E>(heads: &[Self], symbol: Symbol) -> Result<&Self, OperationError<E>> {
++        let mut matches = heads.iter().filter(|head| head.symbol == symbol);
++        let head = matches.next().ok_or(OperationError::Unsupported("unknown numerical head"))?;
++        if matches.next().is_some() || !(1..=2).contains(&head.arity) {
++            return Err(OperationError::Unsupported("ambiguous head or unsupported arity"));
++        }
++        Ok(head)
++    }
++
++    pub(super) fn demand<E>(&self, depth: usize, heads: &[Self]) -> Result<(), OperationError<E>> {
++        let first = if depth > 0 { self.arity } else { 0 };
++        let second = if depth > 1 { self.arity * (self.arity + 1) / 2 } else { 0 };
++        for symbol in self.first[..first].iter().chain(&self.second[..second]) {
++            let symbol = symbol.ok_or(OperationError::Unsupported("unavailable local partial"))?;
++            if Self::find::<E>(heads, symbol)?.arity != self.arity {
++                return Err(OperationError::Unsupported("local partial arity"));
++            }
++        }
++        Ok(())
++    }
++
++    // Upper bound on scalar instructions in the finite generated evaluator. Its
++    // parameter and constant backing is counted separately by the operation owner.
++    pub(super) fn instruction_bound<E>(&self, width: usize, table: usize) -> Result<usize, OperationError<E>> {
++        let pairs = self.arity * (self.arity + 1) / 2;
++        let calls = 1 + self.arity + pairs;
++        let linear = width.checked_mul(2 * self.arity).ok_or(OperationError::Overflow)?;
++        let quadratic = table.checked_mul(4 * pairs).ok_or(OperationError::Overflow)?;
++        calls.checked_add(linear).and_then(|n| n.checked_add(quadratic))
++            .and_then(|n| n.checked_add(width)).ok_or(OperationError::Overflow)
++    }
++}
++
++pub(super) struct KnownDualizer<'a, D: DualNumberStructure> {
++    pub(super) dualizer: &'a Dualizer<D>,
++    pub(super) generated: HashMap<Symbol, ExpressionEvaluator<Complex<Rational>>>,
++}
++
++impl<D: DualNumberStructure> Vectorize<Complex<Rational>> for KnownDualizer<'_, D> {
++    fn duplicate_constants(&self) -> bool { self.dualizer.duplicate_constants() }
++    fn get_dimension(&self) -> usize { self.dualizer.get_dimension() }
++    fn allow_explicit_vector_function(&self) -> bool { false }
++    fn map_instruction(&self, instruction: &VectorInstruction,
++        instructions: &mut InstructionList<Complex<Rational>>) -> Vec<VectorInstruction> {
++        self.dualizer.map_instruction(instruction, instructions)
++    }
++    fn vectorize_function(&self, symbol: Symbol, tags: &[Atom], argument_count: usize)
++        -> Result<Option<ExpressionEvaluator<Complex<Rational>>>, String> {
++        if !tags.is_empty() { return Err("Tagged known head is unsupported".into()); }
++        let evaluator = self.generated.get(&symbol).ok_or("Unknown qualified numerical head")?;
++        if evaluator.param_count != argument_count * self.get_dimension() {
++            return Err("Qualified head arity mismatch".into());
++        }
++        Ok(Some(evaluator.clone()))
++    }
++}
++
++/// Build scalar native instructions directly. This never invokes a symbol's
++/// arbitrary derivative callback and never starts a nested symbolic builder.
++pub(super) fn generate_known<D: DualNumberStructure, C: OperationControl>(head: &KnownHead,
++    dualizer: &Dualizer<D>, control: &mut C, extent: OperationExtent)
++    -> Result<ExpressionEvaluator<Complex<Rational>>, OperationError<C::Error>> {
++    let check_extent = OperationExtent { work: 0, stage: OperationStage::KnownHeadGeneration, ..extent };
++    control.check(check_extent).map_err(OperationError::Control)?;
++    let shape = dualizer.dual.get_shape();
++    let width = shape.len();
++    let params = head.arity * width;
++    let half = params;
++    let reserved = params + 1;
++    let mut instructions = Vec::new();
++    let mut external_fns = Vec::new();
++    let base_args = (0..head.arity).map(|argument| argument * width).collect::<Vec<_>>();
++    fn call(symbol: Symbol, args: &[usize], reserved: usize,
++        instructions: &mut Vec<(Instr, ComplexPhase)>,
++        external_fns: &mut Vec<ExternalFunctionContainer<Complex<Rational>>>) -> usize {
++        let index = external_fns.iter().position(|external| external.symbol == symbol)
++            .unwrap_or_else(|| {
++                external_fns.push(ExternalFunctionContainer::new(symbol, vec![], vec![]));
++                external_fns.len() - 1
++            });
++        let output = reserved + instructions.len();
++        instructions.push((Instr::ExternalFun(output, index, args.to_vec()), ComplexPhase::Any));
++        output
++    }
++    let value = call(head.symbol, &base_args, reserved, &mut instructions, &mut external_fns);
++    let depth = dualizer.dual.get_max_depth();
++    let first = if depth > 0 { head.first[..head.arity].iter().map(|symbol| {
++        call(symbol.unwrap(), &base_args, reserved, &mut instructions, &mut external_fns)
++    }).collect::<Vec<_>>() } else { Vec::new() };
++    let pairs = head.arity * (head.arity + 1) / 2;
++    let second = if depth > 1 { head.second[..pairs].iter().map(|symbol| {
++        call(symbol.unwrap(), &base_args, reserved, &mut instructions, &mut external_fns)
++    }).collect::<Vec<_>>() } else { Vec::new() };
++    let mut results = vec![value];
++    for (component, powers) in shape.iter().enumerate().skip(1) {
++        control.check(check_extent).map_err(OperationError::Control)?;
++        let mut terms = Vec::new();
++        for argument in 0..head.arity {
++            let output = reserved + instructions.len();
++            instructions.push((Instr::Mul(output, vec![first[argument], argument * width + component]), ComplexPhase::Any));
++            terms.push(output);
++        }
++        if powers.iter().sum::<usize>() == 2 {
++            let mut pair = 0;
++            for left in 0..head.arity {
++                for right in left..head.arity {
++                    for &(a, b, destination) in dualizer.dual.get_multiplication_table() {
++                        if a == 0 || b == 0 || destination != component { continue; }
++                        let product = reserved + instructions.len();
++                        instructions.push((Instr::Mul(product, vec![left * width + a, right * width + b]), ComplexPhase::Any));
++                        let output = reserved + instructions.len();
++                        let mut args = vec![product, second[pair]];
++                        if left == right { args.push(half); }
++                        // Keep every scalar instruction binary, including the
++                        // diagonal 1/2 scaling, for the shared inliner/optimizer.
++                        instructions.push((Instr::Mul(output, args[..2].to_vec()), ComplexPhase::Any));
++                        let output = if args.len() == 3 {
++                            let scaled = reserved + instructions.len();
++                            instructions.push((Instr::Mul(scaled, vec![output, half]), ComplexPhase::Any));
++                            scaled
++                        } else { output };
++                        terms.push(output);
++                    }
++                    pair += 1;
++                }
++            }
++        }
++        let output = if terms.len() == 1 { terms[0] } else {
++            let output = reserved + instructions.len();
++            instructions.push((Instr::Add(output, terms), ComplexPhase::Any));
++            output
++        };
++        results.push(output);
++    }
++    let mut stack = vec![Complex::default(); reserved + instructions.len()];
++    stack[half] = Complex::from(Rational::from((1, 2)));
++    control.check(check_extent).map_err(OperationError::Control)?;
++    Ok(ExpressionEvaluator { stack, param_count: params, reserved_indices: reserved,
++        instructions, result_indices: results, external_fns, settings: OptimizationSettings::default() })
 +}
 diff --git a/src/poly/univariate.rs b/src/poly/univariate.rs
 index ea11041071da2240d1d097f0bd9f0ef2d9ab7f23..fab6c117a4920a354ded673f3e20a7c2873f138f 100644

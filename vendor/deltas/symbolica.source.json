@@ -1,6 +1,6 @@
 {
   "archive_sha256": "0965398bbe5063c00b3a0d078d7d3dc57b61819b97e960b73e9a7e9602662795",
-  "delta_sha256": "75c8a738de7d130b8d16ea1ad53909724cd7afa1981292f333df5ae69e775ce7",
+  "delta_sha256": "6154cb9f6e832d7e9e7fc5613b85e5247dcbcc277e41d88cb827fae175c46c85",
   "files": {
     ".cargo_vcs_info.json": {
       "mode": "100644",
@@ -396,7 +396,7 @@
     },
     "src/evaluate.rs": {
       "mode": "100644",
-      "sha256": "6ff9fe286457f32029396541b3619c09c623d4a32a90275e8e937f0c14063b6c"
+      "sha256": "177ccb9b8a694a511829b5db41517659eaff5fef3aba0f00b23c995bcbac3767"
     },
     "src/evaluate/backend.rs": {
       "mode": "100644",
@@ -406,13 +406,17 @@
       "mode": "100644",
       "sha256": "f04d1bc45a8d50793f6ba6804fdb0ccfb6363bac2072636412ebbc0c64b93768"
     },
+    "src/evaluate/control.rs": {
+      "mode": "100644",
+      "sha256": "6d2528297a1876ec4571936c897c9752798dd37c05040d82ac58f9d3fe4637d5"
+    },
     "src/evaluate/domain.rs": {
       "mode": "100644",
       "sha256": "b39b4e26c8f08ba3d7e18c9ed15e178957cb11864032c2e73416539f23c9a93c"
     },
     "src/evaluate/dual.rs": {
       "mode": "100644",
-      "sha256": "a6da1267821bb28f8c8f7eda8584c73f574308f93592ef74409d74b86519e040"
+      "sha256": "817cf3a743a83b384a43cadc91bfe0b97f6a66190acb50ea0ff4ef0b1cdcc41f"
     },
     "src/evaluate/evaluator.rs": {
       "mode": "100644",
@@ -441,6 +445,10 @@
     "src/evaluate/instruction.rs": {
       "mode": "100644",
       "sha256": "4f6b10ad349d3f9e3f25355b2b572390fd61c90c13e1ed16349c77c9f652d7f5"
+    },
+    "src/evaluate/known_head.rs": {
+      "mode": "100644",
+      "sha256": "f8f1af029523e8059f2fed3f303e25121dad3cddb42ac2fb0f8785e3f924d3dd"
     },
     "src/evaluate/optimize.rs": {
       "mode": "100644",
