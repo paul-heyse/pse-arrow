@@ -21,7 +21,7 @@ DEFINE FUNCTION fn::pse_research_v1::context($expiry:int,$row:object) -> bool {
     fn::pse_project_v1::root($expiry,$row.revision,'research:'+$row.key);
     RETURN true;
 };
-DEFINE FUNCTION fn::pse_research_v1::dataset($expiry:int,$row:object,$generation:decimal) -> object {
+DEFINE FUNCTION fn::pse_research_v1::dataset($expiry:int,$row:pse_canonical_research_datasets_create,$generation:u64) -> object {
     fn::pse_workbench_v1::publication($expiry);
     LET $old=SELECT * FROM ONLY type::record('canonical_research_datasets',$row.key);
     IF $old!=NONE { IF $old.request!=$row.request {THROW 'PSE_REFUSAL:project_operation_identity_changed';}; RETURN $old; };
@@ -35,7 +35,7 @@ DEFINE FUNCTION fn::pse_research_v1::dataset($expiry:int,$row:object,$generation
     } ELSE { IF $row.role!='raw' {THROW 'PSE_REFUSAL:research_context_differs';}; };
     RETURN CREATE ONLY type::record('canonical_research_datasets',$row.key) CONTENT $row;
 };
-DEFINE FUNCTION fn::pse_research_v1::selection($expiry:int,$row:object,$generation:decimal) -> object {
+DEFINE FUNCTION fn::pse_research_v1::selection($expiry:int,$row:pse_canonical_research_selections_create,$generation:u64) -> object {
     fn::pse_workbench_v1::publication($expiry);
     LET $old=SELECT * FROM ONLY type::record('canonical_research_selections',$row.key);
     IF $old!=NONE {IF $old.request!=$row.request {THROW 'PSE_REFUSAL:project_operation_identity_changed';}; RETURN $old;};
@@ -56,7 +56,7 @@ DEFINE FUNCTION fn::pse_research_v1::publication_guard($expiry:int,$operation:st
     LET $attempt=SELECT * FROM ONLY type::record('canonical_attempts',$e.attempt);
     LET $manifest=SELECT * FROM ONLY type::record('canonical_result_manifests',$attempt.closed_manifest);
     LET $set=SELECT * FROM ONLY type::record('canonical_result_sets',$e.result_set);
-    IF $selection=NONE OR $selection.project!=$intent.project OR $run=NONE OR $run.revision!=$selection.revision OR $run.source_selection!=$e.source_selection OR $attempt=NONE OR $attempt.run!=$e.run OR $attempt.phase NOT IN ['terminal','terminal_compacted'] OR $manifest=NONE OR $manifest.attempt!=$e.attempt OR $manifest.generation!=$attempt.generation OR $manifest.digest!=$e.manifest_digest OR $set=NONE OR $set.attempt!=$e.attempt OR $set.name!='/* FITTED_CELLS_ID */' OR $set.row_count=0dec {THROW 'PSE_REFUSAL:research_context_differs';};
+    IF $selection=NONE OR $selection.project!=$intent.project OR $run=NONE OR $run.revision!=$selection.revision OR $run.source_selection!=$e.source_selection OR $attempt=NONE OR $attempt.run!=$e.run OR $attempt.phase NOT IN ['terminal','terminal_compacted'] OR $manifest=NONE OR $manifest.attempt!=$e.attempt OR $manifest.generation!=$attempt.generation OR $manifest.digest!=$e.manifest_digest OR $set=NONE OR $set.attempt!=$e.attempt OR $set.name!='/* FITTED_CELLS_ID */' OR $set.row_count=0u64 {THROW 'PSE_REFUSAL:research_context_differs';};
     IF bytes::len($e.mapping)>131072 OR bytes::len($e.source_selection)>131072 {THROW 'PSE_REFUSAL:research_bound';};
     fn::pse_project_v1::root($expiry,$selection.revision,'research-fit-source:'+$operation);
     fn::pse_history_v1::retain($expiry,'project-research:research-publication:'+$operation,'run',$e.run,'audit',$intent.project);

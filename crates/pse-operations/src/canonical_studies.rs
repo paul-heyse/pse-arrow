@@ -1315,18 +1315,19 @@ impl CanonicalStore {
             let request=framing.finish_hash().to_hex().into_bytes();
             let page_key=format!("{study}:{phase}:{cursor}");
             let count=if phase=="nodes" {points.len()} else {edges.len()};
+            let next_cursor=cursor.checked_add(count as u64).ok_or(CanonicalError::PayloadLimit)?;
             let issued=self.protected_study_query(study,"canonical_studies::issue_study_page",|| Ok(self.db.query("RETURN fn::pse_study_v1::issue_page($pse_rpc_expires_at,$study,$digest,$phase,$cursor,$request,$count);")
                 .bind(("study",study.to_owned())).bind(("digest",digest.to_owned())).bind(("phase",phase.to_owned())).bind(("cursor",codec::encode_uint(cursor)?)).bind(("request",Bytes::from(request.clone()))).bind(("count",count)))).await.and_then(|mut response| response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse));
             crate::canonical::settlement::settle_exact("study-installation-issue",&page_key,&request,issued,async {
                 let mut response=protected_query("canonical_studies::issued_page_readback",|| Ok(self.db.query("SELECT * FROM ONLY type::record('canonical_study_installation_pages',$key);").bind(("key",page_key.clone())))).await?;
                 Ok(response.take::<Option<Object>>(0)?)
-            },|receipt| receipt.get("request")==Some(&Value::Bytes(Bytes::from(request.clone()))) && receipt.get("next_cursor")==codec::encode_uint(cursor+count as u64).ok().as_ref(),CanonicalError::source_transaction_refused).await?;
+            },|receipt| receipt.get("request")==Some(&Value::Bytes(Bytes::from(request.clone()))) && receipt.get("next_cursor").and_then(|value|codec::decode_uint(value.clone()).ok())==Some(next_cursor),CanonicalError::source_transaction_refused).await?;
             let write=self.protected_study_query(study,"canonical_studies::install_study_page",|| Ok(self.db.query("RETURN fn::pse_study_v1::install_page($pse_rpc_expires_at,$study,$digest,$phase,$cursor,$request,$points,$runs,$edges);")
                 .bind(("study",study.to_owned())).bind(("digest",digest.to_owned())).bind(("phase",phase.to_owned())).bind(("cursor",codec::encode_uint(cursor)?)).bind(("request",Bytes::from(request.clone()))).bind(("points",points.to_vec())).bind(("runs",runs.to_vec())).bind(("edges",edges.to_vec())))).await.and_then(|mut response| response.take::<Option<Object>>(0)?.ok_or(CanonicalError::IncompleteResponse));
             crate::canonical::settlement::settle_exact("study-installation-page",&page_key,&request,write,async {
                 let mut response=protected_query("canonical_studies::installation_page_readback",|| Ok(self.db.query("SELECT * FROM ONLY type::record('canonical_study_installation_pages',$key);").bind(("key",page_key.clone())))).await?;
                 Ok(response.take::<Option<Object>>(0)?.filter(|row|row.get("state")==Some(&Value::String("committed".into()))))
-            },|receipt| receipt.get("request")==Some(&Value::Bytes(Bytes::from(request.clone()))) && receipt.get("next_cursor")==codec::encode_uint(cursor+count as u64).ok().as_ref() && receipt.get("state")==Some(&Value::String("committed".into())),CanonicalError::source_transaction_refused).await?;
+            },|receipt| receipt.get("request")==Some(&Value::Bytes(Bytes::from(request.clone()))) && receipt.get("next_cursor").and_then(|value|codec::decode_uint(value.clone()).ok())==Some(next_cursor) && receipt.get("state")==Some(&Value::String("committed".into())),CanonicalError::source_transaction_refused).await?;
             Ok(())
         }).await
     }

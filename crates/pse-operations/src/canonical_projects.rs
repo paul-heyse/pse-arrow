@@ -831,7 +831,7 @@ impl CanonicalStore {
             crate::canonical_execution::result_payload_digest(content),
             artifact,
         ))?;
-        let encoded = wire::encode_canonical_project_draft_versions(&row)?;
+        let encoded = wire::create_canonical_project_draft_versions(&(&row).into())?;
         let obligation = obligation(artifact, key)?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async{self.ensure_writes()?;let result=protected_query("canonical_projects::draft",||Ok(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","fn::pse_project_v1::draft($pse_rpc_expires_at,$operation,$request,$row,$expected,$project_generation,$obligation)")?).bind(("operation",operation.to_owned())).bind(("request",surrealdb_types::Bytes::from(request.clone()))).bind(("row",encoded.clone())).bind(("expected",expected.map(codec::encode_uint).transpose()?.unwrap_or(Value::None))).bind(("project_generation",codec::encode_uint(project.generation)?)).bind(("obligation",obligation.clone())))).await;self.settle_project_effect(operation,&request,result).await})).await
@@ -930,7 +930,7 @@ impl CanonicalStore {
             artifact: artifact.map(str::to_owned),
             request: request.clone().into(),
         };
-        let row = wire::encode_canonical_research_references(&row)?;
+        let row = wire::create_canonical_research_references(&(&row).into())?;
         let obligation = obligation(artifact, key)?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT), async{self.ensure_writes()?;let result=protected_query("canonical_projects::research",||Ok(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","fn::pse_project_v1::research($pse_rpc_expires_at,$operation,$request,$row,$project_generation,$obligation)")?).bind(("operation",operation.to_owned())).bind(("request",surrealdb_types::Bytes::from(request.clone()))).bind(("row",row.clone())).bind(("project_generation",codec::encode_uint(project.generation)?)).bind(("obligation",obligation.clone())))).await;self.settle_project_effect(operation,&request,result).await})).await

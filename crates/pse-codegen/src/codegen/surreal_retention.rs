@@ -20,7 +20,7 @@ LET $stages = SELECT key FROM canonical_staged_edits WHERE version = $version AN
     AND type::record('canonical_stages', stage).expires_at > time::micros() LIMIT 1;
 LET $products = SELECT key FROM canonical_product_associations WHERE (content = $version OR receipt = $version) AND type::record('canonical_roots',key).owner_kind = 'product' AND type::record('canonical_roots',key).owner = key AND type::record('canonical_roots',key).problem = problem AND type::record('canonical_roots',key).revision = revision LIMIT 1;
 LET $deleted = IF array::len($members) != 0 OR array::len($stages) != 0 OR array::len($products) != 0 {
-    {version:false, blocks:0dec, edges:0dec, pending:false}
+    {version:false, blocks:0u64, edges:0u64, pending:false}
 } ELSE {
     LET $manifest = SELECT * FROM ONLY type::record('canonical_version_manifests', $version);
     UPDATE type::record('canonical_version_manifests', $version) SET closed = false;
@@ -32,12 +32,12 @@ LET $deleted = IF array::len($members) != 0 OR array::len($stages) != 0 OR array
     LET $remaining_edges = SELECT key FROM canonical_edges WHERE source_version = $version LIMIT 1;
     IF array::len($remaining_blocks) = 0 AND array::len($remaining_edges) = 0 {
         DELETE ONLY type::record('canonical_version_manifests', $version);
-        {version:$manifest != NONE, blocks:<decimal>array::len($blocks), edges:<decimal>array::len($edges), pending:false}
+        {version:$manifest != NONE, blocks:<u64>array::len($blocks), edges:<u64>array::len($edges), pending:false}
     } ELSE {
-        {version:false, blocks:<decimal>array::len($blocks), edges:<decimal>array::len($edges), pending:true}
+        {version:false, blocks:<u64>array::len($blocks), edges:<u64>array::len($edges), pending:true}
     };
 };
-UPSERT $version_guard SET key = 'version:' + $version, generation = (generation ?? 0dec) + 1dec;
+UPSERT $version_guard SET key = 'version:' + $version, generation = (generation ?? 0u64) + 1u64;
     RETURN $deleted;
 };
 
@@ -52,13 +52,13 @@ DEFINE FUNCTION fn::pse_retention_v1::source_step($pse_rpc_expires_at:int,$probl
     LET $source_after = $position.source_reclaim_after ?? '';
     LET $candidates = SELECT key FROM canonical_memberships WHERE problem=$problem AND key>$source_after AND to_sequence!=NONE ORDER BY key LIMIT 1;
     IF array::len($candidates)=0 {
-        UPDATE ONLY $guard SET source_reclaim_after=NONE,generation=generation+1dec;
-        RETURN {done:true,after:NONE,membership:false,version:false,edges:0dec,blocks:0dec,pending:false};
+        UPDATE ONLY $guard SET source_reclaim_after=NONE,generation=generation+1u64;
+        RETURN {done:true,after:NONE,membership:false,version:false,edges:0u64,blocks:0u64,pending:false};
     };
     LET $candidate = $candidates[0].key;
 LET $member = SELECT * FROM ONLY type::record('canonical_memberships', $candidate) FOR UPDATE;
 LET $result = IF $member = NONE OR $member.problem != $problem OR $member.to_sequence = NONE {
-    {membership:false, version:false, edges:0dec, blocks:0dec, pending:false}
+    {membership:false, version:false, edges:0u64, blocks:0u64, pending:false}
 } ELSE {
     LET $head = SELECT * FROM ONLY type::record('canonical_problems', $problem);
     IF $head = NONE { THROW 'PSE_REFUSAL:reclamation_problem_head_unavailable'; };
@@ -73,9 +73,9 @@ LET $result = IF $member = NONE OR $member.problem != $problem OR $member.to_seq
     };
     LET $pins=$pin_page.filter(|$pin|$pin.expires_at>time::micros() OR fn::pse_files_v1::ticket_open($pse_rpc_expires_at,$pin.key));
     IF ($head.sequence >= $member.from_sequence AND $head.sequence < $member.to_sequence) OR array::len($roots) != 0 OR array::len($pins) != 0 OR array::len($captures) != 0 {
-        {membership:false, version:false, edges:0dec, blocks:0dec, pending:false}
+        {membership:false, version:false, edges:0u64, blocks:0u64, pending:false}
     } ELSE IF array::len($pin_page)=64 {
-        {membership:false,version:false,edges:0dec,blocks:0dec,pending:true}
+        {membership:false,version:false,edges:0u64,blocks:0u64,pending:true}
     } ELSE {
         UPSERT type::record('canonical_reclaimed_ranges', $candidate) SET key = $candidate, problem = $problem, from_sequence = $member.from_sequence, to_sequence = $member.to_sequence;
         LET $version = $member.version;
@@ -88,7 +88,7 @@ LET $result = IF $member = NONE OR $member.problem != $problem OR $member.to_seq
 };
 
     LET $next = IF $result.pending { $source_after } ELSE { $candidate };
-    UPDATE ONLY $guard SET source_reclaim_after=$next,generation=generation+1dec;
+    UPDATE ONLY $guard SET source_reclaim_after=$next,generation=generation+1u64;
     fn::pse_execution_v1::deadline($pse_rpc_expires_at);
     RETURN object::extend($result,{done:false,after:$next});
 };
@@ -131,7 +131,7 @@ DEFINE FUNCTION fn::pse_retention_v1::settle_protection($rpc_expiry:int,$problem
     LET $grant=fn::pse_execution_v1::protection_grant($rpc_expiry,$problem,$key,false);
     IF time::micros()<$grant.grant_deadline { RETURN {complete:false,waiting:true}; };
     IF $pin!=NONE AND !$pin.released AND $pin.expires_at>time::micros() { RETURN {complete:false,waiting:true}; };
-    UPDATE ONLY type::record('canonical_guards','retention:'+$problem) SET protection_closed_through=math::max([protection_closed_through ?? 0dec,<decimal>$grant.grant_deadline]);
+    UPDATE ONLY type::record('canonical_guards','retention:'+$problem) SET protection_closed_through=math::max([protection_closed_through ?? 0u64,<u64>$grant.grant_deadline]);
     DELETE ONLY type::record('canonical_result_protections',$key);
     DELETE ONLY type::record('canonical_protections',$key);
     fn::pse_execution_v1::deadline($rpc_expiry);
@@ -162,7 +162,7 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_analysis($rpc_expiry: int, $analysi
         IF array::len($parts)!=4 OR $parts[0]!='pse.analysis.v2' OR string::len($parts[1])!=36 OR string::len($parts[2])!=36 { THROW 'PSE_REFUSAL:unknown_analysis_key_has_no_creation_authority'; };
         LET $authorities=SELECT key FROM canonical_guards WITH INDEX guard_incarnation WHERE incarnation=$parts[1] LIMIT 2;
         IF array::len($authorities)!=1 OR !string::starts_with($authorities[0].key,'retention:') { THROW 'PSE_REFUSAL:analysis_creation_authority_unavailable'; };
-        LET $intent={key:$analysis,primary_problem:string::slice($authorities[0].key,10),primary_authority:$parts[1],creation_nonce:$parts[2],creation_expires_at:<decimal>$parts[3]};
+        LET $intent={key:$analysis,primary_problem:string::slice($authorities[0].key,10),primary_authority:$parts[1],creation_nonce:$parts[2],creation_expires_at:<u64>$parts[3]};
         RETURN fn::pse_retention_v1::settle_analysis($rpc_expiry,$intent);
     };
     UPDATE ONLY type::record('canonical_analyses',$analysis) SET retiring=true;
@@ -203,7 +203,7 @@ DEFINE FUNCTION fn::pse_retention_v1::settle_analysis($rpc_expiry:int,$intent:ob
     LET $roots=SELECT key FROM canonical_roots WHERE owner_kind='analysis' AND owner=$intent.key LIMIT 1;
     IF array::len($edges)+array::len($nodes)+array::len($inputs)+array::len($roots)!=0 { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     IF $guard.incarnation=$intent.primary_authority {
-        UPDATE ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) SET generation=generation+1dec, analysis_creation_closed_through=math::max([analysis_creation_closed_through ?? 0dec,$intent.creation_expires_at]);
+        UPDATE ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) SET generation=generation+1u64, analysis_creation_closed_through=math::max([analysis_creation_closed_through ?? 0u64,$intent.creation_expires_at]);
         DELETE ONLY type::record('canonical_analyses',$intent.key);
     } ELSE {
         UPDATE ONLY type::record('canonical_analyses',$intent.key) SET active=false,retiring=true;
@@ -250,7 +250,7 @@ DEFINE FUNCTION fn::pse_retention_v1::forget_run($rpc_expiry: int, $run:string) 
     IF array::len($roots)>65 { THROW 'PSE_REFUSAL:run_source_retention_limit'; };
     FOR $root IN $roots { fn::pse_execution_v1::source_creator($rpc_expiry,$root.problem,$root.key); };
     DELETE $roots.map(|$root|type::record('canonical_roots',$root.key));
-    LET $rpc_result = CREATE ONLY type::record('canonical_result_retirements',$run) SET key=$run,run=$run,after_generation=0dec,complete=false;
+    LET $rpc_result = CREATE ONLY type::record('canonical_result_retirements',$run) SET key=$run,run=$run,after_generation=0u64,complete=false;
     fn::pse_execution_v1::deadline($rpc_expiry);
     RETURN $rpc_result;
 };
@@ -263,11 +263,11 @@ DEFINE FUNCTION fn::pse_retention_v1::collect_run($rpc_expiry: int, $run:string)
     fn::pse_execution_v1::touch($rpc_expiry, 'execution-run:'+$run);
     LET $retirement=SELECT * FROM ONLY type::record('canonical_result_retirements',$run);
     IF $retirement=NONE { THROW 'PSE_REFUSAL:explicit_run_retirement_required'; };
-    IF $retirement.complete { RETURN {complete:true,batches:0dec,indexes:0dec,sets:0dec}; };
+    IF $retirement.complete { RETURN {complete:true,batches:0u64,indexes:0u64,sets:0u64}; };
     LET $attempts=SELECT key,generation FROM canonical_attempts WHERE run=$run AND generation>$retirement.after_generation ORDER BY generation LIMIT 1;
     IF array::len($attempts)=0 {
         UPDATE ONLY type::record('canonical_result_retirements',$run) SET complete=true;
-        LET $rpc_result = {complete:true,batches:0dec,indexes:0dec,sets:0dec};
+        LET $rpc_result = {complete:true,batches:0u64,indexes:0u64,sets:0u64};
         fn::pse_execution_v1::deadline($rpc_expiry);
         RETURN $rpc_result;
     };
@@ -293,18 +293,18 @@ DEFINE FUNCTION fn::pse_retention_v1::collect_run($rpc_expiry: int, $run:string)
                     IF array::len($remaining)=0 { DELETE ONLY type::record('canonical_inline_payloads',$inline); };
                 };
             };
-            LET $rpc_result = {complete:false,batches:IF $deleted {1dec} ELSE {0dec},indexes:<decimal>array::len($outputs),sets:0dec};
+            LET $rpc_result = {complete:false,batches:IF $deleted {1u64} ELSE {0u64},indexes:<u64>array::len($outputs),sets:0u64};
             fn::pse_execution_v1::deadline($rpc_expiry);
             RETURN $rpc_result;
         };
         DELETE ONLY type::record('canonical_result_sets',$set);
-        LET $rpc_result = {complete:false,batches:0dec,indexes:0dec,sets:1dec};
+        LET $rpc_result = {complete:false,batches:0u64,indexes:0u64,sets:1u64};
         fn::pse_execution_v1::deadline($rpc_expiry);
         RETURN $rpc_result;
     };
     LET $seeds=SELECT key FROM canonical_result_seeds WHERE attempt=$attempt.key ORDER BY step LIMIT 64;
     DELETE $seeds.map(|$row|type::record('canonical_result_seeds',$row.key));
-    IF array::len($seeds)=64 { RETURN {complete:false,batches:0dec,indexes:<decimal>array::len($seeds),sets:0dec}; };
+    IF array::len($seeds)=64 { RETURN {complete:false,batches:0u64,indexes:<u64>array::len($seeds),sets:0u64}; };
     // Operation identities and full detail belong to explicit history release.
     // Payload collection never deletes a receipt that a delayed caller can replay.
     LET $manifest=SELECT closed_manifest FROM ONLY type::record('canonical_attempts',$attempt.key);
@@ -315,7 +315,7 @@ DEFINE FUNCTION fn::pse_retention_v1::collect_run($rpc_expiry: int, $run:string)
     LET $operations=SELECT key FROM canonical_execution_operations WHERE run=$run AND kind='seal' AND attempt=$attempt.key LIMIT 1;
     FOR $operation IN $operations { UPDATE ONLY type::record('canonical_execution_operations',$operation.key) SET result=type::bytes(''); };
     UPDATE ONLY type::record('canonical_result_retirements',$run) SET after_generation=$attempt.generation;
-    LET $rpc_result = {complete:false,batches:0dec,indexes:<decimal>array::len($seeds),sets:0dec};
+    LET $rpc_result = {complete:false,batches:0u64,indexes:<u64>array::len($seeds),sets:0u64};
     fn::pse_execution_v1::deadline($rpc_expiry);
     RETURN $rpc_result;
 };

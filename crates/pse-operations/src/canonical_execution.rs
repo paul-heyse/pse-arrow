@@ -224,6 +224,7 @@ pub fn result_metadata_extent(value: &Value) -> Result<usize, CanonicalError> {
     match value {
         Value::None | Value::Null | Value::Bool(_) => Ok(4),
         Value::Number(surrealdb_types::Number::Decimal(_)) => Ok(40),
+        Value::Number(surrealdb_types::Number::U64(value)) if *value > i64::MAX as u64 => Ok(40),
         Value::Number(_) => Ok(9),
         Value::String(v) => add(head(v.len()), v.len()),
         Value::Bytes(v) => add(head(v.len()), v.len()),
@@ -1358,6 +1359,8 @@ mod canonical_execution_server_unit {
         let mut values = vec![
             Value::Object(minimum),
             Value::None,
+            canonical_codec::encode_uint(i64::MAX as u64).unwrap(),
+            canonical_codec::encode_uint(i64::MAX as u64 + 1).unwrap(),
             canonical_codec::encode_uint(u64::MAX).unwrap(),
         ];
         for length in [23, 24, 255, 256, 65535, 65536] {
@@ -3261,7 +3264,140 @@ mod canonical_execution_server_unit {
     }
 
     #[tokio::test]
-    async fn canonical_execution_named_absence_guard_and_ordered_decimal_sequence() {
+    async fn canonical_execution_unsigned_storage_query_and_wire_boundaries() {
+        let (store, database, _) = fixture().await;
+        // The generated merge type must preserve key membership: omission is Keep,
+        // while an explicit NONE removes only a declared optional mutable field.
+        let mut merge = bounded_query(store.db.query("RETURN <pse_canonical_project_imports_merge>{}; RETURN <pse_canonical_project_imports_merge>{artifact:NONE};"))
+            .await.unwrap();
+        assert!(merge.take::<Option<Object>>(0).unwrap().unwrap().is_empty());
+        let removed = merge.take::<Option<Object>>(1).unwrap().unwrap();
+        assert_eq!(removed.get("artifact"), Some(&Value::None));
+        assert!(!removed.contains_key("complete"));
+        for invalid in ["{complete:NONE}", "{key:'changed'}", "{complete:'false'}"] {
+            assert!(
+                bounded_query(store.db.query(format!(
+                    "RETURN <pse_canonical_project_imports_merge>{invalid};"
+                )))
+                .await
+                .is_err(),
+                "refuse invalid mutation {invalid}"
+            );
+        }
+        bounded_query(store.db.query("DEFINE TABLE pse_uint_contract SCHEMAFULL; DEFINE FIELD value ON pse_uint_contract TYPE u64; DEFINE INDEX pse_uint_contract_value ON pse_uint_contract FIELDS value UNIQUE; DEFINE FUNCTION fn::pse_uint_contract($value:u64) -> u64 { RETURN $value; };"))
+            .await.unwrap();
+        let expected = [0, i64::MAX as u64, i64::MAX as u64 + 1, u64::MAX];
+        for (index, value) in expected.iter().copied().enumerate() {
+            let mut reply = bounded_query(
+                store
+                    .db
+                    .query("CREATE ONLY type::record('pse_uint_contract',$key) SET value=$value;")
+                    .bind(("key", index.to_string()))
+                    .bind(("value", canonical_codec::encode_uint(value).unwrap())),
+            )
+            .await
+            .unwrap();
+            let mut row = reply.take::<Option<Object>>(0).unwrap().unwrap();
+            assert_eq!(
+                canonical_codec::decode_uint(row.remove("value").unwrap()).unwrap(),
+                value
+            );
+            let mut reply = bounded_query(
+                store
+                    .db
+                    .query("RETURN fn::pse_uint_contract($value);")
+                    .bind(("value", canonical_codec::encode_uint(value).unwrap())),
+            )
+            .await
+            .unwrap();
+            assert_eq!(
+                canonical_codec::decode_uint(reply.take::<Value>(0).unwrap()).unwrap(),
+                value
+            );
+            let mut reply = bounded_query(
+                store
+                    .db
+                    .query("RETURN <string><decimal>fn::pse_uint_contract($value);")
+                    .bind(("value", canonical_codec::encode_uint(value).unwrap())),
+            )
+            .await
+            .unwrap();
+            assert_eq!(
+                canonical_codec::decode_string(reply.take::<Value>(0).unwrap()).unwrap(),
+                value.to_string(),
+                "unsigned key and receipt spelling"
+            );
+            let mut reply = bounded_query(
+                store
+                    .db
+                    .query("SELECT * FROM pse_uint_contract WHERE value=$value;")
+                    .bind(("value", canonical_codec::encode_uint(value).unwrap())),
+            )
+            .await
+            .unwrap();
+            let mut rows: Vec<Object> = reply.take(0).unwrap();
+            assert_eq!(rows.len(), 1, "indexed lookup across exact wire widths");
+            assert_eq!(
+                canonical_codec::decode_uint(rows[0].remove("value").unwrap()).unwrap(),
+                value
+            );
+        }
+        let mut reply = bounded_query(
+            store
+                .db
+                .query("SELECT * FROM pse_uint_contract ORDER BY value;"),
+        )
+        .await
+        .unwrap();
+        let rows: Vec<Object> = reply.take(0).unwrap();
+        let values = rows
+            .into_iter()
+            .map(|mut row| canonical_codec::decode_uint(row.remove("value").unwrap()).unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(values, expected);
+        for invalid in [
+            "-1",
+            "0.5dec",
+            "18446744073709551616dec",
+            "'one'",
+            "NULL",
+            "NONE",
+        ] {
+            for sql in [
+                format!("UPDATE ONLY type::record('pse_uint_contract','0') SET value={invalid};"),
+                format!("RETURN fn::pse_uint_contract({invalid});"),
+            ] {
+                assert!(
+                    bounded_query(store.db.query(sql)).await.is_err(),
+                    "refuse {invalid}"
+                );
+            }
+        }
+        assert!(
+            bounded_query(
+                store
+                    .db
+                    .query("UPDATE ONLY type::record('pse_uint_contract','3') SET value+=1u64;")
+            )
+            .await
+            .is_err()
+        );
+        let mut reply = bounded_query(
+            store
+                .db
+                .query("RETURN (SELECT * FROM ONLY type::record('pse_uint_contract','3')).value;"),
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            canonical_codec::decode_uint(reply.take::<Value>(0).unwrap()).unwrap(),
+            u64::MAX
+        );
+        remove(&store, &database).await;
+    }
+
+    #[tokio::test]
+    async fn canonical_execution_named_absence_guard_and_ordered_unsigned_sequence() {
         let (store, database, revision) = fixture().await;
         let request = RunRequest {
             purpose: pse_model::generated::enums::CanonicalRunPurpose::Execution,
@@ -3736,11 +3872,11 @@ impl ResultBlockAppend {
             output_hash.finish_hash().to_hex(),
         ))?;
         let block = block
-            .map(wire::encode_canonical_result_blocks)
+            .map(|row| wire::create_canonical_result_blocks(&row.into()))
             .transpose()?;
         let outputs = outputs
             .iter()
-            .map(wire::encode_canonical_result_block_outputs)
+            .map(|row| wire::create_canonical_result_block_outputs(&row.into()))
             .collect::<Result<Vec<_>, _>>()?;
         let mut metadata = Object::new();
         metadata.insert(
@@ -3761,8 +3897,8 @@ impl ResultBlockAppend {
         if result_metadata_extent(&Value::Object(metadata))? > EXECUTION_METADATA_BYTES {
             return Err(CanonicalError::PayloadLimit);
         }
-        let encoded_set = wire::encode_canonical_result_sets(&set)?;
-        let encoded_batch = wire::encode_canonical_result_batches(&batch)?;
+        let encoded_set = wire::create_canonical_result_sets(&(&set).into())?;
+        let encoded_batch = wire::create_canonical_result_batches(&(&batch).into())?;
 
         let acknowledgment = AppendAck {
             receipt: AppendReceipt {
@@ -5057,7 +5193,7 @@ impl CanonicalStore {
         activity.scope(async {
         within_clock(original_deadline(REQUEST_TIMEOUT), async {
             let (row, sources) = run_request_receipt(request)?;
-            let encoded = wire::encode_canonical_runs(&row)?;
+            let encoded = wire::create_canonical_runs(&(&row).into())?;
             self.ensure_writes()?;
             let response = self
                 .protected_query(&row.problem, crate::canonical::QueryEffect::Mutation, "canonical_execution::begin_run", || {
@@ -5275,7 +5411,7 @@ impl CanonicalStore {
                     "seed descriptor coordinate mismatch".into(),
                 ));
             }
-            let encoded = wire::encode_canonical_result_seeds(seed)?;
+            let encoded = wire::create_canonical_result_seeds(&seed.into())?;
             let mut digest = FramedHasher::new(Frame::CanonicalPayloadV1);
             digest.str("pse.execution.seed-descriptor.v1");
             pse_model::SemanticFrame::frame(seed, &mut digest);
@@ -5821,7 +5957,7 @@ impl CanonicalStore {
             .insert("request", Value::Bytes(Bytes::from(request)));
         item.item.insert(
             "batch",
-            Value::Object(wire::encode_canonical_result_batches(&batch)?),
+            Value::Object(wire::create_canonical_result_batches(&(&batch).into())?),
         );
         item.extent = result_metadata_extent(&Value::Object(item.item.clone()))?;
         item.payload.file = sealed;
@@ -5909,7 +6045,7 @@ impl CanonicalStore {
             if name.len() > 128 { return Err(CanonicalError::PayloadLimit); }
             let key = result_set_key(fence.attempt(), name);
             let set = ResultSet { key: key.clone(), attempt: fence.attempt.as_str().to_owned(), name: name.into(), interpretation: wire::INTERPRETATION.into(), next_ordinal: 0, row_count: 0 };
-            let encoded = wire::encode_canonical_result_sets(&set)?;
+            let encoded = wire::create_canonical_result_sets(&(&set).into())?;
             let request = json(&(&fence.run, &fence.attempt, fence.generation, name, &key, wire::INTERPRETATION))?;
             let generation = canonical_codec::encode_uint(fence.generation)?;
             self.ensure_writes()?;
@@ -5945,7 +6081,7 @@ impl CanonicalStore {
             identity(operation)?;
             acknowledgments.same_fence(fence)?;
             let (manifest, proofs, seeds) = acknowledgments.finish()?;
-            let encoded = wire::encode_canonical_result_manifests(&manifest)?;
+            let encoded = wire::create_canonical_result_manifests(&(&manifest).into())?;
             let request = json(&(&fence.run,&fence.attempt,fence.generation,&manifest.digest))?;
             let generation = canonical_codec::encode_uint(fence.generation)?;
             self.ensure_writes()?;
@@ -6392,7 +6528,7 @@ impl CanonicalStore {
                 digest: metadata_digest(&descriptors),
                 descriptors: descriptors.into(),
             };
-            let encoded = wire::encode_canonical_result_manifests(&row)?;
+            let encoded = wire::create_canonical_result_manifests(&(&row).into())?;
             self.ensure_writes()?;
             let result = self
                 .protected_execution_query(

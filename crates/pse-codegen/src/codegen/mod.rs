@@ -30,6 +30,8 @@ pub mod provenance;
 
 pub mod rust;
 mod surreal;
+mod surreal_inputs;
+pub use surreal::native_enum_name;
 /// Lower explicit native relations and declared indexes for an independent store.
 pub use surreal::relations as native_relations;
 mod surreal_analyses;

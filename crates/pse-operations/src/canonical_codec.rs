@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Native protocol values: authoritative bits and checked decimal integers.
+//! Native protocol values: authoritative bits and exact unsigned domains.
 
 use surrealdb_types::{Bytes, Decimal, Number, Object, Value};
 
@@ -32,23 +32,26 @@ pub fn required(object: &mut Object, field: &'static str) -> Result<Value, Codec
     object.remove(field).ok_or(CodecError::Missing(field))
 }
 
-/// Unsigned values never pass through the ordinary signed native integer conversion.
+/// Native unsigned storage; Proto may widen its tag while preserving its exact value.
 pub fn encode_uint(value: u64) -> Result<Value, CodecError> {
-    Ok(Value::Number(Number::Decimal(Decimal::from(value))))
+    Ok(Value::Number(Number::U64(value)))
 }
-/// Validate integrality before conversion, since numeric conversions can truncate.
+/// Reconstitute the declared unsigned domain from the selected exact wire encodings.
+/// Float values cannot establish an exact original unsigned value.
 pub fn decode_uint(value: Value) -> Result<u64, CodecError> {
-    let Value::Number(Number::Decimal(value)) = value else {
-        return Err(CodecError::Domain("native unsigned decimal integer"));
+    let value = match value {
+        Value::Number(Number::U64(value)) => return Ok(value),
+        Value::Number(Number::Int(value)) => {
+            return u64::try_from(value)
+                .map_err(|_| CodecError::Domain("integer in the u64 domain"));
+        }
+        Value::Number(Number::Decimal(value)) => value,
+        _ => return Err(CodecError::Domain("exact native unsigned integer")),
     };
     if !value.fract().is_zero() || value < Decimal::ZERO || value > Decimal::from(u64::MAX) {
         return Err(CodecError::Domain("decimal integer in the u64 domain"));
     }
-    value
-        .normalize()
-        .to_string()
-        .parse()
-        .map_err(|_| CodecError::Domain("decimal integer in the u64 domain"))
+    u64::try_from(value).map_err(|_| CodecError::Domain("decimal integer in the u64 domain"))
 }
 /// Encode declared text without record-ID coercion.
 pub fn encode_string(value: String) -> Result<Value, CodecError> {
@@ -243,7 +246,26 @@ mod canonical_codec_unit {
             let decimal: Decimal = value.parse().unwrap();
             assert!(decode_uint(Value::Number(Number::Decimal(decimal))).is_err());
         }
-        assert!(decode_uint(Value::Number(Number::Int(1))).is_err());
+        assert_eq!(decode_uint(Value::Number(Number::Int(1))).unwrap(), 1);
+        for value in [
+            Value::Number(Number::Int(-1)),
+            Value::Number(Number::Float(1.0)),
+            Value::None,
+            Value::Null,
+            Value::String("1".into()),
+        ] {
+            assert!(decode_uint(value).is_err());
+        }
+    }
+    #[test]
+    fn unsigned_proto_widening_preserves_the_complete_domain() {
+        for value in [0, i64::MAX as u64, i64::MAX as u64 + 1, u64::MAX] {
+            let encoded = encode_uint(value).unwrap();
+            assert!(matches!(encoded, Value::Number(Number::U64(_))));
+            let wire = surrealdb_protocol::proto::v1::Value::try_from(encoded).unwrap();
+            let decoded = Value::try_from(wire).unwrap();
+            assert_eq!(decode_uint(decoded).unwrap(), value);
+        }
     }
     #[test]
     fn finite_cells_and_raw_diagnostics_have_distinct_domains() {

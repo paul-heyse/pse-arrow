@@ -10,7 +10,7 @@ username_env = "PSE_SURREALKIT_INSPECTION_USER"
 password_env = "PSE_SURREALKIT_INSPECTION_PASSWORD"
 
 [[fixtures]]
-sql = "CREATE canonical_guards:exact SET key='exact', generation=18446744073709551615dec, incarnation='fixture'; CREATE canonical_payload_blocks:exact SET key='exact', version='fixture', ordinal=18446744073709551615dec, payload=encoding::base64::decode('AAEA/w=='), digest='fixture';"
+sql = "CREATE canonical_guards:exact SET key='exact', generation=18446744073709551615u64, incarnation='fixture'; CREATE canonical_payload_blocks:exact SET key='exact', version='fixture', ordinal=18446744073709551615u64, payload=encoding::base64::decode('AAEA/w=='), digest='fixture';"
 
 [[fixtures]]
 file = "../fixtures/control-transaction.surql"
@@ -32,10 +32,10 @@ allow = false
 error_contains = "PSE_REFUSAL:original_canonical_rpc_deadline_expired"
 
 [[cases]]
-name = "decimal_u64_exact"
+name = "native_u64_exact"
 tags = ["seed-mutation"]
 kind = "sql_expect"
-sql = "RETURN <string>(SELECT VALUE generation FROM ONLY canonical_guards:exact);"
+sql = "RETURN <string><decimal>(SELECT VALUE generation FROM ONLY canonical_guards:exact);"
 allow = true
 [[cases.assertions]]
 path = ""
@@ -45,7 +45,7 @@ equals = "18446744073709551615"
 name = "authored_seed_is_visible"
 tags = ["seed-mutation"]
 kind = "sql_expect"
-sql = "RETURN <string>(SELECT VALUE generation FROM ONLY canonical_guards:seeded);"
+sql = "RETURN <string><decimal>(SELECT VALUE generation FROM ONLY canonical_guards:seeded);"
 allow = true
 [[cases.assertions]]
 path = ""
@@ -61,11 +61,11 @@ path = ""
 equals = "AAEA/w"
 
 [[cases]]
-name = "decimal_integral_assertion"
+name = "unsigned_fractional_kind_refused"
 kind = "sql_expect"
 sql = "CREATE canonical_guards:invalid SET key='invalid', generation=1.5dec, incarnation='fixture';"
 allow = false
-error_contains = "but field must conform to:"
+error_contains = "generation"
 
 [[cases]]
 name = "decimal_fractional_generation_refused"
@@ -172,7 +172,7 @@ allow = false
 name = "inspection_create_empty_response_is_not_authorization"
 kind = "sql_expect"
 actor = "inspection"
-sql = "CREATE canonical_guards:viewer_forbidden SET key='viewer_forbidden', generation=0dec, incarnation='fixture';"
+sql = "CREATE canonical_guards:viewer_forbidden SET key='viewer_forbidden', generation=0u64, incarnation='fixture';"
 allow = true
 [[cases.assertions]]
 path = ""

@@ -27,7 +27,7 @@ DEFINE FUNCTION fn::pse_workbench_v1::capture_facts($rpc_expiry:int,$key:string,
     FOR $s IN $rows { fn::pse_execution_v1::register($rpc_expiry,'history:study:'+$s.key); };
     LET $retired=$rows.filter(|$s| (SELECT * FROM ONLY type::record('canonical_history_retirements','study:'+$s.key) FOR UPDATE)!=NONE);
     IF array::len($retired)!=0 { RETURN {refusal:'history_explicitly_retired_detailed_response_unavailable',headers:[],members:[],protections:[]}; };
-    LET $total=math::sum($rows.point_count) ?? 0dec;
+    LET $total=math::sum($rows.point_count) ?? 0u64;
     IF array::len($rows.filter(|$s| !$s.active))!=0 OR $total>$members { RETURN {refusal:'study_workbench_narrow_selection',headers:[],members:[],protections:[]}; };
     LET $selected_headers=$rows.map(|$s,$index| {
         LET $run=SELECT problem,revision,terminal_attempt,terminal_class FROM ONLY type::record('canonical_runs',$s.run);
@@ -36,7 +36,7 @@ DEFINE FUNCTION fn::pse_workbench_v1::capture_facts($rpc_expiry:int,$key:string,
         LET $available=$manifest!=NONE AND $manifest.attempt=$run.terminal_attempt AND (SELECT key FROM ONLY type::record('canonical_result_retirements',$s.run))=NONE;
         LET $header=object::extend($s,{result_attempt:$run.terminal_attempt,outcome:$run.terminal_class});
         LET $protection=IF !$available {NONE} ELSE {{id:type::record('canonical_study_capture_protections',fn::pse_workbench_v1::protection_key($key,$s.key,$attempt.key)),key:fn::pse_workbench_v1::protection_key($key,$s.key,$attempt.key),capture:$key,study:$s.key,run:$s.run,attempt:$attempt.key,manifest:$manifest.key,problem:$run.problem,revision:$run.revision}};
-        RETURN {row:{id:type::record('canonical_study_capture_headers',$key+':'+<string>$index),key:$key+':'+<string>$index,capture:$key,ordinal:<decimal>$index,body:encoding::cbor::encode($header)},protection:$protection};
+        RETURN {row:{id:type::record('canonical_study_capture_headers',$key+':'+<string>$index),key:$key+':'+<string>$index,capture:$key,ordinal:<u64>$index,body:encoding::cbor::encode($header)},protection:$protection};
     });
     LET $headers=$selected_headers.row;
     LET $selected=$rows.key;
@@ -47,7 +47,7 @@ DEFINE FUNCTION fn::pse_workbench_v1::capture_facts($rpc_expiry:int,$key:string,
         LET $manifest=IF $attempt=NONE OR $attempt.run!=$point.run OR $attempt.phase NOT IN ['terminal','terminal_compacted'] OR $attempt.closed_manifest=NONE {NONE} ELSE {SELECT key,attempt FROM ONLY type::record('canonical_result_manifests',$attempt.closed_manifest)};
         LET $available=$manifest!=NONE AND $manifest.attempt=$point.attempt AND (SELECT key FROM ONLY type::record('canonical_result_retirements',$point.run))=NONE;
         LET $member=object::extend($point,{manifest:IF $available {$manifest.key} ELSE {NONE}});
-        RETURN {id:type::record('canonical_study_capture_members',$key+':'+<string>$index),key:$key+':'+<string>$index,capture:$key,ordinal:<decimal>$index,body:encoding::cbor::encode($member),study:$point.study,run:$point.run,attempt:$point.attempt,manifest:IF $available {$manifest.key} ELSE {NONE}};
+        RETURN {id:type::record('canonical_study_capture_members',$key+':'+<string>$index),key:$key+':'+<string>$index,capture:$key,ordinal:<u64>$index,body:encoding::cbor::encode($member),study:$point.study,run:$point.run,attempt:$point.attempt,manifest:IF $available {$manifest.key} ELSE {NONE}};
     });
     LET $member_protections=$facts.filter(|$fact| $fact.manifest!=NONE).map(|$fact| {
         LET $run=SELECT problem,revision FROM ONLY type::record('canonical_runs',$fact.run);

@@ -445,7 +445,7 @@ fn metadata_bindings(
     };
     let mut bindings = vec![(
         "edit",
-        Value::Object(wire::encode_canonical_staged_edits(&row)?),
+        Value::Object(wire::create_canonical_staged_edits(&(&row).into())?),
     )];
     if let Some(version) = &change.version {
         let manifest = pse_model::generated::runtime::canonical_version_manifests::Row {
@@ -466,11 +466,13 @@ fn metadata_bindings(
         };
         bindings.push((
             "manifest",
-            Value::Object(wire::encode_canonical_version_manifests(&manifest)?),
+            Value::Object(wire::create_canonical_version_manifests(
+                &(&manifest).into(),
+            )?),
         ));
         bindings.push((
             "receipt",
-            Value::Object(wire::encode_canonical_version_receipts(&receipt)?),
+            Value::Object(wire::create_canonical_version_receipts(&(&receipt).into())?),
         ));
     }
     Ok(bindings)
@@ -484,7 +486,9 @@ fn source_block(version: &str, ordinal: u64, payload: &[u8]) -> Result<Value, Ca
         payload: payload.to_vec().into(),
         digest: payload_digest(payload),
     };
-    Ok(Value::Object(wire::encode_canonical_payload_blocks(&row)?))
+    Ok(Value::Object(wire::create_canonical_payload_blocks(
+        &(&row).into(),
+    )?))
 }
 
 fn source_edge(
@@ -500,7 +504,7 @@ fn source_edge(
         target_scope: scope.into(),
         target_name: name.into(),
     };
-    Ok(Value::Object(wire::encode_canonical_edges(&row)?))
+    Ok(Value::Object(wire::create_canonical_edges(&(&row).into())?))
 }
 
 fn staging_item(
@@ -650,7 +654,7 @@ impl CanonicalStore {
     ) -> Result<(), CanonicalError> {
         self.ensure_writes()?;
         self.protected_query(&stage.problem, crate::canonical::QueryEffect::Mutation, "canonical_staging::abandon_source_stage", || Ok(
-            self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Value>("LET $retention=type::record('canonical_guards','retention:'+$problem); SELECT * FROM $retention FOR UPDATE; LET $guard=type::record('canonical_guards','stage:'+$operation); SELECT * FROM $guard FOR UPDATE; LET $stage=SELECT * FROM ONLY type::record('canonical_stages',$operation); IF $stage!=NONE AND $stage.problem=$problem AND $stage.generation=$generation AND !$stage.activated { UPDATE ONLY type::record('canonical_stages',$operation) SET abandoned=true,closed=false,generation+=1dec; UPSERT $guard SET key='stage:'+$operation,generation=(generation ?? 0dec)+1dec; };","true")?)
+            self.db.script(GuardedScript::new(Envelope::DeadlineOnly).returning::<Value>("LET $retention=type::record('canonical_guards','retention:'+$problem); SELECT * FROM $retention FOR UPDATE; LET $guard=type::record('canonical_guards','stage:'+$operation); SELECT * FROM $guard FOR UPDATE; LET $stage=SELECT * FROM ONLY type::record('canonical_stages',$operation); IF $stage!=NONE AND $stage.problem=$problem AND $stage.generation=$generation AND !$stage.activated { UPDATE ONLY type::record('canonical_stages',$operation) SET abandoned=true,closed=false,generation+=1u64; UPSERT $guard SET key='stage:'+$operation,generation=(generation ?? 0u64)+1u64; };","true")?)
                 .bind(("problem", stage.problem.clone())).bind(("operation", stage.operation.clone()))
                 .bind(("generation", canonical_codec::encode_uint(stage.generation)?))
         )).await?.check()?;
@@ -1942,15 +1946,18 @@ IF $product_stage = false AND ($head.head ?? NONE) != $expected { THROW 'PSE_REF
 IF $busy = false {
 UPSERT type::record('canonical_stages', $operation) SET key = $operation, problem = $problem, expected_head = $expected, request_digest = $request_digest,
     expires_at = time::micros() + $lifetime, closed = false, activated = false, edit_count = $edit_count,
-    generation = ($old.generation ?? 0dec) + 1dec, abandoned = false, cleanup_complete = false;
-UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
+    generation = ($old.generation ?? 0u64) + 1u64, abandoned = false, cleanup_complete = false;
+UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0u64) + 1u64;
 fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
 };
 LET $pse_rpc_result = IF $busy { {acquired:false} } ELSE { {acquired:true, stage:(SELECT * FROM ONLY type::record('canonical_stages', $operation))} };
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 "#;
 
-const STAGE_METADATA_VERSION: &str = r#"LET $version_guard = type::record('canonical_guards', 'version:' + $manifest.key);
+const STAGE_METADATA_VERSION: &str = r#"LET $manifest = <pse_canonical_version_manifests_create>$manifest;
+LET $receipt = <pse_canonical_version_receipts_create>$receipt;
+LET $edit = <pse_canonical_staged_edits_create>$edit;
+LET $version_guard = type::record('canonical_guards', 'version:' + $manifest.key);
 SELECT * FROM $version_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $identity = SELECT * FROM ONLY type::record('canonical_version_receipts', $receipt.key);
 IF $identity != NONE AND $identity.content_digest != $receipt.content_digest { THROW 'PSE_REFUSAL:immutable_version_identity_reused'; };
@@ -1961,28 +1968,31 @@ ELSE IF $header.logical != $manifest.logical OR $header.kind != $manifest.kind O
 LET $old_edit = SELECT * FROM ONLY type::record('canonical_staged_edits', $edit.key);
 IF $old_edit = NONE { CREATE type::record('canonical_staged_edits', $edit.key) CONTENT $edit; }
 ELSE IF $old_edit.stage != $edit.stage OR $old_edit.ordinal != $edit.ordinal OR $old_edit.logical != $edit.logical OR $old_edit.scope != $edit.scope OR $old_edit.name != $edit.name OR ($old_edit.version ?? NONE) != ($edit.version ?? NONE) { THROW 'PSE_REFUSAL:immutable_stage_metadata_reused'; };
-UPSERT $version_guard SET key = 'version:' + $manifest.key, generation = (generation ?? 0dec) + 1dec;"#;
+UPSERT $version_guard SET key = 'version:' + $manifest.key, generation = (generation ?? 0u64) + 1u64;"#;
 
-const STAGE_METADATA_REMOVAL: &str = r#"LET $old_edit = SELECT * FROM ONLY type::record('canonical_staged_edits', $edit.key);
+const STAGE_METADATA_REMOVAL: &str = r#"LET $edit = <pse_canonical_staged_edits_create>$edit;
+LET $old_edit = SELECT * FROM ONLY type::record('canonical_staged_edits', $edit.key);
 IF $old_edit = NONE { CREATE type::record('canonical_staged_edits', $edit.key) CONTENT $edit; }
 ELSE IF $old_edit.stage != $edit.stage OR $old_edit.ordinal != $edit.ordinal OR $old_edit.logical != $edit.logical OR $old_edit.scope != $edit.scope OR $old_edit.name != $edit.name OR ($old_edit.version ?? NONE) != NONE { THROW 'PSE_REFUSAL:immutable_stage_metadata_reused'; };"#;
 
-const STAGE_BLOCK: &str = r#"LET $version_guard = type::record('canonical_guards', 'version:' + $block.version);
+const STAGE_BLOCK: &str = r#"LET $block = <pse_canonical_payload_blocks_create>$block;
+LET $version_guard = type::record('canonical_guards', 'version:' + $block.version);
 SELECT * FROM $version_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $header = SELECT * FROM ONLY type::record('canonical_version_manifests', $block.version);
-IF $header = NONE OR $block.ordinal >= $header.block_count OR bytes::len($block.payload) != math::min([524288dec, $header.payload_len - $block.ordinal * 524288dec]) { THROW 'PSE_REFUSAL:source_block_outside_declared_manifest'; };
+IF $header = NONE OR $block.ordinal >= $header.block_count OR bytes::len($block.payload) != math::min([524288u64, $header.payload_len - $block.ordinal * 524288u64]) { THROW 'PSE_REFUSAL:source_block_outside_declared_manifest'; };
 LET $old_block = SELECT * FROM ONLY type::record('canonical_payload_blocks', $block.key);
 IF $old_block = NONE {
     IF $header.closed { THROW 'PSE_REFUSAL:closed_source_block_unavailable'; };
     CREATE type::record('canonical_payload_blocks', $block.key) CONTENT $block RETURN NONE;
 } ELSE IF $old_block.version != $block.version OR $old_block.ordinal != $block.ordinal OR $old_block.digest != $block.digest OR $old_block.payload != $block.payload { THROW 'PSE_REFUSAL:immutable_source_block_reused'; };
-UPSERT $version_guard SET key = 'version:' + $block.version, generation = (generation ?? 0dec) + 1dec;"#;
+UPSERT $version_guard SET key = 'version:' + $block.version, generation = (generation ?? 0u64) + 1u64;"#;
 
 const STAGE_EDGES: &str = r#"LET $version_guard = type::record('canonical_guards', 'version:' + $version);
 SELECT * FROM $version_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $header = SELECT * FROM ONLY type::record('canonical_version_manifests', $version);
 IF $header = NONE { THROW 'PSE_REFUSAL:source_manifest_unavailable'; };
 FOR $edge IN $edges {
+    LET $edge = <pse_canonical_edges_create>$edge;
     IF $edge.source_version != $version OR $edge.ordinal >= $header.reference_count { THROW 'PSE_REFUSAL:reference_outside_declared_manifest'; };
     LET $old_edge = SELECT * FROM ONLY type::record('canonical_edges', $edge.key);
     IF $old_edge = NONE {
@@ -1990,7 +2000,7 @@ FOR $edge IN $edges {
         CREATE type::record('canonical_edges', $edge.key) CONTENT $edge;
     } ELSE IF $old_edge.source_version != $edge.source_version OR $old_edge.ordinal != $edge.ordinal OR $old_edge.target_scope != $edge.target_scope OR $old_edge.target_name != $edge.target_name { THROW 'PSE_REFUSAL:immutable_structural_reference_reused'; };
 };
-UPSERT $version_guard SET key = 'version:' + $version, generation = (generation ?? 0dec) + 1dec;"#;
+UPSERT $version_guard SET key = 'version:' + $version, generation = (generation ?? 0u64) + 1u64;"#;
 
 const CLOSE_VERSION: &str = r#"LET $version_guard = type::record('canonical_guards', 'version:' + $version);
 SELECT * FROM $version_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
@@ -2000,7 +2010,7 @@ LET $blocks = SELECT count() AS n FROM canonical_payload_blocks WITH INDEX paylo
 LET $references = SELECT count() AS n FROM canonical_edges WITH INDEX edge_source WHERE source_version = $version GROUP ALL;
 IF ($blocks[0].n ?? 0) != $header.block_count OR ($references[0].n ?? 0) != $header.reference_count { THROW 'PSE_REFUSAL:immutable_source_manifest_incomplete'; };
 UPDATE type::record('canonical_version_manifests', $version) SET closed = true;
-UPSERT $version_guard SET key = 'version:' + $version, generation = (generation ?? 0dec) + 1dec;"#;
+UPSERT $version_guard SET key = 'version:' + $version, generation = (generation ?? 0u64) + 1u64;"#;
 
 const CLOSE_STAGE: &str = r#"LET $edits = SELECT * FROM canonical_staged_edits WHERE stage = $operation ORDER BY ordinal LIMIT /* EDIT_SCAN_LIMIT */;
 IF array::len($edits) != $lease.edit_count OR array::len($edits) > /* EDIT_LIMIT */ { THROW 'PSE_REFUSAL:staged_metadata_manifest_incomplete'; };
@@ -2060,7 +2070,7 @@ impl CanonicalStore {
             let key =
                 canonical_codec::decode_string(canonical_codec::required(&mut child, "key")?)?;
             let query = format!(
-                "LET $child = SELECT * FROM ONLY type::record('canonical_staged_edits', $child_key);\nLET $result = IF $eligible = false OR $child = NONE OR $child.stage != $operation {{ {{edit:false, version:false, blocks:0dec, edges:0dec, pending:false}} }} ELSE {{\nLET $version = $child.version ?? NONE;\nLET $excluded_membership = NONE;\nLET $excluded_stage = $operation;\nLET $physical = IF $version = NONE {{ {{version:false, blocks:0dec, edges:0dec, pending:false}} }} ELSE {{\n{DELETE_VERSION}\n$deleted\n}};\nLET $keep = $child.scope IN ['pse.body-content.v1','pse.selection-receipt.v1'] AND array::len((SELECT key FROM canonical_product_associations WHERE (content = $version OR receipt = $version) AND type::record('canonical_roots',key).owner_kind = 'product' AND type::record('canonical_roots',key).owner = key AND type::record('canonical_roots',key).problem = problem AND type::record('canonical_roots',key).revision = revision LIMIT 1)) != 0;\nIF $physical.pending = false AND $keep = false {{ DELETE ONLY type::record('canonical_staged_edits', $child_key); }};\n{{edit:!$physical.pending AND !$keep, version:$physical.version, blocks:$physical.blocks, edges:$physical.edges, pending:$physical.pending}}\n}};\nLET $pse_rpc_result = $result;"
+                "LET $child = SELECT * FROM ONLY type::record('canonical_staged_edits', $child_key);\nLET $result = IF $eligible = false OR $child = NONE OR $child.stage != $operation {{ {{edit:false, version:false, blocks:0u64, edges:0u64, pending:false}} }} ELSE {{\nLET $version = $child.version ?? NONE;\nLET $excluded_membership = NONE;\nLET $excluded_stage = $operation;\nLET $physical = IF $version = NONE {{ {{version:false, blocks:0u64, edges:0u64, pending:false}} }} ELSE {{\n{DELETE_VERSION}\n$deleted\n}};\nLET $keep = $child.scope IN ['pse.body-content.v1','pse.selection-receipt.v1'] AND array::len((SELECT key FROM canonical_product_associations WHERE (content = $version OR receipt = $version) AND type::record('canonical_roots',key).owner_kind = 'product' AND type::record('canonical_roots',key).owner = key AND type::record('canonical_roots',key).problem = problem AND type::record('canonical_roots',key).revision = revision LIMIT 1)) != 0;\nIF $physical.pending = false AND $keep = false {{ DELETE ONLY type::record('canonical_staged_edits', $child_key); }};\n{{edit:!$physical.pending AND !$keep, version:$physical.version, blocks:$physical.blocks, edges:$physical.edges, pending:$physical.pending}}\n}};\nLET $pse_rpc_result = $result;"
             );
             let mut decision = self
                 .cleanup_stage_query(problem, &operation, &query, Some(&key),CleanupFence::AfterBody)

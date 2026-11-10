@@ -12,7 +12,7 @@ DEFINE FUNCTION fn::pse_context_v1::available($expiry:int,$revision:string) -> b
     LET $lost=SELECT key FROM canonical_reclaimed_ranges WHERE problem=$r.problem AND from_sequence<=$r.sequence AND to_sequence>$r.sequence LIMIT 1;
     IF array::len($lost)!=0 {THROW 'PSE_REFUSAL:project_context_unavailable';}; RETURN true;
 };
-DEFINE FUNCTION fn::pse_context_v1::append($expiry:int,$row:object,$generation:decimal) -> object {
+DEFINE FUNCTION fn::pse_context_v1::append($expiry:int,$row:object,$generation:u64) -> object {
     fn::pse_execution_v1::deadline($expiry);
     LET $old=SELECT * FROM ONLY type::record('canonical_project_contexts',$row.key);
     IF $old!=NONE { IF $old.request!=$row.request {THROW 'PSE_REFUSAL:project_operation_identity_changed';}; RETURN $old; };
@@ -31,15 +31,15 @@ DEFINE FUNCTION fn::pse_context_v1::append($expiry:int,$row:object,$generation:d
     fn::pse_project_v1::root($expiry,$row.revision,'project-context:'+$row.key);
     fn::pse_project_v1::root($expiry,$row.physical_revision,'project-context-physical:'+$row.key);
     LET $journal=SELECT * FROM ONLY type::record('canonical_context_journals',$row.project) FOR UPDATE;
-    LET $sequence=($journal.sequence ?? 0dec)+1dec;
+    LET $sequence=($journal.sequence ?? 0u64)+1u64;
     UPSERT ONLY type::record('canonical_context_journals',$row.project) CONTENT {key:$row.project,sequence:$sequence};
     LET $new=CREATE ONLY type::record('canonical_project_contexts',$row.key) CONTENT object::extend($row,{recorded_sequence:$sequence});
     fn::pse_execution_v1::deadline($expiry); RETURN $new;
 };
-DEFINE FUNCTION fn::pse_context_v1::select($expiry:int,$project:string,$scope:string,$effective:int,$cut:decimal) -> option<object> {
+DEFINE FUNCTION fn::pse_context_v1::select($expiry:int,$project:string,$scope:string,$effective:int,$cut:u64) -> option<object> {
     fn::pse_execution_v1::deadline($expiry);
     LET $journal=SELECT * FROM ONLY type::record('canonical_context_journals',$project);
-    IF $cut>($journal.sequence ?? 0dec) {THROW 'PSE_REFUSAL:project_context_invalid';};
+    IF $cut>($journal.sequence ?? 0u64) {THROW 'PSE_REFUSAL:project_context_invalid';};
     LET $candidates=SELECT * FROM canonical_project_contexts WITH INDEX project_context_scope WHERE project=$project AND scope=$scope AND recorded_sequence<=$cut AND effective_from_us<=$effective AND (effective_to_us=NONE OR effective_to_us>$effective) LIMIT 257;
     IF array::len($candidates)>256 {THROW 'PSE_REFUSAL:project_context_bound';};
     LET $superseded=SELECT VALUE ancestor FROM canonical_context_ancestry WITH INDEX project_context_ancestor WHERE descendant IN $candidates.key LIMIT 65537;

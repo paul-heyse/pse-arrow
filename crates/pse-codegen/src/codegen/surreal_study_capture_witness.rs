@@ -13,7 +13,7 @@ pub(super) fn append(ddl: &mut String) {
          DEFINE FUNCTION fn::pse_workbench_v1::changed() -> bool {\n\
          LET $witness=SELECT * FROM ONLY type::record('canonical_guards','study-publication') FOR UPDATE;\n\
          IF $witness=NONE { THROW 'PSE_REFUSAL:study_capture_publication_witness_unavailable'; };\n\
-         UPDATE ONLY type::record('canonical_guards','study-publication') SET generation+=1dec RETURN NONE;\n\
+         UPDATE ONLY type::record('canonical_guards','study-publication') SET generation+=1u64 RETURN NONE;\n\
          RETURN true;\n} PERMISSIONS NONE;\n",
     );
     for (table, fields) in [

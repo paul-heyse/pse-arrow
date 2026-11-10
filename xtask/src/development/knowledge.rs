@@ -728,7 +728,7 @@ fn prepare(corpus: &KnowledgeCorpus) -> Result<Prepared, EvidenceError> {
         ($table:literal,$key:expr,$encode:ident,$row:expr) => {{
             rows.get_mut($table)
                 .ok_or_else(|| invalid("family absent"))?
-                .push(($key, wire::$encode(&$row)?));
+                .push(($key, wire::$encode(&(&$row).into())?));
         }};
     }
     for source in &corpus.sources {
@@ -736,7 +736,7 @@ fn prepare(corpus: &KnowledgeCorpus) -> Result<Prepared, EvidenceError> {
         push!(
             "knowledge_sources",
             key.clone(),
-            encode_knowledge_sources,
+            create_knowledge_sources,
             knowledge_sources::Row {
                 key,
                 generation: generation.clone(),
@@ -756,7 +756,7 @@ fn prepare(corpus: &KnowledgeCorpus) -> Result<Prepared, EvidenceError> {
         push!(
             "knowledge_subjects",
             key.clone(),
-            encode_knowledge_subjects,
+            create_knowledge_subjects,
             knowledge_subjects::Row {
                 key: key.clone(),
                 generation: generation.clone(),
@@ -786,7 +786,7 @@ fn prepare(corpus: &KnowledgeCorpus) -> Result<Prepared, EvidenceError> {
             push!(
                 "knowledge_subject_sources",
                 key_link.clone(),
-                encode_knowledge_subject_sources,
+                create_knowledge_subject_sources,
                 knowledge_subject_sources::Row {
                     key: key_link,
                     generation: generation.clone(),
@@ -801,7 +801,7 @@ fn prepare(corpus: &KnowledgeCorpus) -> Result<Prepared, EvidenceError> {
             push!(
                 "knowledge_subject_topics",
                 key_link.clone(),
-                encode_knowledge_subject_topics,
+                create_knowledge_subject_topics,
                 knowledge_subject_topics::Row {
                     key: key_link,
                     generation: generation.clone(),
@@ -817,7 +817,7 @@ fn prepare(corpus: &KnowledgeCorpus) -> Result<Prepared, EvidenceError> {
         push!(
             "knowledge_excerpts",
             key.clone(),
-            encode_knowledge_excerpts,
+            create_knowledge_excerpts,
             knowledge_excerpts::Row {
                 key,
                 generation: generation.clone(),
@@ -839,7 +839,7 @@ fn prepare(corpus: &KnowledgeCorpus) -> Result<Prepared, EvidenceError> {
         push!(
             "knowledge_subject_edges",
             key.clone(),
-            encode_knowledge_subject_edges,
+            create_knowledge_subject_edges,
             knowledge_subject_edges::Row {
                 key,
                 generation: generation.clone(),
@@ -856,7 +856,7 @@ fn prepare(corpus: &KnowledgeCorpus) -> Result<Prepared, EvidenceError> {
         push!(
             "knowledge_productions",
             key.clone(),
-            encode_knowledge_productions,
+            create_knowledge_productions,
             knowledge_productions::Row {
                 key,
                 generation: generation.clone(),
@@ -888,7 +888,7 @@ fn prepare(corpus: &KnowledgeCorpus) -> Result<Prepared, EvidenceError> {
     };
     Ok(Prepared {
         generation,
-        header: wire::encode_knowledge_generations(&header)?,
+        header: wire::create_knowledge_generations(&(&header).into())?,
         rows: rows
             .into_iter()
             .map(|(table, rows)| (table, ordered(rows)))

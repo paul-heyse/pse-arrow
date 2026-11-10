@@ -408,7 +408,7 @@ IF $lease = NONE OR $lease.problem != $problem OR $lease.generation != $generati
 
 pub(crate) const STAGE_END: &str = r#"IF $lease.expires_at <= time::micros() { THROW 'PSE_REFUSAL:staging_lease_expired_before_renewal'; };
 UPDATE type::record('canonical_stages', $operation) SET expires_at = time::micros() + $lifetime;
-UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
+UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0u64) + 1u64;
 fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 IF $lease.expires_at <= time::micros() { THROW 'PSE_REFUSAL:staging_lease_expired_before_commit'; };
@@ -425,7 +425,7 @@ IF $lease = NONE OR $lease.problem != $problem OR $lease.generation != $generati
 pub(crate) const CLOSE_STAGE_END: &str = r#"IF $lease.closed = false AND $lease.expires_at <= time::micros() { THROW 'PSE_REFUSAL:staging_close_lease_expired'; };
 IF $lease.closed = false {
     UPDATE type::record('canonical_stages', $operation) SET expires_at = time::micros() + $lifetime;
-    UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
+    UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0u64) + 1u64;
     fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
 };
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
@@ -440,10 +440,10 @@ LET $stage_guard = type::record('canonical_guards', 'stage:' + $operation);
 SELECT * FROM $stage_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 LET $lease = SELECT * FROM ONLY type::record('canonical_stages', $operation);
 LET $eligible = $lease != NONE AND $lease.problem = $problem AND ($lease.activated OR $lease.abandoned OR $lease.expires_at <= time::micros());
-IF $eligible AND $lease.activated = false { UPDATE type::record('canonical_stages', $operation) SET abandoned = true, closed = false, generation = generation + 1dec; };"#;
+IF $eligible AND $lease.activated = false { UPDATE type::record('canonical_stages', $operation) SET abandoned = true, closed = false, generation = generation + 1u64; };"#;
 
-pub(crate) const CLEANUP_STAGE_END: &str = r#"UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
-UPSERT $retention_guard SET key='retention:'+$problem,generation=(generation ?? 0dec)+1dec;"#;
+pub(crate) const CLEANUP_STAGE_END: &str = r#"UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0u64) + 1u64;
+UPSERT $retention_guard SET key='retention:'+$problem,generation=(generation ?? 0u64)+1u64;"#;
 
 #[cfg(test)]
 mod tests {

@@ -18,7 +18,7 @@ DEFINE FUNCTION fn::pse_maintenance_v1::claim($expiry:int,$operation:string,$gen
     LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE;
     IF $gate=NONE OR !$gate.frozen OR !$gate.gc_frozen OR $gate.storage_incarnation NOT IN [$source,$target] { THROW 'PSE_REFUSAL:maintenance_frozen_placement_required'; };
     LET $resume=$old!=NONE AND $old.operation=$operation AND $old.phase=$phase AND $old.source=$source AND $old.target=$target;
-    UPSERT canonical_maintenance_operations:current SET key='current',operation=$operation,generation=$generation,phase=$phase,source=$source,target=$target,kind='generation',after='',next=IF $resume { $old.next } ELSE { '' },count=0dec,complete=false;
+    UPSERT canonical_maintenance_operations:current SET key='current',operation=$operation,generation=$generation,phase=$phase,source=$source,target=$target,kind='generation',after='',next=IF $resume { $old.next } ELSE { '' },count=0u64,complete=false;
     fn::pse_execution_v1::deadline($expiry);
     RETURN {operation:$operation,generation:$generation,phase:$phase};
 };
@@ -58,7 +58,7 @@ DEFINE FUNCTION fn::pse_maintenance_v1::page($expiry:int,$operation:string,$gene
         SELECT * FROM canonical_file_instances WHERE key>$after ORDER BY key LIMIT 64;
     };
     FOR $row IN $rows {
-        IF $kind='rotate' { UPDATE ONLY $row.id SET incarnation=<string>rand::uuid::v4(),generation=generation+1dec RETURN NONE; }
+        IF $kind='rotate' { UPDATE ONLY $row.id SET incarnation=<string>rand::uuid::v4(),generation=generation+1u64 RETURN NONE; }
         ELSE {
             IF $row.storage_incarnation NOT IN [$owner.source,$owner.target] { THROW 'PSE_REFUSAL:maintenance_original_inputs_differ'; };
             UPDATE ONLY $row.id SET storage_incarnation=$owner.target RETURN NONE;
@@ -66,7 +66,7 @@ DEFINE FUNCTION fn::pse_maintenance_v1::page($expiry:int,$operation:string,$gene
     };
     LET $next=array::last($rows.key) ?? $after;
     LET $count=array::len($rows);
-    CREATE ONLY type::record('canonical_maintenance_operations',$key) SET key=$key,operation=$operation,generation=$generation,phase=$phase,source=$owner.source,target=$owner.target,kind=$kind,after=$after,next=$next,count=<decimal>$count,complete=$count=0;
+    CREATE ONLY type::record('canonical_maintenance_operations',$key) SET key=$key,operation=$operation,generation=$generation,phase=$phase,source=$owner.source,target=$owner.target,kind=$kind,after=$after,next=$next,count=<u64>$count,complete=$count=0;
     UPDATE ONLY canonical_maintenance_operations:current SET next=$next,kind=$kind,complete=$count=0 RETURN NONE;
     fn::pse_execution_v1::deadline($expiry);
     RETURN {count:$count,after:$next,complete:$count=0};
@@ -93,7 +93,7 @@ DEFINE FUNCTION fn::pse_maintenance_v1::validation_reads($expiry:int,$operation:
 };
 DEFINE FUNCTION fn::pse_maintenance_v1::activate($expiry:int,$predecessor:option<object>,$interpretation:string,$schema_digest:string,$study_module_sha256:string,$issuing:string,$payload_incarnation:string,$nonce:string,$input_sha256:string,$predecessor_bytes:bytes) -> bool {
     LET $witness=SELECT * FROM ONLY type::record('canonical_guards','study-publication') FOR UPDATE;
-    IF $witness=NONE { CREATE ONLY type::record('canonical_guards','study-publication') SET key='study-publication',generation=0dec,incarnation=<string>rand::uuid::v4(); };
+    IF $witness=NONE { CREATE ONLY type::record('canonical_guards','study-publication') SET key='study-publication',generation=0u64,incarnation=<string>rand::uuid::v4(); };
     fn::pse_execution_v1::deadline($expiry); LET $old=SELECT * FROM ONLY canonical_interpretations:current FOR UPDATE; LET $receipt=SELECT * FROM ONLY type::record('canonical_maintenance_activations',$nonce) FOR UPDATE; IF $receipt!=NONE { THROW 'PSE_REFUSAL:activation_operation_already_exists_settle_exact_receipt'; }; IF ($predecessor=NONE AND $old!=NONE) OR ($predecessor!=NONE AND ($old.interpretation!=$predecessor.interpretation OR $old.schema_digest!=$predecessor.schema_digest OR $old.study_module_sha256!=$predecessor.study_module_sha256 OR $old.issuing_store!=$predecessor.issuing_store)) { THROW 'PSE_REFUSAL:activation_predecessor_changed'; }; IF $old!=NONE AND $old.study_module_sha256!=$study_module_sha256 {THROW 'PSE_REFUSAL:activation_predecessor_changed';}; IF $old!=NONE AND $old.payload_incarnation!=$payload_incarnation { THROW 'PSE_REFUSAL:activation_payload_incarnation_differs'; }; LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE; IF $gate!=NONE AND $gate.storage_incarnation!=$payload_incarnation { THROW 'PSE_REFUSAL:activation_file_placement_differs'; }; IF $gate=NONE { CREATE canonical_file_admission:current SET key='current',storage_incarnation=$payload_incarnation,frozen=false,gc_frozen=false; }; UPSERT canonical_interpretations:current SET key='current', interpretation=$interpretation, schema_digest=$schema_digest,study_module_sha256=$study_module_sha256, issuing_store=$issuing,payload_incarnation=$payload_incarnation; CREATE ONLY type::record('canonical_maintenance_activations',$nonce) SET key=$nonce,input_sha256=$input_sha256,predecessor=$predecessor_bytes,interpretation=$interpretation,schema_digest=$schema_digest,study_module_sha256=$study_module_sha256,issuing_store=$issuing; fn::pse_execution_v1::deadline($expiry);
     RETURN true;
 };
@@ -131,7 +131,7 @@ DEFINE FUNCTION fn::pse_schema_v1::close($expiry:int,$expected:object,$operation
     IF $old!=NONE AND $old.kind='schema' AND $old.operation=$operation AND $old.generation=$generation AND $old.after=$request AND $old.target=$target AND !$old.complete AND $marker.admission_open=false { RETURN $old; };
     IF $marker.admission_open!=true OR ($old!=NONE AND !$old.complete) { THROW 'PSE_REFUSAL:schema_migration_original_differs'; };
     UPDATE ONLY canonical_interpretations:current SET admission_open=false RETURN NONE;
-    LET $saved=UPSERT ONLY canonical_maintenance_operations:current SET key='current',operation=$operation,generation=$generation,phase='schema-draining',source=$expected.schema_digest,target=$target,kind='schema',after=$request,next=$expected.schema_epoch,count=0dec,complete=false;
+    LET $saved=UPSERT ONLY canonical_maintenance_operations:current SET key='current',operation=$operation,generation=$generation,phase='schema-draining',source=$expected.schema_digest,target=$target,kind='schema',after=$request,next=$expected.schema_epoch,count=0u64,complete=false;
     RETURN $saved;
 } PERMISSIONS NONE;
 DEFINE FUNCTION fn::pse_schema_v1::quiescent($expiry:int,$expected:object,$operation:string,$generation:string,$request:string) -> bool {

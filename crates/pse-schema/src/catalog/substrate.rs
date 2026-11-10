@@ -14,7 +14,7 @@ use arrow_schema::DataType;
 pub const SOURCE_PACKAGE_EDITS: usize = 8_192;
 
 /// Exact schema/codec/structural-operation interpretation.
-pub const INTERPRETATION: &str = "pse.substrate.v10";
+pub const INTERPRETATION: &str = "pse.substrate.v11";
 
 /// Native schema admission generation; scientific row interpretation remains v10.
 pub const SCHEMA_VERSION: u64 = 4;
@@ -1079,9 +1079,9 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
                 column("context", text()).canonical_readonly().optional(),
                 column("interpretation", text()).canonical_readonly(),
                 column("point_count", uint()).canonical_readonly(),
-                column("next_ordinal", uint()).with_canonical_assertion("$value>=0dec AND $value<=18446744073709551615dec AND math::floor($value)=$value AND $value<=$this.point_count AND ($before=NONE OR $value>=$before) AND (!$this.active OR $value=$this.point_count)"),
+                column("next_ordinal", uint()).with_canonical_assertion("$value<=$this.point_count AND ($before=NONE OR $value>=$before) AND (!$this.active OR $value=$this.point_count)"),
                 column("dependency_count", uint()).canonical_readonly(),
-                column("installed_dependencies", uint()).with_canonical_assertion("$value>=0dec AND $value<=18446744073709551615dec AND math::floor($value)=$value AND $value<=$this.dependency_count AND ($before=NONE OR $value>=$before) AND (!$this.active OR ($value=$this.dependency_count AND $this.next_ordinal=$this.point_count))"),
+                column("installed_dependencies", uint()).with_canonical_assertion("$value<=$this.dependency_count AND ($before=NONE OR $value>=$before) AND (!$this.active OR ($value=$this.dependency_count AND $this.next_ordinal=$this.point_count))"),
                 column("active", flag()),
                 column("cancelled", flag()),
                 column("generation", uint()),
@@ -1122,7 +1122,7 @@ pub(super) fn declare(builder: &mut RegistryBuilder) {
         ),
         (
             "canonical_study_installations",
-            vec![column("key", text()).canonical_record_key().canonical_readonly(), column("digest", text()).canonical_readonly(), column("generation", uint()).canonical_readonly(), column("phase", FieldContract::enumeration("CanonicalStudyInstallationPhase")).with_canonical_initial("nodes"), column("node_cursor", uint()).with_canonical_assertion("$value>=0dec AND math::floor($value)=$value AND ($before=NONE OR $value>=$before)"), column("edge_cursor", uint()).with_canonical_assertion("$value>=0dec AND math::floor($value)=$value AND ($before=NONE OR $value>=$before)")],
+            vec![column("key", text()).canonical_record_key().canonical_readonly(), column("digest", text()).canonical_readonly(), column("generation", uint()).canonical_readonly(), column("phase", FieldContract::enumeration("CanonicalStudyInstallationPhase")).with_canonical_initial("nodes"), column("node_cursor", uint()).with_canonical_assertion("$before=NONE OR $value>=$before"), column("edge_cursor", uint()).with_canonical_assertion("$before=NONE OR $value>=$before")],
             "Exact immutable population identity and installed frontier, including interrupted installation; retained for replay and backup.",
             crate::model::CanonicalRelation { retention: crate::model::CanonicalRetention::Durable, backup: crate::model::CanonicalBackup::Required, inline_vertex: false, enforced: false, generation_references: false },
         ),

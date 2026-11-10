@@ -13,11 +13,492 @@ pub const RESULT_MESSAGE_BYTES: usize = 4194304usize;
 /// Derived defensive metadata loop ceiling, independent of framing.
 pub const RESULT_INDEX_RECORDS: usize = 18724usize;
 /// Exact interpretation of schema, codec and structural operations.
-pub const INTERPRETATION: &str = "pse.substrate.v10";
+pub const INTERPRETATION: &str = "pse.substrate.v11";
 /// Exact generated schema and codec compatibility identity.
-pub const SCHEMA_DIGEST: &str = "8bd3dd2763906d1b499a470a85ef68092c8d34b5b8e261668bb6b41d980e71a1";
+pub const SCHEMA_DIGEST: &str = "51f28cdb0e36b48475e1663050a182d7ed4ca2c4e982286be9eb5a745c17ca4d";
 /// Registry-derived database declarations.
 pub const SCHEMA: &str = include_str!("surreal.surql");
+/// Mutation of a required value; omission leaves the original unchanged.
+#[derive(Clone, Debug)]
+pub enum NativeUpdate<T> {
+    /// Preserve the original value.
+    Keep,
+    /// Supply the new declared value.
+    Set(T),
+}
+impl<T> Default for NativeUpdate<T> {
+    fn default() -> Self {
+        Self::Keep
+    }
+}
+/// Mutation of an optional value; removal is distinct from omission.
+#[derive(Clone, Debug)]
+pub enum NativeMerge<T> {
+    /// Preserve the original value.
+    Keep,
+    /// Supply a present declared value.
+    Set(T),
+    /// Remove the optional field using native NONE.
+    Remove,
+}
+impl<T> Default for NativeMerge<T> {
+    fn default() -> Self {
+        Self::Keep
+    }
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalAnalysesCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///revision
+    pub r#revision: &'a String,
+    ///method
+    pub r#method: &'a String,
+    ///configuration
+    pub r#configuration: &'a pse_model::Bytes,
+    ///input_digest
+    pub r#input_digest: &'a String,
+    ///primary_problem
+    pub r#primary_problem: &'a String,
+    ///primary_authority
+    pub r#primary_authority: &'a String,
+    ///creation_nonce
+    pub r#creation_nonce: &'a String,
+    ///creation_request_digest
+    pub r#creation_request_digest: &'a String,
+    ///creation_expires_at
+    pub r#creation_expires_at: &'a u64,
+    ///interpretation
+    pub r#interpretation: &'a String,
+    ///node_count
+    pub r#node_count: &'a u64,
+    ///edge_count
+    pub r#edge_count: &'a u64,
+    ///active
+    pub r#active: &'a bool,
+    ///retiring
+    pub r#retiring: &'a bool,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_analyses::RuntimeCanonicalAnalysesRow,
+> for RuntimeCanonicalAnalysesCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_analyses::RuntimeCanonicalAnalysesRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#revision: &row.r#revision,
+            r#method: &row.r#method,
+            r#configuration: &row.r#configuration,
+            r#input_digest: &row.r#input_digest,
+            r#primary_problem: &row.r#primary_problem,
+            r#primary_authority: &row.r#primary_authority,
+            r#creation_nonce: &row.r#creation_nonce,
+            r#creation_request_digest: &row.r#creation_request_digest,
+            r#creation_expires_at: &row.r#creation_expires_at,
+            r#interpretation: &row.r#interpretation,
+            r#node_count: &row.r#node_count,
+            r#edge_count: &row.r#edge_count,
+            r#active: &row.r#active,
+            r#retiring: &row.r#retiring,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalAnalysesMerge {
+    ///revision
+    pub r#revision: NativeUpdate<String>,
+    ///method
+    pub r#method: NativeUpdate<String>,
+    ///configuration
+    pub r#configuration: NativeUpdate<pse_model::Bytes>,
+    ///input_digest
+    pub r#input_digest: NativeUpdate<String>,
+    ///primary_problem
+    pub r#primary_problem: NativeUpdate<String>,
+    ///primary_authority
+    pub r#primary_authority: NativeUpdate<String>,
+    ///creation_nonce
+    pub r#creation_nonce: NativeUpdate<String>,
+    ///creation_request_digest
+    pub r#creation_request_digest: NativeUpdate<String>,
+    ///creation_expires_at
+    pub r#creation_expires_at: NativeUpdate<u64>,
+    ///interpretation
+    pub r#interpretation: NativeUpdate<String>,
+    ///node_count
+    pub r#node_count: NativeUpdate<u64>,
+    ///edge_count
+    pub r#edge_count: NativeUpdate<u64>,
+    ///active
+    pub r#active: NativeUpdate<bool>,
+    ///retiring
+    pub r#retiring: NativeUpdate<bool>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalAnalysesReplace {
+    ///revision
+    pub r#revision: String,
+    ///method
+    pub r#method: String,
+    ///configuration
+    pub r#configuration: pse_model::Bytes,
+    ///input_digest
+    pub r#input_digest: String,
+    ///primary_problem
+    pub r#primary_problem: String,
+    ///primary_authority
+    pub r#primary_authority: String,
+    ///creation_nonce
+    pub r#creation_nonce: String,
+    ///creation_request_digest
+    pub r#creation_request_digest: String,
+    ///creation_expires_at
+    pub r#creation_expires_at: u64,
+    ///interpretation
+    pub r#interpretation: String,
+    ///node_count
+    pub r#node_count: u64,
+    ///edge_count
+    pub r#edge_count: u64,
+    ///active
+    pub r#active: bool,
+    ///retiring
+    pub r#retiring: bool,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_analyses(
+    input: &RuntimeCanonicalAnalysesCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#method;
+        object.insert("method", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#configuration;
+        object
+            .insert(
+                "configuration",
+                crate::canonical_codec::encode_bytes(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#input_digest;
+        object
+            .insert(
+                "input_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#primary_problem;
+        object
+            .insert(
+                "primary_problem",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#primary_authority;
+        object
+            .insert(
+                "primary_authority",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#creation_nonce;
+        object
+            .insert(
+                "creation_nonce",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#creation_request_digest;
+        object
+            .insert(
+                "creation_request_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#creation_expires_at;
+        object
+            .insert("creation_expires_at", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#node_count;
+        object.insert("node_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#edge_count;
+        object.insert("edge_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#active;
+        object.insert("active", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = input.r#retiring;
+        object.insert("retiring", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_analyses(
+    input: &RuntimeCanonicalAnalysesMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#revision {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "revision",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#method {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("method", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#configuration {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "configuration",
+                    crate::canonical_codec::encode_bytes(value.clone())?,
+                );
+        }
+    }
+    match &input.r#input_digest {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "input_digest",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#primary_problem {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "primary_problem",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#primary_authority {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "primary_authority",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#creation_nonce {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "creation_nonce",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#creation_request_digest {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "creation_request_digest",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#creation_expires_at {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "creation_expires_at",
+                    crate::canonical_codec::encode_uint(*value)?,
+                );
+        }
+    }
+    match &input.r#interpretation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "interpretation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#node_count {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("node_count", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#edge_count {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("edge_count", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#active {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("active", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    match &input.r#retiring {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("retiring", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_analyses(
+    input: &RuntimeCanonicalAnalysesReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#method;
+        object.insert("method", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#configuration;
+        object
+            .insert(
+                "configuration",
+                crate::canonical_codec::encode_bytes(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#input_digest;
+        object
+            .insert(
+                "input_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#primary_problem;
+        object
+            .insert(
+                "primary_problem",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#primary_authority;
+        object
+            .insert(
+                "primary_authority",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#creation_nonce;
+        object
+            .insert(
+                "creation_nonce",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#creation_request_digest;
+        object
+            .insert(
+                "creation_request_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#creation_expires_at;
+        object
+            .insert("creation_expires_at", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#node_count;
+        object.insert("node_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#edge_count;
+        object.insert("edge_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#active;
+        object.insert("active", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = &input.r#retiring;
+        object.insert("retiring", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_analyses(
     row: &pse_model::generated::runtime::canonical_analyses::RuntimeCanonicalAnalysesRow,
@@ -144,6 +625,317 @@ pub fn decode_canonical_analyses(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalAnalysisEdgesCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///analysis
+    pub r#analysis: &'a String,
+    ///source
+    pub r#source: &'a String,
+    ///target
+    pub r#target: &'a String,
+    ///kind
+    pub r#kind: &'a String,
+    ///evidence_artifact
+    pub r#evidence_artifact: Option<&'a String>,
+    ///evidence_block
+    pub r#evidence_block: Option<&'a u64>,
+    ///evidence_row
+    pub r#evidence_row: Option<&'a u64>,
+    ///evidence_field
+    pub r#evidence_field: Option<&'a String>,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_analysis_edges::RuntimeCanonicalAnalysisEdgesRow,
+> for RuntimeCanonicalAnalysisEdgesCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_analysis_edges::RuntimeCanonicalAnalysisEdgesRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#analysis: &row.r#analysis,
+            r#source: &row.r#source,
+            r#target: &row.r#target,
+            r#kind: &row.r#kind,
+            r#evidence_artifact: row.r#evidence_artifact.as_ref(),
+            r#evidence_block: row.r#evidence_block.as_ref(),
+            r#evidence_row: row.r#evidence_row.as_ref(),
+            r#evidence_field: row.r#evidence_field.as_ref(),
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalAnalysisEdgesMerge {
+    ///analysis
+    pub r#analysis: NativeUpdate<String>,
+    ///source
+    pub r#source: NativeUpdate<String>,
+    ///target
+    pub r#target: NativeUpdate<String>,
+    ///kind
+    pub r#kind: NativeUpdate<String>,
+    ///evidence_artifact
+    pub r#evidence_artifact: NativeMerge<String>,
+    ///evidence_block
+    pub r#evidence_block: NativeMerge<u64>,
+    ///evidence_row
+    pub r#evidence_row: NativeMerge<u64>,
+    ///evidence_field
+    pub r#evidence_field: NativeMerge<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalAnalysisEdgesReplace {
+    ///analysis
+    pub r#analysis: String,
+    ///source
+    pub r#source: String,
+    ///target
+    pub r#target: String,
+    ///kind
+    pub r#kind: String,
+    ///evidence_artifact
+    pub r#evidence_artifact: Option<String>,
+    ///evidence_block
+    pub r#evidence_block: Option<u64>,
+    ///evidence_row
+    pub r#evidence_row: Option<u64>,
+    ///evidence_field
+    pub r#evidence_field: Option<String>,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_analysis_edges(
+    input: &RuntimeCanonicalAnalysisEdgesCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#analysis;
+        object.insert("analysis", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#source;
+        object.insert("source", crate::canonical_codec::encode_string(value.clone())?);
+        object
+            .insert(
+                "in",
+                crate::canonical_codec::record_link("canonical_analysis_nodes", value),
+            );
+    }
+    {
+        let value = input.r#target;
+        object.insert("target", crate::canonical_codec::encode_string(value.clone())?);
+        object
+            .insert(
+                "out",
+                crate::canonical_codec::record_link("canonical_analysis_nodes", value),
+            );
+    }
+    {
+        let value = input.r#kind;
+        object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#evidence_artifact {
+        object
+            .insert(
+                "evidence_artifact",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    if let Some(value) = input.r#evidence_block {
+        object.insert("evidence_block", crate::canonical_codec::encode_uint(*value)?);
+    }
+    if let Some(value) = input.r#evidence_row {
+        object.insert("evidence_row", crate::canonical_codec::encode_uint(*value)?);
+    }
+    if let Some(value) = input.r#evidence_field {
+        object
+            .insert(
+                "evidence_field",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_analysis_edges(
+    input: &RuntimeCanonicalAnalysisEdgesMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#analysis {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "analysis",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#source {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("source", crate::canonical_codec::encode_string(value.clone())?);
+            object
+                .insert(
+                    "in",
+                    crate::canonical_codec::record_link(
+                        "canonical_analysis_nodes",
+                        value,
+                    ),
+                );
+        }
+    }
+    match &input.r#target {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("target", crate::canonical_codec::encode_string(value.clone())?);
+            object
+                .insert(
+                    "out",
+                    crate::canonical_codec::record_link(
+                        "canonical_analysis_nodes",
+                        value,
+                    ),
+                );
+        }
+    }
+    match &input.r#kind {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#evidence_artifact {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "evidence_artifact",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("evidence_artifact", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#evidence_block {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert("evidence_block", crate::canonical_codec::encode_uint(*value)?);
+        }
+        NativeMerge::Remove => {
+            object.insert("evidence_block", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#evidence_row {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object.insert("evidence_row", crate::canonical_codec::encode_uint(*value)?);
+        }
+        NativeMerge::Remove => {
+            object.insert("evidence_row", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#evidence_field {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "evidence_field",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("evidence_field", surrealdb_types::Value::None);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_analysis_edges(
+    input: &RuntimeCanonicalAnalysisEdgesReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#analysis;
+        object.insert("analysis", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#source;
+        object.insert("source", crate::canonical_codec::encode_string(value.clone())?);
+        object
+            .insert(
+                "in",
+                crate::canonical_codec::record_link("canonical_analysis_nodes", value),
+            );
+    }
+    {
+        let value = &input.r#target;
+        object.insert("target", crate::canonical_codec::encode_string(value.clone())?);
+        object
+            .insert(
+                "out",
+                crate::canonical_codec::record_link("canonical_analysis_nodes", value),
+            );
+    }
+    {
+        let value = &input.r#kind;
+        object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = &input.r#evidence_artifact {
+        object
+            .insert(
+                "evidence_artifact",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    } else {
+        object.insert("evidence_artifact", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#evidence_block {
+        object.insert("evidence_block", crate::canonical_codec::encode_uint(*value)?);
+    } else {
+        object.insert("evidence_block", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#evidence_row {
+        object.insert("evidence_row", crate::canonical_codec::encode_uint(*value)?);
+    } else {
+        object.insert("evidence_row", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#evidence_field {
+        object
+            .insert(
+                "evidence_field",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    } else {
+        object.insert("evidence_field", surrealdb_types::Value::None);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_analysis_edges(
     row: &pse_model::generated::runtime::canonical_analysis_edges::RuntimeCanonicalAnalysisEdgesRow,
@@ -263,6 +1055,150 @@ pub fn decode_canonical_analysis_edges(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalAnalysisInputsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///analysis
+    pub r#analysis: &'a String,
+    ///artifact
+    pub r#artifact: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_analysis_inputs::RuntimeCanonicalAnalysisInputsRow,
+> for RuntimeCanonicalAnalysisInputsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_analysis_inputs::RuntimeCanonicalAnalysisInputsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#analysis: &row.r#analysis,
+            r#artifact: &row.r#artifact,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalAnalysisInputsMerge {
+    ///analysis
+    pub r#analysis: NativeUpdate<String>,
+    ///artifact
+    pub r#artifact: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalAnalysisInputsReplace {
+    ///analysis
+    pub r#analysis: String,
+    ///artifact
+    pub r#artifact: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_analysis_inputs(
+    input: &RuntimeCanonicalAnalysisInputsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#analysis;
+        object.insert("analysis", crate::canonical_codec::encode_string(value.clone())?);
+        object
+            .insert(
+                "in",
+                crate::canonical_codec::record_link("canonical_analyses", value),
+            );
+    }
+    {
+        let value = input.r#artifact;
+        object.insert("artifact", crate::canonical_codec::encode_string(value.clone())?);
+        object
+            .insert(
+                "out",
+                crate::canonical_codec::record_link("canonical_artifacts", value),
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_analysis_inputs(
+    input: &RuntimeCanonicalAnalysisInputsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#analysis {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "analysis",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+            object
+                .insert(
+                    "in",
+                    crate::canonical_codec::record_link("canonical_analyses", value),
+                );
+        }
+    }
+    match &input.r#artifact {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "artifact",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+            object
+                .insert(
+                    "out",
+                    crate::canonical_codec::record_link("canonical_artifacts", value),
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_analysis_inputs(
+    input: &RuntimeCanonicalAnalysisInputsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#analysis;
+        object.insert("analysis", crate::canonical_codec::encode_string(value.clone())?);
+        object
+            .insert(
+                "in",
+                crate::canonical_codec::record_link("canonical_analyses", value),
+            );
+    }
+    {
+        let value = &input.r#artifact;
+        object.insert("artifact", crate::canonical_codec::encode_string(value.clone())?);
+        object
+            .insert(
+                "out",
+                crate::canonical_codec::record_link("canonical_artifacts", value),
+            );
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_analysis_inputs(
     row: &pse_model::generated::runtime::canonical_analysis_inputs::RuntimeCanonicalAnalysisInputsRow,
@@ -334,6 +1270,141 @@ pub fn decode_canonical_analysis_inputs(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalAnalysisNodesCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///analysis
+    pub r#analysis: &'a String,
+    ///semantic
+    pub r#semantic: &'a String,
+    ///kind
+    pub r#kind: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_analysis_nodes::RuntimeCanonicalAnalysisNodesRow,
+> for RuntimeCanonicalAnalysisNodesCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_analysis_nodes::RuntimeCanonicalAnalysisNodesRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#analysis: &row.r#analysis,
+            r#semantic: &row.r#semantic,
+            r#kind: &row.r#kind,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalAnalysisNodesMerge {
+    ///analysis
+    pub r#analysis: NativeUpdate<String>,
+    ///semantic
+    pub r#semantic: NativeUpdate<String>,
+    ///kind
+    pub r#kind: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalAnalysisNodesReplace {
+    ///analysis
+    pub r#analysis: String,
+    ///semantic
+    pub r#semantic: String,
+    ///kind
+    pub r#kind: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_analysis_nodes(
+    input: &RuntimeCanonicalAnalysisNodesCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#analysis;
+        object.insert("analysis", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#semantic;
+        object.insert("semantic", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#kind;
+        object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_analysis_nodes(
+    input: &RuntimeCanonicalAnalysisNodesMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#analysis {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "analysis",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#semantic {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "semantic",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#kind {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_analysis_nodes(
+    input: &RuntimeCanonicalAnalysisNodesReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#analysis;
+        object.insert("analysis", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#semantic;
+        object.insert("semantic", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#kind;
+        object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_analysis_nodes(
     row: &pse_model::generated::runtime::canonical_analysis_nodes::RuntimeCanonicalAnalysisNodesRow,
@@ -386,6 +1457,376 @@ pub fn decode_canonical_analysis_nodes(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalArtifactBlocksCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///artifact
+    pub r#artifact: &'a String,
+    ///ordinal
+    pub r#ordinal: &'a u64,
+    ///relation
+    pub r#relation: &'a String,
+    ///file_instance
+    pub r#file_instance: &'a String,
+    ///file_digest
+    pub r#file_digest: &'a String,
+    ///file_batch_index
+    pub r#file_batch_index: &'a u64,
+    ///payload_bytes
+    pub r#payload_bytes: &'a u64,
+    ///schema
+    pub r#schema: &'a String,
+    ///encoding
+    pub r#encoding: &'a String,
+    ///digest
+    pub r#digest: &'a String,
+    ///original_digest
+    pub r#original_digest: &'a String,
+    ///rows
+    pub r#rows: &'a u64,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_artifact_blocks::RuntimeCanonicalArtifactBlocksRow,
+> for RuntimeCanonicalArtifactBlocksCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_artifact_blocks::RuntimeCanonicalArtifactBlocksRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#artifact: &row.r#artifact,
+            r#ordinal: &row.r#ordinal,
+            r#relation: &row.r#relation,
+            r#file_instance: &row.r#file_instance,
+            r#file_digest: &row.r#file_digest,
+            r#file_batch_index: &row.r#file_batch_index,
+            r#payload_bytes: &row.r#payload_bytes,
+            r#schema: &row.r#schema,
+            r#encoding: &row.r#encoding,
+            r#digest: &row.r#digest,
+            r#original_digest: &row.r#original_digest,
+            r#rows: &row.r#rows,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalArtifactBlocksMerge {
+    ///artifact
+    pub r#artifact: NativeUpdate<String>,
+    ///ordinal
+    pub r#ordinal: NativeUpdate<u64>,
+    ///relation
+    pub r#relation: NativeUpdate<String>,
+    ///file_instance
+    pub r#file_instance: NativeUpdate<String>,
+    ///file_digest
+    pub r#file_digest: NativeUpdate<String>,
+    ///file_batch_index
+    pub r#file_batch_index: NativeUpdate<u64>,
+    ///payload_bytes
+    pub r#payload_bytes: NativeUpdate<u64>,
+    ///schema
+    pub r#schema: NativeUpdate<String>,
+    ///encoding
+    pub r#encoding: NativeUpdate<String>,
+    ///digest
+    pub r#digest: NativeUpdate<String>,
+    ///original_digest
+    pub r#original_digest: NativeUpdate<String>,
+    ///rows
+    pub r#rows: NativeUpdate<u64>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalArtifactBlocksReplace {
+    ///artifact
+    pub r#artifact: String,
+    ///ordinal
+    pub r#ordinal: u64,
+    ///relation
+    pub r#relation: String,
+    ///file_instance
+    pub r#file_instance: String,
+    ///file_digest
+    pub r#file_digest: String,
+    ///file_batch_index
+    pub r#file_batch_index: u64,
+    ///payload_bytes
+    pub r#payload_bytes: u64,
+    ///schema
+    pub r#schema: String,
+    ///encoding
+    pub r#encoding: String,
+    ///digest
+    pub r#digest: String,
+    ///original_digest
+    pub r#original_digest: String,
+    ///rows
+    pub r#rows: u64,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_artifact_blocks(
+    input: &RuntimeCanonicalArtifactBlocksCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#artifact;
+        object.insert("artifact", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#ordinal;
+        object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#relation;
+        object.insert("relation", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#file_instance;
+        object
+            .insert(
+                "file_instance",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#file_digest;
+        object
+            .insert(
+                "file_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#file_batch_index;
+        object.insert("file_batch_index", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#payload_bytes;
+        object.insert("payload_bytes", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#schema;
+        object.insert("schema", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#encoding;
+        object.insert("encoding", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#digest;
+        object.insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#original_digest;
+        object
+            .insert(
+                "original_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#rows;
+        object.insert("rows", crate::canonical_codec::encode_uint(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_artifact_blocks(
+    input: &RuntimeCanonicalArtifactBlocksMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#artifact {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "artifact",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#ordinal {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#relation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "relation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#file_instance {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "file_instance",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#file_digest {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "file_digest",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#file_batch_index {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "file_batch_index",
+                    crate::canonical_codec::encode_uint(*value)?,
+                );
+        }
+    }
+    match &input.r#payload_bytes {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("payload_bytes", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#schema {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("schema", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#encoding {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "encoding",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#digest {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#original_digest {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "original_digest",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#rows {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("rows", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_artifact_blocks(
+    input: &RuntimeCanonicalArtifactBlocksReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#artifact;
+        object.insert("artifact", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#ordinal;
+        object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#relation;
+        object.insert("relation", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#file_instance;
+        object
+            .insert(
+                "file_instance",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#file_digest;
+        object
+            .insert(
+                "file_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#file_batch_index;
+        object.insert("file_batch_index", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#payload_bytes;
+        object.insert("payload_bytes", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#schema;
+        object.insert("schema", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#encoding;
+        object.insert("encoding", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#digest;
+        object.insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#original_digest;
+        object
+            .insert(
+                "original_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#rows;
+        object.insert("rows", crate::canonical_codec::encode_uint(*value)?);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_artifact_blocks(
@@ -502,6 +1943,152 @@ pub fn decode_canonical_artifact_blocks(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalArtifactObligationsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///artifact
+    pub r#artifact: &'a String,
+    ///owner_kind
+    pub r#owner_kind: &'a pse_model::generated::enums::CanonicalArtifactHolderKind,
+    ///owner
+    pub r#owner: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_artifact_obligations::RuntimeCanonicalArtifactObligationsRow,
+> for RuntimeCanonicalArtifactObligationsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_artifact_obligations::RuntimeCanonicalArtifactObligationsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#artifact: &row.r#artifact,
+            r#owner_kind: &row.r#owner_kind,
+            r#owner: &row.r#owner,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalArtifactObligationsMerge {
+    ///artifact
+    pub r#artifact: NativeUpdate<String>,
+    ///owner_kind
+    pub r#owner_kind: NativeUpdate<
+        pse_model::generated::enums::CanonicalArtifactHolderKind,
+    >,
+    ///owner
+    pub r#owner: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalArtifactObligationsReplace {
+    ///artifact
+    pub r#artifact: String,
+    ///owner_kind
+    pub r#owner_kind: pse_model::generated::enums::CanonicalArtifactHolderKind,
+    ///owner
+    pub r#owner: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_artifact_obligations(
+    input: &RuntimeCanonicalArtifactObligationsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#artifact;
+        object.insert("artifact", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#owner_kind;
+        object
+            .insert(
+                "owner_kind",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    {
+        let value = input.r#owner;
+        object.insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_artifact_obligations(
+    input: &RuntimeCanonicalArtifactObligationsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#artifact {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "artifact",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#owner_kind {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "owner_kind",
+                    crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+                );
+        }
+    }
+    match &input.r#owner {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_artifact_obligations(
+    input: &RuntimeCanonicalArtifactObligationsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#artifact;
+        object.insert("artifact", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#owner_kind;
+        object
+            .insert(
+                "owner_kind",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    {
+        let value = &input.r#owner;
+        object.insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_artifact_obligations(
     row: &pse_model::generated::runtime::canonical_artifact_obligations::RuntimeCanonicalArtifactObligationsRow,
@@ -557,6 +2144,95 @@ pub fn decode_canonical_artifact_obligations(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalArtifactReadsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///artifact
+    pub r#artifact: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_artifact_reads::RuntimeCanonicalArtifactReadsRow,
+> for RuntimeCanonicalArtifactReadsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_artifact_reads::RuntimeCanonicalArtifactReadsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#artifact: &row.r#artifact,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalArtifactReadsMerge {
+    ///artifact
+    pub r#artifact: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalArtifactReadsReplace {
+    ///artifact
+    pub r#artifact: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_artifact_reads(
+    input: &RuntimeCanonicalArtifactReadsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#artifact;
+        object.insert("artifact", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_artifact_reads(
+    input: &RuntimeCanonicalArtifactReadsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#artifact {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "artifact",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_artifact_reads(
+    input: &RuntimeCanonicalArtifactReadsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#artifact;
+        object.insert("artifact", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_artifact_reads(
     row: &pse_model::generated::runtime::canonical_artifact_reads::RuntimeCanonicalArtifactReadsRow,
@@ -597,6 +2273,152 @@ pub fn decode_canonical_artifact_reads(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalArtifactReleasesCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///artifact
+    pub r#artifact: &'a String,
+    ///owner_kind
+    pub r#owner_kind: &'a pse_model::generated::enums::CanonicalArtifactHolderKind,
+    ///owner
+    pub r#owner: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_artifact_releases::RuntimeCanonicalArtifactReleasesRow,
+> for RuntimeCanonicalArtifactReleasesCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_artifact_releases::RuntimeCanonicalArtifactReleasesRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#artifact: &row.r#artifact,
+            r#owner_kind: &row.r#owner_kind,
+            r#owner: &row.r#owner,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalArtifactReleasesMerge {
+    ///artifact
+    pub r#artifact: NativeUpdate<String>,
+    ///owner_kind
+    pub r#owner_kind: NativeUpdate<
+        pse_model::generated::enums::CanonicalArtifactHolderKind,
+    >,
+    ///owner
+    pub r#owner: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalArtifactReleasesReplace {
+    ///artifact
+    pub r#artifact: String,
+    ///owner_kind
+    pub r#owner_kind: pse_model::generated::enums::CanonicalArtifactHolderKind,
+    ///owner
+    pub r#owner: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_artifact_releases(
+    input: &RuntimeCanonicalArtifactReleasesCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#artifact;
+        object.insert("artifact", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#owner_kind;
+        object
+            .insert(
+                "owner_kind",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    {
+        let value = input.r#owner;
+        object.insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_artifact_releases(
+    input: &RuntimeCanonicalArtifactReleasesMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#artifact {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "artifact",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#owner_kind {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "owner_kind",
+                    crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+                );
+        }
+    }
+    match &input.r#owner {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_artifact_releases(
+    input: &RuntimeCanonicalArtifactReleasesReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#artifact;
+        object.insert("artifact", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#owner_kind;
+        object
+            .insert(
+                "owner_kind",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    {
+        let value = &input.r#owner;
+        object.insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_artifact_releases(
@@ -652,6 +2474,166 @@ pub fn decode_canonical_artifact_releases(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalArtifactStagingInputsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///artifact
+    pub r#artifact: &'a String,
+    ///run
+    pub r#run: &'a String,
+    ///attempt
+    pub r#attempt: &'a String,
+    ///manifest
+    pub r#manifest: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_artifact_staging_inputs::RuntimeCanonicalArtifactStagingInputsRow,
+> for RuntimeCanonicalArtifactStagingInputsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_artifact_staging_inputs::RuntimeCanonicalArtifactStagingInputsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#artifact: &row.r#artifact,
+            r#run: &row.r#run,
+            r#attempt: &row.r#attempt,
+            r#manifest: &row.r#manifest,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalArtifactStagingInputsMerge {
+    ///artifact
+    pub r#artifact: NativeUpdate<String>,
+    ///run
+    pub r#run: NativeUpdate<String>,
+    ///attempt
+    pub r#attempt: NativeUpdate<String>,
+    ///manifest
+    pub r#manifest: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalArtifactStagingInputsReplace {
+    ///artifact
+    pub r#artifact: String,
+    ///run
+    pub r#run: String,
+    ///attempt
+    pub r#attempt: String,
+    ///manifest
+    pub r#manifest: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_artifact_staging_inputs(
+    input: &RuntimeCanonicalArtifactStagingInputsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#artifact;
+        object.insert("artifact", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#attempt;
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#manifest;
+        object.insert("manifest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_artifact_staging_inputs(
+    input: &RuntimeCanonicalArtifactStagingInputsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#artifact {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "artifact",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#run {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#attempt {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "attempt",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#manifest {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "manifest",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_artifact_staging_inputs(
+    input: &RuntimeCanonicalArtifactStagingInputsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#artifact;
+        object.insert("artifact", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#attempt;
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#manifest;
+        object.insert("manifest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_artifact_staging_inputs(
@@ -713,6 +2695,419 @@ pub fn decode_canonical_artifact_staging_inputs(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalArtifactsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///kind
+    pub r#kind: &'a String,
+    ///revision
+    pub r#revision: &'a String,
+    ///primary_problem
+    pub r#primary_problem: &'a String,
+    ///primary_authority
+    pub r#primary_authority: &'a String,
+    ///creation_nonce
+    pub r#creation_nonce: &'a String,
+    ///creation_expires_at
+    pub r#creation_expires_at: &'a u64,
+    ///creation_request_digest
+    pub r#creation_request_digest: &'a String,
+    ///interpretation
+    pub r#interpretation: &'a String,
+    ///provenance
+    pub r#provenance: &'a pse_model::Bytes,
+    ///block_count
+    pub r#block_count: &'a u64,
+    ///payload_bytes
+    pub r#payload_bytes: &'a u64,
+    ///active
+    pub r#active: &'a bool,
+    ///retiring
+    pub r#retiring: &'a bool,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_artifacts::RuntimeCanonicalArtifactsRow,
+> for RuntimeCanonicalArtifactsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_artifacts::RuntimeCanonicalArtifactsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#kind: &row.r#kind,
+            r#revision: &row.r#revision,
+            r#primary_problem: &row.r#primary_problem,
+            r#primary_authority: &row.r#primary_authority,
+            r#creation_nonce: &row.r#creation_nonce,
+            r#creation_expires_at: &row.r#creation_expires_at,
+            r#creation_request_digest: &row.r#creation_request_digest,
+            r#interpretation: &row.r#interpretation,
+            r#provenance: &row.r#provenance,
+            r#block_count: &row.r#block_count,
+            r#payload_bytes: &row.r#payload_bytes,
+            r#active: &row.r#active,
+            r#retiring: &row.r#retiring,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalArtifactsMerge {
+    ///kind
+    pub r#kind: NativeUpdate<String>,
+    ///revision
+    pub r#revision: NativeUpdate<String>,
+    ///primary_problem
+    pub r#primary_problem: NativeUpdate<String>,
+    ///primary_authority
+    pub r#primary_authority: NativeUpdate<String>,
+    ///creation_nonce
+    pub r#creation_nonce: NativeUpdate<String>,
+    ///creation_expires_at
+    pub r#creation_expires_at: NativeUpdate<u64>,
+    ///creation_request_digest
+    pub r#creation_request_digest: NativeUpdate<String>,
+    ///interpretation
+    pub r#interpretation: NativeUpdate<String>,
+    ///provenance
+    pub r#provenance: NativeUpdate<pse_model::Bytes>,
+    ///block_count
+    pub r#block_count: NativeUpdate<u64>,
+    ///payload_bytes
+    pub r#payload_bytes: NativeUpdate<u64>,
+    ///active
+    pub r#active: NativeUpdate<bool>,
+    ///retiring
+    pub r#retiring: NativeUpdate<bool>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalArtifactsReplace {
+    ///kind
+    pub r#kind: String,
+    ///revision
+    pub r#revision: String,
+    ///primary_problem
+    pub r#primary_problem: String,
+    ///primary_authority
+    pub r#primary_authority: String,
+    ///creation_nonce
+    pub r#creation_nonce: String,
+    ///creation_expires_at
+    pub r#creation_expires_at: u64,
+    ///creation_request_digest
+    pub r#creation_request_digest: String,
+    ///interpretation
+    pub r#interpretation: String,
+    ///provenance
+    pub r#provenance: pse_model::Bytes,
+    ///block_count
+    pub r#block_count: u64,
+    ///payload_bytes
+    pub r#payload_bytes: u64,
+    ///active
+    pub r#active: bool,
+    ///retiring
+    pub r#retiring: bool,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_artifacts(
+    input: &RuntimeCanonicalArtifactsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#kind;
+        object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#primary_problem;
+        object
+            .insert(
+                "primary_problem",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#primary_authority;
+        object
+            .insert(
+                "primary_authority",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#creation_nonce;
+        object
+            .insert(
+                "creation_nonce",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#creation_expires_at;
+        object
+            .insert("creation_expires_at", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#creation_request_digest;
+        object
+            .insert(
+                "creation_request_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#provenance;
+        object
+            .insert("provenance", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#block_count;
+        object.insert("block_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#payload_bytes;
+        object.insert("payload_bytes", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#active;
+        object.insert("active", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = input.r#retiring;
+        object.insert("retiring", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_artifacts(
+    input: &RuntimeCanonicalArtifactsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#kind {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#revision {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "revision",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#primary_problem {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "primary_problem",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#primary_authority {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "primary_authority",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#creation_nonce {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "creation_nonce",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#creation_expires_at {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "creation_expires_at",
+                    crate::canonical_codec::encode_uint(*value)?,
+                );
+        }
+    }
+    match &input.r#creation_request_digest {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "creation_request_digest",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#interpretation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "interpretation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#provenance {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "provenance",
+                    crate::canonical_codec::encode_bytes(value.clone())?,
+                );
+        }
+    }
+    match &input.r#block_count {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("block_count", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#payload_bytes {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("payload_bytes", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#active {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("active", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    match &input.r#retiring {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("retiring", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_artifacts(
+    input: &RuntimeCanonicalArtifactsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#kind;
+        object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#primary_problem;
+        object
+            .insert(
+                "primary_problem",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#primary_authority;
+        object
+            .insert(
+                "primary_authority",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#creation_nonce;
+        object
+            .insert(
+                "creation_nonce",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#creation_expires_at;
+        object
+            .insert("creation_expires_at", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#creation_request_digest;
+        object
+            .insert(
+                "creation_request_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#provenance;
+        object
+            .insert("provenance", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = &input.r#block_count;
+        object.insert("block_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#payload_bytes;
+        object.insert("payload_bytes", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#active;
+        object.insert("active", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = &input.r#retiring;
+        object.insert("retiring", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_artifacts(
@@ -835,6 +3230,339 @@ pub fn decode_canonical_artifacts(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalAttemptsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///run
+    pub r#run: &'a String,
+    ///generation
+    pub r#generation: &'a u64,
+    ///claim_operation
+    pub r#claim_operation: &'a String,
+    ///request
+    pub r#request: &'a pse_model::Bytes,
+    ///worker
+    pub r#worker: &'a String,
+    ///expires_at
+    pub r#expires_at: &'a i64,
+    ///phase
+    pub r#phase: &'a pse_model::generated::enums::CanonicalAttemptPhase,
+    ///close_generation
+    pub r#close_generation: Option<&'a u64>,
+    ///outcome
+    pub r#outcome: Option<&'a pse_model::generated::enums::CanonicalTerminalOutcome>,
+    ///closed_manifest
+    pub r#closed_manifest: Option<&'a String>,
+    ///completion
+    pub r#completion: Option<&'a pse_model::Bytes>,
+    ///seed_manifest
+    pub r#seed_manifest: Option<&'a String>,
+    ///finalization_study
+    pub r#finalization_study: Option<&'a String>,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_attempts::RuntimeCanonicalAttemptsRow,
+> for RuntimeCanonicalAttemptsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_attempts::RuntimeCanonicalAttemptsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#run: &row.r#run,
+            r#generation: &row.r#generation,
+            r#claim_operation: &row.r#claim_operation,
+            r#request: &row.r#request,
+            r#worker: &row.r#worker,
+            r#expires_at: &row.r#expires_at,
+            r#phase: &row.r#phase,
+            r#close_generation: row.r#close_generation.as_ref(),
+            r#outcome: row.r#outcome.as_ref(),
+            r#closed_manifest: row.r#closed_manifest.as_ref(),
+            r#completion: row.r#completion.as_ref(),
+            r#seed_manifest: row.r#seed_manifest.as_ref(),
+            r#finalization_study: row.r#finalization_study.as_ref(),
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalAttemptsMerge {
+    ///expires_at
+    pub r#expires_at: NativeUpdate<i64>,
+    ///phase
+    pub r#phase: NativeUpdate<pse_model::generated::enums::CanonicalAttemptPhase>,
+    ///close_generation
+    pub r#close_generation: NativeMerge<u64>,
+    ///outcome
+    pub r#outcome: NativeMerge<pse_model::generated::enums::CanonicalTerminalOutcome>,
+    ///closed_manifest
+    pub r#closed_manifest: NativeMerge<String>,
+    ///completion
+    pub r#completion: NativeMerge<pse_model::Bytes>,
+    ///seed_manifest
+    pub r#seed_manifest: NativeMerge<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalAttemptsReplace {
+    ///expires_at
+    pub r#expires_at: i64,
+    ///phase
+    pub r#phase: pse_model::generated::enums::CanonicalAttemptPhase,
+    ///close_generation
+    pub r#close_generation: Option<u64>,
+    ///outcome
+    pub r#outcome: Option<pse_model::generated::enums::CanonicalTerminalOutcome>,
+    ///closed_manifest
+    pub r#closed_manifest: Option<String>,
+    ///completion
+    pub r#completion: Option<pse_model::Bytes>,
+    ///seed_manifest
+    pub r#seed_manifest: Option<String>,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_attempts(
+    input: &RuntimeCanonicalAttemptsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#generation;
+        object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#claim_operation;
+        object
+            .insert(
+                "claim_operation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#worker;
+        object.insert("worker", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#expires_at;
+        object.insert("expires_at", crate::canonical_codec::encode_int(*value)?);
+    }
+    {
+        let value = input.r#phase;
+        object
+            .insert(
+                "phase",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    if let Some(value) = input.r#close_generation {
+        object.insert("close_generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    if let Some(value) = input.r#outcome {
+        object
+            .insert(
+                "outcome",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    if let Some(value) = input.r#closed_manifest {
+        object
+            .insert(
+                "closed_manifest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    if let Some(value) = input.r#completion {
+        object
+            .insert("completion", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    if let Some(value) = input.r#seed_manifest {
+        object
+            .insert(
+                "seed_manifest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    if let Some(value) = input.r#finalization_study {
+        object
+            .insert(
+                "finalization_study",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_attempts(
+    input: &RuntimeCanonicalAttemptsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#expires_at {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("expires_at", crate::canonical_codec::encode_int(*value)?);
+        }
+    }
+    match &input.r#phase {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "phase",
+                    crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+                );
+        }
+    }
+    match &input.r#close_generation {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "close_generation",
+                    crate::canonical_codec::encode_uint(*value)?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("close_generation", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#outcome {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "outcome",
+                    crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("outcome", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#closed_manifest {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "closed_manifest",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("closed_manifest", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#completion {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "completion",
+                    crate::canonical_codec::encode_bytes(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("completion", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#seed_manifest {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "seed_manifest",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("seed_manifest", surrealdb_types::Value::None);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_attempts(
+    input: &RuntimeCanonicalAttemptsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#expires_at;
+        object.insert("expires_at", crate::canonical_codec::encode_int(*value)?);
+    }
+    {
+        let value = &input.r#phase;
+        object
+            .insert(
+                "phase",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    if let Some(value) = &input.r#close_generation {
+        object.insert("close_generation", crate::canonical_codec::encode_uint(*value)?);
+    } else {
+        object.insert("close_generation", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#outcome {
+        object
+            .insert(
+                "outcome",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    } else {
+        object.insert("outcome", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#closed_manifest {
+        object
+            .insert(
+                "closed_manifest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    } else {
+        object.insert("closed_manifest", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#completion {
+        object
+            .insert("completion", crate::canonical_codec::encode_bytes(value.clone())?);
+    } else {
+        object.insert("completion", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#seed_manifest {
+        object
+            .insert(
+                "seed_manifest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    } else {
+        object.insert("seed_manifest", surrealdb_types::Value::None);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_attempts(
@@ -976,6 +3704,218 @@ pub fn decode_canonical_attempts(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalBodyContentsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///version
+    pub r#version: &'a String,
+    ///digest
+    pub r#digest: &'a String,
+    ///bytes
+    pub r#bytes: &'a u64,
+    ///producer
+    pub r#producer: &'a String,
+    ///interpretation
+    pub r#interpretation: &'a String,
+    ///format
+    pub r#format: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_body_contents::RuntimeCanonicalBodyContentsRow,
+> for RuntimeCanonicalBodyContentsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_body_contents::RuntimeCanonicalBodyContentsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#version: &row.r#version,
+            r#digest: &row.r#digest,
+            r#bytes: &row.r#bytes,
+            r#producer: &row.r#producer,
+            r#interpretation: &row.r#interpretation,
+            r#format: &row.r#format,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalBodyContentsMerge {
+    ///version
+    pub r#version: NativeUpdate<String>,
+    ///digest
+    pub r#digest: NativeUpdate<String>,
+    ///bytes
+    pub r#bytes: NativeUpdate<u64>,
+    ///producer
+    pub r#producer: NativeUpdate<String>,
+    ///interpretation
+    pub r#interpretation: NativeUpdate<String>,
+    ///format
+    pub r#format: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalBodyContentsReplace {
+    ///version
+    pub r#version: String,
+    ///digest
+    pub r#digest: String,
+    ///bytes
+    pub r#bytes: u64,
+    ///producer
+    pub r#producer: String,
+    ///interpretation
+    pub r#interpretation: String,
+    ///format
+    pub r#format: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_body_contents(
+    input: &RuntimeCanonicalBodyContentsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#version;
+        object.insert("version", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#digest;
+        object.insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#bytes;
+        object.insert("bytes", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#producer;
+        object.insert("producer", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#format;
+        object.insert("format", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_body_contents(
+    input: &RuntimeCanonicalBodyContentsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#version {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "version",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#digest {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#bytes {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("bytes", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#producer {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "producer",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#interpretation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "interpretation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#format {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("format", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_body_contents(
+    input: &RuntimeCanonicalBodyContentsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#version;
+        object.insert("version", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#digest;
+        object.insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#bytes;
+        object.insert("bytes", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#producer;
+        object.insert("producer", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#format;
+        object.insert("format", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_body_contents(
     row: &pse_model::generated::runtime::canonical_body_contents::RuntimeCanonicalBodyContentsRow,
@@ -1047,6 +3987,85 @@ pub fn decode_canonical_body_contents(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalContextAncestryCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///descendant
+    pub r#descendant: &'a String,
+    ///ancestor
+    pub r#ancestor: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_context_ancestry::RuntimeCanonicalContextAncestryRow,
+> for RuntimeCanonicalContextAncestryCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_context_ancestry::RuntimeCanonicalContextAncestryRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#descendant: &row.r#descendant,
+            r#ancestor: &row.r#ancestor,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalContextAncestryMerge {}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalContextAncestryReplace {}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_context_ancestry(
+    input: &RuntimeCanonicalContextAncestryCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#descendant;
+        object
+            .insert("descendant", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#ancestor;
+        object.insert("ancestor", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_context_ancestry(
+    input: &RuntimeCanonicalContextAncestryMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let object = surrealdb_types::Object::new();
+    let _ = input;
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_context_ancestry(
+    input: &RuntimeCanonicalContextAncestryReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let object = surrealdb_types::Object::new();
+    let _ = input;
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_context_ancestry(
     row: &pse_model::generated::runtime::canonical_context_ancestry::RuntimeCanonicalContextAncestryRow,
@@ -1096,6 +4115,91 @@ pub fn decode_canonical_context_ancestry(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalContextJournalsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///sequence
+    pub r#sequence: &'a u64,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_context_journals::RuntimeCanonicalContextJournalsRow,
+> for RuntimeCanonicalContextJournalsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_context_journals::RuntimeCanonicalContextJournalsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#sequence: &row.r#sequence,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalContextJournalsMerge {
+    ///sequence
+    pub r#sequence: NativeUpdate<u64>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalContextJournalsReplace {
+    ///sequence
+    pub r#sequence: u64,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_context_journals(
+    input: &RuntimeCanonicalContextJournalsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#sequence;
+        object.insert("sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_context_journals(
+    input: &RuntimeCanonicalContextJournalsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#sequence {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("sequence", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_context_journals(
+    input: &RuntimeCanonicalContextJournalsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#sequence;
+        object.insert("sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_context_journals(
     row: &pse_model::generated::runtime::canonical_context_journals::RuntimeCanonicalContextJournalsRow,
@@ -1132,6 +4236,140 @@ pub fn decode_canonical_context_journals(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalControlActorsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///password
+    pub r#password: &'a String,
+    ///enabled
+    pub r#enabled: &'a bool,
+    ///browse
+    pub r#browse: &'a bool,
+    ///cancel
+    pub r#cancel: &'a bool,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_control_actors::RuntimeCanonicalControlActorsRow,
+> for RuntimeCanonicalControlActorsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_control_actors::RuntimeCanonicalControlActorsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#password: &row.r#password,
+            r#enabled: &row.r#enabled,
+            r#browse: &row.r#browse,
+            r#cancel: &row.r#cancel,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalControlActorsMerge {
+    ///enabled
+    pub r#enabled: NativeUpdate<bool>,
+    ///browse
+    pub r#browse: NativeUpdate<bool>,
+    ///cancel
+    pub r#cancel: NativeUpdate<bool>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalControlActorsReplace {
+    ///enabled
+    pub r#enabled: bool,
+    ///browse
+    pub r#browse: bool,
+    ///cancel
+    pub r#cancel: bool,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_control_actors(
+    input: &RuntimeCanonicalControlActorsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#password;
+        object.insert("password", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#enabled;
+        object.insert("enabled", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = input.r#browse;
+        object.insert("browse", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = input.r#cancel;
+        object.insert("cancel", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_control_actors(
+    input: &RuntimeCanonicalControlActorsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#enabled {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("enabled", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    match &input.r#browse {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("browse", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    match &input.r#cancel {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("cancel", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_control_actors(
+    input: &RuntimeCanonicalControlActorsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#enabled;
+        object.insert("enabled", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = &input.r#browse;
+        object.insert("browse", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = &input.r#cancel;
+        object.insert("cancel", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_control_actors(
@@ -1185,6 +4423,113 @@ pub fn decode_canonical_control_actors(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalControlCommandsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///issuing_store
+    pub r#issuing_store: &'a String,
+    ///actor
+    pub r#actor: &'a String,
+    ///operation_id
+    pub r#operation_id: &'a String,
+    ///study
+    pub r#study: &'a String,
+    ///receipt
+    pub r#receipt: &'a pse_model::Bytes,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_control_commands::RuntimeCanonicalControlCommandsRow,
+> for RuntimeCanonicalControlCommandsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_control_commands::RuntimeCanonicalControlCommandsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#issuing_store: &row.r#issuing_store,
+            r#actor: &row.r#actor,
+            r#operation_id: &row.r#operation_id,
+            r#study: &row.r#study,
+            r#receipt: &row.r#receipt,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalControlCommandsMerge {}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalControlCommandsReplace {}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_control_commands(
+    input: &RuntimeCanonicalControlCommandsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#actor;
+        object.insert("actor", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#operation_id;
+        object
+            .insert(
+                "operation_id",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#study;
+        object.insert("study", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#receipt;
+        object.insert("receipt", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_control_commands(
+    input: &RuntimeCanonicalControlCommandsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let object = surrealdb_types::Object::new();
+    let _ = input;
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_control_commands(
+    input: &RuntimeCanonicalControlCommandsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let object = surrealdb_types::Object::new();
+    let _ = input;
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_control_commands(
@@ -1248,6 +4593,91 @@ pub fn decode_canonical_control_commands(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalDraftDiagnosticsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///version
+    pub r#version: &'a String,
+    ///message
+    pub r#message: &'a String,
+    ///admitted
+    pub r#admitted: &'a bool,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_draft_diagnostics::RuntimeCanonicalDraftDiagnosticsRow,
+> for RuntimeCanonicalDraftDiagnosticsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_draft_diagnostics::RuntimeCanonicalDraftDiagnosticsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#version: &row.r#version,
+            r#message: &row.r#message,
+            r#admitted: &row.r#admitted,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalDraftDiagnosticsMerge {}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalDraftDiagnosticsReplace {}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_draft_diagnostics(
+    input: &RuntimeCanonicalDraftDiagnosticsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#version;
+        object.insert("version", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#message;
+        object.insert("message", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#admitted;
+        object.insert("admitted", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_draft_diagnostics(
+    input: &RuntimeCanonicalDraftDiagnosticsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let object = surrealdb_types::Object::new();
+    let _ = input;
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_draft_diagnostics(
+    input: &RuntimeCanonicalDraftDiagnosticsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let object = surrealdb_types::Object::new();
+    let _ = input;
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_draft_diagnostics(
     row: &pse_model::generated::runtime::canonical_draft_diagnostics::RuntimeCanonicalDraftDiagnosticsRow,
@@ -1300,6 +4730,189 @@ pub fn decode_canonical_draft_diagnostics(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalEdgesCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///source_version
+    pub r#source_version: &'a String,
+    ///ordinal
+    pub r#ordinal: &'a u64,
+    ///target_scope
+    pub r#target_scope: &'a String,
+    ///target_name
+    pub r#target_name: &'a String,
+}
+impl<
+    'a,
+> From<&'a pse_model::generated::runtime::canonical_edges::RuntimeCanonicalEdgesRow>
+for RuntimeCanonicalEdgesCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_edges::RuntimeCanonicalEdgesRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#source_version: &row.r#source_version,
+            r#ordinal: &row.r#ordinal,
+            r#target_scope: &row.r#target_scope,
+            r#target_name: &row.r#target_name,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalEdgesMerge {
+    ///source_version
+    pub r#source_version: NativeUpdate<String>,
+    ///ordinal
+    pub r#ordinal: NativeUpdate<u64>,
+    ///target_scope
+    pub r#target_scope: NativeUpdate<String>,
+    ///target_name
+    pub r#target_name: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalEdgesReplace {
+    ///source_version
+    pub r#source_version: String,
+    ///ordinal
+    pub r#ordinal: u64,
+    ///target_scope
+    pub r#target_scope: String,
+    ///target_name
+    pub r#target_name: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_edges(
+    input: &RuntimeCanonicalEdgesCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#source_version;
+        object
+            .insert(
+                "source_version",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#ordinal;
+        object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#target_scope;
+        object
+            .insert(
+                "target_scope",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#target_name;
+        object
+            .insert(
+                "target_name",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_edges(
+    input: &RuntimeCanonicalEdgesMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#source_version {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "source_version",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#ordinal {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#target_scope {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "target_scope",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#target_name {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "target_name",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_edges(
+    input: &RuntimeCanonicalEdgesReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#source_version;
+        object
+            .insert(
+                "source_version",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#ordinal;
+        object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#target_scope;
+        object
+            .insert(
+                "target_scope",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#target_name;
+        object
+            .insert(
+                "target_name",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_edges(
@@ -1361,6 +4974,321 @@ pub fn decode_canonical_edges(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalExecutionOperationsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///run
+    pub r#run: &'a String,
+    ///attempt
+    pub r#attempt: Option<&'a String>,
+    ///kind
+    pub r#kind: &'a String,
+    ///request
+    pub r#request: &'a pse_model::Bytes,
+    ///result
+    pub r#result: &'a pse_model::Bytes,
+    ///issuing_store
+    pub r#issuing_store: &'a String,
+    ///study
+    pub r#study: Option<&'a String>,
+    ///point
+    pub r#point: Option<&'a String>,
+    ///minimal
+    pub r#minimal: &'a bool,
+    ///disposition
+    pub r#disposition: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_execution_operations::RuntimeCanonicalExecutionOperationsRow,
+> for RuntimeCanonicalExecutionOperationsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_execution_operations::RuntimeCanonicalExecutionOperationsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#run: &row.r#run,
+            r#attempt: row.r#attempt.as_ref(),
+            r#kind: &row.r#kind,
+            r#request: &row.r#request,
+            r#result: &row.r#result,
+            r#issuing_store: &row.r#issuing_store,
+            r#study: row.r#study.as_ref(),
+            r#point: row.r#point.as_ref(),
+            r#minimal: &row.r#minimal,
+            r#disposition: &row.r#disposition,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalExecutionOperationsMerge {
+    ///run
+    pub r#run: NativeUpdate<String>,
+    ///attempt
+    pub r#attempt: NativeMerge<String>,
+    ///kind
+    pub r#kind: NativeUpdate<String>,
+    ///request
+    pub r#request: NativeUpdate<pse_model::Bytes>,
+    ///result
+    pub r#result: NativeUpdate<pse_model::Bytes>,
+    ///issuing_store
+    pub r#issuing_store: NativeUpdate<String>,
+    ///study
+    pub r#study: NativeMerge<String>,
+    ///point
+    pub r#point: NativeMerge<String>,
+    ///minimal
+    pub r#minimal: NativeUpdate<bool>,
+    ///disposition
+    pub r#disposition: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalExecutionOperationsReplace {
+    ///run
+    pub r#run: String,
+    ///attempt
+    pub r#attempt: Option<String>,
+    ///kind
+    pub r#kind: String,
+    ///request
+    pub r#request: pse_model::Bytes,
+    ///result
+    pub r#result: pse_model::Bytes,
+    ///issuing_store
+    pub r#issuing_store: String,
+    ///study
+    pub r#study: Option<String>,
+    ///point
+    pub r#point: Option<String>,
+    ///minimal
+    pub r#minimal: bool,
+    ///disposition
+    pub r#disposition: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_execution_operations(
+    input: &RuntimeCanonicalExecutionOperationsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#attempt {
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#kind;
+        object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#result;
+        object.insert("result", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    if let Some(value) = input.r#study {
+        object.insert("study", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#point {
+        object.insert("point", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#minimal;
+        object.insert("minimal", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = input.r#disposition;
+        object
+            .insert(
+                "disposition",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_execution_operations(
+    input: &RuntimeCanonicalExecutionOperationsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#run {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#attempt {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "attempt",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("attempt", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#kind {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#request {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+        }
+    }
+    match &input.r#result {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("result", crate::canonical_codec::encode_bytes(value.clone())?);
+        }
+    }
+    match &input.r#issuing_store {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "issuing_store",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#study {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert("study", crate::canonical_codec::encode_string(value.clone())?);
+        }
+        NativeMerge::Remove => {
+            object.insert("study", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#point {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert("point", crate::canonical_codec::encode_string(value.clone())?);
+        }
+        NativeMerge::Remove => {
+            object.insert("point", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#minimal {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("minimal", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    match &input.r#disposition {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "disposition",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_execution_operations(
+    input: &RuntimeCanonicalExecutionOperationsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = &input.r#attempt {
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    } else {
+        object.insert("attempt", surrealdb_types::Value::None);
+    }
+    {
+        let value = &input.r#kind;
+        object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = &input.r#result;
+        object.insert("result", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = &input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    if let Some(value) = &input.r#study {
+        object.insert("study", crate::canonical_codec::encode_string(value.clone())?);
+    } else {
+        object.insert("study", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#point {
+        object.insert("point", crate::canonical_codec::encode_string(value.clone())?);
+    } else {
+        object.insert("point", surrealdb_types::Value::None);
+    }
+    {
+        let value = &input.r#minimal;
+        object.insert("minimal", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = &input.r#disposition;
+        object
+            .insert(
+                "disposition",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_execution_operations(
@@ -1453,6 +5381,145 @@ pub fn decode_canonical_execution_operations(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalFileAdmissionCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///storage_incarnation
+    pub r#storage_incarnation: &'a String,
+    ///frozen
+    pub r#frozen: &'a bool,
+    ///gc_frozen
+    pub r#gc_frozen: &'a bool,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_file_admission::RuntimeCanonicalFileAdmissionRow,
+> for RuntimeCanonicalFileAdmissionCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_file_admission::RuntimeCanonicalFileAdmissionRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#storage_incarnation: &row.r#storage_incarnation,
+            r#frozen: &row.r#frozen,
+            r#gc_frozen: &row.r#gc_frozen,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalFileAdmissionMerge {
+    ///storage_incarnation
+    pub r#storage_incarnation: NativeUpdate<String>,
+    ///frozen
+    pub r#frozen: NativeUpdate<bool>,
+    ///gc_frozen
+    pub r#gc_frozen: NativeUpdate<bool>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalFileAdmissionReplace {
+    ///storage_incarnation
+    pub r#storage_incarnation: String,
+    ///frozen
+    pub r#frozen: bool,
+    ///gc_frozen
+    pub r#gc_frozen: bool,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_file_admission(
+    input: &RuntimeCanonicalFileAdmissionCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#storage_incarnation;
+        object
+            .insert(
+                "storage_incarnation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#frozen;
+        object.insert("frozen", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = input.r#gc_frozen;
+        object.insert("gc_frozen", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_file_admission(
+    input: &RuntimeCanonicalFileAdmissionMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#storage_incarnation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "storage_incarnation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#frozen {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("frozen", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    match &input.r#gc_frozen {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("gc_frozen", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_file_admission(
+    input: &RuntimeCanonicalFileAdmissionReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#storage_incarnation;
+        object
+            .insert(
+                "storage_incarnation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#frozen;
+        object.insert("frozen", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = &input.r#gc_frozen;
+        object.insert("gc_frozen", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_file_admission(
     row: &pse_model::generated::runtime::canonical_file_admission::RuntimeCanonicalFileAdmissionRow,
@@ -1501,6 +5568,165 @@ pub fn decode_canonical_file_admission(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalFileBorrowersCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///instance
+    pub r#instance: &'a String,
+    ///owner_kind
+    pub r#owner_kind: &'a String,
+    ///owner
+    pub r#owner: &'a String,
+    ///released
+    pub r#released: &'a bool,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_file_borrowers::RuntimeCanonicalFileBorrowersRow,
+> for RuntimeCanonicalFileBorrowersCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_file_borrowers::RuntimeCanonicalFileBorrowersRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#instance: &row.r#instance,
+            r#owner_kind: &row.r#owner_kind,
+            r#owner: &row.r#owner,
+            r#released: &row.r#released,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalFileBorrowersMerge {
+    ///instance
+    pub r#instance: NativeUpdate<String>,
+    ///owner_kind
+    pub r#owner_kind: NativeUpdate<String>,
+    ///owner
+    pub r#owner: NativeUpdate<String>,
+    ///released
+    pub r#released: NativeUpdate<bool>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalFileBorrowersReplace {
+    ///instance
+    pub r#instance: String,
+    ///owner_kind
+    pub r#owner_kind: String,
+    ///owner
+    pub r#owner: String,
+    ///released
+    pub r#released: bool,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_file_borrowers(
+    input: &RuntimeCanonicalFileBorrowersCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#instance;
+        object.insert("instance", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#owner_kind;
+        object
+            .insert("owner_kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#owner;
+        object.insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#released;
+        object.insert("released", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_file_borrowers(
+    input: &RuntimeCanonicalFileBorrowersMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#instance {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "instance",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#owner_kind {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "owner_kind",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#owner {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#released {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("released", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_file_borrowers(
+    input: &RuntimeCanonicalFileBorrowersReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#instance;
+        object.insert("instance", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#owner_kind;
+        object
+            .insert("owner_kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#owner;
+        object.insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#released;
+        object.insert("released", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_file_borrowers(
@@ -1558,6 +5784,444 @@ pub fn decode_canonical_file_borrowers(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalFileInstancesCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///intent
+    pub r#intent: &'a String,
+    ///request_digest
+    pub r#request_digest: &'a String,
+    ///owner
+    pub r#owner: &'a String,
+    ///owner_kind
+    pub r#owner_kind: &'a String,
+    ///selection
+    pub r#selection: &'a String,
+    ///issuing_store
+    pub r#issuing_store: &'a String,
+    ///storage_incarnation
+    pub r#storage_incarnation: &'a String,
+    ///digest
+    pub r#digest: &'a String,
+    ///payload_bytes
+    pub r#payload_bytes: &'a u64,
+    ///encoding
+    pub r#encoding: &'a String,
+    ///batch_count
+    pub r#batch_count: &'a u64,
+    ///schema
+    pub r#schema: &'a String,
+    ///interpretation
+    pub r#interpretation: &'a String,
+    ///state
+    pub r#state: &'a pse_model::generated::enums::CanonicalFileState,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_file_instances::RuntimeCanonicalFileInstancesRow,
+> for RuntimeCanonicalFileInstancesCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_file_instances::RuntimeCanonicalFileInstancesRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#intent: &row.r#intent,
+            r#request_digest: &row.r#request_digest,
+            r#owner: &row.r#owner,
+            r#owner_kind: &row.r#owner_kind,
+            r#selection: &row.r#selection,
+            r#issuing_store: &row.r#issuing_store,
+            r#storage_incarnation: &row.r#storage_incarnation,
+            r#digest: &row.r#digest,
+            r#payload_bytes: &row.r#payload_bytes,
+            r#encoding: &row.r#encoding,
+            r#batch_count: &row.r#batch_count,
+            r#schema: &row.r#schema,
+            r#interpretation: &row.r#interpretation,
+            r#state: &row.r#state,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalFileInstancesMerge {
+    ///intent
+    pub r#intent: NativeUpdate<String>,
+    ///request_digest
+    pub r#request_digest: NativeUpdate<String>,
+    ///owner
+    pub r#owner: NativeUpdate<String>,
+    ///owner_kind
+    pub r#owner_kind: NativeUpdate<String>,
+    ///selection
+    pub r#selection: NativeUpdate<String>,
+    ///issuing_store
+    pub r#issuing_store: NativeUpdate<String>,
+    ///storage_incarnation
+    pub r#storage_incarnation: NativeUpdate<String>,
+    ///digest
+    pub r#digest: NativeUpdate<String>,
+    ///payload_bytes
+    pub r#payload_bytes: NativeUpdate<u64>,
+    ///encoding
+    pub r#encoding: NativeUpdate<String>,
+    ///batch_count
+    pub r#batch_count: NativeUpdate<u64>,
+    ///schema
+    pub r#schema: NativeUpdate<String>,
+    ///interpretation
+    pub r#interpretation: NativeUpdate<String>,
+    ///state
+    pub r#state: NativeUpdate<pse_model::generated::enums::CanonicalFileState>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalFileInstancesReplace {
+    ///intent
+    pub r#intent: String,
+    ///request_digest
+    pub r#request_digest: String,
+    ///owner
+    pub r#owner: String,
+    ///owner_kind
+    pub r#owner_kind: String,
+    ///selection
+    pub r#selection: String,
+    ///issuing_store
+    pub r#issuing_store: String,
+    ///storage_incarnation
+    pub r#storage_incarnation: String,
+    ///digest
+    pub r#digest: String,
+    ///payload_bytes
+    pub r#payload_bytes: u64,
+    ///encoding
+    pub r#encoding: String,
+    ///batch_count
+    pub r#batch_count: u64,
+    ///schema
+    pub r#schema: String,
+    ///interpretation
+    pub r#interpretation: String,
+    ///state
+    pub r#state: pse_model::generated::enums::CanonicalFileState,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_file_instances(
+    input: &RuntimeCanonicalFileInstancesCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#intent;
+        object.insert("intent", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#request_digest;
+        object
+            .insert(
+                "request_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#owner;
+        object.insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#owner_kind;
+        object
+            .insert("owner_kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#selection;
+        object
+            .insert("selection", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#storage_incarnation;
+        object
+            .insert(
+                "storage_incarnation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#digest;
+        object.insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#payload_bytes;
+        object.insert("payload_bytes", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#encoding;
+        object.insert("encoding", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#batch_count;
+        object.insert("batch_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#schema;
+        object.insert("schema", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#state;
+        object
+            .insert(
+                "state",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_file_instances(
+    input: &RuntimeCanonicalFileInstancesMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#intent {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("intent", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#request_digest {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "request_digest",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#owner {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#owner_kind {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "owner_kind",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#selection {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "selection",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#issuing_store {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "issuing_store",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#storage_incarnation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "storage_incarnation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#digest {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#payload_bytes {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("payload_bytes", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#encoding {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "encoding",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#batch_count {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("batch_count", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#schema {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("schema", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#interpretation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "interpretation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#state {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "state",
+                    crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_file_instances(
+    input: &RuntimeCanonicalFileInstancesReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#intent;
+        object.insert("intent", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#request_digest;
+        object
+            .insert(
+                "request_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#owner;
+        object.insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#owner_kind;
+        object
+            .insert("owner_kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#selection;
+        object
+            .insert("selection", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#storage_incarnation;
+        object
+            .insert(
+                "storage_incarnation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#digest;
+        object.insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#payload_bytes;
+        object.insert("payload_bytes", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#encoding;
+        object.insert("encoding", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#batch_count;
+        object.insert("batch_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#schema;
+        object.insert("schema", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#state;
+        object
+            .insert(
+                "state",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_file_instances(
@@ -1690,6 +6354,357 @@ pub fn decode_canonical_file_instances(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalFileOwnersCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///issuing_store
+    pub r#issuing_store: &'a String,
+    ///storage_incarnation
+    pub r#storage_incarnation: &'a String,
+    ///boot
+    pub r#boot: &'a String,
+    ///pid_namespace
+    pub r#pid_namespace: &'a String,
+    ///pid
+    pub r#pid: &'a u64,
+    ///start
+    pub r#start: &'a String,
+    ///invocation
+    pub r#invocation: Option<&'a String>,
+    ///unit
+    pub r#unit: Option<&'a String>,
+    ///group
+    pub r#group: Option<&'a String>,
+    ///group_inode
+    pub r#group_inode: Option<&'a u64>,
+    ///drained
+    pub r#drained: &'a bool,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_file_owners::RuntimeCanonicalFileOwnersRow,
+> for RuntimeCanonicalFileOwnersCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_file_owners::RuntimeCanonicalFileOwnersRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#issuing_store: &row.r#issuing_store,
+            r#storage_incarnation: &row.r#storage_incarnation,
+            r#boot: &row.r#boot,
+            r#pid_namespace: &row.r#pid_namespace,
+            r#pid: &row.r#pid,
+            r#start: &row.r#start,
+            r#invocation: row.r#invocation.as_ref(),
+            r#unit: row.r#unit.as_ref(),
+            r#group: row.r#group.as_ref(),
+            r#group_inode: row.r#group_inode.as_ref(),
+            r#drained: &row.r#drained,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalFileOwnersMerge {
+    ///issuing_store
+    pub r#issuing_store: NativeUpdate<String>,
+    ///storage_incarnation
+    pub r#storage_incarnation: NativeUpdate<String>,
+    ///boot
+    pub r#boot: NativeUpdate<String>,
+    ///pid_namespace
+    pub r#pid_namespace: NativeUpdate<String>,
+    ///pid
+    pub r#pid: NativeUpdate<u64>,
+    ///start
+    pub r#start: NativeUpdate<String>,
+    ///invocation
+    pub r#invocation: NativeMerge<String>,
+    ///unit
+    pub r#unit: NativeMerge<String>,
+    ///group
+    pub r#group: NativeMerge<String>,
+    ///group_inode
+    pub r#group_inode: NativeMerge<u64>,
+    ///drained
+    pub r#drained: NativeUpdate<bool>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalFileOwnersReplace {
+    ///issuing_store
+    pub r#issuing_store: String,
+    ///storage_incarnation
+    pub r#storage_incarnation: String,
+    ///boot
+    pub r#boot: String,
+    ///pid_namespace
+    pub r#pid_namespace: String,
+    ///pid
+    pub r#pid: u64,
+    ///start
+    pub r#start: String,
+    ///invocation
+    pub r#invocation: Option<String>,
+    ///unit
+    pub r#unit: Option<String>,
+    ///group
+    pub r#group: Option<String>,
+    ///group_inode
+    pub r#group_inode: Option<u64>,
+    ///drained
+    pub r#drained: bool,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_file_owners(
+    input: &RuntimeCanonicalFileOwnersCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#storage_incarnation;
+        object
+            .insert(
+                "storage_incarnation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#boot;
+        object.insert("boot", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#pid_namespace;
+        object
+            .insert(
+                "pid_namespace",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#pid;
+        object.insert("pid", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#start;
+        object.insert("start", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#invocation {
+        object
+            .insert("invocation", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#unit {
+        object.insert("unit", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#group {
+        object.insert("group", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#group_inode {
+        object.insert("group_inode", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#drained;
+        object.insert("drained", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_file_owners(
+    input: &RuntimeCanonicalFileOwnersMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#issuing_store {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "issuing_store",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#storage_incarnation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "storage_incarnation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#boot {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("boot", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#pid_namespace {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "pid_namespace",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#pid {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("pid", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#start {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("start", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#invocation {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "invocation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("invocation", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#unit {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object.insert("unit", crate::canonical_codec::encode_string(value.clone())?);
+        }
+        NativeMerge::Remove => {
+            object.insert("unit", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#group {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert("group", crate::canonical_codec::encode_string(value.clone())?);
+        }
+        NativeMerge::Remove => {
+            object.insert("group", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#group_inode {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object.insert("group_inode", crate::canonical_codec::encode_uint(*value)?);
+        }
+        NativeMerge::Remove => {
+            object.insert("group_inode", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#drained {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("drained", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_file_owners(
+    input: &RuntimeCanonicalFileOwnersReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#storage_incarnation;
+        object
+            .insert(
+                "storage_incarnation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#boot;
+        object.insert("boot", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#pid_namespace;
+        object
+            .insert(
+                "pid_namespace",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#pid;
+        object.insert("pid", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#start;
+        object.insert("start", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = &input.r#invocation {
+        object
+            .insert("invocation", crate::canonical_codec::encode_string(value.clone())?);
+    } else {
+        object.insert("invocation", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#unit {
+        object.insert("unit", crate::canonical_codec::encode_string(value.clone())?);
+    } else {
+        object.insert("unit", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#group {
+        object.insert("group", crate::canonical_codec::encode_string(value.clone())?);
+    } else {
+        object.insert("group", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#group_inode {
+        object.insert("group_inode", crate::canonical_codec::encode_uint(*value)?);
+    } else {
+        object.insert("group_inode", surrealdb_types::Value::None);
+    }
+    {
+        let value = &input.r#drained;
+        object.insert("drained", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_file_owners(
     row: &pse_model::generated::runtime::canonical_file_owners::RuntimeCanonicalFileOwnersRow,
@@ -1792,6 +6807,282 @@ pub fn decode_canonical_file_owners(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalGuardsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///generation
+    pub r#generation: &'a u64,
+    ///incarnation
+    pub r#incarnation: Option<&'a String>,
+    ///analysis_creation_closed_through
+    pub r#analysis_creation_closed_through: Option<&'a u64>,
+    ///artifact_creation_closed_through
+    pub r#artifact_creation_closed_through: Option<&'a u64>,
+    ///protection_closed_through
+    pub r#protection_closed_through: Option<&'a u64>,
+    ///source_reclaim_after
+    pub r#source_reclaim_after: Option<&'a String>,
+}
+impl<
+    'a,
+> From<&'a pse_model::generated::runtime::canonical_guards::RuntimeCanonicalGuardsRow>
+for RuntimeCanonicalGuardsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_guards::RuntimeCanonicalGuardsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#generation: &row.r#generation,
+            r#incarnation: row.r#incarnation.as_ref(),
+            r#analysis_creation_closed_through: row
+                .r#analysis_creation_closed_through
+                .as_ref(),
+            r#artifact_creation_closed_through: row
+                .r#artifact_creation_closed_through
+                .as_ref(),
+            r#protection_closed_through: row.r#protection_closed_through.as_ref(),
+            r#source_reclaim_after: row.r#source_reclaim_after.as_ref(),
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalGuardsMerge {
+    ///generation
+    pub r#generation: NativeUpdate<u64>,
+    ///incarnation
+    pub r#incarnation: NativeMerge<String>,
+    ///analysis_creation_closed_through
+    pub r#analysis_creation_closed_through: NativeMerge<u64>,
+    ///artifact_creation_closed_through
+    pub r#artifact_creation_closed_through: NativeMerge<u64>,
+    ///protection_closed_through
+    pub r#protection_closed_through: NativeMerge<u64>,
+    ///source_reclaim_after
+    pub r#source_reclaim_after: NativeMerge<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalGuardsReplace {
+    ///generation
+    pub r#generation: u64,
+    ///incarnation
+    pub r#incarnation: Option<String>,
+    ///analysis_creation_closed_through
+    pub r#analysis_creation_closed_through: Option<u64>,
+    ///artifact_creation_closed_through
+    pub r#artifact_creation_closed_through: Option<u64>,
+    ///protection_closed_through
+    pub r#protection_closed_through: Option<u64>,
+    ///source_reclaim_after
+    pub r#source_reclaim_after: Option<String>,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_guards(
+    input: &RuntimeCanonicalGuardsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#generation;
+        object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    if let Some(value) = input.r#incarnation {
+        object
+            .insert(
+                "incarnation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    if let Some(value) = input.r#analysis_creation_closed_through {
+        object
+            .insert(
+                "analysis_creation_closed_through",
+                crate::canonical_codec::encode_uint(*value)?,
+            );
+    }
+    if let Some(value) = input.r#artifact_creation_closed_through {
+        object
+            .insert(
+                "artifact_creation_closed_through",
+                crate::canonical_codec::encode_uint(*value)?,
+            );
+    }
+    if let Some(value) = input.r#protection_closed_through {
+        object
+            .insert(
+                "protection_closed_through",
+                crate::canonical_codec::encode_uint(*value)?,
+            );
+    }
+    if let Some(value) = input.r#source_reclaim_after {
+        object
+            .insert(
+                "source_reclaim_after",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_guards(
+    input: &RuntimeCanonicalGuardsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#generation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#incarnation {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "incarnation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("incarnation", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#analysis_creation_closed_through {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "analysis_creation_closed_through",
+                    crate::canonical_codec::encode_uint(*value)?,
+                );
+        }
+        NativeMerge::Remove => {
+            object
+                .insert(
+                    "analysis_creation_closed_through",
+                    surrealdb_types::Value::None,
+                );
+        }
+    }
+    match &input.r#artifact_creation_closed_through {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "artifact_creation_closed_through",
+                    crate::canonical_codec::encode_uint(*value)?,
+                );
+        }
+        NativeMerge::Remove => {
+            object
+                .insert(
+                    "artifact_creation_closed_through",
+                    surrealdb_types::Value::None,
+                );
+        }
+    }
+    match &input.r#protection_closed_through {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "protection_closed_through",
+                    crate::canonical_codec::encode_uint(*value)?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("protection_closed_through", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#source_reclaim_after {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "source_reclaim_after",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("source_reclaim_after", surrealdb_types::Value::None);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_guards(
+    input: &RuntimeCanonicalGuardsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#generation;
+        object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    if let Some(value) = &input.r#incarnation {
+        object
+            .insert(
+                "incarnation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    } else {
+        object.insert("incarnation", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#analysis_creation_closed_through {
+        object
+            .insert(
+                "analysis_creation_closed_through",
+                crate::canonical_codec::encode_uint(*value)?,
+            );
+    } else {
+        object.insert("analysis_creation_closed_through", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#artifact_creation_closed_through {
+        object
+            .insert(
+                "artifact_creation_closed_through",
+                crate::canonical_codec::encode_uint(*value)?,
+            );
+    } else {
+        object.insert("artifact_creation_closed_through", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#protection_closed_through {
+        object
+            .insert(
+                "protection_closed_through",
+                crate::canonical_codec::encode_uint(*value)?,
+            );
+    } else {
+        object.insert("protection_closed_through", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#source_reclaim_after {
+        object
+            .insert(
+                "source_reclaim_after",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    } else {
+        object.insert("source_reclaim_after", surrealdb_types::Value::None);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_guards(
     row: &pse_model::generated::runtime::canonical_guards::RuntimeCanonicalGuardsRow,
@@ -1888,6 +7179,174 @@ pub fn decode_canonical_guards(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalHistoryIdentitiesCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///category
+    pub r#category: &'a String,
+    ///identity
+    pub r#identity: &'a String,
+    ///run
+    pub r#run: &'a String,
+    ///issuing_store
+    pub r#issuing_store: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_history_identities::RuntimeCanonicalHistoryIdentitiesRow,
+> for RuntimeCanonicalHistoryIdentitiesCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_history_identities::RuntimeCanonicalHistoryIdentitiesRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#category: &row.r#category,
+            r#identity: &row.r#identity,
+            r#run: &row.r#run,
+            r#issuing_store: &row.r#issuing_store,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalHistoryIdentitiesMerge {
+    ///category
+    pub r#category: NativeUpdate<String>,
+    ///identity
+    pub r#identity: NativeUpdate<String>,
+    ///run
+    pub r#run: NativeUpdate<String>,
+    ///issuing_store
+    pub r#issuing_store: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalHistoryIdentitiesReplace {
+    ///category
+    pub r#category: String,
+    ///identity
+    pub r#identity: String,
+    ///run
+    pub r#run: String,
+    ///issuing_store
+    pub r#issuing_store: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_history_identities(
+    input: &RuntimeCanonicalHistoryIdentitiesCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#category;
+        object.insert("category", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#identity;
+        object.insert("identity", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_history_identities(
+    input: &RuntimeCanonicalHistoryIdentitiesMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#category {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "category",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#identity {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "identity",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#run {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#issuing_store {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "issuing_store",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_history_identities(
+    input: &RuntimeCanonicalHistoryIdentitiesReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#category;
+        object.insert("category", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#identity;
+        object.insert("identity", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_history_identities(
     row: &pse_model::generated::runtime::canonical_history_identities::RuntimeCanonicalHistoryIdentitiesRow,
@@ -1949,6 +7408,171 @@ pub fn decode_canonical_history_identities(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalHistoryLocatorsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///study
+    pub r#study: &'a String,
+    ///run
+    pub r#run: &'a String,
+    ///point
+    pub r#point: Option<&'a String>,
+    ///issuing_store
+    pub r#issuing_store: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_history_locators::RuntimeCanonicalHistoryLocatorsRow,
+> for RuntimeCanonicalHistoryLocatorsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_history_locators::RuntimeCanonicalHistoryLocatorsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#study: &row.r#study,
+            r#run: &row.r#run,
+            r#point: row.r#point.as_ref(),
+            r#issuing_store: &row.r#issuing_store,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalHistoryLocatorsMerge {
+    ///study
+    pub r#study: NativeUpdate<String>,
+    ///run
+    pub r#run: NativeUpdate<String>,
+    ///point
+    pub r#point: NativeMerge<String>,
+    ///issuing_store
+    pub r#issuing_store: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalHistoryLocatorsReplace {
+    ///study
+    pub r#study: String,
+    ///run
+    pub r#run: String,
+    ///point
+    pub r#point: Option<String>,
+    ///issuing_store
+    pub r#issuing_store: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_history_locators(
+    input: &RuntimeCanonicalHistoryLocatorsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#study;
+        object.insert("study", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#point {
+        object.insert("point", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_history_locators(
+    input: &RuntimeCanonicalHistoryLocatorsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#study {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("study", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#run {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#point {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert("point", crate::canonical_codec::encode_string(value.clone())?);
+        }
+        NativeMerge::Remove => {
+            object.insert("point", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#issuing_store {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "issuing_store",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_history_locators(
+    input: &RuntimeCanonicalHistoryLocatorsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#study;
+        object.insert("study", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = &input.r#point {
+        object.insert("point", crate::canonical_codec::encode_string(value.clone())?);
+    } else {
+        object.insert("point", surrealdb_types::Value::None);
+    }
+    {
+        let value = &input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_history_locators(
     row: &pse_model::generated::runtime::canonical_history_locators::RuntimeCanonicalHistoryLocatorsRow,
@@ -2005,6 +7629,91 @@ pub fn decode_canonical_history_locators(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalHistoryObligationCountsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///count
+    pub r#count: &'a u64,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_history_obligation_counts::RuntimeCanonicalHistoryObligationCountsRow,
+> for RuntimeCanonicalHistoryObligationCountsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_history_obligation_counts::RuntimeCanonicalHistoryObligationCountsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#count: &row.r#count,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalHistoryObligationCountsMerge {
+    ///count
+    pub r#count: NativeUpdate<u64>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalHistoryObligationCountsReplace {
+    ///count
+    pub r#count: u64,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_history_obligation_counts(
+    input: &RuntimeCanonicalHistoryObligationCountsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#count;
+        object.insert("count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_history_obligation_counts(
+    input: &RuntimeCanonicalHistoryObligationCountsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#count {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("count", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_history_obligation_counts(
+    input: &RuntimeCanonicalHistoryObligationCountsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#count;
+        object.insert("count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_history_obligation_counts(
     row: &pse_model::generated::runtime::canonical_history_obligation_counts::RuntimeCanonicalHistoryObligationCountsRow,
@@ -2041,6 +7750,231 @@ pub fn decode_canonical_history_obligation_counts(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalHistoryObligationsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///owner_kind
+    pub r#owner_kind: &'a String,
+    ///owner
+    pub r#owner: &'a String,
+    ///purpose
+    pub r#purpose: &'a String,
+    ///attribution
+    pub r#attribution: &'a String,
+    ///issuing_store
+    pub r#issuing_store: &'a String,
+    ///released
+    pub r#released: &'a bool,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_history_obligations::RuntimeCanonicalHistoryObligationsRow,
+> for RuntimeCanonicalHistoryObligationsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_history_obligations::RuntimeCanonicalHistoryObligationsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#owner_kind: &row.r#owner_kind,
+            r#owner: &row.r#owner,
+            r#purpose: &row.r#purpose,
+            r#attribution: &row.r#attribution,
+            r#issuing_store: &row.r#issuing_store,
+            r#released: &row.r#released,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalHistoryObligationsMerge {
+    ///owner_kind
+    pub r#owner_kind: NativeUpdate<String>,
+    ///owner
+    pub r#owner: NativeUpdate<String>,
+    ///purpose
+    pub r#purpose: NativeUpdate<String>,
+    ///attribution
+    pub r#attribution: NativeUpdate<String>,
+    ///issuing_store
+    pub r#issuing_store: NativeUpdate<String>,
+    ///released
+    pub r#released: NativeUpdate<bool>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalHistoryObligationsReplace {
+    ///owner_kind
+    pub r#owner_kind: String,
+    ///owner
+    pub r#owner: String,
+    ///purpose
+    pub r#purpose: String,
+    ///attribution
+    pub r#attribution: String,
+    ///issuing_store
+    pub r#issuing_store: String,
+    ///released
+    pub r#released: bool,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_history_obligations(
+    input: &RuntimeCanonicalHistoryObligationsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#owner_kind;
+        object
+            .insert("owner_kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#owner;
+        object.insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#purpose;
+        object.insert("purpose", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#attribution;
+        object
+            .insert(
+                "attribution",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#released;
+        object.insert("released", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_history_obligations(
+    input: &RuntimeCanonicalHistoryObligationsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#owner_kind {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "owner_kind",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#owner {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#purpose {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "purpose",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#attribution {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "attribution",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#issuing_store {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "issuing_store",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#released {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("released", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_history_obligations(
+    input: &RuntimeCanonicalHistoryObligationsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#owner_kind;
+        object
+            .insert("owner_kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#owner;
+        object.insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#purpose;
+        object.insert("purpose", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#attribution;
+        object
+            .insert(
+                "attribution",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#released;
+        object.insert("released", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_history_obligations(
@@ -2114,6 +8048,248 @@ pub fn decode_canonical_history_obligations(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalHistoryRetirementsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///owner_kind
+    pub r#owner_kind: &'a String,
+    ///owner
+    pub r#owner: &'a String,
+    ///issuing_store
+    pub r#issuing_store: &'a String,
+    ///outcome
+    pub r#outcome: &'a String,
+    ///revision
+    pub r#revision: &'a String,
+    ///generation
+    pub r#generation: &'a u64,
+    ///complete
+    pub r#complete: &'a bool,
+    ///after_locator
+    pub r#after_locator: Option<&'a String>,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_history_retirements::RuntimeCanonicalHistoryRetirementsRow,
+> for RuntimeCanonicalHistoryRetirementsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_history_retirements::RuntimeCanonicalHistoryRetirementsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#owner_kind: &row.r#owner_kind,
+            r#owner: &row.r#owner,
+            r#issuing_store: &row.r#issuing_store,
+            r#outcome: &row.r#outcome,
+            r#revision: &row.r#revision,
+            r#generation: &row.r#generation,
+            r#complete: &row.r#complete,
+            r#after_locator: row.r#after_locator.as_ref(),
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalHistoryRetirementsMerge {
+    ///owner_kind
+    pub r#owner_kind: NativeUpdate<String>,
+    ///owner
+    pub r#owner: NativeUpdate<String>,
+    ///issuing_store
+    pub r#issuing_store: NativeUpdate<String>,
+    ///outcome
+    pub r#outcome: NativeUpdate<String>,
+    ///complete
+    pub r#complete: NativeUpdate<bool>,
+    ///after_locator
+    pub r#after_locator: NativeMerge<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalHistoryRetirementsReplace {
+    ///owner_kind
+    pub r#owner_kind: String,
+    ///owner
+    pub r#owner: String,
+    ///issuing_store
+    pub r#issuing_store: String,
+    ///outcome
+    pub r#outcome: String,
+    ///complete
+    pub r#complete: bool,
+    ///after_locator
+    pub r#after_locator: Option<String>,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_history_retirements(
+    input: &RuntimeCanonicalHistoryRetirementsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#owner_kind;
+        object
+            .insert("owner_kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#owner;
+        object.insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#outcome;
+        object.insert("outcome", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#generation;
+        object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#complete;
+        object.insert("complete", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    if let Some(value) = input.r#after_locator {
+        object
+            .insert(
+                "after_locator",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_history_retirements(
+    input: &RuntimeCanonicalHistoryRetirementsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#owner_kind {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "owner_kind",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#owner {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#issuing_store {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "issuing_store",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#outcome {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "outcome",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#complete {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("complete", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    match &input.r#after_locator {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "after_locator",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("after_locator", surrealdb_types::Value::None);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_history_retirements(
+    input: &RuntimeCanonicalHistoryRetirementsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#owner_kind;
+        object
+            .insert("owner_kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#owner;
+        object.insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#outcome;
+        object.insert("outcome", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#complete;
+        object.insert("complete", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    if let Some(value) = &input.r#after_locator {
+        object
+            .insert(
+                "after_locator",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    } else {
+        object.insert("after_locator", surrealdb_types::Value::None);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_history_retirements(
@@ -2203,6 +8379,260 @@ pub fn decode_canonical_history_retirements(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalInlinePayloadsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///attempt
+    pub r#attempt: &'a String,
+    ///digest
+    pub r#digest: &'a String,
+    ///encoding
+    pub r#encoding: &'a String,
+    ///schema
+    pub r#schema: &'a String,
+    ///interpretation
+    pub r#interpretation: &'a String,
+    ///payload_bytes
+    pub r#payload_bytes: &'a u64,
+    ///batch_count
+    pub r#batch_count: &'a u64,
+    ///body
+    pub r#body: &'a pse_model::Bytes,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_inline_payloads::RuntimeCanonicalInlinePayloadsRow,
+> for RuntimeCanonicalInlinePayloadsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_inline_payloads::RuntimeCanonicalInlinePayloadsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#attempt: &row.r#attempt,
+            r#digest: &row.r#digest,
+            r#encoding: &row.r#encoding,
+            r#schema: &row.r#schema,
+            r#interpretation: &row.r#interpretation,
+            r#payload_bytes: &row.r#payload_bytes,
+            r#batch_count: &row.r#batch_count,
+            r#body: &row.r#body,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalInlinePayloadsMerge {
+    ///attempt
+    pub r#attempt: NativeUpdate<String>,
+    ///digest
+    pub r#digest: NativeUpdate<String>,
+    ///encoding
+    pub r#encoding: NativeUpdate<String>,
+    ///schema
+    pub r#schema: NativeUpdate<String>,
+    ///interpretation
+    pub r#interpretation: NativeUpdate<String>,
+    ///payload_bytes
+    pub r#payload_bytes: NativeUpdate<u64>,
+    ///batch_count
+    pub r#batch_count: NativeUpdate<u64>,
+    ///body
+    pub r#body: NativeUpdate<pse_model::Bytes>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalInlinePayloadsReplace {
+    ///attempt
+    pub r#attempt: String,
+    ///digest
+    pub r#digest: String,
+    ///encoding
+    pub r#encoding: String,
+    ///schema
+    pub r#schema: String,
+    ///interpretation
+    pub r#interpretation: String,
+    ///payload_bytes
+    pub r#payload_bytes: u64,
+    ///batch_count
+    pub r#batch_count: u64,
+    ///body
+    pub r#body: pse_model::Bytes,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_inline_payloads(
+    input: &RuntimeCanonicalInlinePayloadsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#attempt;
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#digest;
+        object.insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#encoding;
+        object.insert("encoding", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#schema;
+        object.insert("schema", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#payload_bytes;
+        object.insert("payload_bytes", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#batch_count;
+        object.insert("batch_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#body;
+        object.insert("body", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_inline_payloads(
+    input: &RuntimeCanonicalInlinePayloadsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#attempt {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "attempt",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#digest {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#encoding {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "encoding",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#schema {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("schema", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#interpretation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "interpretation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#payload_bytes {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("payload_bytes", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#batch_count {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("batch_count", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#body {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("body", crate::canonical_codec::encode_bytes(value.clone())?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_inline_payloads(
+    input: &RuntimeCanonicalInlinePayloadsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#attempt;
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#digest;
+        object.insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#encoding;
+        object.insert("encoding", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#schema;
+        object.insert("schema", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#payload_bytes;
+        object.insert("payload_bytes", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#batch_count;
+        object.insert("batch_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#body;
+        object.insert("body", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_inline_payloads(
     row: &pse_model::generated::runtime::canonical_inline_payloads::RuntimeCanonicalInlinePayloadsRow,
@@ -2286,6 +8716,315 @@ pub fn decode_canonical_inline_payloads(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalInterpretationsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///interpretation
+    pub r#interpretation: &'a String,
+    ///schema_digest
+    pub r#schema_digest: &'a String,
+    ///study_module_sha256
+    pub r#study_module_sha256: &'a String,
+    ///issuing_store
+    pub r#issuing_store: &'a String,
+    ///payload_incarnation
+    pub r#payload_incarnation: &'a String,
+    ///schema_version
+    pub r#schema_version: &'a u64,
+    ///schema_epoch
+    pub r#schema_epoch: &'a String,
+    ///admission_open
+    pub r#admission_open: &'a bool,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_interpretations::RuntimeCanonicalInterpretationsRow,
+> for RuntimeCanonicalInterpretationsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_interpretations::RuntimeCanonicalInterpretationsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#interpretation: &row.r#interpretation,
+            r#schema_digest: &row.r#schema_digest,
+            r#study_module_sha256: &row.r#study_module_sha256,
+            r#issuing_store: &row.r#issuing_store,
+            r#payload_incarnation: &row.r#payload_incarnation,
+            r#schema_version: &row.r#schema_version,
+            r#schema_epoch: &row.r#schema_epoch,
+            r#admission_open: &row.r#admission_open,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalInterpretationsMerge {
+    ///interpretation
+    pub r#interpretation: NativeUpdate<String>,
+    ///schema_digest
+    pub r#schema_digest: NativeUpdate<String>,
+    ///study_module_sha256
+    pub r#study_module_sha256: NativeUpdate<String>,
+    ///issuing_store
+    pub r#issuing_store: NativeUpdate<String>,
+    ///payload_incarnation
+    pub r#payload_incarnation: NativeUpdate<String>,
+    ///schema_version
+    pub r#schema_version: NativeUpdate<u64>,
+    ///schema_epoch
+    pub r#schema_epoch: NativeUpdate<String>,
+    ///admission_open
+    pub r#admission_open: NativeUpdate<bool>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalInterpretationsReplace {
+    ///interpretation
+    pub r#interpretation: String,
+    ///schema_digest
+    pub r#schema_digest: String,
+    ///study_module_sha256
+    pub r#study_module_sha256: String,
+    ///issuing_store
+    pub r#issuing_store: String,
+    ///payload_incarnation
+    pub r#payload_incarnation: String,
+    ///schema_version
+    pub r#schema_version: u64,
+    ///schema_epoch
+    pub r#schema_epoch: String,
+    ///admission_open
+    pub r#admission_open: bool,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_interpretations(
+    input: &RuntimeCanonicalInterpretationsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#schema_digest;
+        object
+            .insert(
+                "schema_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#study_module_sha256;
+        object
+            .insert(
+                "study_module_sha256",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#payload_incarnation;
+        object
+            .insert(
+                "payload_incarnation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#schema_version;
+        object.insert("schema_version", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#schema_epoch;
+        object
+            .insert(
+                "schema_epoch",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#admission_open;
+        object.insert("admission_open", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_interpretations(
+    input: &RuntimeCanonicalInterpretationsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#interpretation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "interpretation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#schema_digest {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "schema_digest",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#study_module_sha256 {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "study_module_sha256",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#issuing_store {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "issuing_store",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#payload_incarnation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "payload_incarnation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#schema_version {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("schema_version", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#schema_epoch {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "schema_epoch",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#admission_open {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "admission_open",
+                    crate::canonical_codec::encode_boolean(*value)?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_interpretations(
+    input: &RuntimeCanonicalInterpretationsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#schema_digest;
+        object
+            .insert(
+                "schema_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#study_module_sha256;
+        object
+            .insert(
+                "study_module_sha256",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#payload_incarnation;
+        object
+            .insert(
+                "payload_incarnation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#schema_version;
+        object.insert("schema_version", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#schema_epoch;
+        object
+            .insert(
+                "schema_epoch",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#admission_open;
+        object.insert("admission_open", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_interpretations(
@@ -2384,6 +9123,262 @@ pub fn decode_canonical_interpretations(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalMaintenanceActivationsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///input_sha256
+    pub r#input_sha256: &'a String,
+    ///predecessor
+    pub r#predecessor: &'a pse_model::Bytes,
+    ///interpretation
+    pub r#interpretation: &'a String,
+    ///schema_digest
+    pub r#schema_digest: &'a String,
+    ///study_module_sha256
+    pub r#study_module_sha256: &'a String,
+    ///issuing_store
+    pub r#issuing_store: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_maintenance_activations::RuntimeCanonicalMaintenanceActivationsRow,
+> for RuntimeCanonicalMaintenanceActivationsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_maintenance_activations::RuntimeCanonicalMaintenanceActivationsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#input_sha256: &row.r#input_sha256,
+            r#predecessor: &row.r#predecessor,
+            r#interpretation: &row.r#interpretation,
+            r#schema_digest: &row.r#schema_digest,
+            r#study_module_sha256: &row.r#study_module_sha256,
+            r#issuing_store: &row.r#issuing_store,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalMaintenanceActivationsMerge {
+    ///input_sha256
+    pub r#input_sha256: NativeUpdate<String>,
+    ///predecessor
+    pub r#predecessor: NativeUpdate<pse_model::Bytes>,
+    ///interpretation
+    pub r#interpretation: NativeUpdate<String>,
+    ///schema_digest
+    pub r#schema_digest: NativeUpdate<String>,
+    ///study_module_sha256
+    pub r#study_module_sha256: NativeUpdate<String>,
+    ///issuing_store
+    pub r#issuing_store: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalMaintenanceActivationsReplace {
+    ///input_sha256
+    pub r#input_sha256: String,
+    ///predecessor
+    pub r#predecessor: pse_model::Bytes,
+    ///interpretation
+    pub r#interpretation: String,
+    ///schema_digest
+    pub r#schema_digest: String,
+    ///study_module_sha256
+    pub r#study_module_sha256: String,
+    ///issuing_store
+    pub r#issuing_store: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_maintenance_activations(
+    input: &RuntimeCanonicalMaintenanceActivationsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#input_sha256;
+        object
+            .insert(
+                "input_sha256",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#predecessor;
+        object
+            .insert("predecessor", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#schema_digest;
+        object
+            .insert(
+                "schema_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#study_module_sha256;
+        object
+            .insert(
+                "study_module_sha256",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_maintenance_activations(
+    input: &RuntimeCanonicalMaintenanceActivationsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#input_sha256 {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "input_sha256",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#predecessor {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "predecessor",
+                    crate::canonical_codec::encode_bytes(value.clone())?,
+                );
+        }
+    }
+    match &input.r#interpretation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "interpretation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#schema_digest {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "schema_digest",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#study_module_sha256 {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "study_module_sha256",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#issuing_store {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "issuing_store",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_maintenance_activations(
+    input: &RuntimeCanonicalMaintenanceActivationsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#input_sha256;
+        object
+            .insert(
+                "input_sha256",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#predecessor;
+        object
+            .insert("predecessor", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = &input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#schema_digest;
+        object
+            .insert(
+                "schema_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#study_module_sha256;
+        object
+            .insert(
+                "study_module_sha256",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_maintenance_activations(
     row: &pse_model::generated::runtime::canonical_maintenance_activations::RuntimeCanonicalMaintenanceActivationsRow,
@@ -2464,6 +9459,296 @@ pub fn decode_canonical_maintenance_activations(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalMaintenanceOperationsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///operation
+    pub r#operation: &'a String,
+    ///generation
+    pub r#generation: &'a String,
+    ///phase
+    pub r#phase: &'a String,
+    ///source
+    pub r#source: &'a String,
+    ///target
+    pub r#target: &'a String,
+    ///kind
+    pub r#kind: &'a String,
+    ///after
+    pub r#after: &'a String,
+    ///next
+    pub r#next: &'a String,
+    ///count
+    pub r#count: &'a u64,
+    ///complete
+    pub r#complete: &'a bool,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_maintenance_operations::RuntimeCanonicalMaintenanceOperationsRow,
+> for RuntimeCanonicalMaintenanceOperationsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_maintenance_operations::RuntimeCanonicalMaintenanceOperationsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#operation: &row.r#operation,
+            r#generation: &row.r#generation,
+            r#phase: &row.r#phase,
+            r#source: &row.r#source,
+            r#target: &row.r#target,
+            r#kind: &row.r#kind,
+            r#after: &row.r#after,
+            r#next: &row.r#next,
+            r#count: &row.r#count,
+            r#complete: &row.r#complete,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalMaintenanceOperationsMerge {
+    ///operation
+    pub r#operation: NativeUpdate<String>,
+    ///generation
+    pub r#generation: NativeUpdate<String>,
+    ///phase
+    pub r#phase: NativeUpdate<String>,
+    ///source
+    pub r#source: NativeUpdate<String>,
+    ///target
+    pub r#target: NativeUpdate<String>,
+    ///kind
+    pub r#kind: NativeUpdate<String>,
+    ///after
+    pub r#after: NativeUpdate<String>,
+    ///next
+    pub r#next: NativeUpdate<String>,
+    ///count
+    pub r#count: NativeUpdate<u64>,
+    ///complete
+    pub r#complete: NativeUpdate<bool>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalMaintenanceOperationsReplace {
+    ///operation
+    pub r#operation: String,
+    ///generation
+    pub r#generation: String,
+    ///phase
+    pub r#phase: String,
+    ///source
+    pub r#source: String,
+    ///target
+    pub r#target: String,
+    ///kind
+    pub r#kind: String,
+    ///after
+    pub r#after: String,
+    ///next
+    pub r#next: String,
+    ///count
+    pub r#count: u64,
+    ///complete
+    pub r#complete: bool,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_maintenance_operations(
+    input: &RuntimeCanonicalMaintenanceOperationsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#operation;
+        object
+            .insert("operation", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#generation;
+        object
+            .insert("generation", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#phase;
+        object.insert("phase", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#source;
+        object.insert("source", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#target;
+        object.insert("target", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#kind;
+        object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#after;
+        object.insert("after", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#next;
+        object.insert("next", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#count;
+        object.insert("count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#complete;
+        object.insert("complete", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_maintenance_operations(
+    input: &RuntimeCanonicalMaintenanceOperationsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#operation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "operation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#generation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "generation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#phase {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("phase", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#source {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("source", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#target {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("target", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#kind {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#after {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("after", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#next {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("next", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#count {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("count", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#complete {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("complete", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_maintenance_operations(
+    input: &RuntimeCanonicalMaintenanceOperationsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#operation;
+        object
+            .insert("operation", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#generation;
+        object
+            .insert("generation", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#phase;
+        object.insert("phase", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#source;
+        object.insert("source", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#target;
+        object.insert("target", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#kind;
+        object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#after;
+        object.insert("after", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#next;
+        object.insert("next", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#count;
+        object.insert("count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#complete;
+        object.insert("complete", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_maintenance_operations(
@@ -2548,6 +9833,274 @@ pub fn decode_canonical_maintenance_operations(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalManifestTicketsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///kind
+    pub r#kind: &'a String,
+    ///selection
+    pub r#selection: &'a String,
+    ///run
+    pub r#run: Option<&'a String>,
+    ///attempt
+    pub r#attempt: Option<&'a String>,
+    ///manifest
+    pub r#manifest: Option<&'a String>,
+    ///owner
+    pub r#owner: &'a String,
+    ///storage_incarnation
+    pub r#storage_incarnation: &'a String,
+    ///released
+    pub r#released: &'a bool,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_manifest_tickets::RuntimeCanonicalManifestTicketsRow,
+> for RuntimeCanonicalManifestTicketsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_manifest_tickets::RuntimeCanonicalManifestTicketsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#kind: &row.r#kind,
+            r#selection: &row.r#selection,
+            r#run: row.r#run.as_ref(),
+            r#attempt: row.r#attempt.as_ref(),
+            r#manifest: row.r#manifest.as_ref(),
+            r#owner: &row.r#owner,
+            r#storage_incarnation: &row.r#storage_incarnation,
+            r#released: &row.r#released,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalManifestTicketsMerge {
+    ///kind
+    pub r#kind: NativeUpdate<String>,
+    ///selection
+    pub r#selection: NativeUpdate<String>,
+    ///run
+    pub r#run: NativeMerge<String>,
+    ///attempt
+    pub r#attempt: NativeMerge<String>,
+    ///manifest
+    pub r#manifest: NativeMerge<String>,
+    ///owner
+    pub r#owner: NativeUpdate<String>,
+    ///storage_incarnation
+    pub r#storage_incarnation: NativeUpdate<String>,
+    ///released
+    pub r#released: NativeUpdate<bool>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalManifestTicketsReplace {
+    ///kind
+    pub r#kind: String,
+    ///selection
+    pub r#selection: String,
+    ///run
+    pub r#run: Option<String>,
+    ///attempt
+    pub r#attempt: Option<String>,
+    ///manifest
+    pub r#manifest: Option<String>,
+    ///owner
+    pub r#owner: String,
+    ///storage_incarnation
+    pub r#storage_incarnation: String,
+    ///released
+    pub r#released: bool,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_manifest_tickets(
+    input: &RuntimeCanonicalManifestTicketsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#kind;
+        object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#selection;
+        object
+            .insert("selection", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#run {
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#attempt {
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#manifest {
+        object.insert("manifest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#owner;
+        object.insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#storage_incarnation;
+        object
+            .insert(
+                "storage_incarnation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#released;
+        object.insert("released", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_manifest_tickets(
+    input: &RuntimeCanonicalManifestTicketsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#kind {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#selection {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "selection",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#run {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+        }
+        NativeMerge::Remove => {
+            object.insert("run", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#attempt {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "attempt",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("attempt", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#manifest {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "manifest",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("manifest", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#owner {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#storage_incarnation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "storage_incarnation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#released {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("released", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_manifest_tickets(
+    input: &RuntimeCanonicalManifestTicketsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#kind;
+        object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#selection;
+        object
+            .insert("selection", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = &input.r#run {
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    } else {
+        object.insert("run", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#attempt {
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    } else {
+        object.insert("attempt", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#manifest {
+        object.insert("manifest", crate::canonical_codec::encode_string(value.clone())?);
+    } else {
+        object.insert("manifest", surrealdb_types::Value::None);
+    }
+    {
+        let value = &input.r#owner;
+        object.insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#storage_incarnation;
+        object
+            .insert(
+                "storage_incarnation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#released;
+        object.insert("released", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_manifest_tickets(
     row: &pse_model::generated::runtime::canonical_manifest_tickets::RuntimeCanonicalManifestTicketsRow,
@@ -2629,6 +10182,266 @@ pub fn decode_canonical_manifest_tickets(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalMembershipsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///problem
+    pub r#problem: &'a String,
+    ///scope
+    pub r#scope: &'a String,
+    ///name
+    pub r#name: &'a String,
+    ///logical
+    pub r#logical: &'a String,
+    ///version
+    pub r#version: &'a String,
+    ///from_sequence
+    pub r#from_sequence: &'a u64,
+    ///to_sequence
+    pub r#to_sequence: Option<&'a u64>,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_memberships::RuntimeCanonicalMembershipsRow,
+> for RuntimeCanonicalMembershipsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_memberships::RuntimeCanonicalMembershipsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#problem: &row.r#problem,
+            r#scope: &row.r#scope,
+            r#name: &row.r#name,
+            r#logical: &row.r#logical,
+            r#version: &row.r#version,
+            r#from_sequence: &row.r#from_sequence,
+            r#to_sequence: row.r#to_sequence.as_ref(),
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalMembershipsMerge {
+    ///problem
+    pub r#problem: NativeUpdate<String>,
+    ///scope
+    pub r#scope: NativeUpdate<String>,
+    ///name
+    pub r#name: NativeUpdate<String>,
+    ///logical
+    pub r#logical: NativeUpdate<String>,
+    ///version
+    pub r#version: NativeUpdate<String>,
+    ///from_sequence
+    pub r#from_sequence: NativeUpdate<u64>,
+    ///to_sequence
+    pub r#to_sequence: NativeMerge<u64>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalMembershipsReplace {
+    ///problem
+    pub r#problem: String,
+    ///scope
+    pub r#scope: String,
+    ///name
+    pub r#name: String,
+    ///logical
+    pub r#logical: String,
+    ///version
+    pub r#version: String,
+    ///from_sequence
+    pub r#from_sequence: u64,
+    ///to_sequence
+    pub r#to_sequence: Option<u64>,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_memberships(
+    input: &RuntimeCanonicalMembershipsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+        object
+            .insert(
+                "in",
+                crate::canonical_codec::record_link("canonical_problems", value),
+            );
+    }
+    {
+        let value = input.r#scope;
+        object.insert("scope", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#name;
+        object.insert("name", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#logical;
+        object.insert("logical", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#version;
+        object.insert("version", crate::canonical_codec::encode_string(value.clone())?);
+        object
+            .insert(
+                "out",
+                crate::canonical_codec::record_link("canonical_version_manifests", value),
+            );
+    }
+    {
+        let value = input.r#from_sequence;
+        object.insert("from_sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    if let Some(value) = input.r#to_sequence {
+        object.insert("to_sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_memberships(
+    input: &RuntimeCanonicalMembershipsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#problem {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "problem",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+            object
+                .insert(
+                    "in",
+                    crate::canonical_codec::record_link("canonical_problems", value),
+                );
+        }
+    }
+    match &input.r#scope {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("scope", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#name {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("name", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#logical {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "logical",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#version {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "version",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+            object
+                .insert(
+                    "out",
+                    crate::canonical_codec::record_link(
+                        "canonical_version_manifests",
+                        value,
+                    ),
+                );
+        }
+    }
+    match &input.r#from_sequence {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("from_sequence", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#to_sequence {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object.insert("to_sequence", crate::canonical_codec::encode_uint(*value)?);
+        }
+        NativeMerge::Remove => {
+            object.insert("to_sequence", surrealdb_types::Value::None);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_memberships(
+    input: &RuntimeCanonicalMembershipsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+        object
+            .insert(
+                "in",
+                crate::canonical_codec::record_link("canonical_problems", value),
+            );
+    }
+    {
+        let value = &input.r#scope;
+        object.insert("scope", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#name;
+        object.insert("name", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#logical;
+        object.insert("logical", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#version;
+        object.insert("version", crate::canonical_codec::encode_string(value.clone())?);
+        object
+            .insert(
+                "out",
+                crate::canonical_codec::record_link("canonical_version_manifests", value),
+            );
+    }
+    {
+        let value = &input.r#from_sequence;
+        object.insert("from_sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    if let Some(value) = &input.r#to_sequence {
+        object.insert("to_sequence", crate::canonical_codec::encode_uint(*value)?);
+    } else {
+        object.insert("to_sequence", surrealdb_types::Value::None);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_memberships(
@@ -2735,6 +10548,160 @@ pub fn decode_canonical_memberships(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalPayloadBlocksCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///version
+    pub r#version: &'a String,
+    ///ordinal
+    pub r#ordinal: &'a u64,
+    ///payload
+    pub r#payload: &'a pse_model::Bytes,
+    ///digest
+    pub r#digest: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_payload_blocks::RuntimeCanonicalPayloadBlocksRow,
+> for RuntimeCanonicalPayloadBlocksCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_payload_blocks::RuntimeCanonicalPayloadBlocksRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#version: &row.r#version,
+            r#ordinal: &row.r#ordinal,
+            r#payload: &row.r#payload,
+            r#digest: &row.r#digest,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalPayloadBlocksMerge {
+    ///version
+    pub r#version: NativeUpdate<String>,
+    ///ordinal
+    pub r#ordinal: NativeUpdate<u64>,
+    ///payload
+    pub r#payload: NativeUpdate<pse_model::Bytes>,
+    ///digest
+    pub r#digest: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalPayloadBlocksReplace {
+    ///version
+    pub r#version: String,
+    ///ordinal
+    pub r#ordinal: u64,
+    ///payload
+    pub r#payload: pse_model::Bytes,
+    ///digest
+    pub r#digest: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_payload_blocks(
+    input: &RuntimeCanonicalPayloadBlocksCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#version;
+        object.insert("version", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#ordinal;
+        object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#payload;
+        object.insert("payload", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#digest;
+        object.insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_payload_blocks(
+    input: &RuntimeCanonicalPayloadBlocksMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#version {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "version",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#ordinal {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#payload {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("payload", crate::canonical_codec::encode_bytes(value.clone())?);
+        }
+    }
+    match &input.r#digest {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_payload_blocks(
+    input: &RuntimeCanonicalPayloadBlocksReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#version;
+        object.insert("version", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#ordinal;
+        object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#payload;
+        object.insert("payload", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = &input.r#digest;
+        object.insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_payload_blocks(
     row: &pse_model::generated::runtime::canonical_payload_blocks::RuntimeCanonicalPayloadBlocksRow,
@@ -2789,6 +10756,140 @@ pub fn decode_canonical_payload_blocks(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProblemRunsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///problem
+    pub r#problem: &'a String,
+    ///run
+    pub r#run: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_problem_runs::RuntimeCanonicalProblemRunsRow,
+> for RuntimeCanonicalProblemRunsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_problem_runs::RuntimeCanonicalProblemRunsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#problem: &row.r#problem,
+            r#run: &row.r#run,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProblemRunsMerge {
+    ///problem
+    pub r#problem: NativeUpdate<String>,
+    ///run
+    pub r#run: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProblemRunsReplace {
+    ///problem
+    pub r#problem: String,
+    ///run
+    pub r#run: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_problem_runs(
+    input: &RuntimeCanonicalProblemRunsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+        object
+            .insert(
+                "in",
+                crate::canonical_codec::record_link("canonical_problems", value),
+            );
+    }
+    {
+        let value = input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+        object
+            .insert("out", crate::canonical_codec::record_link("canonical_runs", value));
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_problem_runs(
+    input: &RuntimeCanonicalProblemRunsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#problem {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "problem",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+            object
+                .insert(
+                    "in",
+                    crate::canonical_codec::record_link("canonical_problems", value),
+                );
+        }
+    }
+    match &input.r#run {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+            object
+                .insert(
+                    "out",
+                    crate::canonical_codec::record_link("canonical_runs", value),
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_problem_runs(
+    input: &RuntimeCanonicalProblemRunsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+        object
+            .insert(
+                "in",
+                crate::canonical_codec::record_link("canonical_problems", value),
+            );
+    }
+    {
+        let value = &input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+        object
+            .insert("out", crate::canonical_codec::record_link("canonical_runs", value));
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_problem_runs(
@@ -2857,6 +10958,112 @@ pub fn decode_canonical_problem_runs(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProblemsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///head
+    pub r#head: &'a String,
+    ///sequence
+    pub r#sequence: &'a u64,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_problems::RuntimeCanonicalProblemsRow,
+> for RuntimeCanonicalProblemsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_problems::RuntimeCanonicalProblemsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#head: &row.r#head,
+            r#sequence: &row.r#sequence,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProblemsMerge {
+    ///head
+    pub r#head: NativeUpdate<String>,
+    ///sequence
+    pub r#sequence: NativeUpdate<u64>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProblemsReplace {
+    ///head
+    pub r#head: String,
+    ///sequence
+    pub r#sequence: u64,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_problems(
+    input: &RuntimeCanonicalProblemsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#head;
+        object.insert("head", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#sequence;
+        object.insert("sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_problems(
+    input: &RuntimeCanonicalProblemsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#head {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("head", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#sequence {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("sequence", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_problems(
+    input: &RuntimeCanonicalProblemsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#head;
+        object.insert("head", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#sequence;
+        object.insert("sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_problems(
     row: &pse_model::generated::runtime::canonical_problems::RuntimeCanonicalProblemsRow,
@@ -2897,6 +11104,400 @@ pub fn decode_canonical_problems(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProductAssociationsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///issuing_store
+    pub r#issuing_store: &'a String,
+    ///problem
+    pub r#problem: &'a String,
+    ///revision
+    pub r#revision: &'a String,
+    ///request
+    pub r#request: &'a pse_model::Bytes,
+    ///payload
+    pub r#payload: &'a pse_model::Bytes,
+    ///dependencies
+    pub r#dependencies: &'a pse_model::Bytes,
+    ///content
+    pub r#content: &'a String,
+    ///receipt
+    pub r#receipt: &'a String,
+    ///descriptor
+    pub r#descriptor: &'a String,
+    ///producer
+    pub r#producer: &'a String,
+    ///producer_class
+    pub r#producer_class: &'a pse_model::generated::enums::CanonicalProducerClass,
+    ///interpretation
+    pub r#interpretation: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_product_associations::RuntimeCanonicalProductAssociationsRow,
+> for RuntimeCanonicalProductAssociationsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_product_associations::RuntimeCanonicalProductAssociationsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#issuing_store: &row.r#issuing_store,
+            r#problem: &row.r#problem,
+            r#revision: &row.r#revision,
+            r#request: &row.r#request,
+            r#payload: &row.r#payload,
+            r#dependencies: &row.r#dependencies,
+            r#content: &row.r#content,
+            r#receipt: &row.r#receipt,
+            r#descriptor: &row.r#descriptor,
+            r#producer: &row.r#producer,
+            r#producer_class: &row.r#producer_class,
+            r#interpretation: &row.r#interpretation,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProductAssociationsMerge {
+    ///issuing_store
+    pub r#issuing_store: NativeUpdate<String>,
+    ///problem
+    pub r#problem: NativeUpdate<String>,
+    ///revision
+    pub r#revision: NativeUpdate<String>,
+    ///request
+    pub r#request: NativeUpdate<pse_model::Bytes>,
+    ///payload
+    pub r#payload: NativeUpdate<pse_model::Bytes>,
+    ///dependencies
+    pub r#dependencies: NativeUpdate<pse_model::Bytes>,
+    ///content
+    pub r#content: NativeUpdate<String>,
+    ///receipt
+    pub r#receipt: NativeUpdate<String>,
+    ///descriptor
+    pub r#descriptor: NativeUpdate<String>,
+    ///producer
+    pub r#producer: NativeUpdate<String>,
+    ///producer_class
+    pub r#producer_class: NativeUpdate<
+        pse_model::generated::enums::CanonicalProducerClass,
+    >,
+    ///interpretation
+    pub r#interpretation: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProductAssociationsReplace {
+    ///issuing_store
+    pub r#issuing_store: String,
+    ///problem
+    pub r#problem: String,
+    ///revision
+    pub r#revision: String,
+    ///request
+    pub r#request: pse_model::Bytes,
+    ///payload
+    pub r#payload: pse_model::Bytes,
+    ///dependencies
+    pub r#dependencies: pse_model::Bytes,
+    ///content
+    pub r#content: String,
+    ///receipt
+    pub r#receipt: String,
+    ///descriptor
+    pub r#descriptor: String,
+    ///producer
+    pub r#producer: String,
+    ///producer_class
+    pub r#producer_class: pse_model::generated::enums::CanonicalProducerClass,
+    ///interpretation
+    pub r#interpretation: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_product_associations(
+    input: &RuntimeCanonicalProductAssociationsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#payload;
+        object.insert("payload", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#dependencies;
+        object
+            .insert(
+                "dependencies",
+                crate::canonical_codec::encode_bytes(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#content;
+        object.insert("content", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#receipt;
+        object.insert("receipt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#descriptor;
+        object
+            .insert("descriptor", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#producer;
+        object.insert("producer", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#producer_class;
+        object
+            .insert(
+                "producer_class",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    {
+        let value = input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_product_associations(
+    input: &RuntimeCanonicalProductAssociationsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#issuing_store {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "issuing_store",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#problem {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "problem",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#revision {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "revision",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#request {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+        }
+    }
+    match &input.r#payload {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("payload", crate::canonical_codec::encode_bytes(value.clone())?);
+        }
+    }
+    match &input.r#dependencies {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "dependencies",
+                    crate::canonical_codec::encode_bytes(value.clone())?,
+                );
+        }
+    }
+    match &input.r#content {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "content",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#receipt {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "receipt",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#descriptor {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "descriptor",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#producer {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "producer",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#producer_class {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "producer_class",
+                    crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+                );
+        }
+    }
+    match &input.r#interpretation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "interpretation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_product_associations(
+    input: &RuntimeCanonicalProductAssociationsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = &input.r#payload;
+        object.insert("payload", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = &input.r#dependencies;
+        object
+            .insert(
+                "dependencies",
+                crate::canonical_codec::encode_bytes(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#content;
+        object.insert("content", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#receipt;
+        object.insert("receipt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#descriptor;
+        object
+            .insert("descriptor", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#producer;
+        object.insert("producer", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#producer_class;
+        object
+            .insert(
+                "producer_class",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    {
+        let value = &input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_product_associations(
@@ -3025,6 +11626,384 @@ pub fn decode_canonical_product_associations(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProductDescriptorsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///issuing_store
+    pub r#issuing_store: &'a String,
+    ///problem
+    pub r#problem: &'a String,
+    ///request
+    pub r#request: &'a pse_model::Bytes,
+    ///payload
+    pub r#payload: &'a pse_model::Bytes,
+    ///dependencies
+    pub r#dependencies: &'a pse_model::Bytes,
+    ///content
+    pub r#content: &'a String,
+    ///receipt
+    pub r#receipt: &'a String,
+    ///producer
+    pub r#producer: &'a String,
+    ///producer_class
+    pub r#producer_class: &'a pse_model::generated::enums::CanonicalProducerClass,
+    ///interpretation
+    pub r#interpretation: &'a String,
+    ///association
+    pub r#association: Option<&'a String>,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_product_descriptors::RuntimeCanonicalProductDescriptorsRow,
+> for RuntimeCanonicalProductDescriptorsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_product_descriptors::RuntimeCanonicalProductDescriptorsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#issuing_store: &row.r#issuing_store,
+            r#problem: &row.r#problem,
+            r#request: &row.r#request,
+            r#payload: &row.r#payload,
+            r#dependencies: &row.r#dependencies,
+            r#content: &row.r#content,
+            r#receipt: &row.r#receipt,
+            r#producer: &row.r#producer,
+            r#producer_class: &row.r#producer_class,
+            r#interpretation: &row.r#interpretation,
+            r#association: row.r#association.as_ref(),
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProductDescriptorsMerge {
+    ///issuing_store
+    pub r#issuing_store: NativeUpdate<String>,
+    ///problem
+    pub r#problem: NativeUpdate<String>,
+    ///request
+    pub r#request: NativeUpdate<pse_model::Bytes>,
+    ///payload
+    pub r#payload: NativeUpdate<pse_model::Bytes>,
+    ///dependencies
+    pub r#dependencies: NativeUpdate<pse_model::Bytes>,
+    ///content
+    pub r#content: NativeUpdate<String>,
+    ///receipt
+    pub r#receipt: NativeUpdate<String>,
+    ///producer
+    pub r#producer: NativeUpdate<String>,
+    ///producer_class
+    pub r#producer_class: NativeUpdate<
+        pse_model::generated::enums::CanonicalProducerClass,
+    >,
+    ///interpretation
+    pub r#interpretation: NativeUpdate<String>,
+    ///association
+    pub r#association: NativeMerge<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProductDescriptorsReplace {
+    ///issuing_store
+    pub r#issuing_store: String,
+    ///problem
+    pub r#problem: String,
+    ///request
+    pub r#request: pse_model::Bytes,
+    ///payload
+    pub r#payload: pse_model::Bytes,
+    ///dependencies
+    pub r#dependencies: pse_model::Bytes,
+    ///content
+    pub r#content: String,
+    ///receipt
+    pub r#receipt: String,
+    ///producer
+    pub r#producer: String,
+    ///producer_class
+    pub r#producer_class: pse_model::generated::enums::CanonicalProducerClass,
+    ///interpretation
+    pub r#interpretation: String,
+    ///association
+    pub r#association: Option<String>,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_product_descriptors(
+    input: &RuntimeCanonicalProductDescriptorsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#payload;
+        object.insert("payload", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#dependencies;
+        object
+            .insert(
+                "dependencies",
+                crate::canonical_codec::encode_bytes(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#content;
+        object.insert("content", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#receipt;
+        object.insert("receipt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#producer;
+        object.insert("producer", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#producer_class;
+        object
+            .insert(
+                "producer_class",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    {
+        let value = input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    if let Some(value) = input.r#association {
+        object
+            .insert(
+                "association",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_product_descriptors(
+    input: &RuntimeCanonicalProductDescriptorsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#issuing_store {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "issuing_store",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#problem {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "problem",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#request {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+        }
+    }
+    match &input.r#payload {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("payload", crate::canonical_codec::encode_bytes(value.clone())?);
+        }
+    }
+    match &input.r#dependencies {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "dependencies",
+                    crate::canonical_codec::encode_bytes(value.clone())?,
+                );
+        }
+    }
+    match &input.r#content {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "content",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#receipt {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "receipt",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#producer {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "producer",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#producer_class {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "producer_class",
+                    crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+                );
+        }
+    }
+    match &input.r#interpretation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "interpretation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#association {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "association",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("association", surrealdb_types::Value::None);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_product_descriptors(
+    input: &RuntimeCanonicalProductDescriptorsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = &input.r#payload;
+        object.insert("payload", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = &input.r#dependencies;
+        object
+            .insert(
+                "dependencies",
+                crate::canonical_codec::encode_bytes(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#content;
+        object.insert("content", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#receipt;
+        object.insert("receipt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#producer;
+        object.insert("producer", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#producer_class;
+        object
+            .insert(
+                "producer_class",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    {
+        let value = &input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    if let Some(value) = &input.r#association {
+        object
+            .insert(
+                "association",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    } else {
+        object.insert("association", surrealdb_types::Value::None);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_product_descriptors(
     row: &pse_model::generated::runtime::canonical_product_descriptors::RuntimeCanonicalProductDescriptorsRow,
@@ -3147,6 +12126,290 @@ pub fn decode_canonical_product_descriptors(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProductsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///problem
+    pub r#problem: &'a String,
+    ///revision
+    pub r#revision: &'a String,
+    ///request
+    pub r#request: &'a pse_model::Bytes,
+    ///payload
+    pub r#payload: &'a pse_model::Bytes,
+    ///dependencies
+    pub r#dependencies: &'a pse_model::Bytes,
+    ///producer
+    pub r#producer: &'a String,
+    ///producer_class
+    pub r#producer_class: &'a pse_model::generated::enums::CanonicalProducerClass,
+    ///interpretation
+    pub r#interpretation: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_products::RuntimeCanonicalProductsRow,
+> for RuntimeCanonicalProductsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_products::RuntimeCanonicalProductsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#problem: &row.r#problem,
+            r#revision: &row.r#revision,
+            r#request: &row.r#request,
+            r#payload: &row.r#payload,
+            r#dependencies: &row.r#dependencies,
+            r#producer: &row.r#producer,
+            r#producer_class: &row.r#producer_class,
+            r#interpretation: &row.r#interpretation,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProductsMerge {
+    ///problem
+    pub r#problem: NativeUpdate<String>,
+    ///revision
+    pub r#revision: NativeUpdate<String>,
+    ///request
+    pub r#request: NativeUpdate<pse_model::Bytes>,
+    ///payload
+    pub r#payload: NativeUpdate<pse_model::Bytes>,
+    ///dependencies
+    pub r#dependencies: NativeUpdate<pse_model::Bytes>,
+    ///producer
+    pub r#producer: NativeUpdate<String>,
+    ///producer_class
+    pub r#producer_class: NativeUpdate<
+        pse_model::generated::enums::CanonicalProducerClass,
+    >,
+    ///interpretation
+    pub r#interpretation: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProductsReplace {
+    ///problem
+    pub r#problem: String,
+    ///revision
+    pub r#revision: String,
+    ///request
+    pub r#request: pse_model::Bytes,
+    ///payload
+    pub r#payload: pse_model::Bytes,
+    ///dependencies
+    pub r#dependencies: pse_model::Bytes,
+    ///producer
+    pub r#producer: String,
+    ///producer_class
+    pub r#producer_class: pse_model::generated::enums::CanonicalProducerClass,
+    ///interpretation
+    pub r#interpretation: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_products(
+    input: &RuntimeCanonicalProductsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#payload;
+        object.insert("payload", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#dependencies;
+        object
+            .insert(
+                "dependencies",
+                crate::canonical_codec::encode_bytes(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#producer;
+        object.insert("producer", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#producer_class;
+        object
+            .insert(
+                "producer_class",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    {
+        let value = input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_products(
+    input: &RuntimeCanonicalProductsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#problem {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "problem",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#revision {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "revision",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#request {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+        }
+    }
+    match &input.r#payload {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("payload", crate::canonical_codec::encode_bytes(value.clone())?);
+        }
+    }
+    match &input.r#dependencies {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "dependencies",
+                    crate::canonical_codec::encode_bytes(value.clone())?,
+                );
+        }
+    }
+    match &input.r#producer {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "producer",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#producer_class {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "producer_class",
+                    crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+                );
+        }
+    }
+    match &input.r#interpretation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "interpretation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_products(
+    input: &RuntimeCanonicalProductsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = &input.r#payload;
+        object.insert("payload", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = &input.r#dependencies;
+        object
+            .insert(
+                "dependencies",
+                crate::canonical_codec::encode_bytes(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#producer;
+        object.insert("producer", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#producer_class;
+        object
+            .insert(
+                "producer_class",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    {
+        let value = &input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_products(
     row: &pse_model::generated::runtime::canonical_products::RuntimeCanonicalProductsRow,
@@ -3242,6 +12505,84 @@ pub fn decode_canonical_products(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectAncestryCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///revision
+    pub r#revision: &'a String,
+    ///parent
+    pub r#parent: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_project_ancestry::RuntimeCanonicalProjectAncestryRow,
+> for RuntimeCanonicalProjectAncestryCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_project_ancestry::RuntimeCanonicalProjectAncestryRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#revision: &row.r#revision,
+            r#parent: &row.r#parent,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectAncestryMerge {}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectAncestryReplace {}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_project_ancestry(
+    input: &RuntimeCanonicalProjectAncestryCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#parent;
+        object.insert("parent", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_project_ancestry(
+    input: &RuntimeCanonicalProjectAncestryMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let object = surrealdb_types::Object::new();
+    let _ = input;
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_project_ancestry(
+    input: &RuntimeCanonicalProjectAncestryReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let object = surrealdb_types::Object::new();
+    let _ = input;
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_project_ancestry(
     row: &pse_model::generated::runtime::canonical_project_ancestry::RuntimeCanonicalProjectAncestryRow,
@@ -3287,6 +12628,141 @@ pub fn decode_canonical_project_ancestry(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectBookmarksCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///project
+    pub r#project: &'a String,
+    ///revision
+    pub r#revision: &'a String,
+    ///name
+    pub r#name: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_project_bookmarks::RuntimeCanonicalProjectBookmarksRow,
+> for RuntimeCanonicalProjectBookmarksCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_project_bookmarks::RuntimeCanonicalProjectBookmarksRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#project: &row.r#project,
+            r#revision: &row.r#revision,
+            r#name: &row.r#name,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectBookmarksMerge {
+    ///project
+    pub r#project: NativeUpdate<String>,
+    ///revision
+    pub r#revision: NativeUpdate<String>,
+    ///name
+    pub r#name: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectBookmarksReplace {
+    ///project
+    pub r#project: String,
+    ///revision
+    pub r#revision: String,
+    ///name
+    pub r#name: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_project_bookmarks(
+    input: &RuntimeCanonicalProjectBookmarksCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#project;
+        object.insert("project", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#name;
+        object.insert("name", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_project_bookmarks(
+    input: &RuntimeCanonicalProjectBookmarksMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#project {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "project",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#revision {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "revision",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#name {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("name", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_project_bookmarks(
+    input: &RuntimeCanonicalProjectBookmarksReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#project;
+        object.insert("project", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#name;
+        object.insert("name", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_project_bookmarks(
@@ -3340,6 +12816,136 @@ pub fn decode_canonical_project_bookmarks(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectBranchesCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///project
+    pub r#project: &'a String,
+    ///problem
+    pub r#problem: &'a String,
+    ///name
+    pub r#name: &'a String,
+    ///origin_revision
+    pub r#origin_revision: Option<&'a String>,
+    ///generation
+    pub r#generation: &'a u64,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_project_branches::RuntimeCanonicalProjectBranchesRow,
+> for RuntimeCanonicalProjectBranchesCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_project_branches::RuntimeCanonicalProjectBranchesRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#project: &row.r#project,
+            r#problem: &row.r#problem,
+            r#name: &row.r#name,
+            r#origin_revision: row.r#origin_revision.as_ref(),
+            r#generation: &row.r#generation,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectBranchesMerge {
+    ///name
+    pub r#name: NativeUpdate<String>,
+    ///generation
+    pub r#generation: NativeUpdate<u64>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectBranchesReplace {
+    ///name
+    pub r#name: String,
+    ///generation
+    pub r#generation: u64,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_project_branches(
+    input: &RuntimeCanonicalProjectBranchesCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#project;
+        object.insert("project", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#name;
+        object.insert("name", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#origin_revision {
+        object
+            .insert(
+                "origin_revision",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#generation;
+        object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_project_branches(
+    input: &RuntimeCanonicalProjectBranchesMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#name {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("name", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#generation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_project_branches(
+    input: &RuntimeCanonicalProjectBranchesReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#name;
+        object.insert("name", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#generation;
+        object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_project_branches(
@@ -3408,6 +13014,175 @@ pub fn decode_canonical_project_branches(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectContextsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///project
+    pub r#project: &'a String,
+    ///scope
+    pub r#scope: &'a String,
+    ///revision
+    pub r#revision: &'a String,
+    ///source_identity
+    pub r#source_identity: &'a String,
+    ///physical_context
+    pub r#physical_context: &'a String,
+    ///physical_revision
+    pub r#physical_revision: &'a String,
+    ///physical_source_identity
+    pub r#physical_source_identity: &'a String,
+    ///effective_from_us
+    pub r#effective_from_us: &'a i64,
+    ///effective_to_us
+    pub r#effective_to_us: Option<&'a i64>,
+    ///recorded_sequence
+    pub r#recorded_sequence: &'a u64,
+    ///corrects
+    pub r#corrects: Option<&'a String>,
+    ///deleted
+    pub r#deleted: &'a bool,
+    ///request
+    pub r#request: &'a pse_model::Bytes,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_project_contexts::RuntimeCanonicalProjectContextsRow,
+> for RuntimeCanonicalProjectContextsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_project_contexts::RuntimeCanonicalProjectContextsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#project: &row.r#project,
+            r#scope: &row.r#scope,
+            r#revision: &row.r#revision,
+            r#source_identity: &row.r#source_identity,
+            r#physical_context: &row.r#physical_context,
+            r#physical_revision: &row.r#physical_revision,
+            r#physical_source_identity: &row.r#physical_source_identity,
+            r#effective_from_us: &row.r#effective_from_us,
+            r#effective_to_us: row.r#effective_to_us.as_ref(),
+            r#recorded_sequence: &row.r#recorded_sequence,
+            r#corrects: row.r#corrects.as_ref(),
+            r#deleted: &row.r#deleted,
+            r#request: &row.r#request,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectContextsMerge {}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectContextsReplace {}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_project_contexts(
+    input: &RuntimeCanonicalProjectContextsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#project;
+        object.insert("project", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#scope;
+        object.insert("scope", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#source_identity;
+        object
+            .insert(
+                "source_identity",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#physical_context;
+        object
+            .insert(
+                "physical_context",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#physical_revision;
+        object
+            .insert(
+                "physical_revision",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#physical_source_identity;
+        object
+            .insert(
+                "physical_source_identity",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#effective_from_us;
+        object.insert("effective_from_us", crate::canonical_codec::encode_int(*value)?);
+    }
+    if let Some(value) = input.r#effective_to_us {
+        object.insert("effective_to_us", crate::canonical_codec::encode_int(*value)?);
+    }
+    {
+        let value = input.r#recorded_sequence;
+        object.insert("recorded_sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    if let Some(value) = input.r#corrects {
+        object.insert("corrects", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#deleted;
+        object.insert("deleted", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_project_contexts(
+    input: &RuntimeCanonicalProjectContextsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let object = surrealdb_types::Object::new();
+    let _ = input;
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_project_contexts(
+    input: &RuntimeCanonicalProjectContextsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let object = surrealdb_types::Object::new();
+    let _ = input;
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_project_contexts(
@@ -3535,6 +13310,157 @@ pub fn decode_canonical_project_contexts(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectDraftVersionsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///draft
+    pub r#draft: &'a String,
+    ///project
+    pub r#project: &'a String,
+    ///branch
+    pub r#branch: &'a String,
+    ///base_revision
+    pub r#base_revision: &'a String,
+    ///generation
+    pub r#generation: &'a u64,
+    ///content
+    pub r#content: &'a pse_model::Bytes,
+    ///artifact
+    pub r#artifact: Option<&'a String>,
+    ///retired
+    pub r#retired: Option<&'a bool>,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_project_draft_versions::RuntimeCanonicalProjectDraftVersionsRow,
+> for RuntimeCanonicalProjectDraftVersionsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_project_draft_versions::RuntimeCanonicalProjectDraftVersionsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#draft: &row.r#draft,
+            r#project: &row.r#project,
+            r#branch: &row.r#branch,
+            r#base_revision: &row.r#base_revision,
+            r#generation: &row.r#generation,
+            r#content: &row.r#content,
+            r#artifact: row.r#artifact.as_ref(),
+            r#retired: Some(&row.r#retired),
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectDraftVersionsMerge {
+    ///content
+    pub r#content: NativeUpdate<pse_model::Bytes>,
+    ///retired
+    pub r#retired: NativeUpdate<bool>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectDraftVersionsReplace {
+    ///content
+    pub r#content: pse_model::Bytes,
+    ///retired
+    pub r#retired: bool,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_project_draft_versions(
+    input: &RuntimeCanonicalProjectDraftVersionsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#draft;
+        object.insert("draft", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#project;
+        object.insert("project", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#branch;
+        object.insert("branch", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#base_revision;
+        object
+            .insert(
+                "base_revision",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#generation;
+        object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#content;
+        object.insert("content", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    if let Some(value) = input.r#artifact {
+        object.insert("artifact", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#retired {
+        object.insert("retired", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_project_draft_versions(
+    input: &RuntimeCanonicalProjectDraftVersionsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#content {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("content", crate::canonical_codec::encode_bytes(value.clone())?);
+        }
+    }
+    match &input.r#retired {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("retired", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_project_draft_versions(
+    input: &RuntimeCanonicalProjectDraftVersionsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#content;
+        object.insert("content", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = &input.r#retired;
+        object.insert("retired", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_project_draft_versions(
     row: &pse_model::generated::runtime::canonical_project_draft_versions::RuntimeCanonicalProjectDraftVersionsRow,
@@ -3613,6 +13539,184 @@ pub fn decode_canonical_project_draft_versions(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectDraftsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///project
+    pub r#project: &'a String,
+    ///branch
+    pub r#branch: &'a String,
+    ///generation
+    pub r#generation: &'a u64,
+    ///version
+    pub r#version: &'a String,
+    ///deleted
+    pub r#deleted: &'a bool,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_project_drafts::RuntimeCanonicalProjectDraftsRow,
+> for RuntimeCanonicalProjectDraftsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_project_drafts::RuntimeCanonicalProjectDraftsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#project: &row.r#project,
+            r#branch: &row.r#branch,
+            r#generation: &row.r#generation,
+            r#version: &row.r#version,
+            r#deleted: &row.r#deleted,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectDraftsMerge {
+    ///project
+    pub r#project: NativeUpdate<String>,
+    ///branch
+    pub r#branch: NativeUpdate<String>,
+    ///generation
+    pub r#generation: NativeUpdate<u64>,
+    ///version
+    pub r#version: NativeUpdate<String>,
+    ///deleted
+    pub r#deleted: NativeUpdate<bool>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectDraftsReplace {
+    ///project
+    pub r#project: String,
+    ///branch
+    pub r#branch: String,
+    ///generation
+    pub r#generation: u64,
+    ///version
+    pub r#version: String,
+    ///deleted
+    pub r#deleted: bool,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_project_drafts(
+    input: &RuntimeCanonicalProjectDraftsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#project;
+        object.insert("project", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#branch;
+        object.insert("branch", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#generation;
+        object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#version;
+        object.insert("version", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#deleted;
+        object.insert("deleted", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_project_drafts(
+    input: &RuntimeCanonicalProjectDraftsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#project {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "project",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#branch {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("branch", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#generation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#version {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "version",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#deleted {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("deleted", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_project_drafts(
+    input: &RuntimeCanonicalProjectDraftsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#project;
+        object.insert("project", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#branch;
+        object.insert("branch", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#generation;
+        object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#version;
+        object.insert("version", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#deleted;
+        object.insert("deleted", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_project_drafts(
     row: &pse_model::generated::runtime::canonical_project_drafts::RuntimeCanonicalProjectDraftsRow,
@@ -3674,6 +13778,218 @@ pub fn decode_canonical_project_drafts(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectImportsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///issuing_store
+    pub r#issuing_store: &'a String,
+    ///bundle_digest
+    pub r#bundle_digest: &'a String,
+    ///project
+    pub r#project: &'a String,
+    ///branch
+    pub r#branch: &'a String,
+    ///problem
+    pub r#problem: &'a String,
+    ///revision
+    pub r#revision: &'a String,
+    ///origin
+    pub r#origin: &'a pse_model::Bytes,
+    ///request
+    pub r#request: &'a pse_model::Bytes,
+    ///artifact
+    pub r#artifact: Option<&'a pse_model::Bytes>,
+    ///retired_artifacts
+    pub r#retired_artifacts: Option<&'a pse_model::Bytes>,
+    ///complete
+    pub r#complete: Option<&'a bool>,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_project_imports::RuntimeCanonicalProjectImportsRow,
+> for RuntimeCanonicalProjectImportsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_project_imports::RuntimeCanonicalProjectImportsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#issuing_store: &row.r#issuing_store,
+            r#bundle_digest: &row.r#bundle_digest,
+            r#project: &row.r#project,
+            r#branch: &row.r#branch,
+            r#problem: &row.r#problem,
+            r#revision: &row.r#revision,
+            r#origin: &row.r#origin,
+            r#request: &row.r#request,
+            r#artifact: row.r#artifact.as_ref(),
+            r#retired_artifacts: row.r#retired_artifacts.as_ref(),
+            r#complete: Some(&row.r#complete),
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectImportsMerge {
+    ///artifact
+    pub r#artifact: NativeMerge<pse_model::Bytes>,
+    ///retired_artifacts
+    pub r#retired_artifacts: NativeMerge<pse_model::Bytes>,
+    ///complete
+    pub r#complete: NativeUpdate<bool>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectImportsReplace {
+    ///artifact
+    pub r#artifact: Option<pse_model::Bytes>,
+    ///retired_artifacts
+    pub r#retired_artifacts: Option<pse_model::Bytes>,
+    ///complete
+    pub r#complete: bool,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_project_imports(
+    input: &RuntimeCanonicalProjectImportsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#issuing_store;
+        object
+            .insert(
+                "issuing_store",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#bundle_digest;
+        object
+            .insert(
+                "bundle_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#project;
+        object.insert("project", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#branch;
+        object.insert("branch", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#origin;
+        object.insert("origin", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    if let Some(value) = input.r#artifact {
+        object.insert("artifact", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    if let Some(value) = input.r#retired_artifacts {
+        object
+            .insert(
+                "retired_artifacts",
+                crate::canonical_codec::encode_bytes(value.clone())?,
+            );
+    }
+    if let Some(value) = input.r#complete {
+        object.insert("complete", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_project_imports(
+    input: &RuntimeCanonicalProjectImportsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#artifact {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "artifact",
+                    crate::canonical_codec::encode_bytes(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("artifact", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#retired_artifacts {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "retired_artifacts",
+                    crate::canonical_codec::encode_bytes(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("retired_artifacts", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#complete {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("complete", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_project_imports(
+    input: &RuntimeCanonicalProjectImportsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    if let Some(value) = &input.r#artifact {
+        object.insert("artifact", crate::canonical_codec::encode_bytes(value.clone())?);
+    } else {
+        object.insert("artifact", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#retired_artifacts {
+        object
+            .insert(
+                "retired_artifacts",
+                crate::canonical_codec::encode_bytes(value.clone())?,
+            );
+    } else {
+        object.insert("retired_artifacts", surrealdb_types::Value::None);
+    }
+    {
+        let value = &input.r#complete;
+        object.insert("complete", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_project_imports(
@@ -3784,6 +14100,110 @@ pub fn decode_canonical_project_imports(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectOperationsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///kind
+    pub r#kind: &'a String,
+    ///project
+    pub r#project: &'a String,
+    ///branch
+    pub r#branch: Option<&'a String>,
+    ///request
+    pub r#request: &'a pse_model::Bytes,
+    ///revision
+    pub r#revision: Option<&'a String>,
+    ///generation
+    pub r#generation: &'a u64,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_project_operations::RuntimeCanonicalProjectOperationsRow,
+> for RuntimeCanonicalProjectOperationsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_project_operations::RuntimeCanonicalProjectOperationsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#kind: &row.r#kind,
+            r#project: &row.r#project,
+            r#branch: row.r#branch.as_ref(),
+            r#request: &row.r#request,
+            r#revision: row.r#revision.as_ref(),
+            r#generation: &row.r#generation,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectOperationsMerge {}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectOperationsReplace {}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_project_operations(
+    input: &RuntimeCanonicalProjectOperationsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#kind;
+        object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#project;
+        object.insert("project", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#branch {
+        object.insert("branch", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    if let Some(value) = input.r#revision {
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#generation;
+        object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_project_operations(
+    input: &RuntimeCanonicalProjectOperationsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let object = surrealdb_types::Object::new();
+    let _ = input;
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_project_operations(
+    input: &RuntimeCanonicalProjectOperationsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let object = surrealdb_types::Object::new();
+    let _ = input;
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_project_operations(
     row: &pse_model::generated::runtime::canonical_project_operations::RuntimeCanonicalProjectOperationsRow,
@@ -3852,6 +14272,184 @@ pub fn decode_canonical_project_operations(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectSavepointsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///project
+    pub r#project: &'a String,
+    ///draft
+    pub r#draft: &'a String,
+    ///version
+    pub r#version: &'a String,
+    ///name
+    pub r#name: &'a String,
+    ///deleted
+    pub r#deleted: &'a bool,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_project_savepoints::RuntimeCanonicalProjectSavepointsRow,
+> for RuntimeCanonicalProjectSavepointsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_project_savepoints::RuntimeCanonicalProjectSavepointsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#project: &row.r#project,
+            r#draft: &row.r#draft,
+            r#version: &row.r#version,
+            r#name: &row.r#name,
+            r#deleted: &row.r#deleted,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectSavepointsMerge {
+    ///project
+    pub r#project: NativeUpdate<String>,
+    ///draft
+    pub r#draft: NativeUpdate<String>,
+    ///version
+    pub r#version: NativeUpdate<String>,
+    ///name
+    pub r#name: NativeUpdate<String>,
+    ///deleted
+    pub r#deleted: NativeUpdate<bool>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectSavepointsReplace {
+    ///project
+    pub r#project: String,
+    ///draft
+    pub r#draft: String,
+    ///version
+    pub r#version: String,
+    ///name
+    pub r#name: String,
+    ///deleted
+    pub r#deleted: bool,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_project_savepoints(
+    input: &RuntimeCanonicalProjectSavepointsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#project;
+        object.insert("project", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#draft;
+        object.insert("draft", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#version;
+        object.insert("version", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#name;
+        object.insert("name", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#deleted;
+        object.insert("deleted", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_project_savepoints(
+    input: &RuntimeCanonicalProjectSavepointsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#project {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "project",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#draft {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("draft", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#version {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "version",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#name {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("name", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#deleted {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("deleted", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_project_savepoints(
+    input: &RuntimeCanonicalProjectSavepointsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#project;
+        object.insert("project", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#draft;
+        object.insert("draft", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#version;
+        object.insert("version", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#name;
+        object.insert("name", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#deleted;
+        object.insert("deleted", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_project_savepoints(
     row: &pse_model::generated::runtime::canonical_project_savepoints::RuntimeCanonicalProjectSavepointsRow,
@@ -3913,6 +14511,134 @@ pub fn decode_canonical_project_savepoints(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///title
+    pub r#title: &'a String,
+    ///deleted
+    pub r#deleted: &'a bool,
+    ///generation
+    pub r#generation: &'a u64,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_projects::RuntimeCanonicalProjectsRow,
+> for RuntimeCanonicalProjectsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_projects::RuntimeCanonicalProjectsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#title: &row.r#title,
+            r#deleted: &row.r#deleted,
+            r#generation: &row.r#generation,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectsMerge {
+    ///title
+    pub r#title: NativeUpdate<String>,
+    ///deleted
+    pub r#deleted: NativeUpdate<bool>,
+    ///generation
+    pub r#generation: NativeUpdate<u64>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProjectsReplace {
+    ///title
+    pub r#title: String,
+    ///deleted
+    pub r#deleted: bool,
+    ///generation
+    pub r#generation: u64,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_projects(
+    input: &RuntimeCanonicalProjectsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#title;
+        object.insert("title", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#deleted;
+        object.insert("deleted", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = input.r#generation;
+        object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_projects(
+    input: &RuntimeCanonicalProjectsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#title {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("title", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#deleted {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("deleted", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    match &input.r#generation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_projects(
+    input: &RuntimeCanonicalProjectsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#title;
+        object.insert("title", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#deleted;
+        object.insert("deleted", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = &input.r#generation;
+        object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_projects(
     row: &pse_model::generated::runtime::canonical_projects::RuntimeCanonicalProjectsRow,
@@ -3957,6 +14683,279 @@ pub fn decode_canonical_projects(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProtectionsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///problem
+    pub r#problem: &'a String,
+    ///revision
+    pub r#revision: &'a String,
+    ///sequence
+    pub r#sequence: &'a u64,
+    ///expires_at
+    pub r#expires_at: &'a i64,
+    ///released
+    pub r#released: &'a bool,
+    ///grant_deadline
+    pub r#grant_deadline: Option<&'a i64>,
+    ///grant_nonce
+    pub r#grant_nonce: Option<&'a String>,
+    ///authority_incarnation
+    pub r#authority_incarnation: Option<&'a String>,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_protections::RuntimeCanonicalProtectionsRow,
+> for RuntimeCanonicalProtectionsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_protections::RuntimeCanonicalProtectionsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#problem: &row.r#problem,
+            r#revision: &row.r#revision,
+            r#sequence: &row.r#sequence,
+            r#expires_at: &row.r#expires_at,
+            r#released: &row.r#released,
+            r#grant_deadline: row.r#grant_deadline.as_ref(),
+            r#grant_nonce: row.r#grant_nonce.as_ref(),
+            r#authority_incarnation: row.r#authority_incarnation.as_ref(),
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProtectionsMerge {
+    ///problem
+    pub r#problem: NativeUpdate<String>,
+    ///revision
+    pub r#revision: NativeUpdate<String>,
+    ///sequence
+    pub r#sequence: NativeUpdate<u64>,
+    ///expires_at
+    pub r#expires_at: NativeUpdate<i64>,
+    ///released
+    pub r#released: NativeUpdate<bool>,
+    ///grant_deadline
+    pub r#grant_deadline: NativeMerge<i64>,
+    ///grant_nonce
+    pub r#grant_nonce: NativeMerge<String>,
+    ///authority_incarnation
+    pub r#authority_incarnation: NativeMerge<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalProtectionsReplace {
+    ///problem
+    pub r#problem: String,
+    ///revision
+    pub r#revision: String,
+    ///sequence
+    pub r#sequence: u64,
+    ///expires_at
+    pub r#expires_at: i64,
+    ///released
+    pub r#released: bool,
+    ///grant_deadline
+    pub r#grant_deadline: Option<i64>,
+    ///grant_nonce
+    pub r#grant_nonce: Option<String>,
+    ///authority_incarnation
+    pub r#authority_incarnation: Option<String>,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_protections(
+    input: &RuntimeCanonicalProtectionsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#sequence;
+        object.insert("sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#expires_at;
+        object.insert("expires_at", crate::canonical_codec::encode_int(*value)?);
+    }
+    {
+        let value = input.r#released;
+        object.insert("released", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    if let Some(value) = input.r#grant_deadline {
+        object.insert("grant_deadline", crate::canonical_codec::encode_int(*value)?);
+    }
+    if let Some(value) = input.r#grant_nonce {
+        object
+            .insert(
+                "grant_nonce",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    if let Some(value) = input.r#authority_incarnation {
+        object
+            .insert(
+                "authority_incarnation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_protections(
+    input: &RuntimeCanonicalProtectionsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#problem {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "problem",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#revision {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "revision",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#sequence {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("sequence", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#expires_at {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("expires_at", crate::canonical_codec::encode_int(*value)?);
+        }
+    }
+    match &input.r#released {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("released", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    match &input.r#grant_deadline {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object.insert("grant_deadline", crate::canonical_codec::encode_int(*value)?);
+        }
+        NativeMerge::Remove => {
+            object.insert("grant_deadline", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#grant_nonce {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "grant_nonce",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("grant_nonce", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#authority_incarnation {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "authority_incarnation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("authority_incarnation", surrealdb_types::Value::None);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_protections(
+    input: &RuntimeCanonicalProtectionsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#sequence;
+        object.insert("sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#expires_at;
+        object.insert("expires_at", crate::canonical_codec::encode_int(*value)?);
+    }
+    {
+        let value = &input.r#released;
+        object.insert("released", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    if let Some(value) = &input.r#grant_deadline {
+        object.insert("grant_deadline", crate::canonical_codec::encode_int(*value)?);
+    } else {
+        object.insert("grant_deadline", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#grant_nonce {
+        object
+            .insert(
+                "grant_nonce",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    } else {
+        object.insert("grant_nonce", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#authority_incarnation {
+        object
+            .insert(
+                "authority_incarnation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    } else {
+        object.insert("authority_incarnation", surrealdb_types::Value::None);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_protections(
@@ -4048,6 +15047,137 @@ pub fn decode_canonical_protections(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalReclaimedRangesCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///problem
+    pub r#problem: &'a String,
+    ///from_sequence
+    pub r#from_sequence: &'a u64,
+    ///to_sequence
+    pub r#to_sequence: &'a u64,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_reclaimed_ranges::RuntimeCanonicalReclaimedRangesRow,
+> for RuntimeCanonicalReclaimedRangesCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_reclaimed_ranges::RuntimeCanonicalReclaimedRangesRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#problem: &row.r#problem,
+            r#from_sequence: &row.r#from_sequence,
+            r#to_sequence: &row.r#to_sequence,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalReclaimedRangesMerge {
+    ///problem
+    pub r#problem: NativeUpdate<String>,
+    ///from_sequence
+    pub r#from_sequence: NativeUpdate<u64>,
+    ///to_sequence
+    pub r#to_sequence: NativeUpdate<u64>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalReclaimedRangesReplace {
+    ///problem
+    pub r#problem: String,
+    ///from_sequence
+    pub r#from_sequence: u64,
+    ///to_sequence
+    pub r#to_sequence: u64,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_reclaimed_ranges(
+    input: &RuntimeCanonicalReclaimedRangesCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#from_sequence;
+        object.insert("from_sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#to_sequence;
+        object.insert("to_sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_reclaimed_ranges(
+    input: &RuntimeCanonicalReclaimedRangesMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#problem {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "problem",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#from_sequence {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("from_sequence", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#to_sequence {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("to_sequence", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_reclaimed_ranges(
+    input: &RuntimeCanonicalReclaimedRangesReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#from_sequence;
+        object.insert("from_sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#to_sequence;
+        object.insert("to_sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_reclaimed_ranges(
     row: &pse_model::generated::runtime::canonical_reclaimed_ranges::RuntimeCanonicalReclaimedRangesRow,
@@ -4101,6 +15231,268 @@ pub fn decode_canonical_reclaimed_ranges(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResearchDatasetsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///project
+    pub r#project: &'a String,
+    ///revision
+    pub r#revision: &'a String,
+    ///physical_context
+    pub r#physical_context: &'a String,
+    ///context
+    pub r#context: &'a String,
+    ///parent
+    pub r#parent: Option<&'a String>,
+    ///role
+    pub r#role: &'a String,
+    ///members
+    pub r#members: &'a pse_model::Bytes,
+    ///request
+    pub r#request: &'a pse_model::Bytes,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_research_datasets::RuntimeCanonicalResearchDatasetsRow,
+> for RuntimeCanonicalResearchDatasetsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_research_datasets::RuntimeCanonicalResearchDatasetsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#project: &row.r#project,
+            r#revision: &row.r#revision,
+            r#physical_context: &row.r#physical_context,
+            r#context: &row.r#context,
+            r#parent: row.r#parent.as_ref(),
+            r#role: &row.r#role,
+            r#members: &row.r#members,
+            r#request: &row.r#request,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResearchDatasetsMerge {
+    ///project
+    pub r#project: NativeUpdate<String>,
+    ///revision
+    pub r#revision: NativeUpdate<String>,
+    ///physical_context
+    pub r#physical_context: NativeUpdate<String>,
+    ///context
+    pub r#context: NativeUpdate<String>,
+    ///parent
+    pub r#parent: NativeMerge<String>,
+    ///role
+    pub r#role: NativeUpdate<String>,
+    ///members
+    pub r#members: NativeUpdate<pse_model::Bytes>,
+    ///request
+    pub r#request: NativeUpdate<pse_model::Bytes>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResearchDatasetsReplace {
+    ///project
+    pub r#project: String,
+    ///revision
+    pub r#revision: String,
+    ///physical_context
+    pub r#physical_context: String,
+    ///context
+    pub r#context: String,
+    ///parent
+    pub r#parent: Option<String>,
+    ///role
+    pub r#role: String,
+    ///members
+    pub r#members: pse_model::Bytes,
+    ///request
+    pub r#request: pse_model::Bytes,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_research_datasets(
+    input: &RuntimeCanonicalResearchDatasetsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#project;
+        object.insert("project", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#physical_context;
+        object
+            .insert(
+                "physical_context",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#context;
+        object.insert("context", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#parent {
+        object.insert("parent", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#role;
+        object.insert("role", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#members;
+        object.insert("members", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_research_datasets(
+    input: &RuntimeCanonicalResearchDatasetsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#project {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "project",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#revision {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "revision",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#physical_context {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "physical_context",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#context {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "context",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#parent {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert("parent", crate::canonical_codec::encode_string(value.clone())?);
+        }
+        NativeMerge::Remove => {
+            object.insert("parent", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#role {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("role", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#members {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("members", crate::canonical_codec::encode_bytes(value.clone())?);
+        }
+    }
+    match &input.r#request {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_research_datasets(
+    input: &RuntimeCanonicalResearchDatasetsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#project;
+        object.insert("project", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#physical_context;
+        object
+            .insert(
+                "physical_context",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#context;
+        object.insert("context", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = &input.r#parent {
+        object.insert("parent", crate::canonical_codec::encode_string(value.clone())?);
+    } else {
+        object.insert("parent", surrealdb_types::Value::None);
+    }
+    {
+        let value = &input.r#role;
+        object.insert("role", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#members;
+        object.insert("members", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = &input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_research_datasets(
@@ -4188,6 +15580,259 @@ pub fn decode_canonical_research_datasets(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResearchPublicationsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///project
+    pub r#project: &'a String,
+    ///selection
+    pub r#selection: &'a String,
+    ///run
+    pub r#run: &'a String,
+    ///attempt
+    pub r#attempt: &'a String,
+    ///revision
+    pub r#revision: &'a String,
+    ///parent
+    pub r#parent: &'a String,
+    ///mapping
+    pub r#mapping: &'a pse_model::Bytes,
+    ///request
+    pub r#request: &'a pse_model::Bytes,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_research_publications::RuntimeCanonicalResearchPublicationsRow,
+> for RuntimeCanonicalResearchPublicationsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_research_publications::RuntimeCanonicalResearchPublicationsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#project: &row.r#project,
+            r#selection: &row.r#selection,
+            r#run: &row.r#run,
+            r#attempt: &row.r#attempt,
+            r#revision: &row.r#revision,
+            r#parent: &row.r#parent,
+            r#mapping: &row.r#mapping,
+            r#request: &row.r#request,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResearchPublicationsMerge {
+    ///project
+    pub r#project: NativeUpdate<String>,
+    ///selection
+    pub r#selection: NativeUpdate<String>,
+    ///run
+    pub r#run: NativeUpdate<String>,
+    ///attempt
+    pub r#attempt: NativeUpdate<String>,
+    ///revision
+    pub r#revision: NativeUpdate<String>,
+    ///parent
+    pub r#parent: NativeUpdate<String>,
+    ///mapping
+    pub r#mapping: NativeUpdate<pse_model::Bytes>,
+    ///request
+    pub r#request: NativeUpdate<pse_model::Bytes>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResearchPublicationsReplace {
+    ///project
+    pub r#project: String,
+    ///selection
+    pub r#selection: String,
+    ///run
+    pub r#run: String,
+    ///attempt
+    pub r#attempt: String,
+    ///revision
+    pub r#revision: String,
+    ///parent
+    pub r#parent: String,
+    ///mapping
+    pub r#mapping: pse_model::Bytes,
+    ///request
+    pub r#request: pse_model::Bytes,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_research_publications(
+    input: &RuntimeCanonicalResearchPublicationsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#project;
+        object.insert("project", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#selection;
+        object
+            .insert("selection", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#attempt;
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#parent;
+        object.insert("parent", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#mapping;
+        object.insert("mapping", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_research_publications(
+    input: &RuntimeCanonicalResearchPublicationsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#project {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "project",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#selection {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "selection",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#run {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#attempt {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "attempt",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#revision {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "revision",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#parent {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("parent", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#mapping {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("mapping", crate::canonical_codec::encode_bytes(value.clone())?);
+        }
+    }
+    match &input.r#request {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_research_publications(
+    input: &RuntimeCanonicalResearchPublicationsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#project;
+        object.insert("project", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#selection;
+        object
+            .insert("selection", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#attempt;
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#parent;
+        object.insert("parent", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#mapping;
+        object.insert("mapping", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = &input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_research_publications(
     row: &pse_model::generated::runtime::canonical_research_publications::RuntimeCanonicalResearchPublicationsRow,
@@ -4272,6 +15917,109 @@ pub fn decode_canonical_research_publications(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResearchReferencesCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///project
+    pub r#project: &'a String,
+    ///revision
+    pub r#revision: &'a String,
+    ///artifact
+    pub r#artifact: Option<&'a String>,
+    ///run
+    pub r#run: Option<&'a String>,
+    ///attempt
+    pub r#attempt: Option<&'a String>,
+    ///request
+    pub r#request: &'a pse_model::Bytes,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_research_references::RuntimeCanonicalResearchReferencesRow,
+> for RuntimeCanonicalResearchReferencesCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_research_references::RuntimeCanonicalResearchReferencesRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#project: &row.r#project,
+            r#revision: &row.r#revision,
+            r#artifact: row.r#artifact.as_ref(),
+            r#run: row.r#run.as_ref(),
+            r#attempt: row.r#attempt.as_ref(),
+            r#request: &row.r#request,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResearchReferencesMerge {}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResearchReferencesReplace {}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_research_references(
+    input: &RuntimeCanonicalResearchReferencesCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#project;
+        object.insert("project", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#artifact {
+        object.insert("artifact", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#run {
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#attempt {
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_research_references(
+    input: &RuntimeCanonicalResearchReferencesMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let object = surrealdb_types::Object::new();
+    let _ = input;
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_research_references(
+    input: &RuntimeCanonicalResearchReferencesReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let object = surrealdb_types::Object::new();
+    let _ = input;
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_research_references(
     row: &pse_model::generated::runtime::canonical_research_references::RuntimeCanonicalResearchReferencesRow,
@@ -4346,6 +16094,271 @@ pub fn decode_canonical_research_references(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResearchSelectionsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///project
+    pub r#project: &'a String,
+    ///dataset
+    pub r#dataset: &'a String,
+    ///revision
+    pub r#revision: &'a String,
+    ///physical_context
+    pub r#physical_context: &'a String,
+    ///context
+    pub r#context: &'a String,
+    ///fit
+    pub r#fit: &'a String,
+    ///selection
+    pub r#selection: &'a pse_model::Bytes,
+    ///request
+    pub r#request: &'a pse_model::Bytes,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_research_selections::RuntimeCanonicalResearchSelectionsRow,
+> for RuntimeCanonicalResearchSelectionsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_research_selections::RuntimeCanonicalResearchSelectionsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#project: &row.r#project,
+            r#dataset: &row.r#dataset,
+            r#revision: &row.r#revision,
+            r#physical_context: &row.r#physical_context,
+            r#context: &row.r#context,
+            r#fit: &row.r#fit,
+            r#selection: &row.r#selection,
+            r#request: &row.r#request,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResearchSelectionsMerge {
+    ///project
+    pub r#project: NativeUpdate<String>,
+    ///dataset
+    pub r#dataset: NativeUpdate<String>,
+    ///revision
+    pub r#revision: NativeUpdate<String>,
+    ///physical_context
+    pub r#physical_context: NativeUpdate<String>,
+    ///context
+    pub r#context: NativeUpdate<String>,
+    ///fit
+    pub r#fit: NativeUpdate<String>,
+    ///selection
+    pub r#selection: NativeUpdate<pse_model::Bytes>,
+    ///request
+    pub r#request: NativeUpdate<pse_model::Bytes>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResearchSelectionsReplace {
+    ///project
+    pub r#project: String,
+    ///dataset
+    pub r#dataset: String,
+    ///revision
+    pub r#revision: String,
+    ///physical_context
+    pub r#physical_context: String,
+    ///context
+    pub r#context: String,
+    ///fit
+    pub r#fit: String,
+    ///selection
+    pub r#selection: pse_model::Bytes,
+    ///request
+    pub r#request: pse_model::Bytes,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_research_selections(
+    input: &RuntimeCanonicalResearchSelectionsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#project;
+        object.insert("project", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#dataset;
+        object.insert("dataset", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#physical_context;
+        object
+            .insert(
+                "physical_context",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#context;
+        object.insert("context", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#fit;
+        object.insert("fit", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#selection;
+        object.insert("selection", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_research_selections(
+    input: &RuntimeCanonicalResearchSelectionsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#project {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "project",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#dataset {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "dataset",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#revision {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "revision",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#physical_context {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "physical_context",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#context {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "context",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#fit {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("fit", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#selection {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "selection",
+                    crate::canonical_codec::encode_bytes(value.clone())?,
+                );
+        }
+    }
+    match &input.r#request {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_research_selections(
+    input: &RuntimeCanonicalResearchSelectionsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#project;
+        object.insert("project", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#dataset;
+        object.insert("dataset", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#physical_context;
+        object
+            .insert(
+                "physical_context",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#context;
+        object.insert("context", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#fit;
+        object.insert("fit", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#selection;
+        object.insert("selection", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = &input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_research_selections(
@@ -4436,6 +16449,409 @@ pub fn decode_canonical_research_selections(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultBatchesCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///attempt
+    pub r#attempt: &'a String,
+    ///result_set
+    pub r#result_set: &'a String,
+    ///ordinal
+    pub r#ordinal: &'a u64,
+    ///digest
+    pub r#digest: &'a String,
+    ///row_count
+    pub r#row_count: &'a u64,
+    ///payload_binding
+    pub r#payload_binding: &'a String,
+    ///placement
+    pub r#placement: &'a pse_model::generated::enums::CanonicalPayloadPlacement,
+    ///inline_key
+    pub r#inline_key: Option<&'a String>,
+    ///file_instance
+    pub r#file_instance: Option<&'a String>,
+    ///payload_index
+    pub r#payload_index: &'a u64,
+    ///payload_bytes
+    pub r#payload_bytes: &'a u64,
+    ///schema
+    pub r#schema: &'a String,
+    ///encoding
+    pub r#encoding: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_result_batches::RuntimeCanonicalResultBatchesRow,
+> for RuntimeCanonicalResultBatchesCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_result_batches::RuntimeCanonicalResultBatchesRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#attempt: &row.r#attempt,
+            r#result_set: &row.r#result_set,
+            r#ordinal: &row.r#ordinal,
+            r#digest: &row.r#digest,
+            r#row_count: &row.r#row_count,
+            r#payload_binding: &row.r#payload_binding,
+            r#placement: &row.r#placement,
+            r#inline_key: row.r#inline_key.as_ref(),
+            r#file_instance: row.r#file_instance.as_ref(),
+            r#payload_index: &row.r#payload_index,
+            r#payload_bytes: &row.r#payload_bytes,
+            r#schema: &row.r#schema,
+            r#encoding: &row.r#encoding,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultBatchesMerge {
+    ///attempt
+    pub r#attempt: NativeUpdate<String>,
+    ///result_set
+    pub r#result_set: NativeUpdate<String>,
+    ///ordinal
+    pub r#ordinal: NativeUpdate<u64>,
+    ///digest
+    pub r#digest: NativeUpdate<String>,
+    ///row_count
+    pub r#row_count: NativeUpdate<u64>,
+    ///payload_binding
+    pub r#payload_binding: NativeUpdate<String>,
+    ///placement
+    pub r#placement: NativeUpdate<
+        pse_model::generated::enums::CanonicalPayloadPlacement,
+    >,
+    ///inline_key
+    pub r#inline_key: NativeMerge<String>,
+    ///file_instance
+    pub r#file_instance: NativeMerge<String>,
+    ///payload_index
+    pub r#payload_index: NativeUpdate<u64>,
+    ///payload_bytes
+    pub r#payload_bytes: NativeUpdate<u64>,
+    ///schema
+    pub r#schema: NativeUpdate<String>,
+    ///encoding
+    pub r#encoding: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultBatchesReplace {
+    ///attempt
+    pub r#attempt: String,
+    ///result_set
+    pub r#result_set: String,
+    ///ordinal
+    pub r#ordinal: u64,
+    ///digest
+    pub r#digest: String,
+    ///row_count
+    pub r#row_count: u64,
+    ///payload_binding
+    pub r#payload_binding: String,
+    ///placement
+    pub r#placement: pse_model::generated::enums::CanonicalPayloadPlacement,
+    ///inline_key
+    pub r#inline_key: Option<String>,
+    ///file_instance
+    pub r#file_instance: Option<String>,
+    ///payload_index
+    pub r#payload_index: u64,
+    ///payload_bytes
+    pub r#payload_bytes: u64,
+    ///schema
+    pub r#schema: String,
+    ///encoding
+    pub r#encoding: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_result_batches(
+    input: &RuntimeCanonicalResultBatchesCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#attempt;
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#result_set;
+        object
+            .insert("result_set", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#ordinal;
+        object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#digest;
+        object.insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#row_count;
+        object.insert("row_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#payload_binding;
+        object
+            .insert(
+                "payload_binding",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#placement;
+        object
+            .insert(
+                "placement",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    if let Some(value) = input.r#inline_key {
+        object
+            .insert("inline_key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#file_instance {
+        object
+            .insert(
+                "file_instance",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#payload_index;
+        object.insert("payload_index", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#payload_bytes;
+        object.insert("payload_bytes", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#schema;
+        object.insert("schema", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#encoding;
+        object.insert("encoding", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_result_batches(
+    input: &RuntimeCanonicalResultBatchesMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#attempt {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "attempt",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#result_set {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "result_set",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#ordinal {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#digest {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#row_count {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("row_count", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#payload_binding {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "payload_binding",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#placement {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "placement",
+                    crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+                );
+        }
+    }
+    match &input.r#inline_key {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "inline_key",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("inline_key", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#file_instance {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "file_instance",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("file_instance", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#payload_index {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("payload_index", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#payload_bytes {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("payload_bytes", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#schema {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("schema", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#encoding {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "encoding",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_result_batches(
+    input: &RuntimeCanonicalResultBatchesReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#attempt;
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#result_set;
+        object
+            .insert("result_set", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#ordinal;
+        object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#digest;
+        object.insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#row_count;
+        object.insert("row_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#payload_binding;
+        object
+            .insert(
+                "payload_binding",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#placement;
+        object
+            .insert(
+                "placement",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    if let Some(value) = &input.r#inline_key {
+        object
+            .insert("inline_key", crate::canonical_codec::encode_string(value.clone())?);
+    } else {
+        object.insert("inline_key", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#file_instance {
+        object
+            .insert(
+                "file_instance",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    } else {
+        object.insert("file_instance", surrealdb_types::Value::None);
+    }
+    {
+        let value = &input.r#payload_index;
+        object.insert("payload_index", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#payload_bytes;
+        object.insert("payload_bytes", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#schema;
+        object.insert("schema", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#encoding;
+        object.insert("encoding", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_result_batches(
@@ -4565,6 +16981,299 @@ pub fn decode_canonical_result_batches(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultBlockOutputsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///batch
+    pub r#batch: &'a String,
+    ///result_set
+    pub r#result_set: &'a String,
+    ///output
+    pub r#output: &'a String,
+    ///partition
+    pub r#partition: &'a String,
+    ///start
+    pub r#start: &'a u64,
+    ///end
+    pub r#end: &'a u64,
+    ///coordinate_min
+    pub r#coordinate_min: Option<&'a f64>,
+    ///coordinate_max
+    pub r#coordinate_max: Option<&'a f64>,
+    ///interpretation
+    pub r#interpretation: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_result_block_outputs::RuntimeCanonicalResultBlockOutputsRow,
+> for RuntimeCanonicalResultBlockOutputsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_result_block_outputs::RuntimeCanonicalResultBlockOutputsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#batch: &row.r#batch,
+            r#result_set: &row.r#result_set,
+            r#output: &row.r#output,
+            r#partition: &row.r#partition,
+            r#start: &row.r#start,
+            r#end: &row.r#end,
+            r#coordinate_min: row.r#coordinate_min.as_ref(),
+            r#coordinate_max: row.r#coordinate_max.as_ref(),
+            r#interpretation: &row.r#interpretation,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultBlockOutputsMerge {
+    ///batch
+    pub r#batch: NativeUpdate<String>,
+    ///result_set
+    pub r#result_set: NativeUpdate<String>,
+    ///output
+    pub r#output: NativeUpdate<String>,
+    ///partition
+    pub r#partition: NativeUpdate<String>,
+    ///start
+    pub r#start: NativeUpdate<u64>,
+    ///end
+    pub r#end: NativeUpdate<u64>,
+    ///coordinate_min
+    pub r#coordinate_min: NativeMerge<f64>,
+    ///coordinate_max
+    pub r#coordinate_max: NativeMerge<f64>,
+    ///interpretation
+    pub r#interpretation: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultBlockOutputsReplace {
+    ///batch
+    pub r#batch: String,
+    ///result_set
+    pub r#result_set: String,
+    ///output
+    pub r#output: String,
+    ///partition
+    pub r#partition: String,
+    ///start
+    pub r#start: u64,
+    ///end
+    pub r#end: u64,
+    ///coordinate_min
+    pub r#coordinate_min: Option<f64>,
+    ///coordinate_max
+    pub r#coordinate_max: Option<f64>,
+    ///interpretation
+    pub r#interpretation: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_result_block_outputs(
+    input: &RuntimeCanonicalResultBlockOutputsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#batch;
+        object.insert("batch", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#result_set;
+        object
+            .insert("result_set", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#output;
+        object.insert("output", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#partition;
+        object
+            .insert("partition", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#start;
+        object.insert("start", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#end;
+        object.insert("end", crate::canonical_codec::encode_uint(*value)?);
+    }
+    if let Some(value) = input.r#coordinate_min {
+        object.insert("coordinate_min", crate::canonical_codec::encode_finite(*value)?);
+    }
+    if let Some(value) = input.r#coordinate_max {
+        object.insert("coordinate_max", crate::canonical_codec::encode_finite(*value)?);
+    }
+    {
+        let value = input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_result_block_outputs(
+    input: &RuntimeCanonicalResultBlockOutputsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#batch {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("batch", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#result_set {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "result_set",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#output {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("output", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#partition {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "partition",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#start {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("start", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#end {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("end", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#coordinate_min {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "coordinate_min",
+                    crate::canonical_codec::encode_finite(*value)?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("coordinate_min", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#coordinate_max {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "coordinate_max",
+                    crate::canonical_codec::encode_finite(*value)?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("coordinate_max", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#interpretation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "interpretation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_result_block_outputs(
+    input: &RuntimeCanonicalResultBlockOutputsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#batch;
+        object.insert("batch", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#result_set;
+        object
+            .insert("result_set", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#output;
+        object.insert("output", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#partition;
+        object
+            .insert("partition", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#start;
+        object.insert("start", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#end;
+        object.insert("end", crate::canonical_codec::encode_uint(*value)?);
+    }
+    if let Some(value) = &input.r#coordinate_min {
+        object.insert("coordinate_min", crate::canonical_codec::encode_finite(*value)?);
+    } else {
+        object.insert("coordinate_min", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#coordinate_max {
+        object.insert("coordinate_max", crate::canonical_codec::encode_finite(*value)?);
+    } else {
+        object.insert("coordinate_max", surrealdb_types::Value::None);
+    }
+    {
+        let value = &input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_result_block_outputs(
     row: &pse_model::generated::runtime::canonical_result_block_outputs::RuntimeCanonicalResultBlockOutputsRow,
@@ -4652,6 +17361,446 @@ pub fn decode_canonical_result_block_outputs(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultBlocksCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///result_set
+    pub r#result_set: &'a String,
+    ///batch
+    pub r#batch: &'a String,
+    ///output
+    pub r#output: &'a String,
+    ///partition
+    pub r#partition: &'a String,
+    ///ordinal
+    pub r#ordinal: &'a u64,
+    ///start
+    pub r#start: &'a u64,
+    ///end
+    pub r#end: &'a u64,
+    ///rows
+    pub r#rows: &'a u64,
+    ///columns
+    pub r#columns: &'a u64,
+    ///coordinate_min
+    pub r#coordinate_min: Option<&'a f64>,
+    ///coordinate_max
+    pub r#coordinate_max: Option<&'a f64>,
+    ///payload_bytes
+    pub r#payload_bytes: &'a u64,
+    ///payload_digest
+    pub r#payload_digest: &'a String,
+    ///statistics
+    pub r#statistics: Option<&'a pse_model::Bytes>,
+    ///interpretation
+    pub r#interpretation: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_result_blocks::RuntimeCanonicalResultBlocksRow,
+> for RuntimeCanonicalResultBlocksCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_result_blocks::RuntimeCanonicalResultBlocksRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#result_set: &row.r#result_set,
+            r#batch: &row.r#batch,
+            r#output: &row.r#output,
+            r#partition: &row.r#partition,
+            r#ordinal: &row.r#ordinal,
+            r#start: &row.r#start,
+            r#end: &row.r#end,
+            r#rows: &row.r#rows,
+            r#columns: &row.r#columns,
+            r#coordinate_min: row.r#coordinate_min.as_ref(),
+            r#coordinate_max: row.r#coordinate_max.as_ref(),
+            r#payload_bytes: &row.r#payload_bytes,
+            r#payload_digest: &row.r#payload_digest,
+            r#statistics: row.r#statistics.as_ref(),
+            r#interpretation: &row.r#interpretation,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultBlocksMerge {
+    ///result_set
+    pub r#result_set: NativeUpdate<String>,
+    ///batch
+    pub r#batch: NativeUpdate<String>,
+    ///output
+    pub r#output: NativeUpdate<String>,
+    ///partition
+    pub r#partition: NativeUpdate<String>,
+    ///ordinal
+    pub r#ordinal: NativeUpdate<u64>,
+    ///start
+    pub r#start: NativeUpdate<u64>,
+    ///end
+    pub r#end: NativeUpdate<u64>,
+    ///rows
+    pub r#rows: NativeUpdate<u64>,
+    ///columns
+    pub r#columns: NativeUpdate<u64>,
+    ///coordinate_min
+    pub r#coordinate_min: NativeMerge<f64>,
+    ///coordinate_max
+    pub r#coordinate_max: NativeMerge<f64>,
+    ///payload_bytes
+    pub r#payload_bytes: NativeUpdate<u64>,
+    ///payload_digest
+    pub r#payload_digest: NativeUpdate<String>,
+    ///statistics
+    pub r#statistics: NativeMerge<pse_model::Bytes>,
+    ///interpretation
+    pub r#interpretation: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultBlocksReplace {
+    ///result_set
+    pub r#result_set: String,
+    ///batch
+    pub r#batch: String,
+    ///output
+    pub r#output: String,
+    ///partition
+    pub r#partition: String,
+    ///ordinal
+    pub r#ordinal: u64,
+    ///start
+    pub r#start: u64,
+    ///end
+    pub r#end: u64,
+    ///rows
+    pub r#rows: u64,
+    ///columns
+    pub r#columns: u64,
+    ///coordinate_min
+    pub r#coordinate_min: Option<f64>,
+    ///coordinate_max
+    pub r#coordinate_max: Option<f64>,
+    ///payload_bytes
+    pub r#payload_bytes: u64,
+    ///payload_digest
+    pub r#payload_digest: String,
+    ///statistics
+    pub r#statistics: Option<pse_model::Bytes>,
+    ///interpretation
+    pub r#interpretation: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_result_blocks(
+    input: &RuntimeCanonicalResultBlocksCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#result_set;
+        object
+            .insert("result_set", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#batch;
+        object.insert("batch", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#output;
+        object.insert("output", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#partition;
+        object
+            .insert("partition", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#ordinal;
+        object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#start;
+        object.insert("start", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#end;
+        object.insert("end", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#rows;
+        object.insert("rows", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#columns;
+        object.insert("columns", crate::canonical_codec::encode_uint(*value)?);
+    }
+    if let Some(value) = input.r#coordinate_min {
+        object.insert("coordinate_min", crate::canonical_codec::encode_finite(*value)?);
+    }
+    if let Some(value) = input.r#coordinate_max {
+        object.insert("coordinate_max", crate::canonical_codec::encode_finite(*value)?);
+    }
+    {
+        let value = input.r#payload_bytes;
+        object.insert("payload_bytes", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#payload_digest;
+        object
+            .insert(
+                "payload_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    if let Some(value) = input.r#statistics {
+        object
+            .insert("statistics", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_result_blocks(
+    input: &RuntimeCanonicalResultBlocksMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#result_set {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "result_set",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#batch {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("batch", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#output {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("output", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#partition {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "partition",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#ordinal {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#start {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("start", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#end {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("end", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#rows {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("rows", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#columns {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("columns", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#coordinate_min {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "coordinate_min",
+                    crate::canonical_codec::encode_finite(*value)?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("coordinate_min", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#coordinate_max {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "coordinate_max",
+                    crate::canonical_codec::encode_finite(*value)?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("coordinate_max", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#payload_bytes {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("payload_bytes", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#payload_digest {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "payload_digest",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#statistics {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "statistics",
+                    crate::canonical_codec::encode_bytes(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("statistics", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#interpretation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "interpretation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_result_blocks(
+    input: &RuntimeCanonicalResultBlocksReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#result_set;
+        object
+            .insert("result_set", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#batch;
+        object.insert("batch", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#output;
+        object.insert("output", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#partition;
+        object
+            .insert("partition", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#ordinal;
+        object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#start;
+        object.insert("start", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#end;
+        object.insert("end", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#rows;
+        object.insert("rows", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#columns;
+        object.insert("columns", crate::canonical_codec::encode_uint(*value)?);
+    }
+    if let Some(value) = &input.r#coordinate_min {
+        object.insert("coordinate_min", crate::canonical_codec::encode_finite(*value)?);
+    } else {
+        object.insert("coordinate_min", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#coordinate_max {
+        object.insert("coordinate_max", crate::canonical_codec::encode_finite(*value)?);
+    } else {
+        object.insert("coordinate_max", surrealdb_types::Value::None);
+    }
+    {
+        let value = &input.r#payload_bytes;
+        object.insert("payload_bytes", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#payload_digest;
+        object
+            .insert(
+                "payload_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    if let Some(value) = &input.r#statistics {
+        object
+            .insert("statistics", crate::canonical_codec::encode_bytes(value.clone())?);
+    } else {
+        object.insert("statistics", surrealdb_types::Value::None);
+    }
+    {
+        let value = &input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_result_blocks(
@@ -4777,6 +17926,165 @@ pub fn decode_canonical_result_blocks(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultManifestsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///attempt
+    pub r#attempt: &'a String,
+    ///generation
+    pub r#generation: &'a u64,
+    ///digest
+    pub r#digest: &'a String,
+    ///descriptors
+    pub r#descriptors: &'a pse_model::Bytes,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_result_manifests::RuntimeCanonicalResultManifestsRow,
+> for RuntimeCanonicalResultManifestsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_result_manifests::RuntimeCanonicalResultManifestsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#attempt: &row.r#attempt,
+            r#generation: &row.r#generation,
+            r#digest: &row.r#digest,
+            r#descriptors: &row.r#descriptors,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultManifestsMerge {
+    ///attempt
+    pub r#attempt: NativeUpdate<String>,
+    ///generation
+    pub r#generation: NativeUpdate<u64>,
+    ///digest
+    pub r#digest: NativeUpdate<String>,
+    ///descriptors
+    pub r#descriptors: NativeUpdate<pse_model::Bytes>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultManifestsReplace {
+    ///attempt
+    pub r#attempt: String,
+    ///generation
+    pub r#generation: u64,
+    ///digest
+    pub r#digest: String,
+    ///descriptors
+    pub r#descriptors: pse_model::Bytes,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_result_manifests(
+    input: &RuntimeCanonicalResultManifestsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#attempt;
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#generation;
+        object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#digest;
+        object.insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#descriptors;
+        object
+            .insert("descriptors", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_result_manifests(
+    input: &RuntimeCanonicalResultManifestsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#attempt {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "attempt",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#generation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#digest {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#descriptors {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "descriptors",
+                    crate::canonical_codec::encode_bytes(value.clone())?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_result_manifests(
+    input: &RuntimeCanonicalResultManifestsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#attempt;
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#generation;
+        object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#digest;
+        object.insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#descriptors;
+        object
+            .insert("descriptors", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_result_manifests(
     row: &pse_model::generated::runtime::canonical_result_manifests::RuntimeCanonicalResultManifestsRow,
@@ -4835,6 +18143,141 @@ pub fn decode_canonical_result_manifests(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultProtectionsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///run
+    pub r#run: &'a String,
+    ///attempt
+    pub r#attempt: &'a String,
+    ///manifest
+    pub r#manifest: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_result_protections::RuntimeCanonicalResultProtectionsRow,
+> for RuntimeCanonicalResultProtectionsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_result_protections::RuntimeCanonicalResultProtectionsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#run: &row.r#run,
+            r#attempt: &row.r#attempt,
+            r#manifest: &row.r#manifest,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultProtectionsMerge {
+    ///run
+    pub r#run: NativeUpdate<String>,
+    ///attempt
+    pub r#attempt: NativeUpdate<String>,
+    ///manifest
+    pub r#manifest: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultProtectionsReplace {
+    ///run
+    pub r#run: String,
+    ///attempt
+    pub r#attempt: String,
+    ///manifest
+    pub r#manifest: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_result_protections(
+    input: &RuntimeCanonicalResultProtectionsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#attempt;
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#manifest;
+        object.insert("manifest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_result_protections(
+    input: &RuntimeCanonicalResultProtectionsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#run {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#attempt {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "attempt",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#manifest {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "manifest",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_result_protections(
+    input: &RuntimeCanonicalResultProtectionsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#attempt;
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#manifest;
+        object.insert("manifest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_result_protections(
     row: &pse_model::generated::runtime::canonical_result_protections::RuntimeCanonicalResultProtectionsRow,
@@ -4888,6 +18331,137 @@ pub fn decode_canonical_result_protections(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultRetirementsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///run
+    pub r#run: &'a String,
+    ///after_generation
+    pub r#after_generation: &'a u64,
+    ///complete
+    pub r#complete: &'a bool,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_result_retirements::RuntimeCanonicalResultRetirementsRow,
+> for RuntimeCanonicalResultRetirementsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_result_retirements::RuntimeCanonicalResultRetirementsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#run: &row.r#run,
+            r#after_generation: &row.r#after_generation,
+            r#complete: &row.r#complete,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultRetirementsMerge {
+    ///run
+    pub r#run: NativeUpdate<String>,
+    ///after_generation
+    pub r#after_generation: NativeUpdate<u64>,
+    ///complete
+    pub r#complete: NativeUpdate<bool>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultRetirementsReplace {
+    ///run
+    pub r#run: String,
+    ///after_generation
+    pub r#after_generation: u64,
+    ///complete
+    pub r#complete: bool,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_result_retirements(
+    input: &RuntimeCanonicalResultRetirementsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#after_generation;
+        object.insert("after_generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#complete;
+        object.insert("complete", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_result_retirements(
+    input: &RuntimeCanonicalResultRetirementsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#run {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#after_generation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "after_generation",
+                    crate::canonical_codec::encode_uint(*value)?,
+                );
+        }
+    }
+    match &input.r#complete {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("complete", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_result_retirements(
+    input: &RuntimeCanonicalResultRetirementsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#after_generation;
+        object.insert("after_generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#complete;
+        object.insert("complete", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_result_retirements(
     row: &pse_model::generated::runtime::canonical_result_retirements::RuntimeCanonicalResultRetirementsRow,
@@ -4936,6 +18510,445 @@ pub fn decode_canonical_result_retirements(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultSeedsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///batch
+    pub r#batch: &'a String,
+    ///result_set
+    pub r#result_set: &'a String,
+    ///attempt
+    pub r#attempt: &'a String,
+    ///run
+    pub r#run: &'a String,
+    ///layout
+    pub r#layout: &'a String,
+    ///preparation
+    pub r#preparation: &'a String,
+    ///profile
+    pub r#profile: &'a String,
+    ///data
+    pub r#data: &'a String,
+    ///backend
+    pub r#backend: &'a String,
+    ///step
+    pub r#step: &'a u64,
+    ///batch_count
+    pub r#batch_count: &'a u64,
+    ///first_ordinal
+    pub r#first_ordinal: &'a u64,
+    ///run_sequence
+    pub r#run_sequence: &'a u64,
+    ///attempt_generation
+    pub r#attempt_generation: &'a u64,
+    ///payload_bytes
+    pub r#payload_bytes: &'a u64,
+    ///digest
+    pub r#digest: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_result_seeds::RuntimeCanonicalResultSeedsRow,
+> for RuntimeCanonicalResultSeedsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_result_seeds::RuntimeCanonicalResultSeedsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#batch: &row.r#batch,
+            r#result_set: &row.r#result_set,
+            r#attempt: &row.r#attempt,
+            r#run: &row.r#run,
+            r#layout: &row.r#layout,
+            r#preparation: &row.r#preparation,
+            r#profile: &row.r#profile,
+            r#data: &row.r#data,
+            r#backend: &row.r#backend,
+            r#step: &row.r#step,
+            r#batch_count: &row.r#batch_count,
+            r#first_ordinal: &row.r#first_ordinal,
+            r#run_sequence: &row.r#run_sequence,
+            r#attempt_generation: &row.r#attempt_generation,
+            r#payload_bytes: &row.r#payload_bytes,
+            r#digest: &row.r#digest,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultSeedsMerge {
+    ///batch
+    pub r#batch: NativeUpdate<String>,
+    ///result_set
+    pub r#result_set: NativeUpdate<String>,
+    ///attempt
+    pub r#attempt: NativeUpdate<String>,
+    ///run
+    pub r#run: NativeUpdate<String>,
+    ///layout
+    pub r#layout: NativeUpdate<String>,
+    ///preparation
+    pub r#preparation: NativeUpdate<String>,
+    ///profile
+    pub r#profile: NativeUpdate<String>,
+    ///data
+    pub r#data: NativeUpdate<String>,
+    ///backend
+    pub r#backend: NativeUpdate<String>,
+    ///step
+    pub r#step: NativeUpdate<u64>,
+    ///batch_count
+    pub r#batch_count: NativeUpdate<u64>,
+    ///first_ordinal
+    pub r#first_ordinal: NativeUpdate<u64>,
+    ///run_sequence
+    pub r#run_sequence: NativeUpdate<u64>,
+    ///attempt_generation
+    pub r#attempt_generation: NativeUpdate<u64>,
+    ///payload_bytes
+    pub r#payload_bytes: NativeUpdate<u64>,
+    ///digest
+    pub r#digest: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultSeedsReplace {
+    ///batch
+    pub r#batch: String,
+    ///result_set
+    pub r#result_set: String,
+    ///attempt
+    pub r#attempt: String,
+    ///run
+    pub r#run: String,
+    ///layout
+    pub r#layout: String,
+    ///preparation
+    pub r#preparation: String,
+    ///profile
+    pub r#profile: String,
+    ///data
+    pub r#data: String,
+    ///backend
+    pub r#backend: String,
+    ///step
+    pub r#step: u64,
+    ///batch_count
+    pub r#batch_count: u64,
+    ///first_ordinal
+    pub r#first_ordinal: u64,
+    ///run_sequence
+    pub r#run_sequence: u64,
+    ///attempt_generation
+    pub r#attempt_generation: u64,
+    ///payload_bytes
+    pub r#payload_bytes: u64,
+    ///digest
+    pub r#digest: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_result_seeds(
+    input: &RuntimeCanonicalResultSeedsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#batch;
+        object.insert("batch", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#result_set;
+        object
+            .insert("result_set", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#attempt;
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#layout;
+        object.insert("layout", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#preparation;
+        object
+            .insert(
+                "preparation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#profile;
+        object.insert("profile", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#data;
+        object.insert("data", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#backend;
+        object.insert("backend", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#step;
+        object.insert("step", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#batch_count;
+        object.insert("batch_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#first_ordinal;
+        object.insert("first_ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#run_sequence;
+        object.insert("run_sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#attempt_generation;
+        object
+            .insert("attempt_generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#payload_bytes;
+        object.insert("payload_bytes", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#digest;
+        object.insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_result_seeds(
+    input: &RuntimeCanonicalResultSeedsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#batch {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("batch", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#result_set {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "result_set",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#attempt {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "attempt",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#run {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#layout {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("layout", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#preparation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "preparation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#profile {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "profile",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#data {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("data", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#backend {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "backend",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#step {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("step", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#batch_count {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("batch_count", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#first_ordinal {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("first_ordinal", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#run_sequence {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("run_sequence", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#attempt_generation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "attempt_generation",
+                    crate::canonical_codec::encode_uint(*value)?,
+                );
+        }
+    }
+    match &input.r#payload_bytes {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("payload_bytes", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#digest {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_result_seeds(
+    input: &RuntimeCanonicalResultSeedsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#batch;
+        object.insert("batch", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#result_set;
+        object
+            .insert("result_set", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#attempt;
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#layout;
+        object.insert("layout", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#preparation;
+        object
+            .insert(
+                "preparation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#profile;
+        object.insert("profile", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#data;
+        object.insert("data", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#backend;
+        object.insert("backend", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#step;
+        object.insert("step", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#batch_count;
+        object.insert("batch_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#first_ordinal;
+        object.insert("first_ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#run_sequence;
+        object.insert("run_sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#attempt_generation;
+        object
+            .insert("attempt_generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#payload_bytes;
+        object.insert("payload_bytes", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#digest;
+        object.insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_result_seeds(
@@ -5073,6 +19086,191 @@ pub fn decode_canonical_result_seeds(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultSetsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///attempt
+    pub r#attempt: &'a String,
+    ///name
+    pub r#name: &'a String,
+    ///interpretation
+    pub r#interpretation: &'a String,
+    ///next_ordinal
+    pub r#next_ordinal: &'a u64,
+    ///row_count
+    pub r#row_count: &'a u64,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_result_sets::RuntimeCanonicalResultSetsRow,
+> for RuntimeCanonicalResultSetsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_result_sets::RuntimeCanonicalResultSetsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#attempt: &row.r#attempt,
+            r#name: &row.r#name,
+            r#interpretation: &row.r#interpretation,
+            r#next_ordinal: &row.r#next_ordinal,
+            r#row_count: &row.r#row_count,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultSetsMerge {
+    ///attempt
+    pub r#attempt: NativeUpdate<String>,
+    ///name
+    pub r#name: NativeUpdate<String>,
+    ///interpretation
+    pub r#interpretation: NativeUpdate<String>,
+    ///next_ordinal
+    pub r#next_ordinal: NativeUpdate<u64>,
+    ///row_count
+    pub r#row_count: NativeUpdate<u64>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalResultSetsReplace {
+    ///attempt
+    pub r#attempt: String,
+    ///name
+    pub r#name: String,
+    ///interpretation
+    pub r#interpretation: String,
+    ///next_ordinal
+    pub r#next_ordinal: u64,
+    ///row_count
+    pub r#row_count: u64,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_result_sets(
+    input: &RuntimeCanonicalResultSetsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#attempt;
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#name;
+        object.insert("name", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#next_ordinal;
+        object.insert("next_ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#row_count;
+        object.insert("row_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_result_sets(
+    input: &RuntimeCanonicalResultSetsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#attempt {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "attempt",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#name {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("name", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#interpretation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "interpretation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#next_ordinal {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("next_ordinal", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#row_count {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("row_count", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_result_sets(
+    input: &RuntimeCanonicalResultSetsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#attempt;
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#name;
+        object.insert("name", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#next_ordinal;
+        object.insert("next_ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#row_count;
+        object.insert("row_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_result_sets(
     row: &pse_model::generated::runtime::canonical_result_sets::RuntimeCanonicalResultSetsRow,
@@ -5137,6 +19335,223 @@ pub fn decode_canonical_result_sets(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalRevisionsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///problem
+    pub r#problem: &'a String,
+    ///sequence
+    pub r#sequence: &'a u64,
+    ///parent
+    pub r#parent: Option<&'a String>,
+    ///operation
+    pub r#operation: &'a String,
+    ///request
+    pub r#request: &'a pse_model::Bytes,
+    ///interpretation
+    pub r#interpretation: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_revisions::RuntimeCanonicalRevisionsRow,
+> for RuntimeCanonicalRevisionsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_revisions::RuntimeCanonicalRevisionsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#problem: &row.r#problem,
+            r#sequence: &row.r#sequence,
+            r#parent: row.r#parent.as_ref(),
+            r#operation: &row.r#operation,
+            r#request: &row.r#request,
+            r#interpretation: &row.r#interpretation,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalRevisionsMerge {
+    ///problem
+    pub r#problem: NativeUpdate<String>,
+    ///sequence
+    pub r#sequence: NativeUpdate<u64>,
+    ///parent
+    pub r#parent: NativeMerge<String>,
+    ///operation
+    pub r#operation: NativeUpdate<String>,
+    ///request
+    pub r#request: NativeUpdate<pse_model::Bytes>,
+    ///interpretation
+    pub r#interpretation: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalRevisionsReplace {
+    ///problem
+    pub r#problem: String,
+    ///sequence
+    pub r#sequence: u64,
+    ///parent
+    pub r#parent: Option<String>,
+    ///operation
+    pub r#operation: String,
+    ///request
+    pub r#request: pse_model::Bytes,
+    ///interpretation
+    pub r#interpretation: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_revisions(
+    input: &RuntimeCanonicalRevisionsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#sequence;
+        object.insert("sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    if let Some(value) = input.r#parent {
+        object.insert("parent", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#operation;
+        object
+            .insert("operation", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_revisions(
+    input: &RuntimeCanonicalRevisionsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#problem {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "problem",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#sequence {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("sequence", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#parent {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert("parent", crate::canonical_codec::encode_string(value.clone())?);
+        }
+        NativeMerge::Remove => {
+            object.insert("parent", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#operation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "operation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#request {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+        }
+    }
+    match &input.r#interpretation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "interpretation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_revisions(
+    input: &RuntimeCanonicalRevisionsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#sequence;
+        object.insert("sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    if let Some(value) = &input.r#parent {
+        object.insert("parent", crate::canonical_codec::encode_string(value.clone())?);
+    } else {
+        object.insert("parent", surrealdb_types::Value::None);
+    }
+    {
+        let value = &input.r#operation;
+        object
+            .insert("operation", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = &input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_revisions(
@@ -5211,6 +19626,189 @@ pub fn decode_canonical_revisions(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalRootsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///problem
+    pub r#problem: &'a String,
+    ///revision
+    pub r#revision: &'a String,
+    ///sequence
+    pub r#sequence: &'a u64,
+    ///owner_kind
+    pub r#owner_kind: &'a String,
+    ///owner
+    pub r#owner: &'a String,
+}
+impl<
+    'a,
+> From<&'a pse_model::generated::runtime::canonical_roots::RuntimeCanonicalRootsRow>
+for RuntimeCanonicalRootsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_roots::RuntimeCanonicalRootsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#problem: &row.r#problem,
+            r#revision: &row.r#revision,
+            r#sequence: &row.r#sequence,
+            r#owner_kind: &row.r#owner_kind,
+            r#owner: &row.r#owner,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalRootsMerge {
+    ///problem
+    pub r#problem: NativeUpdate<String>,
+    ///revision
+    pub r#revision: NativeUpdate<String>,
+    ///sequence
+    pub r#sequence: NativeUpdate<u64>,
+    ///owner_kind
+    pub r#owner_kind: NativeUpdate<String>,
+    ///owner
+    pub r#owner: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalRootsReplace {
+    ///problem
+    pub r#problem: String,
+    ///revision
+    pub r#revision: String,
+    ///sequence
+    pub r#sequence: u64,
+    ///owner_kind
+    pub r#owner_kind: String,
+    ///owner
+    pub r#owner: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_roots(
+    input: &RuntimeCanonicalRootsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#sequence;
+        object.insert("sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#owner_kind;
+        object
+            .insert("owner_kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#owner;
+        object.insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_roots(
+    input: &RuntimeCanonicalRootsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#problem {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "problem",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#revision {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "revision",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#sequence {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("sequence", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#owner_kind {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "owner_kind",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#owner {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_roots(
+    input: &RuntimeCanonicalRootsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#sequence;
+        object.insert("sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#owner_kind;
+        object
+            .insert("owner_kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#owner;
+        object.insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_roots(
     row: &pse_model::generated::runtime::canonical_roots::RuntimeCanonicalRootsRow,
@@ -5276,6 +19874,140 @@ pub fn decode_canonical_roots(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalRunSourcesCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///run
+    pub r#run: &'a String,
+    ///revision
+    pub r#revision: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_run_sources::RuntimeCanonicalRunSourcesRow,
+> for RuntimeCanonicalRunSourcesCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_run_sources::RuntimeCanonicalRunSourcesRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#run: &row.r#run,
+            r#revision: &row.r#revision,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalRunSourcesMerge {
+    ///run
+    pub r#run: NativeUpdate<String>,
+    ///revision
+    pub r#revision: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalRunSourcesReplace {
+    ///run
+    pub r#run: String,
+    ///revision
+    pub r#revision: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_run_sources(
+    input: &RuntimeCanonicalRunSourcesCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+        object
+            .insert("in", crate::canonical_codec::record_link("canonical_runs", value));
+    }
+    {
+        let value = input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+        object
+            .insert(
+                "out",
+                crate::canonical_codec::record_link("canonical_revisions", value),
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_run_sources(
+    input: &RuntimeCanonicalRunSourcesMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#run {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+            object
+                .insert(
+                    "in",
+                    crate::canonical_codec::record_link("canonical_runs", value),
+                );
+        }
+    }
+    match &input.r#revision {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "revision",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+            object
+                .insert(
+                    "out",
+                    crate::canonical_codec::record_link("canonical_revisions", value),
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_run_sources(
+    input: &RuntimeCanonicalRunSourcesReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+        object
+            .insert("in", crate::canonical_codec::record_link("canonical_runs", value));
+    }
+    {
+        let value = &input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+        object
+            .insert(
+                "out",
+                crate::canonical_codec::record_link("canonical_revisions", value),
+            );
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_run_sources(
     row: &pse_model::generated::runtime::canonical_run_sources::RuntimeCanonicalRunSourcesRow,
@@ -5339,6 +20071,538 @@ pub fn decode_canonical_run_sources(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalRunsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///purpose
+    pub r#purpose: &'a pse_model::generated::enums::CanonicalRunPurpose,
+    ///admission_study
+    pub r#admission_study: Option<&'a String>,
+    ///admission_point
+    pub r#admission_point: Option<&'a String>,
+    ///research_selection
+    pub r#research_selection: Option<&'a String>,
+    ///research_dataset
+    pub r#research_dataset: Option<&'a String>,
+    ///problem
+    pub r#problem: &'a String,
+    ///revision
+    pub r#revision: &'a String,
+    ///source_sequence
+    pub r#source_sequence: &'a u64,
+    ///sequence
+    pub r#sequence: &'a u64,
+    ///request
+    pub r#request: &'a pse_model::Bytes,
+    ///source_selection
+    pub r#source_selection: &'a pse_model::Bytes,
+    ///attestation
+    pub r#attestation: &'a pse_model::Bytes,
+    ///interpretation
+    pub r#interpretation: &'a String,
+    ///current_generation
+    pub r#current_generation: &'a u64,
+    ///current_attempt
+    pub r#current_attempt: Option<&'a String>,
+    ///cancelled
+    pub r#cancelled: &'a bool,
+    ///terminal_attempt
+    pub r#terminal_attempt: Option<&'a String>,
+    ///terminal_class
+    pub r#terminal_class: Option<
+        &'a pse_model::generated::enums::CanonicalTerminalOutcome,
+    >,
+}
+impl<'a> From<&'a pse_model::generated::runtime::canonical_runs::RuntimeCanonicalRunsRow>
+for RuntimeCanonicalRunsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_runs::RuntimeCanonicalRunsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#purpose: &row.r#purpose,
+            r#admission_study: row.r#admission_study.as_ref(),
+            r#admission_point: row.r#admission_point.as_ref(),
+            r#research_selection: row.r#research_selection.as_ref(),
+            r#research_dataset: row.r#research_dataset.as_ref(),
+            r#problem: &row.r#problem,
+            r#revision: &row.r#revision,
+            r#source_sequence: &row.r#source_sequence,
+            r#sequence: &row.r#sequence,
+            r#request: &row.r#request,
+            r#source_selection: &row.r#source_selection,
+            r#attestation: &row.r#attestation,
+            r#interpretation: &row.r#interpretation,
+            r#current_generation: &row.r#current_generation,
+            r#current_attempt: row.r#current_attempt.as_ref(),
+            r#cancelled: &row.r#cancelled,
+            r#terminal_attempt: row.r#terminal_attempt.as_ref(),
+            r#terminal_class: row.r#terminal_class.as_ref(),
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalRunsMerge {
+    ///research_selection
+    pub r#research_selection: NativeMerge<String>,
+    ///research_dataset
+    pub r#research_dataset: NativeMerge<String>,
+    ///problem
+    pub r#problem: NativeUpdate<String>,
+    ///revision
+    pub r#revision: NativeUpdate<String>,
+    ///source_sequence
+    pub r#source_sequence: NativeUpdate<u64>,
+    ///sequence
+    pub r#sequence: NativeUpdate<u64>,
+    ///request
+    pub r#request: NativeUpdate<pse_model::Bytes>,
+    ///source_selection
+    pub r#source_selection: NativeUpdate<pse_model::Bytes>,
+    ///attestation
+    pub r#attestation: NativeUpdate<pse_model::Bytes>,
+    ///interpretation
+    pub r#interpretation: NativeUpdate<String>,
+    ///current_generation
+    pub r#current_generation: NativeUpdate<u64>,
+    ///current_attempt
+    pub r#current_attempt: NativeMerge<String>,
+    ///cancelled
+    pub r#cancelled: NativeUpdate<bool>,
+    ///terminal_attempt
+    pub r#terminal_attempt: NativeMerge<String>,
+    ///terminal_class
+    pub r#terminal_class: NativeMerge<
+        pse_model::generated::enums::CanonicalTerminalOutcome,
+    >,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalRunsReplace {
+    ///research_selection
+    pub r#research_selection: Option<String>,
+    ///research_dataset
+    pub r#research_dataset: Option<String>,
+    ///problem
+    pub r#problem: String,
+    ///revision
+    pub r#revision: String,
+    ///source_sequence
+    pub r#source_sequence: u64,
+    ///sequence
+    pub r#sequence: u64,
+    ///request
+    pub r#request: pse_model::Bytes,
+    ///source_selection
+    pub r#source_selection: pse_model::Bytes,
+    ///attestation
+    pub r#attestation: pse_model::Bytes,
+    ///interpretation
+    pub r#interpretation: String,
+    ///current_generation
+    pub r#current_generation: u64,
+    ///current_attempt
+    pub r#current_attempt: Option<String>,
+    ///cancelled
+    pub r#cancelled: bool,
+    ///terminal_attempt
+    pub r#terminal_attempt: Option<String>,
+    ///terminal_class
+    pub r#terminal_class: Option<pse_model::generated::enums::CanonicalTerminalOutcome>,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_runs(
+    input: &RuntimeCanonicalRunsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#purpose;
+        object
+            .insert(
+                "purpose",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    if let Some(value) = input.r#admission_study {
+        object
+            .insert(
+                "admission_study",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    if let Some(value) = input.r#admission_point {
+        object
+            .insert(
+                "admission_point",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    if let Some(value) = input.r#research_selection {
+        object
+            .insert(
+                "research_selection",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    if let Some(value) = input.r#research_dataset {
+        object
+            .insert(
+                "research_dataset",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#source_sequence;
+        object.insert("source_sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#sequence;
+        object.insert("sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#source_selection;
+        object
+            .insert(
+                "source_selection",
+                crate::canonical_codec::encode_bytes(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#attestation;
+        object
+            .insert("attestation", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#current_generation;
+        object
+            .insert("current_generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    if let Some(value) = input.r#current_attempt {
+        object
+            .insert(
+                "current_attempt",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#cancelled;
+        object.insert("cancelled", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    if let Some(value) = input.r#terminal_attempt {
+        object
+            .insert(
+                "terminal_attempt",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    if let Some(value) = input.r#terminal_class {
+        object
+            .insert(
+                "terminal_class",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_runs(
+    input: &RuntimeCanonicalRunsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#research_selection {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "research_selection",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("research_selection", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#research_dataset {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "research_dataset",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("research_dataset", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#problem {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "problem",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#revision {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "revision",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#source_sequence {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("source_sequence", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#sequence {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("sequence", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#request {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+        }
+    }
+    match &input.r#source_selection {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "source_selection",
+                    crate::canonical_codec::encode_bytes(value.clone())?,
+                );
+        }
+    }
+    match &input.r#attestation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "attestation",
+                    crate::canonical_codec::encode_bytes(value.clone())?,
+                );
+        }
+    }
+    match &input.r#interpretation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "interpretation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#current_generation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "current_generation",
+                    crate::canonical_codec::encode_uint(*value)?,
+                );
+        }
+    }
+    match &input.r#current_attempt {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "current_attempt",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("current_attempt", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#cancelled {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("cancelled", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    match &input.r#terminal_attempt {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "terminal_attempt",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("terminal_attempt", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#terminal_class {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "terminal_class",
+                    crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("terminal_class", surrealdb_types::Value::None);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_runs(
+    input: &RuntimeCanonicalRunsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    if let Some(value) = &input.r#research_selection {
+        object
+            .insert(
+                "research_selection",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    } else {
+        object.insert("research_selection", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#research_dataset {
+        object
+            .insert(
+                "research_dataset",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    } else {
+        object.insert("research_dataset", surrealdb_types::Value::None);
+    }
+    {
+        let value = &input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#source_sequence;
+        object.insert("source_sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#sequence;
+        object.insert("sequence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = &input.r#source_selection;
+        object
+            .insert(
+                "source_selection",
+                crate::canonical_codec::encode_bytes(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#attestation;
+        object
+            .insert("attestation", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = &input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#current_generation;
+        object
+            .insert("current_generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    if let Some(value) = &input.r#current_attempt {
+        object
+            .insert(
+                "current_attempt",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    } else {
+        object.insert("current_attempt", surrealdb_types::Value::None);
+    }
+    {
+        let value = &input.r#cancelled;
+        object.insert("cancelled", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    if let Some(value) = &input.r#terminal_attempt {
+        object
+            .insert(
+                "terminal_attempt",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    } else {
+        object.insert("terminal_attempt", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#terminal_class {
+        object
+            .insert(
+                "terminal_class",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    } else {
+        object.insert("terminal_class", surrealdb_types::Value::None);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_runs(
@@ -5537,6 +20801,193 @@ pub fn decode_canonical_runs(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalSelectionReceiptsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///version
+    pub r#version: &'a String,
+    ///digest
+    pub r#digest: &'a String,
+    ///bytes
+    pub r#bytes: &'a u64,
+    ///interpretation
+    pub r#interpretation: &'a String,
+    ///format
+    pub r#format: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_selection_receipts::RuntimeCanonicalSelectionReceiptsRow,
+> for RuntimeCanonicalSelectionReceiptsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_selection_receipts::RuntimeCanonicalSelectionReceiptsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#version: &row.r#version,
+            r#digest: &row.r#digest,
+            r#bytes: &row.r#bytes,
+            r#interpretation: &row.r#interpretation,
+            r#format: &row.r#format,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalSelectionReceiptsMerge {
+    ///version
+    pub r#version: NativeUpdate<String>,
+    ///digest
+    pub r#digest: NativeUpdate<String>,
+    ///bytes
+    pub r#bytes: NativeUpdate<u64>,
+    ///interpretation
+    pub r#interpretation: NativeUpdate<String>,
+    ///format
+    pub r#format: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalSelectionReceiptsReplace {
+    ///version
+    pub r#version: String,
+    ///digest
+    pub r#digest: String,
+    ///bytes
+    pub r#bytes: u64,
+    ///interpretation
+    pub r#interpretation: String,
+    ///format
+    pub r#format: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_selection_receipts(
+    input: &RuntimeCanonicalSelectionReceiptsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#version;
+        object.insert("version", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#digest;
+        object.insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#bytes;
+        object.insert("bytes", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#format;
+        object.insert("format", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_selection_receipts(
+    input: &RuntimeCanonicalSelectionReceiptsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#version {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "version",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#digest {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#bytes {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("bytes", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#interpretation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "interpretation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#format {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("format", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_selection_receipts(
+    input: &RuntimeCanonicalSelectionReceiptsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#version;
+        object.insert("version", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#digest;
+        object.insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#bytes;
+        object.insert("bytes", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#format;
+        object.insert("format", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_selection_receipts(
     row: &pse_model::generated::runtime::canonical_selection_receipts::RuntimeCanonicalSelectionReceiptsRow,
@@ -5599,6 +21050,209 @@ pub fn decode_canonical_selection_receipts(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStagedEditsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///stage
+    pub r#stage: &'a String,
+    ///ordinal
+    pub r#ordinal: &'a u64,
+    ///logical
+    pub r#logical: &'a String,
+    ///scope
+    pub r#scope: &'a String,
+    ///name
+    pub r#name: &'a String,
+    ///version
+    pub r#version: Option<&'a String>,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_staged_edits::RuntimeCanonicalStagedEditsRow,
+> for RuntimeCanonicalStagedEditsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_staged_edits::RuntimeCanonicalStagedEditsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#stage: &row.r#stage,
+            r#ordinal: &row.r#ordinal,
+            r#logical: &row.r#logical,
+            r#scope: &row.r#scope,
+            r#name: &row.r#name,
+            r#version: row.r#version.as_ref(),
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStagedEditsMerge {
+    ///stage
+    pub r#stage: NativeUpdate<String>,
+    ///ordinal
+    pub r#ordinal: NativeUpdate<u64>,
+    ///logical
+    pub r#logical: NativeUpdate<String>,
+    ///scope
+    pub r#scope: NativeUpdate<String>,
+    ///name
+    pub r#name: NativeUpdate<String>,
+    ///version
+    pub r#version: NativeMerge<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStagedEditsReplace {
+    ///stage
+    pub r#stage: String,
+    ///ordinal
+    pub r#ordinal: u64,
+    ///logical
+    pub r#logical: String,
+    ///scope
+    pub r#scope: String,
+    ///name
+    pub r#name: String,
+    ///version
+    pub r#version: Option<String>,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_staged_edits(
+    input: &RuntimeCanonicalStagedEditsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#stage;
+        object.insert("stage", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#ordinal;
+        object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#logical;
+        object.insert("logical", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#scope;
+        object.insert("scope", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#name;
+        object.insert("name", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#version {
+        object.insert("version", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_staged_edits(
+    input: &RuntimeCanonicalStagedEditsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#stage {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("stage", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#ordinal {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#logical {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "logical",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#scope {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("scope", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#name {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("name", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#version {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "version",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("version", surrealdb_types::Value::None);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_staged_edits(
+    input: &RuntimeCanonicalStagedEditsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#stage;
+        object.insert("stage", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#ordinal;
+        object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#logical;
+        object.insert("logical", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#scope;
+        object.insert("scope", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#name;
+        object.insert("name", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = &input.r#version {
+        object.insert("version", crate::canonical_codec::encode_string(value.clone())?);
+    } else {
+        object.insert("version", surrealdb_types::Value::None);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_staged_edits(
@@ -5663,6 +21317,316 @@ pub fn decode_canonical_staged_edits(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStagesCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///problem
+    pub r#problem: &'a String,
+    ///expected_head
+    pub r#expected_head: Option<&'a String>,
+    ///request_digest
+    pub r#request_digest: &'a String,
+    ///expires_at
+    pub r#expires_at: &'a i64,
+    ///closed
+    pub r#closed: &'a bool,
+    ///activated
+    pub r#activated: &'a bool,
+    ///edit_count
+    pub r#edit_count: &'a u64,
+    ///generation
+    pub r#generation: &'a u64,
+    ///abandoned
+    pub r#abandoned: &'a bool,
+    ///cleanup_complete
+    pub r#cleanup_complete: &'a bool,
+}
+impl<
+    'a,
+> From<&'a pse_model::generated::runtime::canonical_stages::RuntimeCanonicalStagesRow>
+for RuntimeCanonicalStagesCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_stages::RuntimeCanonicalStagesRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#problem: &row.r#problem,
+            r#expected_head: row.r#expected_head.as_ref(),
+            r#request_digest: &row.r#request_digest,
+            r#expires_at: &row.r#expires_at,
+            r#closed: &row.r#closed,
+            r#activated: &row.r#activated,
+            r#edit_count: &row.r#edit_count,
+            r#generation: &row.r#generation,
+            r#abandoned: &row.r#abandoned,
+            r#cleanup_complete: &row.r#cleanup_complete,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStagesMerge {
+    ///problem
+    pub r#problem: NativeUpdate<String>,
+    ///expected_head
+    pub r#expected_head: NativeMerge<String>,
+    ///request_digest
+    pub r#request_digest: NativeUpdate<String>,
+    ///expires_at
+    pub r#expires_at: NativeUpdate<i64>,
+    ///closed
+    pub r#closed: NativeUpdate<bool>,
+    ///activated
+    pub r#activated: NativeUpdate<bool>,
+    ///edit_count
+    pub r#edit_count: NativeUpdate<u64>,
+    ///generation
+    pub r#generation: NativeUpdate<u64>,
+    ///abandoned
+    pub r#abandoned: NativeUpdate<bool>,
+    ///cleanup_complete
+    pub r#cleanup_complete: NativeUpdate<bool>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStagesReplace {
+    ///problem
+    pub r#problem: String,
+    ///expected_head
+    pub r#expected_head: Option<String>,
+    ///request_digest
+    pub r#request_digest: String,
+    ///expires_at
+    pub r#expires_at: i64,
+    ///closed
+    pub r#closed: bool,
+    ///activated
+    pub r#activated: bool,
+    ///edit_count
+    pub r#edit_count: u64,
+    ///generation
+    pub r#generation: u64,
+    ///abandoned
+    pub r#abandoned: bool,
+    ///cleanup_complete
+    pub r#cleanup_complete: bool,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_stages(
+    input: &RuntimeCanonicalStagesCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#expected_head {
+        object
+            .insert(
+                "expected_head",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#request_digest;
+        object
+            .insert(
+                "request_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#expires_at;
+        object.insert("expires_at", crate::canonical_codec::encode_int(*value)?);
+    }
+    {
+        let value = input.r#closed;
+        object.insert("closed", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = input.r#activated;
+        object.insert("activated", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = input.r#edit_count;
+        object.insert("edit_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#generation;
+        object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#abandoned;
+        object.insert("abandoned", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = input.r#cleanup_complete;
+        object
+            .insert("cleanup_complete", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_stages(
+    input: &RuntimeCanonicalStagesMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#problem {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "problem",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#expected_head {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "expected_head",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("expected_head", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#request_digest {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "request_digest",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#expires_at {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("expires_at", crate::canonical_codec::encode_int(*value)?);
+        }
+    }
+    match &input.r#closed {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("closed", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    match &input.r#activated {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("activated", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    match &input.r#edit_count {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("edit_count", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#generation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#abandoned {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("abandoned", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    match &input.r#cleanup_complete {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "cleanup_complete",
+                    crate::canonical_codec::encode_boolean(*value)?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_stages(
+    input: &RuntimeCanonicalStagesReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = &input.r#expected_head {
+        object
+            .insert(
+                "expected_head",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    } else {
+        object.insert("expected_head", surrealdb_types::Value::None);
+    }
+    {
+        let value = &input.r#request_digest;
+        object
+            .insert(
+                "request_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#expires_at;
+        object.insert("expires_at", crate::canonical_codec::encode_int(*value)?);
+    }
+    {
+        let value = &input.r#closed;
+        object.insert("closed", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = &input.r#activated;
+        object.insert("activated", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = &input.r#edit_count;
+        object.insert("edit_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#generation;
+        object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#abandoned;
+        object.insert("abandoned", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = &input.r#cleanup_complete;
+        object
+            .insert("cleanup_complete", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_stages(
@@ -5755,6 +21719,286 @@ pub fn decode_canonical_stages(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudiesCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///run
+    pub r#run: &'a String,
+    ///problem
+    pub r#problem: &'a String,
+    ///revision
+    pub r#revision: &'a String,
+    ///metadata
+    pub r#metadata: &'a pse_model::Bytes,
+    ///physical_revision
+    pub r#physical_revision: Option<&'a String>,
+    ///physical_identity
+    pub r#physical_identity: Option<&'a String>,
+    ///context
+    pub r#context: Option<&'a String>,
+    ///interpretation
+    pub r#interpretation: &'a String,
+    ///point_count
+    pub r#point_count: &'a u64,
+    ///next_ordinal
+    pub r#next_ordinal: &'a u64,
+    ///dependency_count
+    pub r#dependency_count: &'a u64,
+    ///installed_dependencies
+    pub r#installed_dependencies: &'a u64,
+    ///active
+    pub r#active: &'a bool,
+    ///cancelled
+    pub r#cancelled: &'a bool,
+    ///generation
+    pub r#generation: &'a u64,
+    ///terminal
+    pub r#terminal: &'a bool,
+}
+impl<
+    'a,
+> From<&'a pse_model::generated::runtime::canonical_studies::RuntimeCanonicalStudiesRow>
+for RuntimeCanonicalStudiesCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_studies::RuntimeCanonicalStudiesRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#run: &row.r#run,
+            r#problem: &row.r#problem,
+            r#revision: &row.r#revision,
+            r#metadata: &row.r#metadata,
+            r#physical_revision: row.r#physical_revision.as_ref(),
+            r#physical_identity: row.r#physical_identity.as_ref(),
+            r#context: row.r#context.as_ref(),
+            r#interpretation: &row.r#interpretation,
+            r#point_count: &row.r#point_count,
+            r#next_ordinal: &row.r#next_ordinal,
+            r#dependency_count: &row.r#dependency_count,
+            r#installed_dependencies: &row.r#installed_dependencies,
+            r#active: &row.r#active,
+            r#cancelled: &row.r#cancelled,
+            r#generation: &row.r#generation,
+            r#terminal: &row.r#terminal,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudiesMerge {
+    ///next_ordinal
+    pub r#next_ordinal: NativeUpdate<u64>,
+    ///installed_dependencies
+    pub r#installed_dependencies: NativeUpdate<u64>,
+    ///active
+    pub r#active: NativeUpdate<bool>,
+    ///cancelled
+    pub r#cancelled: NativeUpdate<bool>,
+    ///generation
+    pub r#generation: NativeUpdate<u64>,
+    ///terminal
+    pub r#terminal: NativeUpdate<bool>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudiesReplace {
+    ///next_ordinal
+    pub r#next_ordinal: u64,
+    ///installed_dependencies
+    pub r#installed_dependencies: u64,
+    ///active
+    pub r#active: bool,
+    ///cancelled
+    pub r#cancelled: bool,
+    ///generation
+    pub r#generation: u64,
+    ///terminal
+    pub r#terminal: bool,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_studies(
+    input: &RuntimeCanonicalStudiesCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#metadata;
+        object.insert("metadata", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    if let Some(value) = input.r#physical_revision {
+        object
+            .insert(
+                "physical_revision",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    if let Some(value) = input.r#physical_identity {
+        object
+            .insert(
+                "physical_identity",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    if let Some(value) = input.r#context {
+        object.insert("context", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#point_count;
+        object.insert("point_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#next_ordinal;
+        object.insert("next_ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#dependency_count;
+        object.insert("dependency_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#installed_dependencies;
+        object
+            .insert(
+                "installed_dependencies",
+                crate::canonical_codec::encode_uint(*value)?,
+            );
+    }
+    {
+        let value = input.r#active;
+        object.insert("active", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = input.r#cancelled;
+        object.insert("cancelled", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = input.r#generation;
+        object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#terminal;
+        object.insert("terminal", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_studies(
+    input: &RuntimeCanonicalStudiesMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#next_ordinal {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("next_ordinal", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#installed_dependencies {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "installed_dependencies",
+                    crate::canonical_codec::encode_uint(*value)?,
+                );
+        }
+    }
+    match &input.r#active {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("active", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    match &input.r#cancelled {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("cancelled", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    match &input.r#generation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#terminal {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("terminal", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_studies(
+    input: &RuntimeCanonicalStudiesReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#next_ordinal;
+        object.insert("next_ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#installed_dependencies;
+        object
+            .insert(
+                "installed_dependencies",
+                crate::canonical_codec::encode_uint(*value)?,
+            );
+    }
+    {
+        let value = &input.r#active;
+        object.insert("active", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = &input.r#cancelled;
+        object.insert("cancelled", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = &input.r#generation;
+        object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#terminal;
+        object.insert("terminal", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_studies(
@@ -5899,6 +22143,78 @@ pub fn decode_canonical_studies(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyAdmissionOutcomesCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///projection
+    pub r#projection: &'a pse_model::Bytes,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_study_admission_outcomes::RuntimeCanonicalStudyAdmissionOutcomesRow,
+> for RuntimeCanonicalStudyAdmissionOutcomesCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_study_admission_outcomes::RuntimeCanonicalStudyAdmissionOutcomesRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#projection: &row.r#projection,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyAdmissionOutcomesMerge {}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyAdmissionOutcomesReplace {}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_study_admission_outcomes(
+    input: &RuntimeCanonicalStudyAdmissionOutcomesCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#projection;
+        object
+            .insert("projection", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_study_admission_outcomes(
+    input: &RuntimeCanonicalStudyAdmissionOutcomesMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let object = surrealdb_types::Object::new();
+    let _ = input;
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_study_admission_outcomes(
+    input: &RuntimeCanonicalStudyAdmissionOutcomesReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let object = surrealdb_types::Object::new();
+    let _ = input;
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_study_admission_outcomes(
     row: &pse_model::generated::runtime::canonical_study_admission_outcomes::RuntimeCanonicalStudyAdmissionOutcomesRow,
@@ -5939,6 +22255,91 @@ pub fn decode_canonical_study_admission_outcomes(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyCaptureHeadersCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///capture
+    pub r#capture: &'a String,
+    ///ordinal
+    pub r#ordinal: &'a u64,
+    ///body
+    pub r#body: &'a pse_model::Bytes,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_study_capture_headers::RuntimeCanonicalStudyCaptureHeadersRow,
+> for RuntimeCanonicalStudyCaptureHeadersCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_study_capture_headers::RuntimeCanonicalStudyCaptureHeadersRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#capture: &row.r#capture,
+            r#ordinal: &row.r#ordinal,
+            r#body: &row.r#body,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyCaptureHeadersMerge {}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyCaptureHeadersReplace {}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_study_capture_headers(
+    input: &RuntimeCanonicalStudyCaptureHeadersCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#capture;
+        object.insert("capture", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#ordinal;
+        object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#body;
+        object.insert("body", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_study_capture_headers(
+    input: &RuntimeCanonicalStudyCaptureHeadersMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let object = surrealdb_types::Object::new();
+    let _ = input;
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_study_capture_headers(
+    input: &RuntimeCanonicalStudyCaptureHeadersReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let object = surrealdb_types::Object::new();
+    let _ = input;
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_study_capture_headers(
@@ -5988,6 +22389,117 @@ pub fn decode_canonical_study_capture_headers(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyCaptureMembersCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///capture
+    pub r#capture: &'a String,
+    ///ordinal
+    pub r#ordinal: &'a u64,
+    ///body
+    pub r#body: &'a pse_model::Bytes,
+    ///study
+    pub r#study: &'a String,
+    ///run
+    pub r#run: &'a String,
+    ///attempt
+    pub r#attempt: Option<&'a String>,
+    ///manifest
+    pub r#manifest: Option<&'a String>,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_study_capture_members::RuntimeCanonicalStudyCaptureMembersRow,
+> for RuntimeCanonicalStudyCaptureMembersCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_study_capture_members::RuntimeCanonicalStudyCaptureMembersRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#capture: &row.r#capture,
+            r#ordinal: &row.r#ordinal,
+            r#body: &row.r#body,
+            r#study: &row.r#study,
+            r#run: &row.r#run,
+            r#attempt: row.r#attempt.as_ref(),
+            r#manifest: row.r#manifest.as_ref(),
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyCaptureMembersMerge {}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyCaptureMembersReplace {}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_study_capture_members(
+    input: &RuntimeCanonicalStudyCaptureMembersCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#capture;
+        object.insert("capture", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#ordinal;
+        object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#body;
+        object.insert("body", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#study;
+        object.insert("study", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#attempt {
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#manifest {
+        object.insert("manifest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_study_capture_members(
+    input: &RuntimeCanonicalStudyCaptureMembersMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let object = surrealdb_types::Object::new();
+    let _ = input;
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_study_capture_members(
+    input: &RuntimeCanonicalStudyCaptureMembersReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let object = surrealdb_types::Object::new();
+    let _ = input;
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_study_capture_members(
@@ -6059,6 +22571,119 @@ pub fn decode_canonical_study_capture_members(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyCaptureProtectionsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///capture
+    pub r#capture: &'a String,
+    ///study
+    pub r#study: &'a String,
+    ///run
+    pub r#run: &'a String,
+    ///attempt
+    pub r#attempt: &'a String,
+    ///manifest
+    pub r#manifest: &'a String,
+    ///problem
+    pub r#problem: &'a String,
+    ///revision
+    pub r#revision: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_study_capture_protections::RuntimeCanonicalStudyCaptureProtectionsRow,
+> for RuntimeCanonicalStudyCaptureProtectionsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_study_capture_protections::RuntimeCanonicalStudyCaptureProtectionsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#capture: &row.r#capture,
+            r#study: &row.r#study,
+            r#run: &row.r#run,
+            r#attempt: &row.r#attempt,
+            r#manifest: &row.r#manifest,
+            r#problem: &row.r#problem,
+            r#revision: &row.r#revision,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyCaptureProtectionsMerge {}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyCaptureProtectionsReplace {}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_study_capture_protections(
+    input: &RuntimeCanonicalStudyCaptureProtectionsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#capture;
+        object.insert("capture", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#study;
+        object.insert("study", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#attempt;
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#manifest;
+        object.insert("manifest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#problem;
+        object.insert("problem", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_study_capture_protections(
+    input: &RuntimeCanonicalStudyCaptureProtectionsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let object = surrealdb_types::Object::new();
+    let _ = input;
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_study_capture_protections(
+    input: &RuntimeCanonicalStudyCaptureProtectionsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let object = surrealdb_types::Object::new();
+    let _ = input;
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_study_capture_protections(
@@ -6141,6 +22766,131 @@ pub fn decode_canonical_study_capture_protections(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyCapturesCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///owner
+    pub r#owner: &'a String,
+    ///request
+    pub r#request: &'a pse_model::Bytes,
+    ///state
+    pub r#state: &'a pse_model::generated::enums::CanonicalStudyCaptureState,
+    ///header_count
+    pub r#header_count: &'a u64,
+    ///member_count
+    pub r#member_count: &'a u64,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_study_captures::RuntimeCanonicalStudyCapturesRow,
+> for RuntimeCanonicalStudyCapturesCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_study_captures::RuntimeCanonicalStudyCapturesRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#owner: &row.r#owner,
+            r#request: &row.r#request,
+            r#state: &row.r#state,
+            r#header_count: &row.r#header_count,
+            r#member_count: &row.r#member_count,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyCapturesMerge {
+    ///state
+    pub r#state: NativeUpdate<pse_model::generated::enums::CanonicalStudyCaptureState>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyCapturesReplace {
+    ///state
+    pub r#state: pse_model::generated::enums::CanonicalStudyCaptureState,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_study_captures(
+    input: &RuntimeCanonicalStudyCapturesCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#owner;
+        object.insert("owner", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#state;
+        object
+            .insert(
+                "state",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    {
+        let value = input.r#header_count;
+        object.insert("header_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#member_count;
+        object.insert("member_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_study_captures(
+    input: &RuntimeCanonicalStudyCapturesMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#state {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "state",
+                    crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_study_captures(
+    input: &RuntimeCanonicalStudyCapturesReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#state;
+        object
+            .insert(
+                "state",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_study_captures(
     row: &pse_model::generated::runtime::canonical_study_captures::RuntimeCanonicalStudyCapturesRow,
@@ -6208,6 +22958,203 @@ pub fn decode_canonical_study_captures(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyDependenciesCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///study
+    pub r#study: &'a String,
+    ///dependent
+    pub r#dependent: &'a String,
+    ///predecessor
+    pub r#predecessor: &'a String,
+    ///kind
+    pub r#kind: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_study_dependencies::RuntimeCanonicalStudyDependenciesRow,
+> for RuntimeCanonicalStudyDependenciesCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_study_dependencies::RuntimeCanonicalStudyDependenciesRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#study: &row.r#study,
+            r#dependent: &row.r#dependent,
+            r#predecessor: &row.r#predecessor,
+            r#kind: &row.r#kind,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyDependenciesMerge {
+    ///study
+    pub r#study: NativeUpdate<String>,
+    ///dependent
+    pub r#dependent: NativeUpdate<String>,
+    ///predecessor
+    pub r#predecessor: NativeUpdate<String>,
+    ///kind
+    pub r#kind: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyDependenciesReplace {
+    ///study
+    pub r#study: String,
+    ///dependent
+    pub r#dependent: String,
+    ///predecessor
+    pub r#predecessor: String,
+    ///kind
+    pub r#kind: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_study_dependencies(
+    input: &RuntimeCanonicalStudyDependenciesCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#study;
+        object.insert("study", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#dependent;
+        object
+            .insert("dependent", crate::canonical_codec::encode_string(value.clone())?);
+        object
+            .insert(
+                "in",
+                crate::canonical_codec::record_link("canonical_study_points", value),
+            );
+    }
+    {
+        let value = input.r#predecessor;
+        object
+            .insert(
+                "predecessor",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+        object
+            .insert(
+                "out",
+                crate::canonical_codec::record_link("canonical_study_points", value),
+            );
+    }
+    {
+        let value = input.r#kind;
+        object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_study_dependencies(
+    input: &RuntimeCanonicalStudyDependenciesMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#study {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("study", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#dependent {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "dependent",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+            object
+                .insert(
+                    "in",
+                    crate::canonical_codec::record_link("canonical_study_points", value),
+                );
+        }
+    }
+    match &input.r#predecessor {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "predecessor",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+            object
+                .insert(
+                    "out",
+                    crate::canonical_codec::record_link("canonical_study_points", value),
+                );
+        }
+    }
+    match &input.r#kind {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_study_dependencies(
+    input: &RuntimeCanonicalStudyDependenciesReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#study;
+        object.insert("study", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#dependent;
+        object
+            .insert("dependent", crate::canonical_codec::encode_string(value.clone())?);
+        object
+            .insert(
+                "in",
+                crate::canonical_codec::record_link("canonical_study_points", value),
+            );
+    }
+    {
+        let value = &input.r#predecessor;
+        object
+            .insert(
+                "predecessor",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+        object
+            .insert(
+                "out",
+                crate::canonical_codec::record_link("canonical_study_points", value),
+            );
+    }
+    {
+        let value = &input.r#kind;
+        object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_study_dependencies(
@@ -6294,6 +23241,142 @@ pub fn decode_canonical_study_dependencies(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyInputsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///study
+    pub r#study: &'a String,
+    ///solution
+    pub r#solution: &'a String,
+    ///artifact
+    pub r#artifact: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_study_inputs::RuntimeCanonicalStudyInputsRow,
+> for RuntimeCanonicalStudyInputsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_study_inputs::RuntimeCanonicalStudyInputsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#study: &row.r#study,
+            r#solution: &row.r#solution,
+            r#artifact: &row.r#artifact,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyInputsMerge {
+    ///study
+    pub r#study: NativeUpdate<String>,
+    ///solution
+    pub r#solution: NativeUpdate<String>,
+    ///artifact
+    pub r#artifact: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyInputsReplace {
+    ///study
+    pub r#study: String,
+    ///solution
+    pub r#solution: String,
+    ///artifact
+    pub r#artifact: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_study_inputs(
+    input: &RuntimeCanonicalStudyInputsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#study;
+        object.insert("study", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#solution;
+        object.insert("solution", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#artifact;
+        object.insert("artifact", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_study_inputs(
+    input: &RuntimeCanonicalStudyInputsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#study {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("study", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#solution {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "solution",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#artifact {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "artifact",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_study_inputs(
+    input: &RuntimeCanonicalStudyInputsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#study;
+        object.insert("study", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#solution;
+        object.insert("solution", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#artifact;
+        object.insert("artifact", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_study_inputs(
     row: &pse_model::generated::runtime::canonical_study_inputs::RuntimeCanonicalStudyInputsRow,
@@ -6346,6 +23429,165 @@ pub fn decode_canonical_study_inputs(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyInstallationPagesCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///study
+    pub r#study: &'a String,
+    ///digest
+    pub r#digest: &'a String,
+    ///generation
+    pub r#generation: &'a u64,
+    ///phase
+    pub r#phase: &'a pse_model::generated::enums::CanonicalStudyInstallationPhase,
+    ///cursor
+    pub r#cursor: &'a u64,
+    ///next_cursor
+    pub r#next_cursor: &'a u64,
+    ///request
+    pub r#request: &'a pse_model::Bytes,
+    ///issued_expires_at
+    pub r#issued_expires_at: &'a u64,
+    ///state
+    pub r#state: &'a pse_model::generated::enums::CanonicalStudyInstallationPageState,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_study_installation_pages::RuntimeCanonicalStudyInstallationPagesRow,
+> for RuntimeCanonicalStudyInstallationPagesCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_study_installation_pages::RuntimeCanonicalStudyInstallationPagesRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#study: &row.r#study,
+            r#digest: &row.r#digest,
+            r#generation: &row.r#generation,
+            r#phase: &row.r#phase,
+            r#cursor: &row.r#cursor,
+            r#next_cursor: &row.r#next_cursor,
+            r#request: &row.r#request,
+            r#issued_expires_at: &row.r#issued_expires_at,
+            r#state: &row.r#state,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyInstallationPagesMerge {
+    ///state
+    pub r#state: NativeUpdate<
+        pse_model::generated::enums::CanonicalStudyInstallationPageState,
+    >,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyInstallationPagesReplace {
+    ///state
+    pub r#state: pse_model::generated::enums::CanonicalStudyInstallationPageState,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_study_installation_pages(
+    input: &RuntimeCanonicalStudyInstallationPagesCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#study;
+        object.insert("study", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#digest;
+        object.insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#generation;
+        object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#phase;
+        object
+            .insert(
+                "phase",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    {
+        let value = input.r#cursor;
+        object.insert("cursor", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#next_cursor;
+        object.insert("next_cursor", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#request;
+        object.insert("request", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#issued_expires_at;
+        object.insert("issued_expires_at", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#state;
+        object
+            .insert(
+                "state",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_study_installation_pages(
+    input: &RuntimeCanonicalStudyInstallationPagesMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#state {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "state",
+                    crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_study_installation_pages(
+    input: &RuntimeCanonicalStudyInstallationPagesReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#state;
+        object
+            .insert(
+                "state",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_study_installation_pages(
@@ -6435,6 +23677,161 @@ pub fn decode_canonical_study_installation_pages(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyInstallationsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///digest
+    pub r#digest: &'a String,
+    ///generation
+    pub r#generation: &'a u64,
+    ///phase
+    pub r#phase: &'a pse_model::generated::enums::CanonicalStudyInstallationPhase,
+    ///node_cursor
+    pub r#node_cursor: &'a u64,
+    ///edge_cursor
+    pub r#edge_cursor: &'a u64,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_study_installations::RuntimeCanonicalStudyInstallationsRow,
+> for RuntimeCanonicalStudyInstallationsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_study_installations::RuntimeCanonicalStudyInstallationsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#digest: &row.r#digest,
+            r#generation: &row.r#generation,
+            r#phase: &row.r#phase,
+            r#node_cursor: &row.r#node_cursor,
+            r#edge_cursor: &row.r#edge_cursor,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyInstallationsMerge {
+    ///phase
+    pub r#phase: NativeUpdate<
+        pse_model::generated::enums::CanonicalStudyInstallationPhase,
+    >,
+    ///node_cursor
+    pub r#node_cursor: NativeUpdate<u64>,
+    ///edge_cursor
+    pub r#edge_cursor: NativeUpdate<u64>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyInstallationsReplace {
+    ///phase
+    pub r#phase: pse_model::generated::enums::CanonicalStudyInstallationPhase,
+    ///node_cursor
+    pub r#node_cursor: u64,
+    ///edge_cursor
+    pub r#edge_cursor: u64,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_study_installations(
+    input: &RuntimeCanonicalStudyInstallationsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#digest;
+        object.insert("digest", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#generation;
+        object.insert("generation", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#phase;
+        object
+            .insert(
+                "phase",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    {
+        let value = input.r#node_cursor;
+        object.insert("node_cursor", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#edge_cursor;
+        object.insert("edge_cursor", crate::canonical_codec::encode_uint(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_study_installations(
+    input: &RuntimeCanonicalStudyInstallationsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#phase {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "phase",
+                    crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+                );
+        }
+    }
+    match &input.r#node_cursor {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("node_cursor", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#edge_cursor {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("edge_cursor", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_study_installations(
+    input: &RuntimeCanonicalStudyInstallationsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#phase;
+        object
+            .insert(
+                "phase",
+                crate::canonical_codec::encode_string(value.as_str().to_owned())?,
+            );
+    }
+    {
+        let value = &input.r#node_cursor;
+        object.insert("node_cursor", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#edge_cursor;
+        object.insert("edge_cursor", crate::canonical_codec::encode_uint(*value)?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_study_installations(
     row: &pse_model::generated::runtime::canonical_study_installations::RuntimeCanonicalStudyInstallationsRow,
@@ -6496,6 +23893,459 @@ pub fn decode_canonical_study_installations(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyPointsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///study
+    pub r#study: &'a String,
+    ///admission_run
+    pub r#admission_run: Option<&'a String>,
+    ///variant_problem
+    pub r#variant_problem: Option<&'a String>,
+    ///variant_operation
+    pub r#variant_operation: Option<&'a String>,
+    ///ordinal
+    pub r#ordinal: &'a u64,
+    ///occurrence
+    pub r#occurrence: &'a u64,
+    ///seed_solution
+    pub r#seed_solution: Option<&'a String>,
+    ///policy
+    pub r#policy: &'a pse_model::Bytes,
+    ///descriptor
+    pub r#descriptor: &'a pse_model::Bytes,
+    ///admission
+    pub r#admission: Option<&'a pse_model::Bytes>,
+    ///facts
+    pub r#facts: &'a pse_model::Bytes,
+    ///outcome
+    pub r#outcome: Option<&'a pse_model::Bytes>,
+    ///run
+    pub r#run: &'a String,
+    ///revision
+    pub r#revision: &'a u64,
+    ///assigned
+    pub r#assigned: &'a bool,
+    ///settled
+    pub r#settled: &'a bool,
+    ///attempt
+    pub r#attempt: Option<&'a String>,
+    ///start
+    pub r#start: Option<&'a pse_model::Bytes>,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_study_points::RuntimeCanonicalStudyPointsRow,
+> for RuntimeCanonicalStudyPointsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_study_points::RuntimeCanonicalStudyPointsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#study: &row.r#study,
+            r#admission_run: row.r#admission_run.as_ref(),
+            r#variant_problem: row.r#variant_problem.as_ref(),
+            r#variant_operation: row.r#variant_operation.as_ref(),
+            r#ordinal: &row.r#ordinal,
+            r#occurrence: &row.r#occurrence,
+            r#seed_solution: row.r#seed_solution.as_ref(),
+            r#policy: &row.r#policy,
+            r#descriptor: &row.r#descriptor,
+            r#admission: row.r#admission.as_ref(),
+            r#facts: &row.r#facts,
+            r#outcome: row.r#outcome.as_ref(),
+            r#run: &row.r#run,
+            r#revision: &row.r#revision,
+            r#assigned: &row.r#assigned,
+            r#settled: &row.r#settled,
+            r#attempt: row.r#attempt.as_ref(),
+            r#start: row.r#start.as_ref(),
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyPointsMerge {
+    ///study
+    pub r#study: NativeUpdate<String>,
+    ///ordinal
+    pub r#ordinal: NativeUpdate<u64>,
+    ///occurrence
+    pub r#occurrence: NativeUpdate<u64>,
+    ///seed_solution
+    pub r#seed_solution: NativeMerge<String>,
+    ///policy
+    pub r#policy: NativeUpdate<pse_model::Bytes>,
+    ///descriptor
+    pub r#descriptor: NativeUpdate<pse_model::Bytes>,
+    ///admission
+    pub r#admission: NativeMerge<pse_model::Bytes>,
+    ///facts
+    pub r#facts: NativeUpdate<pse_model::Bytes>,
+    ///outcome
+    pub r#outcome: NativeMerge<pse_model::Bytes>,
+    ///run
+    pub r#run: NativeUpdate<String>,
+    ///revision
+    pub r#revision: NativeUpdate<u64>,
+    ///assigned
+    pub r#assigned: NativeUpdate<bool>,
+    ///settled
+    pub r#settled: NativeUpdate<bool>,
+    ///attempt
+    pub r#attempt: NativeMerge<String>,
+    ///start
+    pub r#start: NativeMerge<pse_model::Bytes>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyPointsReplace {
+    ///study
+    pub r#study: String,
+    ///ordinal
+    pub r#ordinal: u64,
+    ///occurrence
+    pub r#occurrence: u64,
+    ///seed_solution
+    pub r#seed_solution: Option<String>,
+    ///policy
+    pub r#policy: pse_model::Bytes,
+    ///descriptor
+    pub r#descriptor: pse_model::Bytes,
+    ///admission
+    pub r#admission: Option<pse_model::Bytes>,
+    ///facts
+    pub r#facts: pse_model::Bytes,
+    ///outcome
+    pub r#outcome: Option<pse_model::Bytes>,
+    ///run
+    pub r#run: String,
+    ///revision
+    pub r#revision: u64,
+    ///assigned
+    pub r#assigned: bool,
+    ///settled
+    pub r#settled: bool,
+    ///attempt
+    pub r#attempt: Option<String>,
+    ///start
+    pub r#start: Option<pse_model::Bytes>,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_study_points(
+    input: &RuntimeCanonicalStudyPointsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#study;
+        object.insert("study", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#admission_run {
+        object
+            .insert(
+                "admission_run",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    if let Some(value) = input.r#variant_problem {
+        object
+            .insert(
+                "variant_problem",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    if let Some(value) = input.r#variant_operation {
+        object
+            .insert(
+                "variant_operation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#ordinal;
+        object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#occurrence;
+        object.insert("occurrence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    if let Some(value) = input.r#seed_solution {
+        object
+            .insert(
+                "seed_solution",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#policy;
+        object.insert("policy", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#descriptor;
+        object
+            .insert("descriptor", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    if let Some(value) = input.r#admission {
+        object.insert("admission", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#facts;
+        object.insert("facts", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    if let Some(value) = input.r#outcome {
+        object.insert("outcome", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#assigned;
+        object.insert("assigned", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = input.r#settled;
+        object.insert("settled", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    if let Some(value) = input.r#attempt {
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    if let Some(value) = input.r#start {
+        object.insert("start", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_study_points(
+    input: &RuntimeCanonicalStudyPointsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#study {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("study", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#ordinal {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#occurrence {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("occurrence", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#seed_solution {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "seed_solution",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("seed_solution", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#policy {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("policy", crate::canonical_codec::encode_bytes(value.clone())?);
+        }
+    }
+    match &input.r#descriptor {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "descriptor",
+                    crate::canonical_codec::encode_bytes(value.clone())?,
+                );
+        }
+    }
+    match &input.r#admission {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "admission",
+                    crate::canonical_codec::encode_bytes(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("admission", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#facts {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("facts", crate::canonical_codec::encode_bytes(value.clone())?);
+        }
+    }
+    match &input.r#outcome {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert("outcome", crate::canonical_codec::encode_bytes(value.clone())?);
+        }
+        NativeMerge::Remove => {
+            object.insert("outcome", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#run {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#revision {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("revision", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#assigned {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("assigned", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    match &input.r#settled {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("settled", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    match &input.r#attempt {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "attempt",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("attempt", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#start {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object.insert("start", crate::canonical_codec::encode_bytes(value.clone())?);
+        }
+        NativeMerge::Remove => {
+            object.insert("start", surrealdb_types::Value::None);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_study_points(
+    input: &RuntimeCanonicalStudyPointsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#study;
+        object.insert("study", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#ordinal;
+        object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#occurrence;
+        object.insert("occurrence", crate::canonical_codec::encode_uint(*value)?);
+    }
+    if let Some(value) = &input.r#seed_solution {
+        object
+            .insert(
+                "seed_solution",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    } else {
+        object.insert("seed_solution", surrealdb_types::Value::None);
+    }
+    {
+        let value = &input.r#policy;
+        object.insert("policy", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = &input.r#descriptor;
+        object
+            .insert("descriptor", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    if let Some(value) = &input.r#admission {
+        object.insert("admission", crate::canonical_codec::encode_bytes(value.clone())?);
+    } else {
+        object.insert("admission", surrealdb_types::Value::None);
+    }
+    {
+        let value = &input.r#facts;
+        object.insert("facts", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    if let Some(value) = &input.r#outcome {
+        object.insert("outcome", crate::canonical_codec::encode_bytes(value.clone())?);
+    } else {
+        object.insert("outcome", surrealdb_types::Value::None);
+    }
+    {
+        let value = &input.r#run;
+        object.insert("run", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#assigned;
+        object.insert("assigned", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = &input.r#settled;
+        object.insert("settled", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    if let Some(value) = &input.r#attempt {
+        object.insert("attempt", crate::canonical_codec::encode_string(value.clone())?);
+    } else {
+        object.insert("attempt", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#start {
+        object.insert("start", crate::canonical_codec::encode_bytes(value.clone())?);
+    } else {
+        object.insert("start", surrealdb_types::Value::None);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_study_points(
@@ -6646,6 +24496,324 @@ pub fn decode_canonical_study_points(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyReadinessCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///point
+    pub r#point: &'a String,
+    ///study
+    pub r#study: &'a String,
+    ///ordinal
+    pub r#ordinal: &'a u64,
+    ///source_revision
+    pub r#source_revision: &'a u64,
+    ///pending
+    pub r#pending: &'a u64,
+    ///eligible
+    pub r#eligible: &'a bool,
+    ///premises
+    pub r#premises: Option<&'a pse_model::Bytes>,
+    ///dirty
+    pub r#dirty: &'a bool,
+    ///notify
+    pub r#notify: &'a bool,
+    ///notify_revision
+    pub r#notify_revision: &'a u64,
+    ///notify_after
+    pub r#notify_after: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_study_readiness::RuntimeCanonicalStudyReadinessRow,
+> for RuntimeCanonicalStudyReadinessCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_study_readiness::RuntimeCanonicalStudyReadinessRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#point: &row.r#point,
+            r#study: &row.r#study,
+            r#ordinal: &row.r#ordinal,
+            r#source_revision: &row.r#source_revision,
+            r#pending: &row.r#pending,
+            r#eligible: &row.r#eligible,
+            r#premises: row.r#premises.as_ref(),
+            r#dirty: &row.r#dirty,
+            r#notify: &row.r#notify,
+            r#notify_revision: &row.r#notify_revision,
+            r#notify_after: &row.r#notify_after,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyReadinessMerge {
+    ///point
+    pub r#point: NativeUpdate<String>,
+    ///study
+    pub r#study: NativeUpdate<String>,
+    ///ordinal
+    pub r#ordinal: NativeUpdate<u64>,
+    ///source_revision
+    pub r#source_revision: NativeUpdate<u64>,
+    ///pending
+    pub r#pending: NativeUpdate<u64>,
+    ///eligible
+    pub r#eligible: NativeUpdate<bool>,
+    ///premises
+    pub r#premises: NativeMerge<pse_model::Bytes>,
+    ///dirty
+    pub r#dirty: NativeUpdate<bool>,
+    ///notify
+    pub r#notify: NativeUpdate<bool>,
+    ///notify_revision
+    pub r#notify_revision: NativeUpdate<u64>,
+    ///notify_after
+    pub r#notify_after: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyReadinessReplace {
+    ///point
+    pub r#point: String,
+    ///study
+    pub r#study: String,
+    ///ordinal
+    pub r#ordinal: u64,
+    ///source_revision
+    pub r#source_revision: u64,
+    ///pending
+    pub r#pending: u64,
+    ///eligible
+    pub r#eligible: bool,
+    ///premises
+    pub r#premises: Option<pse_model::Bytes>,
+    ///dirty
+    pub r#dirty: bool,
+    ///notify
+    pub r#notify: bool,
+    ///notify_revision
+    pub r#notify_revision: u64,
+    ///notify_after
+    pub r#notify_after: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_study_readiness(
+    input: &RuntimeCanonicalStudyReadinessCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#point;
+        object.insert("point", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#study;
+        object.insert("study", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#ordinal;
+        object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#source_revision;
+        object.insert("source_revision", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#pending;
+        object.insert("pending", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#eligible;
+        object.insert("eligible", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    if let Some(value) = input.r#premises {
+        object.insert("premises", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#dirty;
+        object.insert("dirty", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = input.r#notify;
+        object.insert("notify", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = input.r#notify_revision;
+        object.insert("notify_revision", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#notify_after;
+        object
+            .insert(
+                "notify_after",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_study_readiness(
+    input: &RuntimeCanonicalStudyReadinessMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#point {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("point", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#study {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("study", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#ordinal {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#source_revision {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("source_revision", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#pending {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("pending", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#eligible {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("eligible", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    match &input.r#premises {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "premises",
+                    crate::canonical_codec::encode_bytes(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("premises", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#dirty {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("dirty", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    match &input.r#notify {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("notify", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    match &input.r#notify_revision {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("notify_revision", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#notify_after {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "notify_after",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_study_readiness(
+    input: &RuntimeCanonicalStudyReadinessReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#point;
+        object.insert("point", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#study;
+        object.insert("study", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#ordinal;
+        object.insert("ordinal", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#source_revision;
+        object.insert("source_revision", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#pending;
+        object.insert("pending", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#eligible;
+        object.insert("eligible", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    if let Some(value) = &input.r#premises {
+        object.insert("premises", crate::canonical_codec::encode_bytes(value.clone())?);
+    } else {
+        object.insert("premises", surrealdb_types::Value::None);
+    }
+    {
+        let value = &input.r#dirty;
+        object.insert("dirty", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = &input.r#notify;
+        object.insert("notify", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    {
+        let value = &input.r#notify_revision;
+        object.insert("notify_revision", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#notify_after;
+        object
+            .insert(
+                "notify_after",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_study_readiness(
     row: &pse_model::generated::runtime::canonical_study_readiness::RuntimeCanonicalStudyReadinessRow,
@@ -6738,6 +24906,248 @@ pub fn decode_canonical_study_readiness(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyReadinessCursorsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///study
+    pub r#study: &'a String,
+    ///revision
+    pub r#revision: &'a u64,
+    ///rebuild_pending
+    pub r#rebuild_pending: &'a bool,
+    ///rebuild_after
+    pub r#rebuild_after: Option<&'a u64>,
+    ///notify_after
+    pub r#notify_after: Option<&'a u64>,
+    ///verify_after
+    pub r#verify_after: Option<&'a u64>,
+    ///pending_operation
+    pub r#pending_operation: Option<&'a String>,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_study_readiness_cursors::RuntimeCanonicalStudyReadinessCursorsRow,
+> for RuntimeCanonicalStudyReadinessCursorsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_study_readiness_cursors::RuntimeCanonicalStudyReadinessCursorsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#study: &row.r#study,
+            r#revision: &row.r#revision,
+            r#rebuild_pending: &row.r#rebuild_pending,
+            r#rebuild_after: row.r#rebuild_after.as_ref(),
+            r#notify_after: row.r#notify_after.as_ref(),
+            r#verify_after: row.r#verify_after.as_ref(),
+            r#pending_operation: row.r#pending_operation.as_ref(),
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyReadinessCursorsMerge {
+    ///study
+    pub r#study: NativeUpdate<String>,
+    ///revision
+    pub r#revision: NativeUpdate<u64>,
+    ///rebuild_pending
+    pub r#rebuild_pending: NativeUpdate<bool>,
+    ///rebuild_after
+    pub r#rebuild_after: NativeMerge<u64>,
+    ///notify_after
+    pub r#notify_after: NativeMerge<u64>,
+    ///verify_after
+    pub r#verify_after: NativeMerge<u64>,
+    ///pending_operation
+    pub r#pending_operation: NativeMerge<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyReadinessCursorsReplace {
+    ///study
+    pub r#study: String,
+    ///revision
+    pub r#revision: u64,
+    ///rebuild_pending
+    pub r#rebuild_pending: bool,
+    ///rebuild_after
+    pub r#rebuild_after: Option<u64>,
+    ///notify_after
+    pub r#notify_after: Option<u64>,
+    ///verify_after
+    pub r#verify_after: Option<u64>,
+    ///pending_operation
+    pub r#pending_operation: Option<String>,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_study_readiness_cursors(
+    input: &RuntimeCanonicalStudyReadinessCursorsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#study;
+        object.insert("study", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#rebuild_pending;
+        object
+            .insert("rebuild_pending", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    if let Some(value) = input.r#rebuild_after {
+        object.insert("rebuild_after", crate::canonical_codec::encode_uint(*value)?);
+    }
+    if let Some(value) = input.r#notify_after {
+        object.insert("notify_after", crate::canonical_codec::encode_uint(*value)?);
+    }
+    if let Some(value) = input.r#verify_after {
+        object.insert("verify_after", crate::canonical_codec::encode_uint(*value)?);
+    }
+    if let Some(value) = input.r#pending_operation {
+        object
+            .insert(
+                "pending_operation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_study_readiness_cursors(
+    input: &RuntimeCanonicalStudyReadinessCursorsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#study {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("study", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#revision {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("revision", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#rebuild_pending {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "rebuild_pending",
+                    crate::canonical_codec::encode_boolean(*value)?,
+                );
+        }
+    }
+    match &input.r#rebuild_after {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object.insert("rebuild_after", crate::canonical_codec::encode_uint(*value)?);
+        }
+        NativeMerge::Remove => {
+            object.insert("rebuild_after", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#notify_after {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object.insert("notify_after", crate::canonical_codec::encode_uint(*value)?);
+        }
+        NativeMerge::Remove => {
+            object.insert("notify_after", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#verify_after {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object.insert("verify_after", crate::canonical_codec::encode_uint(*value)?);
+        }
+        NativeMerge::Remove => {
+            object.insert("verify_after", surrealdb_types::Value::None);
+        }
+    }
+    match &input.r#pending_operation {
+        NativeMerge::Keep => {}
+        NativeMerge::Set(value) => {
+            object
+                .insert(
+                    "pending_operation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+        NativeMerge::Remove => {
+            object.insert("pending_operation", surrealdb_types::Value::None);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_study_readiness_cursors(
+    input: &RuntimeCanonicalStudyReadinessCursorsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#study;
+        object.insert("study", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#revision;
+        object.insert("revision", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#rebuild_pending;
+        object
+            .insert("rebuild_pending", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    if let Some(value) = &input.r#rebuild_after {
+        object.insert("rebuild_after", crate::canonical_codec::encode_uint(*value)?);
+    } else {
+        object.insert("rebuild_after", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#notify_after {
+        object.insert("notify_after", crate::canonical_codec::encode_uint(*value)?);
+    } else {
+        object.insert("notify_after", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#verify_after {
+        object.insert("verify_after", crate::canonical_codec::encode_uint(*value)?);
+    } else {
+        object.insert("verify_after", surrealdb_types::Value::None);
+    }
+    if let Some(value) = &input.r#pending_operation {
+        object
+            .insert(
+                "pending_operation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    } else {
+        object.insert("pending_operation", surrealdb_types::Value::None);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_study_readiness_cursors(
     row: &pse_model::generated::runtime::canonical_study_readiness_cursors::RuntimeCanonicalStudyReadinessCursorsRow,
@@ -6819,6 +25229,92 @@ pub fn decode_canonical_study_readiness_cursors(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyRetirementsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///study
+    pub r#study: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_study_retirements::RuntimeCanonicalStudyRetirementsRow,
+> for RuntimeCanonicalStudyRetirementsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_study_retirements::RuntimeCanonicalStudyRetirementsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#study: &row.r#study,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyRetirementsMerge {
+    ///study
+    pub r#study: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalStudyRetirementsReplace {
+    ///study
+    pub r#study: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_study_retirements(
+    input: &RuntimeCanonicalStudyRetirementsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#study;
+        object.insert("study", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_study_retirements(
+    input: &RuntimeCanonicalStudyRetirementsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#study {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("study", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_study_retirements(
+    input: &RuntimeCanonicalStudyRetirementsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#study;
+        object.insert("study", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_study_retirements(
     row: &pse_model::generated::runtime::canonical_study_retirements::RuntimeCanonicalStudyRetirementsRow,
@@ -6855,6 +25351,300 @@ pub fn decode_canonical_study_retirements(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalVersionManifestsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///logical
+    pub r#logical: &'a String,
+    ///kind
+    pub r#kind: &'a String,
+    ///interpretation
+    pub r#interpretation: &'a String,
+    ///payload_digest
+    pub r#payload_digest: &'a String,
+    ///payload_len
+    pub r#payload_len: &'a u64,
+    ///block_count
+    pub r#block_count: &'a u64,
+    ///reference_count
+    pub r#reference_count: &'a u64,
+    ///creator_stage
+    pub r#creator_stage: &'a String,
+    ///closed
+    pub r#closed: &'a bool,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_version_manifests::RuntimeCanonicalVersionManifestsRow,
+> for RuntimeCanonicalVersionManifestsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_version_manifests::RuntimeCanonicalVersionManifestsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#logical: &row.r#logical,
+            r#kind: &row.r#kind,
+            r#interpretation: &row.r#interpretation,
+            r#payload_digest: &row.r#payload_digest,
+            r#payload_len: &row.r#payload_len,
+            r#block_count: &row.r#block_count,
+            r#reference_count: &row.r#reference_count,
+            r#creator_stage: &row.r#creator_stage,
+            r#closed: &row.r#closed,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalVersionManifestsMerge {
+    ///logical
+    pub r#logical: NativeUpdate<String>,
+    ///kind
+    pub r#kind: NativeUpdate<String>,
+    ///interpretation
+    pub r#interpretation: NativeUpdate<String>,
+    ///payload_digest
+    pub r#payload_digest: NativeUpdate<String>,
+    ///payload_len
+    pub r#payload_len: NativeUpdate<u64>,
+    ///block_count
+    pub r#block_count: NativeUpdate<u64>,
+    ///reference_count
+    pub r#reference_count: NativeUpdate<u64>,
+    ///creator_stage
+    pub r#creator_stage: NativeUpdate<String>,
+    ///closed
+    pub r#closed: NativeUpdate<bool>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalVersionManifestsReplace {
+    ///logical
+    pub r#logical: String,
+    ///kind
+    pub r#kind: String,
+    ///interpretation
+    pub r#interpretation: String,
+    ///payload_digest
+    pub r#payload_digest: String,
+    ///payload_len
+    pub r#payload_len: u64,
+    ///block_count
+    pub r#block_count: u64,
+    ///reference_count
+    pub r#reference_count: u64,
+    ///creator_stage
+    pub r#creator_stage: String,
+    ///closed
+    pub r#closed: bool,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_version_manifests(
+    input: &RuntimeCanonicalVersionManifestsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#logical;
+        object.insert("logical", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#kind;
+        object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#payload_digest;
+        object
+            .insert(
+                "payload_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#payload_len;
+        object.insert("payload_len", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#block_count;
+        object.insert("block_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#reference_count;
+        object.insert("reference_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = input.r#creator_stage;
+        object
+            .insert(
+                "creator_stage",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = input.r#closed;
+        object.insert("closed", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_version_manifests(
+    input: &RuntimeCanonicalVersionManifestsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#logical {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "logical",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#kind {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#interpretation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "interpretation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#payload_digest {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "payload_digest",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#payload_len {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("payload_len", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#block_count {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("block_count", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#reference_count {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("reference_count", crate::canonical_codec::encode_uint(*value)?);
+        }
+    }
+    match &input.r#creator_stage {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "creator_stage",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#closed {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("closed", crate::canonical_codec::encode_boolean(*value)?);
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_version_manifests(
+    input: &RuntimeCanonicalVersionManifestsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#logical;
+        object.insert("logical", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#kind;
+        object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#payload_digest;
+        object
+            .insert(
+                "payload_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#payload_len;
+        object.insert("payload_len", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#block_count;
+        object.insert("block_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#reference_count;
+        object.insert("reference_count", crate::canonical_codec::encode_uint(*value)?);
+    }
+    {
+        let value = &input.r#creator_stage;
+        object
+            .insert(
+                "creator_stage",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    {
+        let value = &input.r#closed;
+        object.insert("closed", crate::canonical_codec::encode_boolean(*value)?);
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_version_manifests(
@@ -6947,6 +25737,103 @@ pub fn decode_canonical_version_manifests(
     }
     Ok(row)
 }
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalVersionReceiptsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///content_digest
+    pub r#content_digest: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_version_receipts::RuntimeCanonicalVersionReceiptsRow,
+> for RuntimeCanonicalVersionReceiptsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_version_receipts::RuntimeCanonicalVersionReceiptsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#content_digest: &row.r#content_digest,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalVersionReceiptsMerge {
+    ///content_digest
+    pub r#content_digest: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalVersionReceiptsReplace {
+    ///content_digest
+    pub r#content_digest: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_version_receipts(
+    input: &RuntimeCanonicalVersionReceiptsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#content_digest;
+        object
+            .insert(
+                "content_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_version_receipts(
+    input: &RuntimeCanonicalVersionReceiptsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#content_digest {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "content_digest",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_version_receipts(
+    input: &RuntimeCanonicalVersionReceiptsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#content_digest;
+        object
+            .insert(
+                "content_digest",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_version_receipts(
     row: &pse_model::generated::runtime::canonical_version_receipts::RuntimeCanonicalVersionReceiptsRow,
@@ -6987,6 +25874,171 @@ pub fn decode_canonical_version_receipts(
         return Err(crate::canonical_codec::CodecError::UnknownFields);
     }
     Ok(row)
+}
+/// Creation input, including immutable values admitted at initialization.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalVersionsCreate<'a> {
+    ///key
+    pub r#key: &'a String,
+    ///logical
+    pub r#logical: &'a String,
+    ///kind
+    pub r#kind: &'a String,
+    ///payload
+    pub r#payload: &'a pse_model::Bytes,
+    ///interpretation
+    pub r#interpretation: &'a String,
+}
+impl<
+    'a,
+> From<
+    &'a pse_model::generated::runtime::canonical_versions::RuntimeCanonicalVersionsRow,
+> for RuntimeCanonicalVersionsCreate<'a> {
+    fn from(
+        row: &'a pse_model::generated::runtime::canonical_versions::RuntimeCanonicalVersionsRow,
+    ) -> Self {
+        Self {
+            r#key: &row.r#key,
+            r#logical: &row.r#logical,
+            r#kind: &row.r#kind,
+            r#payload: &row.r#payload,
+            r#interpretation: &row.r#interpretation,
+        }
+    }
+}
+/// Partial mutation of mutable fields; default leaves all fields unchanged.
+#[derive(Clone, Debug, Default)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalVersionsMerge {
+    ///logical
+    pub r#logical: NativeUpdate<String>,
+    ///kind
+    pub r#kind: NativeUpdate<String>,
+    ///payload
+    pub r#payload: NativeUpdate<pse_model::Bytes>,
+    ///interpretation
+    pub r#interpretation: NativeUpdate<String>,
+}
+/// Complete mutable payload; immutable context is supplied by the operation owner.
+#[derive(Clone, Debug)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the declared operation input"
+)]
+pub struct RuntimeCanonicalVersionsReplace {
+    ///logical
+    pub r#logical: String,
+    ///kind
+    pub r#kind: String,
+    ///payload
+    pub r#payload: pse_model::Bytes,
+    ///interpretation
+    pub r#interpretation: String,
+}
+/// Convert creation intent to native values; database admission remains independent.
+pub fn create_canonical_versions(
+    input: &RuntimeCanonicalVersionsCreate<'_>,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = input.r#key;
+        object.insert("key", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#logical;
+        object.insert("logical", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#kind;
+        object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = input.r#payload;
+        object.insert("payload", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
+}
+/// Convert partial mutation with explicit native removal.
+pub fn merge_canonical_versions(
+    input: &RuntimeCanonicalVersionsMerge,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    match &input.r#logical {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "logical",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    match &input.r#kind {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+        }
+    }
+    match &input.r#payload {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert("payload", crate::canonical_codec::encode_bytes(value.clone())?);
+        }
+    }
+    match &input.r#interpretation {
+        NativeUpdate::Keep => {}
+        NativeUpdate::Set(value) => {
+            object
+                .insert(
+                    "interpretation",
+                    crate::canonical_codec::encode_string(value.clone())?,
+                );
+        }
+    }
+    Ok(object)
+}
+/// Convert a complete mutable replacement payload.
+pub fn replace_canonical_versions(
+    input: &RuntimeCanonicalVersionsReplace,
+) -> Result<surrealdb_types::Object, crate::canonical_codec::CodecError> {
+    let mut object = surrealdb_types::Object::new();
+    {
+        let value = &input.r#logical;
+        object.insert("logical", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#kind;
+        object.insert("kind", crate::canonical_codec::encode_string(value.clone())?);
+    }
+    {
+        let value = &input.r#payload;
+        object.insert("payload", crate::canonical_codec::encode_bytes(value.clone())?);
+    }
+    {
+        let value = &input.r#interpretation;
+        object
+            .insert(
+                "interpretation",
+                crate::canonical_codec::encode_string(value.clone())?,
+            );
+    }
+    Ok(object)
 }
 ///Encode the registry row using native exact values.
 pub fn encode_canonical_versions(

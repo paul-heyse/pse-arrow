@@ -23,8 +23,8 @@ DEFINE FUNCTION fn::pse_analysis_v1::begin($rpc_expiry: int, $row: object,$sourc
     LET $now=time::micros();
     IF $authority=NONE OR $authority.incarnation=NONE OR $authority.incarnation!=$row.primary_authority { THROW 'PSE_REFUSAL:analysis_primary_authority_unavailable'; };
     IF $row.key!='pse.analysis.v2:'+$row.primary_authority+':'+$row.creation_nonce+':'+<string><int>$row.creation_expires_at OR string::len($row.creation_nonce)!=36 { THROW 'PSE_REFUSAL:analysis_immutable_creation_binding'; };
-    IF $row.creation_expires_at<=$now OR $row.creation_expires_at>$now+60000000 OR $row.creation_expires_at<=($authority.analysis_creation_closed_through ?? 0dec) { THROW 'PSE_REFUSAL:analysis_creation_window_closed'; };
-    IF array::len($sources)=0 OR array::len($sources)>65 OR array::len($inputs)>64 OR $row.node_count>4096dec OR $row.edge_count>8192dec OR string::len($row.creation_request_digest)!=64 OR $row.active OR $row.retiring { THROW 'PSE_REFUSAL:analysis_admission_bound'; };
+    IF $row.creation_expires_at<=$now OR $row.creation_expires_at>$now+60000000 OR $row.creation_expires_at<=($authority.analysis_creation_closed_through ?? 0u64) { THROW 'PSE_REFUSAL:analysis_creation_window_closed'; };
+    IF array::len($sources)=0 OR array::len($sources)>65 OR array::len($inputs)>64 OR $row.node_count>4096u64 OR $row.edge_count>8192u64 OR string::len($row.creation_request_digest)!=64 OR $row.active OR $row.retiring { THROW 'PSE_REFUSAL:analysis_admission_bound'; };
     LET $old=SELECT * FROM ONLY type::record('canonical_analyses',$row.key) FOR UPDATE;
     IF $old!=NONE {
         IF $old.retiring OR object::remove($old,['id','active'])!=object::remove($row,['active']) { THROW 'PSE_REFUSAL:immutable_analysis_identity_changed'; };

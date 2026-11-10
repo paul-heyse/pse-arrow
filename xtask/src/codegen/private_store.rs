@@ -94,7 +94,7 @@ fn append_knowledge(registry: &Registry, tree: &mut GeneratedTree) -> Result<Str
         selected.iter().copied(),
         declaration::INDEXES,
     )?;
-    knowledge_constraints(&mut ddl);
+    knowledge_constraints(registry, &mut ddl)?;
     let search = &declaration::FULL_TEXT;
     let relation = registry
         .relation(&format!("runtime.{}", search.table))
@@ -169,7 +169,7 @@ fn append_knowledge(registry: &Registry, tree: &mut GeneratedTree) -> Result<Str
     Ok(schema_digest)
 }
 
-fn knowledge_constraints(ddl: &mut String) {
+fn knowledge_constraints(registry: &Registry, ddl: &mut String) -> Result<(), SchemaError> {
     use std::fmt::Write as _;
     use xtask::development::catalog::knowledge as declaration;
     let strings = |values: &[&str]| {
@@ -216,11 +216,18 @@ fn knowledge_constraints(ddl: &mut String) {
         }
         subjects.push(format!("({})", conditions.join(" AND ")));
     }
-    let kinds = declaration::SUBJECTS
-        .iter()
-        .map(|policy| format!("'{}'", policy.kind))
-        .collect::<Vec<_>>()
-        .join(" | ");
+    let vocabulary = |table: &str, field: &str| {
+        registry
+            .relation(&format!("runtime.{table}"))
+            .and_then(|relation| relation.column(field))
+            .and_then(|field| field.enum_name())
+            .map(pse_codegen::codegen::native_enum_name)
+            .ok_or_else(|| SchemaError::Codegen {
+                language: "surreal",
+                reason: format!("missing knowledge vocabulary {table}.{field}"),
+            })
+    };
+    let kinds = vocabulary("knowledge_subjects", "kind")?;
     let _ = writeln!(
         ddl,
         "DEFINE FIELD OVERWRITE kind ON knowledge_subjects TYPE {kinds} READONLY ASSERT {};",
@@ -240,11 +247,7 @@ fn knowledge_constraints(ddl: &mut String) {
             }
         ));
     }
-    let kinds = declaration::RELATIONS
-        .iter()
-        .map(|policy| format!("'{}'", policy.kind))
-        .collect::<Vec<_>>()
-        .join(" | ");
+    let kinds = vocabulary("knowledge_subject_edges", "relation")?;
     let _ = writeln!(
         ddl,
         "DEFINE FIELD OVERWRITE relation ON knowledge_subject_edges TYPE {kinds} READONLY ASSERT {};",
@@ -260,6 +263,7 @@ fn knowledge_constraints(ddl: &mut String) {
         ddl,
         "DEFINE FIELD OVERWRITE excerpt_id ON knowledge_excerpts TYPE string READONLY ASSERT {{ LET $knowledge_assert_generation=$this.generation; LET $knowledge_assert_subject=$this.subject_key; LET $knowledge_assert_source=$this.source_key; RETURN ($this.subject_key=NONE AND $this.subject_key_record=NONE) OR ($this.subject_key!=NONE AND $this.subject_key_record=type::record('knowledge_subjects',$this.subject_key) AND record::exists($this.subject_key_record) AND $this.subject_key_record.generation=$this.generation AND array::len((SELECT VALUE key FROM knowledge_subject_sources WHERE generation=$knowledge_assert_generation AND subject_key=$knowledge_assert_subject AND source_key=$knowledge_assert_source LIMIT 1))=1); }};"
     );
+    Ok(())
 }
 
 #[cfg(test)]
@@ -279,6 +283,11 @@ mod tests {
             &tree.files[std::path::Path::new("xtask/src/generated/store/knowledge.surql")],
         )
         .unwrap();
+        assert!(
+            ddl.contains("DEFINE TYPE pse_knowledge_subject_kind AS string ASSERT $value IN [")
+        );
+        assert!(ddl.contains("DEFINE FIELD OVERWRITE kind ON knowledge_subjects TYPE pse_knowledge_subject_kind READONLY ASSERT"));
+        assert!(ddl.contains("DEFINE FIELD OVERWRITE relation ON knowledge_subject_edges TYPE pse_knowledge_relation_kind READONLY ASSERT"));
         assert!(ddl.contains("DEFINE TABLE knowledge_subject_edges TYPE RELATION IN knowledge_subjects OUT knowledge_subjects ENFORCED"));
         assert!(ddl.contains("DEFINE ANALYZER knowledge_text_v2 TOKENIZERS blank,class,camel,punct FILTERS lowercase;"));
         assert!(ddl.contains("DEFINE INDEX knowledge_excerpt_text ON knowledge_excerpts FIELDS text FULLTEXT ANALYZER knowledge_text_v2 BM25;"));

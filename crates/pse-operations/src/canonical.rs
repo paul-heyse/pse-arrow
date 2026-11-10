@@ -2768,11 +2768,11 @@ SELECT * FROM $stage_guard FOR UPDATE; fn::pse_execution_v1::deadline($pse_rpc_e
 LET $guards = array::sort([$content.version,$receipt.version]).map(|$v| type::record('canonical_guards','version:'+$v));
 FOR $guard IN $guards { SELECT * FROM $guard FOR UPDATE; };
 LET $stage = SELECT * FROM ONLY type::record('canonical_stages', $operation);
-IF $operation != $product.key OR $stage = NONE OR $stage.problem != $problem OR $stage.request_digest != $request_digest OR $stage.generation != $generation OR $stage.closed = false OR $stage.activated OR $stage.abandoned OR $stage.expires_at <= time::micros() OR $stage.edit_count != 2dec OR $stage.expected_head != NONE { THROW 'PSE_REFUSAL:closed_product_staging_manifest_fenced'; };
-FOR $part IN [{ordinal:0dec,kind:'pse.body-content.v1',record:$content},{ordinal:1dec,kind:'pse.selection-receipt.v1',record:$receipt}] {
-    LET $child = SELECT * FROM ONLY type::record('canonical_staged_edits',$operation+':'+<string>$part.ordinal);
+IF $operation != $product.key OR $stage = NONE OR $stage.problem != $problem OR $stage.request_digest != $request_digest OR $stage.generation != $generation OR $stage.closed = false OR $stage.activated OR $stage.abandoned OR $stage.expires_at <= time::micros() OR $stage.edit_count != 2u64 OR $stage.expected_head != NONE { THROW 'PSE_REFUSAL:closed_product_staging_manifest_fenced'; };
+FOR $part IN [{ordinal:0u64,kind:'pse.body-content.v1',record:$content},{ordinal:1u64,kind:'pse.selection-receipt.v1',record:$receipt}] {
+    LET $child = SELECT * FROM ONLY type::record('canonical_staged_edits',$operation+':'+<string><decimal>$part.ordinal);
     LET $manifest = SELECT * FROM ONLY type::record('canonical_version_manifests',$part.record.version);
-    IF $child = NONE OR $child.stage != $operation OR $child.ordinal != $part.ordinal OR $child.version != $part.record.version OR $child.logical != $part.kind OR $child.scope != $part.kind OR $child.name != $part.kind OR $manifest = NONE OR $manifest.closed = false OR $manifest.logical != $part.kind OR $manifest.kind != $part.kind OR $manifest.interpretation != $product.interpretation OR $manifest.reference_count != 0dec OR $manifest.payload_digest != $part.record.digest OR $manifest.payload_len != $part.record.bytes { THROW 'PSE_REFUSAL:product_physical_part_association_invalid'; };
+    IF $child = NONE OR $child.stage != $operation OR $child.ordinal != $part.ordinal OR $child.version != $part.record.version OR $child.logical != $part.kind OR $child.scope != $part.kind OR $child.name != $part.kind OR $manifest = NONE OR $manifest.closed = false OR $manifest.logical != $part.kind OR $manifest.kind != $part.kind OR $manifest.interpretation != $product.interpretation OR $manifest.reference_count != 0u64 OR $manifest.payload_digest != $part.record.digest OR $manifest.payload_len != $part.record.bytes { THROW 'PSE_REFUSAL:product_physical_part_association_invalid'; };
 };
 IF $product.issuing_store != (SELECT * FROM ONLY canonical_interpretations:current).issuing_store OR $descriptor.issuing_store != $product.issuing_store OR $descriptor.key != $product.descriptor OR $descriptor.producer_class != $product.producer_class OR $descriptor.content != $content.key OR $descriptor.receipt != $receipt.key OR $product.content != $content.key OR $product.receipt != $receipt.key OR $content.version != $content.key OR $receipt.version != $receipt.key OR $content.producer != $product.producer OR $content.interpretation != $product.interpretation OR $receipt.interpretation != $product.interpretation OR $content.format != 'pse.body-content.v1' OR $receipt.format != 'pse.selection-receipt.v1' { THROW 'PSE_REFUSAL:product_physical_meaning_differs'; };
 LET $old_content = SELECT * FROM ONLY type::record('canonical_body_contents',$content.key);
@@ -2804,8 +2804,8 @@ IF $eligible = false {
     UPDATE type::record('canonical_product_descriptors',$descriptor.key) SET association=$product.key;
 };
 UPDATE type::record('canonical_stages',$operation) SET activated=true;
-UPSERT $stage_guard SET key='stage:'+$operation,generation=(generation ?? 0dec)+1dec;
-FOR $key IN [$content.version,$receipt.version] { UPSERT type::record('canonical_guards','version:'+$key) SET key='version:'+$key,generation=(generation ?? 0dec)+1dec; };
+UPSERT $stage_guard SET key='stage:'+$operation,generation=(generation ?? 0u64)+1u64;
+FOR $key IN [$content.version,$receipt.version] { UPSERT type::record('canonical_guards','version:'+$key) SET key='version:'+$key,generation=(generation ?? 0u64)+1u64; };
 fn::pse_execution_v1::touch($pse_rpc_expires_at,'source-creators:'+$problem);
 LET $rpc_result = IF $eligible { $equivalent.key } ELSE { $product.key };
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
@@ -2837,7 +2837,7 @@ LET $head = SELECT * FROM ONLY type::record('canonical_problems', $problem);
 IF ($head.head ?? NONE) != $expected { THROW 'PSE_REFUSAL:head_compare_and_set_conflict'; };
 LET $changes = SELECT * FROM canonical_staged_edits WHERE stage = $operation ORDER BY ordinal LIMIT /* EDIT_SCAN_LIMIT */;
 IF array::len($changes) != $stage.edit_count OR array::len($changes) > /* EDIT_LIMIT */ { THROW 'PSE_REFUSAL:closed_staging_metadata_coverage_mismatch'; };
-LET $sequence = ($head.sequence ?? 0dec) + 1dec;
+LET $sequence = ($head.sequence ?? 0u64) + 1u64;
 UPSERT type::record('canonical_problems', $problem) SET key = $problem, head = $operation, sequence = $sequence;
 // A new destination has no old intervals to close. Check that premise under
 // the same head and retention guards before skipping the per-page queries.
@@ -2852,9 +2852,9 @@ IF $head = NONE {
         LET $old_guards = array::distinct(array::concat(
             $old.map(|$member| type::string(['pse.scope-guard.v1', $problem, $member.scope])),
             $old.map(|$member| type::string(['pse.name-guard.v1', $problem, $member.scope, $member.name]))
-        )).map(|$key| { id: type::record('canonical_guards', $key), key: $key, generation: 1dec });
+        )).map(|$key| { id: type::record('canonical_guards', $key), key: $key, generation: 1u64 });
         LET $existing = SELECT id FROM $old_guards.id;
-        UPDATE $existing.id SET generation = generation + 1dec RETURN NONE;
+        UPDATE $existing.id SET generation = generation + 1u64 RETURN NONE;
         LET $existing_ids = $existing.id;
         LET $missing = $old_guards.filter(|$guard| $guard.id NOT IN $existing_ids);
         INSERT INTO canonical_guards $missing RETURN NONE;
@@ -2863,11 +2863,11 @@ IF $head = NONE {
 };
 LET $scope_guards = array::distinct($changes.scope).map(|$scope| {
     LET $key = type::string(['pse.scope-guard.v1', $problem, $scope]);
-    { id: type::record('canonical_guards', $key), key: $key, generation: 1dec }
+    { id: type::record('canonical_guards', $key), key: $key, generation: 1u64 }
 });
 FOR $guards IN array::clump($scope_guards, 64) {
     LET $existing = SELECT id FROM $guards.id;
-    UPDATE $existing.id SET generation = generation + 1dec RETURN NONE;
+    UPDATE $existing.id SET generation = generation + 1u64 RETURN NONE;
     LET $existing_ids = $existing.id;
     LET $missing = $guards.filter(|$guard| $guard.id NOT IN $existing_ids);
     INSERT INTO canonical_guards $missing RETURN NONE;
@@ -2887,9 +2887,9 @@ FOR $batch IN array::clump($changes, 64) {
         $batch.map(|$change| type::string(['pse.name-guard.v1', $problem, $change.scope, $change.name])),
         $creates.map(|$change| 'version:' + $change.version)
     ));
-    LET $guard_rows = $guard_keys.map(|$key| { id: type::record('canonical_guards', $key), key: $key, generation: 1dec });
+    LET $guard_rows = $guard_keys.map(|$key| { id: type::record('canonical_guards', $key), key: $key, generation: 1u64 });
     LET $existing = SELECT id FROM $guard_rows.id;
-    UPDATE $existing.id SET generation = generation + 1dec RETURN NONE;
+    UPDATE $existing.id SET generation = generation + 1u64 RETURN NONE;
     LET $existing_ids = $existing.id;
     LET $missing = $guard_rows.filter(|$guard| $guard.id NOT IN $existing_ids);
     INSERT INTO canonical_guards $missing RETURN NONE;
@@ -2928,9 +2928,9 @@ fn::pse_execution_v1::source_creator($pse_rpc_expires_at,$problem,'history:'+$op
 CREATE type::record('canonical_roots', 'history:' + $operation) SET key = 'history:' + $operation, problem = $problem, revision = $operation, sequence = $sequence, owner_kind = 'history', owner = $operation;
 fn::pse_project_v1::source_ack($pse_rpc_expires_at,$problem,$operation,$project_intent);
 UPDATE type::record('canonical_stages', $operation) SET activated = true;
-UPSERT $head_guard SET key = 'head:' + $problem, generation = (generation ?? 0dec) + 1dec;
-UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0dec) + 1dec;
-IF (SELECT * FROM ONLY $retention_guard)=NONE { CREATE ONLY $retention_guard SET key='retention:'+$problem,generation=0dec,incarnation=<string>rand::uuid::v4(); };
+UPSERT $head_guard SET key = 'head:' + $problem, generation = (generation ?? 0u64) + 1u64;
+UPSERT $stage_guard SET key = 'stage:' + $operation, generation = (generation ?? 0u64) + 1u64;
+IF (SELECT * FROM ONLY $retention_guard)=NONE { CREATE ONLY $retention_guard SET key='retention:'+$problem,generation=0u64,incarnation=<string>rand::uuid::v4(); };
 fn::pse_execution_v1::deadline($pse_rpc_expires_at);
 IF $stage.expires_at <= time::micros() { THROW 'PSE_REFUSAL:activation_staging_lease_expired_before_commit'; };
 IF $admission_owner!=NONE { fn::pse_execution_v1::lease($pse_rpc_expires_at,$admission_owner.expires_at); };

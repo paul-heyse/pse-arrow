@@ -50,7 +50,7 @@ DEFINE FUNCTION fn::pse_control_v1::cancel($expiry:int,$actor:string,$request:ob
     fn::pse_execution_v1::touch($expiry,'study-cancel:'+$request.study);
     LET $study=SELECT * FROM ONLY type::record('canonical_studies',$request.study) FOR UPDATE;
     LET $state=IF $study=NONE OR $study.terminal {$study} ELSE {fn::pse_study_v1::cancel($expiry,$request.study)};
-    LET $receipt={document_version:1,issuing_store:$request.issuing_store,operation_id:$request.operation_id,study:$request.study,status:IF $state=NONE {'refused'} ELSE {'accepted'},generation:IF $state=NONE {NULL} ELSE {<string>$state.generation},already_concluded:IF $state=NONE {false} ELSE {$state.terminal},cancelled:IF $state=NONE {false} ELSE {$state.cancelled},reason:IF $state=NONE {'study_unavailable_or_already_concluded'} ELSE {NULL}};
+    LET $receipt={document_version:1,issuing_store:$request.issuing_store,operation_id:$request.operation_id,study:$request.study,status:IF $state=NONE {'refused'} ELSE {'accepted'},generation:IF $state=NONE {NULL} ELSE {<string><decimal>$state.generation},already_concluded:IF $state=NONE {false} ELSE {$state.terminal},cancelled:IF $state=NONE {false} ELSE {$state.cancelled},reason:IF $state=NONE {'study_unavailable_or_already_concluded'} ELSE {NULL}};
     CREATE ONLY type::record('canonical_control_commands',$key) SET key=$key,issuing_store=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store,actor=$actor,operation_id=$request.operation_id,study=$request.study,receipt=encoding::cbor::encode($receipt);
     fn::pse_execution_v1::deadline($expiry); RETURN $receipt;
 } PERMISSIONS NONE;
@@ -72,7 +72,7 @@ DEFINE FUNCTION fn::pse_control_v1::browse($expiry:int,$request:object) -> objec
     LET $cursor_after=IF $request.cursor=NULL OR $request.cursor=NONE {''} ELSE {$request.cursor.after};
     LET $rows=fn::pse_workbench_v1::select_rows($expiry,$request.filter,$cursor_after,$request.maximum+1);
     LET $selected=fn::pse_workbench_v1::browse($expiry,$rows,$request.maximum);
-    LET $headers=$selected.headers.map(|$s| {study:$s.key,run:$s.run,problem:$s.problem,source:$s.revision,physical_revision:$s.physical_revision ?? NULL,physical_identity:$s.physical_identity ?? NULL,context:$s.context ?? NULL,point_count:<string>$s.point_count,generation:<string>$s.generation,active:$s.active,cancelled:$s.cancelled,terminal:$s.terminal,result_attempt:$s.result_attempt ?? NULL,outcome:$s.outcome ?? NULL});
+    LET $headers=$selected.headers.map(|$s| {study:$s.key,run:$s.run,problem:$s.problem,source:$s.revision,physical_revision:$s.physical_revision ?? NULL,physical_identity:$s.physical_identity ?? NULL,context:$s.context ?? NULL,point_count:<string><decimal>$s.point_count,generation:<string><decimal>$s.generation,active:$s.active,cancelled:$s.cancelled,terminal:$s.terminal,result_attempt:$s.result_attempt ?? NULL,outcome:$s.outcome ?? NULL});
     LET $next=IF $selected.has_more {{issuing_store:$store,filter:$request.filter,after:array::last($headers).study}} ELSE {NULL};
     fn::pse_execution_v1::deadline($expiry); RETURN {document_version:1,headers:$headers,next:$next};
 } PERMISSIONS NONE;

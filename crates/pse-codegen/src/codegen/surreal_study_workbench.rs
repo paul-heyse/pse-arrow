@@ -56,7 +56,7 @@ DEFINE FUNCTION fn::pse_workbench_v1::select_rows($rpc_expiry:int,$filter:object
 DEFINE FUNCTION fn::pse_workbench_v1::protection_key($capture:string,$study:string,$attempt:string) -> string {
     RETURN encoding::base64::encode(encoding::cbor::encode([$capture,$study,$attempt]));
 };
-DEFINE FUNCTION fn::pse_workbench_v1::capture_page($rpc_expiry:int,$key:string,$owner:string,$request:bytes,$kind:string,$after:decimal) -> array<object> {
+DEFINE FUNCTION fn::pse_workbench_v1::capture_page($rpc_expiry:int,$key:string,$owner:string,$request:bytes,$kind:string,$after:u64) -> array<object> {
     LET $capture=SELECT * FROM ONLY type::record('canonical_study_captures',$key) FOR UPDATE;
     IF $capture=NONE OR $capture.owner!=$owner OR $capture.request!=$request OR $capture.state!='frozen' { THROW 'PSE_REFUSAL:study_capture_original_owner_closed'; };
     LET $process=SELECT * FROM ONLY type::record('canonical_file_owners',$owner) FOR UPDATE;
@@ -72,12 +72,12 @@ DEFINE FUNCTION fn::pse_workbench_v1::capture_page($rpc_expiry:int,$key:string,$
 };
 // Every lazy native read consumes the original unforgeable capture witness and
 // checks the current process/restore identity before exact immutable references.
-DEFINE FUNCTION fn::pse_workbench_v1::captured_result($rpc_expiry:int,$key:string,$owner:string,$request:bytes,$position:decimal) -> object {
+DEFINE FUNCTION fn::pse_workbench_v1::captured_result($rpc_expiry:int,$key:string,$owner:string,$request:bytes,$position:u64) -> object {
     LET $capture=SELECT * FROM ONLY type::record('canonical_study_captures',$key) FOR UPDATE;
     IF $capture=NONE OR $capture.owner!=$owner OR $capture.request!=$request OR $capture.state!='frozen' {THROW 'PSE_REFUSAL:study_capture_original_owner_closed';};
     LET $process=SELECT * FROM ONLY type::record('canonical_file_owners',$owner) FOR UPDATE;
     IF $process=NONE OR $process.drained OR $process.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store {THROW 'PSE_REFUSAL:study_capture_actual_owner_unavailable';};
-    LET $member=SELECT * FROM ONLY type::record('canonical_study_capture_members',$key+':'+<string>$position);
+    LET $member=SELECT * FROM ONLY type::record('canonical_study_capture_members',$key+':'+<string><decimal>$position);
     IF $member=NONE OR $member.capture!=$key OR $member.ordinal!=$position OR $member.attempt=NONE OR $member.manifest=NONE {THROW 'PSE_REFUSAL:terminal_result_selection_unavailable';};
     LET $protection=SELECT * FROM ONLY type::record('canonical_study_capture_protections',fn::pse_workbench_v1::protection_key($key,$member.study,$member.attempt));
     LET $run=SELECT key,problem,revision,interpretation FROM ONLY type::record('canonical_runs',$member.run);
@@ -89,7 +89,7 @@ DEFINE FUNCTION fn::pse_workbench_v1::captured_result($rpc_expiry:int,$key:strin
 };
 // One useful bounded locator page may cover many original members. No per-member
 // result ticket, full snapshot or open transaction survives this native call.
-DEFINE FUNCTION fn::pse_workbench_v1::result_page($rpc_expiry:int,$key:string,$owner:string,$request:bytes,$selected:array<decimal>,$relation:string,$output:string,$partition:string,$dense:bool,$start:decimal,$end:decimal,$member:option<decimal>,$after:option<decimal>) -> object {
+DEFINE FUNCTION fn::pse_workbench_v1::result_page($rpc_expiry:int,$key:string,$owner:string,$request:bytes,$selected:array<u64>,$relation:string,$output:string,$partition:string,$dense:bool,$start:u64,$end:u64,$member:option<u64>,$after:option<u64>) -> object {
     IF array::len($selected)>__CAPTURE_ROWS__ {THROW 'PSE_REFUSAL:study_workbench_narrow_selection';};
     LET $page=$selected.filter(|$position|$member=NONE OR $position>=$member).fold({items:[],bytes:512,blocks:0,next_member:$member,next_after:$after,stopped:false},|$acc,$position| {
         IF $acc.stopped {RETURN $acc;};
@@ -106,21 +106,21 @@ DEFINE FUNCTION fn::pse_workbench_v1::result_page($rpc_expiry:int,$key:string,$o
             RETURN object::extend($acc,{stopped:true});
         };
         LET $done=$locators=NONE OR $locators.exhausted;
-        RETURN {items:array::append($acc.items,$item),bytes:$bytes,blocks:$blocks,next_member:IF $done {$position+1dec} ELSE {$position},next_after:IF $done {NONE} ELSE {$locators.next},stopped:!$done};
+        RETURN {items:array::append($acc.items,$item),bytes:$bytes,blocks:$blocks,next_member:IF $done {$position+1u64} ELSE {$position},next_after:IF $done {NONE} ELSE {$locators.next},stopped:!$done};
     });
     fn::pse_execution_v1::deadline($rpc_expiry);
     RETURN {items:$page.items,member:$page.next_member,after:$page.next_after,exhausted:!$page.stopped};
 };
 // Descriptor equality is checked natively before a physical handle or body is
 // exposed. The original capture reference stays held through physical drain.
-DEFINE FUNCTION fn::pse_workbench_v1::result_descriptor($rpc_expiry:int,$key:string,$owner:string,$request:bytes,$position:decimal,$expected:object) -> object {
+DEFINE FUNCTION fn::pse_workbench_v1::result_descriptor($rpc_expiry:int,$key:string,$owner:string,$request:bytes,$position:u64,$expected:object) -> object {
     LET $source=fn::pse_workbench_v1::captured_result($rpc_expiry,$key,$owner,$request,$position);
     LET $batch=SELECT * FROM ONLY type::record('canonical_result_batches',$expected.key);
     LET $sets=SELECT key,next_ordinal FROM canonical_result_sets WHERE attempt=$source.member.attempt AND key=$expected.result_set LIMIT 1;
     IF $batch=NONE OR object::remove($batch,'id')!=$expected OR $batch.attempt!=$source.member.attempt OR array::len($sets)!=1 OR $batch.ordinal>=$sets[0].next_ordinal {THROW 'PSE_REFUSAL:execution_batch_coordinate_mismatch';};
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN $batch;
 };
-DEFINE FUNCTION fn::pse_workbench_v1::inline_payload($rpc_expiry:int,$key:string,$owner:string,$request:bytes,$position:decimal,$expected:object,$inline:string) -> object {
+DEFINE FUNCTION fn::pse_workbench_v1::inline_payload($rpc_expiry:int,$key:string,$owner:string,$request:bytes,$position:u64,$expected:object,$inline:string) -> object {
     fn::pse_workbench_v1::result_descriptor($rpc_expiry,$key,$owner,$request,$position,$expected);
     LET $body=SELECT * FROM ONLY type::record('canonical_inline_payloads',$inline);
     IF $body=NONE {THROW 'PSE_REFUSAL:execution_batch_coordinate_mismatch';};
@@ -137,7 +137,7 @@ DEFINE FUNCTION fn::pse_workbench_v1::release_capture($rpc_expiry:int,$key:strin
         LET $process=SELECT * FROM ONLY type::record('canonical_file_owners',$owner) FOR UPDATE;
         IF $process=NONE OR $process.drained { THROW 'PSE_REFUSAL:study_capture_actual_owner_unavailable'; };
         // An exact tombstone fences a delayed atomic capture after lost ACK.
-        CREATE ONLY type::record('canonical_study_captures',$key) SET key=$key,owner=$owner,request=$request,state='released',header_count=0dec,member_count=0dec;
+        CREATE ONLY type::record('canonical_study_captures',$key) SET key=$key,owner=$owner,request=$request,state='released',header_count=0u64,member_count=0u64;
         fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
     };
     IF $capture.owner!=$owner OR $capture.request!=$request { THROW 'PSE_REFUSAL:study_capture_identity_reused'; };

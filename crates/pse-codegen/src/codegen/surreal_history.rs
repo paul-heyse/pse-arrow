@@ -152,7 +152,7 @@ DEFINE FUNCTION fn::pse_history_v1::effect_free($rpc_expiry:int,$point:object) -
     fn::pse_history_v1::run($rpc_expiry,$point.run);
     fn::pse_execution_v1::touch($rpc_expiry,'execution-run:'+$point.run);
     LET $run=SELECT * FROM ONLY type::record('canonical_runs',$point.run) FOR UPDATE;
-    IF !$point.settled OR $point.assigned OR $point.attempt!=NONE OR $run=NONE OR $run.current_attempt!=NONE OR $run.current_generation!=0dec { THROW 'PSE_REFUSAL:effect_free_settlement_requires_original_unclaimed_occurrence'; };
+    IF !$point.settled OR $point.assigned OR $point.attempt!=NONE OR $run=NONE OR $run.current_attempt!=NONE OR $run.current_generation!=0u64 { THROW 'PSE_REFUSAL:effect_free_settlement_requires_original_unclaimed_occurrence'; };
     fn::pse_history_v1::identity($rpc_expiry,'effect-free-run',$point.run,$point.run);
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
 };
@@ -177,7 +177,7 @@ DEFINE FUNCTION fn::pse_history_v1::parent_obligated($rpc_expiry:int,$run:string
     FOR $history_parent IN $parents {
         fn::pse_execution_v1::register($rpc_expiry,'history:study:'+$history_parent.study);
         LET $count=SELECT * FROM ONLY type::record('canonical_history_obligation_counts','study:'+$history_parent.study) FOR UPDATE;
-        IF ($count.count ?? 0dec)>0dec { RETURN true; };
+        IF ($count.count ?? 0u64)>0u64 { RETURN true; };
     };
     RETURN false;
 };
@@ -231,7 +231,7 @@ DEFINE FUNCTION fn::pse_history_v1::retain($rpc_expiry:int,$key:string,$kind:str
     };
     CREATE ONLY type::record('canonical_history_obligations',$key) SET key=$key,owner_kind=$kind,owner=$owner,purpose=$purpose,attribution=$attribution,released=false,issuing_store=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store;
     LET $count=SELECT * FROM ONLY type::record('canonical_history_obligation_counts',$scope) FOR UPDATE;
-    UPSERT ONLY type::record('canonical_history_obligation_counts',$scope) SET key=$scope,count=($count.count ?? 0dec)+1dec;
+    UPSERT ONLY type::record('canonical_history_obligation_counts',$scope) SET key=$scope,count=($count.count ?? 0u64)+1u64;
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
 };
 
@@ -246,9 +246,9 @@ DEFINE FUNCTION fn::pse_history_v1::drop_obligation($rpc_expiry:int,$key:string,
     IF $old.owner_kind!=$kind OR $old.owner!=$owner OR $old.purpose!=$purpose OR $old.attribution!=$attribution OR $old.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'PSE_REFUSAL:history_obligation_release_differs'; };
     IF $old.released { fn::pse_execution_v1::deadline($rpc_expiry); RETURN true; };
     LET $count=SELECT * FROM ONLY type::record('canonical_history_obligation_counts',$scope) FOR UPDATE;
-    IF $count=NONE OR $count.count<1dec { THROW 'PSE_REFUSAL:history_obligation_count_unavailable'; };
+    IF $count=NONE OR $count.count<1u64 { THROW 'PSE_REFUSAL:history_obligation_count_unavailable'; };
     UPDATE ONLY type::record('canonical_history_obligations',$key) SET released=true;
-    UPDATE ONLY type::record('canonical_history_obligation_counts',$scope) SET count-=1dec;
+    UPDATE ONLY type::record('canonical_history_obligation_counts',$scope) SET count-=1u64;
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN true;
 };
 
@@ -265,7 +265,7 @@ DEFINE FUNCTION fn::pse_history_v1::release($rpc_expiry:int,$kind:string,$owner:
     LET $old=SELECT * FROM ONLY type::record('canonical_history_retirements',$key) FOR UPDATE;
     IF $old!=NONE { fn::pse_execution_v1::deadline($rpc_expiry); RETURN $old; };
     LET $count=SELECT * FROM ONLY type::record('canonical_history_obligation_counts',$key) FOR UPDATE;
-    IF ($count.count ?? 0dec)!=0dec { THROW 'PSE_REFUSAL:selected_audit_or_unsettled_history_obligation_remains'; };
+    IF ($count.count ?? 0u64)!=0u64 { THROW 'PSE_REFUSAL:selected_audit_or_unsettled_history_obligation_remains'; };
     LET $header=IF $kind='run' {SELECT * FROM ONLY type::record('canonical_runs',$owner)} ELSE {SELECT * FROM ONLY type::record('canonical_studies',$owner)};
     IF $header=NONE { THROW 'PSE_REFUSAL:history_release_requires_its_original_owner'; };
     IF $kind='run' {
@@ -277,12 +277,12 @@ DEFINE FUNCTION fn::pse_history_v1::release($rpc_expiry:int,$kind:string,$owner:
         FOR $history_parent IN $parents {
             fn::pse_execution_v1::register($rpc_expiry,'history:study:'+$history_parent.study);
             LET $parent_count=SELECT * FROM ONLY type::record('canonical_history_obligation_counts','study:'+$history_parent.study) FOR UPDATE;
-            IF ($parent_count.count ?? 0dec)!=0dec { THROW 'PSE_REFUSAL:study_audit_retains_run_history'; };
+            IF ($parent_count.count ?? 0u64)!=0u64 { THROW 'PSE_REFUSAL:study_audit_retains_run_history'; };
         };
     } ELSE {
         fn::pse_execution_v1::touch($rpc_expiry,'study:'+$owner);
         IF !$header.terminal OR (SELECT * FROM ONLY type::record('canonical_study_retirements',$owner) FOR UPDATE)=NONE { THROW 'PSE_REFUSAL:history_release_requires_terminal_retired_study'; };
-        LET $protected=SELECT key FROM canonical_history_locators WHERE study=$owner AND (type::record('canonical_history_obligation_counts','run:'+run).count ?? 0dec)>0dec LIMIT 1;
+        LET $protected=SELECT key FROM canonical_history_locators WHERE study=$owner AND (type::record('canonical_history_obligation_counts','run:'+run).count ?? 0u64)>0u64 LIMIT 1;
         IF array::len($protected)!=0 { THROW 'PSE_REFUSAL:point_or_summary_audit_retains_study_history'; };
         LET $shared=SELECT key FROM canonical_history_locators WHERE study=$owner AND fn::pse_history_v1::parent_obligated($rpc_expiry,run) LIMIT 1;
         IF array::len($shared)!=0 { THROW 'PSE_REFUSAL:another_parent_study_audit_retains_shared_run_history'; };
@@ -308,19 +308,19 @@ DEFINE FUNCTION fn::pse_history_v1::collect($rpc_expiry:int,$kind:string,$owner:
     LET $fence=SELECT * FROM ONLY type::record('canonical_history_retirements',$key) FOR UPDATE;
     IF $fence=NONE { THROW 'PSE_REFUSAL:explicit_history_release_required'; };
     IF $fence.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'PSE_REFUSAL:history_collector_issuing_authority_differs'; };
-    IF $fence.complete { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:true,removed:0dec,compacted:0dec}; };
+    IF $fence.complete { fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:true,removed:0u64,compacted:0u64}; };
     IF $kind='run' {
         LET $operations=SELECT key FROM canonical_execution_operations WHERE run=$owner AND minimal=false ORDER BY key LIMIT 64;
         IF array::len($operations)!=0 {
             FOR $operation IN $operations { UPDATE ONLY type::record('canonical_execution_operations',$operation.key) SET request=type::bytes(''),result=type::bytes(''),minimal=true; };
-            fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,removed:0dec,compacted:<decimal>array::len($operations)};
+            fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,removed:0u64,compacted:<u64>array::len($operations)};
         };
         LET $attempts=SELECT id FROM canonical_attempts WHERE run=$owner ORDER BY generation LIMIT 64;
-        IF array::len($attempts)!=0 { DELETE $attempts.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,removed:<decimal>array::len($attempts),compacted:0dec}; };
+        IF array::len($attempts)!=0 { DELETE $attempts.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,removed:<u64>array::len($attempts),compacted:0u64}; };
         LET $sources=SELECT id FROM canonical_run_sources WHERE run=$owner LIMIT 64;
-        IF array::len($sources)!=0 { DELETE $sources.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,removed:<decimal>array::len($sources),compacted:0dec}; };
+        IF array::len($sources)!=0 { DELETE $sources.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,removed:<u64>array::len($sources),compacted:0u64}; };
         LET $edges=SELECT id FROM canonical_problem_runs WHERE run=$owner LIMIT 64;
-        IF array::len($edges)!=0 { DELETE $edges.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,removed:<decimal>array::len($edges),compacted:0dec}; };
+        IF array::len($edges)!=0 { DELETE $edges.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,removed:<u64>array::len($edges),compacted:0u64}; };
         DELETE ONLY type::record('canonical_runs',$owner);
     } ELSE {
         LET $children=SELECT key,run FROM canonical_history_locators WHERE study=$owner AND key>($fence.after_locator ?? '') ORDER BY key LIMIT 1;
@@ -332,18 +332,18 @@ DEFINE FUNCTION fn::pse_history_v1::collect($rpc_expiry:int,$kind:string,$owner:
             fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,removed:$page.removed,compacted:$page.compacted};
         };
         LET $inputs=SELECT id FROM canonical_study_inputs WHERE study=$owner ORDER BY key LIMIT 64;
-        IF array::len($inputs)!=0 { DELETE $inputs.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,removed:<decimal>array::len($inputs),compacted:0dec}; };
+        IF array::len($inputs)!=0 { DELETE $inputs.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,removed:<u64>array::len($inputs),compacted:0u64}; };
         LET $dependencies=SELECT id FROM canonical_study_dependencies WHERE study=$owner ORDER BY key LIMIT 64;
-        IF array::len($dependencies)!=0 { DELETE $dependencies.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,removed:<decimal>array::len($dependencies),compacted:0dec}; };
+        IF array::len($dependencies)!=0 { DELETE $dependencies.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,removed:<u64>array::len($dependencies),compacted:0u64}; };
         LET $readiness=SELECT id FROM canonical_study_readiness WHERE study=$owner ORDER BY ordinal LIMIT 64;
-        IF array::len($readiness)!=0 { DELETE $readiness.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,removed:<decimal>array::len($readiness),compacted:0dec}; };
+        IF array::len($readiness)!=0 { DELETE $readiness.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,removed:<u64>array::len($readiness),compacted:0u64}; };
         LET $points=SELECT id FROM canonical_study_points WHERE study=$owner ORDER BY ordinal LIMIT 64;
-        IF array::len($points)!=0 { DELETE $points.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,removed:<decimal>array::len($points),compacted:0dec}; };
+        IF array::len($points)!=0 { DELETE $points.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,removed:<u64>array::len($points),compacted:0u64}; };
         DELETE ONLY type::record('canonical_study_readiness_cursors',$owner);
         DELETE ONLY type::record('canonical_studies',$owner);
     };
     UPDATE ONLY type::record('canonical_history_retirements',$key) SET complete=true;
     fn::pse_execution_v1::deadline($rpc_expiry);
-    fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:true,removed:1dec,compacted:0dec};
+    fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:true,removed:1u64,compacted:0u64};
 };
 "#;

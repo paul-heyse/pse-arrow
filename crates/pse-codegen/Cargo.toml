@@ -55,5 +55,6 @@ force-validate = [
 ]
 
 [dev-dependencies]
+surrealdb-expr.workspace = true
 pse-model.workspace = true
 tempfile.workspace = true

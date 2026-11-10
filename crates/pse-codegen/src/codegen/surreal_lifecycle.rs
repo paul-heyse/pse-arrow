@@ -98,9 +98,9 @@ DEFINE FUNCTION fn::pse_lifecycle_v1::explain($expiry:int,$selection:object) -> 
         IF $evidence!=NONE AND $evidence.creation_expires_at>time::micros() {[{kind:'original_creation_window_unsettled',identity:$s.key}]} ELSE {[]},
         IF $head!=NONE AND $head.version=$s.key {[{kind:'current_draft_head',identity:$head.key}]} ELSE {[]}].fold([],|$all,$rows|array::concat($all,$rows));
     LET $batches=IF $s.kind='run_results' {SELECT payload_bytes FROM canonical_result_batches WHERE type::record('canonical_attempts',attempt).run=$s.key LIMIT 65} ELSE {[]};
-    LET $logical=IF $draft!=NONE {IF $draft.retired {0dec} ELSE IF $draft.artifact=NONE {<decimal>bytes::len($draft.content)} ELSE {NONE}}
+    LET $logical=IF $draft!=NONE {IF $draft.retired {0u64} ELSE IF $draft.artifact=NONE {<u64>bytes::len($draft.content)} ELSE {NONE}}
         ELSE IF $evidence!=NONE {$evidence.payload_bytes}
-        ELSE IF $s.kind='run_results' AND array::len($batches)<65 {<decimal>math::sum($batches.payload_bytes)} ELSE {NONE};
+        ELSE IF $s.kind='run_results' AND array::len($batches)<65 {<u64>math::sum($batches.payload_bytes)} ELSE {NONE};
     LET $retired=IF $s.kind IN ['run_history','study_history'] {SELECT * FROM ONLY type::record('canonical_history_retirements',IF $s.kind='run_history' {'run:'+$s.key} ELSE {'study:'+$s.key})} ELSE IF $s.kind='run_results' {SELECT * FROM ONLY type::record('canonical_result_retirements',$s.key)} ELSE IF $s.kind='study_results' {SELECT * FROM ONLY type::record('canonical_study_retirements',$s.key)} ELSE {NONE};
     RETURN {selection:$s,blockers:$blockers,blockers_complete:false,logical_bytes:$logical,detail_released:$draft.retired ?? $retired.complete ?? false};
 };

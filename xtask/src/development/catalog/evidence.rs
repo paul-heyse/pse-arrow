@@ -8,7 +8,7 @@ use pse_schema::{
     model::{FieldContract as T, Namespace as N, SnapshotClass as S},
 };
 /// Tooling interpretation, independent from scientific interpretation.
-pub const INTERPRETATION: &str = "pse-tooling-evidence-v2";
+pub const INTERPRETATION: &str = "pse-tooling-evidence-v3";
 /// Native indexes installed only in the tooling database.
 pub const INDEXES: &[pse_schema::catalog::substrate::NativeIndex] = &[
     pse_schema::catalog::substrate::NativeIndex {

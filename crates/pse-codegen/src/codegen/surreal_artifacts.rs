@@ -80,8 +80,8 @@ DEFINE FUNCTION fn::pse_artifact_v1::producer($rpc_expiry:int,$input:object) -> 
 DEFINE FUNCTION fn::pse_artifact_v1::begin($rpc_expiry:int,$row:object,$sources:array<object>,$inputs:array<object>) -> object {
     LET $guard=fn::pse_artifact_v1::authority($rpc_expiry,$row);
     LET $now=time::micros();
-    IF $row.creation_expires_at<=$now OR $row.creation_expires_at>$now+60000000 OR $row.creation_expires_at<=($guard.artifact_creation_closed_through ?? 0dec) { THROW 'PSE_REFUSAL:artifact_creation_window_closed'; };
-    IF $row.active OR $row.retiring OR string::len($row.creation_nonce)!=36 OR string::len($row.creation_request_digest)!=64 OR array::len($sources)=0 OR array::len($sources)>65 OR array::len($inputs)>64 OR $row.block_count=0dec OR bytes::len($row.provenance)>131072 { THROW 'PSE_REFUSAL:artifact_closure_admission_bound'; };
+    IF $row.creation_expires_at<=$now OR $row.creation_expires_at>$now+60000000 OR $row.creation_expires_at<=($guard.artifact_creation_closed_through ?? 0u64) { THROW 'PSE_REFUSAL:artifact_creation_window_closed'; };
+    IF $row.active OR $row.retiring OR string::len($row.creation_nonce)!=36 OR string::len($row.creation_request_digest)!=64 OR array::len($sources)=0 OR array::len($sources)>65 OR array::len($inputs)>64 OR $row.block_count=0u64 OR bytes::len($row.provenance)>131072 { THROW 'PSE_REFUSAL:artifact_closure_admission_bound'; };
     LET $old=SELECT * FROM ONLY type::record('canonical_artifacts',$row.key) FOR UPDATE;
     IF $old!=NONE {
         IF $old.retiring OR object::remove($old,['id','active'])!=object::remove($row,['active']) { THROW 'PSE_REFUSAL:immutable_artifact_request_changed'; };
@@ -116,7 +116,7 @@ DEFINE FUNCTION fn::pse_artifact_v1::begin($rpc_expiry:int,$row:object,$sources:
 DEFINE FUNCTION fn::pse_artifact_v1::append($rpc_expiry:int,$key:string,$block:object) -> bool {
     fn::pse_execution_v1::deadline($rpc_expiry);
     LET $row=SELECT * FROM ONLY type::record('canonical_artifacts',$key) FOR UPDATE;
-    IF $row=NONE OR $row.retiring OR $block.artifact!=$key OR $block.ordinal>=$row.block_count OR $block.payload_bytes>33554432dec OR string::len($block.digest)!=64 { THROW 'PSE_REFUSAL:artifact_block_admission'; };
+    IF $row=NONE OR $row.retiring OR $block.artifact!=$key OR $block.ordinal>=$row.block_count OR $block.payload_bytes>33554432u64 OR string::len($block.digest)!=64 { THROW 'PSE_REFUSAL:artifact_block_admission'; };
     LET $old=SELECT * FROM ONLY type::record('canonical_artifact_blocks',$block.key);
     IF $old!=NONE { IF object::remove($old,['id'])!=$block { THROW 'PSE_REFUSAL:immutable_artifact_block_changed'; }; }
     ELSE { IF $row.active { THROW 'PSE_REFUSAL:artifact_content_sealed'; }; fn::pse_files_v1::attach($rpc_expiry,$block,'artifact',$key,'artifact:'+$block.key); CREATE ONLY type::record('canonical_artifact_blocks',$block.key) CONTENT $block; };
@@ -184,7 +184,7 @@ DEFINE FUNCTION fn::pse_artifact_v1::acquire($rpc_expiry:int,$key:string,$protec
     fn::pse_execution_v1::lease($rpc_expiry,$pin.expires_at);
     fn::pse_execution_v1::deadline($rpc_expiry); RETURN $row;
 };
-DEFINE FUNCTION fn::pse_artifact_v1::read($rpc_expiry:int,$key:string,$protection:string,$ordinal:decimal) -> object {
+DEFINE FUNCTION fn::pse_artifact_v1::read($rpc_expiry:int,$key:string,$protection:string,$ordinal:u64) -> object {
     LET $row=fn::pse_artifact_v1::available($rpc_expiry,$key);
     LET $pin=SELECT * FROM ONLY type::record('canonical_protections',$protection) FOR UPDATE;
     LET $read=SELECT * FROM ONLY type::record('canonical_artifact_reads',$protection);
@@ -218,7 +218,7 @@ DEFINE FUNCTION fn::pse_artifact_v1::collect($rpc_expiry:int,$intent:object) -> 
     FOR $root IN $roots { SELECT * FROM ONLY type::record('canonical_guards','retention:'+$root.problem) FOR UPDATE; };
     IF array::len($roots)!=0 { DELETE $roots.id; fn::pse_execution_v1::deadline($rpc_expiry); RETURN {complete:false,waiting:false}; };
     IF $guard.incarnation=$intent.primary_authority {
-        UPDATE ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) SET artifact_creation_closed_through=math::max([artifact_creation_closed_through ?? 0dec,$intent.creation_expires_at]);
+        UPDATE ONLY type::record('canonical_guards','retention:'+$intent.primary_problem) SET artifact_creation_closed_through=math::max([artifact_creation_closed_through ?? 0u64,$intent.creation_expires_at]);
         DELETE ONLY type::record('canonical_artifacts',$intent.key);
     } ELSE {
         // Original historical authority is already fenced. Retain its exact

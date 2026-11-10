@@ -57,7 +57,7 @@ impl CanonicalStore {
             &row.members,
         ))?
         .into();
-        let object = wire::encode_canonical_research_datasets(&row)?;
+        let object = wire::create_canonical_research_datasets(&(&row).into())?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{self.ensure_writes()?;
             let query=||Ok(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","fn::pse_research_v1::dataset($pse_rpc_expires_at,$row,$generation)")?).bind(("row",object.clone())).bind(("generation",codec::encode_uint(project.generation)?)));
@@ -110,7 +110,7 @@ impl CanonicalStore {
             &row.selection,
         ))?
         .into();
-        let object = wire::encode_canonical_research_selections(&row)?;
+        let object = wire::create_canonical_research_selections(&(&row).into())?;
         let activity = self.admit_activity()?;
         activity.scope(within_clock(original_deadline(REQUEST_TIMEOUT),async{self.ensure_writes()?;
             let query=||Ok(self.db.script(GuardedScript::new(Envelope::ProjectAuthority {issuer:self.issuing_store()?}).returning::<Option<Object>>("","fn::pse_research_v1::selection($pse_rpc_expires_at,$row,$generation)")?).bind(("row",object.clone())).bind(("generation",codec::encode_uint(project.generation)?)));

@@ -52,7 +52,7 @@ fn relation_version(
 }
 
 /// Derived interpretation, independent of scientific research and source authority.
-pub const INTERPRETATION: &str = "pse-development-knowledge-v2";
+pub const INTERPRETATION: &str = "pse-development-knowledge-v3";
 /// Evidence origin, independent of native lifecycle and publication state.
 pub const BASES: &[&str] = &[
     "declared",

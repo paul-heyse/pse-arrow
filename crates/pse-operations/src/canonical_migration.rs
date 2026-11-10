@@ -12,7 +12,7 @@ use std::{
     future::Future,
     sync::{Arc, OnceLock},
 };
-use surrealdb_types::{Decimal, Number, Object, SurrealValue, Value};
+use surrealdb_types::{Number, Object, SurrealValue, Value};
 
 const VERSION: u64 = pse_schema::catalog::substrate::SCHEMA_VERSION;
 pub(crate) const TRANSACTION_ADMISSION: &str = "\nfn::pse_schema_v1::admit($pse_rpc_expires_at,$pse_schema_expected,$pse_schema_settlement,$pse_schema_access);\n";
@@ -106,7 +106,7 @@ impl SchemaFence {
         let mut value = Object::new();
         value.insert(
             "schema_version",
-            Value::Number(Number::Decimal(Decimal::from(self.schema_version))),
+            Value::Number(Number::U64(self.schema_version)),
         );
         value.insert("schema_epoch", self.schema_epoch.clone());
         value.insert("schema_digest", self.schema_digest.clone());
@@ -762,7 +762,7 @@ IF (SELECT * FROM ONLY type::record('canonical_maintenance_activations',$migrati
 "#;
 const APPLY_SUCCESSOR: &str = r#"
 UPDATE ONLY canonical_interpretations:current SET schema_digest=$migration_target,schema_version=$migration_version,schema_epoch=$migration_generation,study_module_sha256=$migration_module_sha256,admission_open=true RETURN NONE;
-UPDATE ONLY canonical_maintenance_operations:current SET phase='schema-active',count=1dec,complete=true RETURN NONE;
+UPDATE ONLY canonical_maintenance_operations:current SET phase='schema-active',count=1u64,complete=true RETURN NONE;
 LET $pse_migration_receipt=CREATE ONLY type::record('canonical_maintenance_activations',$migration_operation) SET key=$migration_operation,input_sha256=$migration_request,predecessor=$migration_predecessor_bytes,interpretation=$migration_predecessor.interpretation,schema_digest=$migration_target,study_module_sha256=$migration_module_sha256,issuing_store=$migration_predecessor.issuing_store;
 "#;
 

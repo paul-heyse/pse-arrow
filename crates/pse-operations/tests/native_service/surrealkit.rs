@@ -31,7 +31,7 @@ use std::{
 };
 
 const SUITE: &str = include_str!("../../../../scripts/tests/fixtures/surrealkit/canonical.toml");
-const SEED_MUTATION_CASES: [&str; 2] = ["authored_seed_is_visible", "decimal_u64_exact"];
+const SEED_MUTATION_CASES: [&str; 2] = ["authored_seed_is_visible", "native_u64_exact"];
 const MAX_REPORT_BYTES: u64 = 1024 * 1024;
 const SEED: &str = include_str!("../../../../scripts/tests/fixtures/surrealkit/seed.surql");
 const HTTP_FIXTURE: &str =

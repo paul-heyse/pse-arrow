@@ -252,6 +252,10 @@ fn parse_definition_input(
                     function.name.as_str().into(),
                 )
             }
+            DefineStatement::Type(definition) => {
+                definition.kind = DefineKind::Default;
+                ("type".into(), String::new(), definition.name.to_sql())
+            }
             _ => return Err(invalid("unsupported generated declaration family")),
         };
         // OVERWRITE may replace the generated relation endpoint declaration.
@@ -300,6 +304,7 @@ impl ManagedCatalog {
         let mut catalog = Self::default();
         for (category, kind, prefix) in [
             ("tables", "table", "canonical_"),
+            ("types", "type", "pse_"),
             ("functions", "function", "pse_"),
             ("apis", "api", "/pse/"),
             ("accesses", "access", "pse_"),
@@ -805,6 +810,100 @@ mod tests {
         );
         assert!(!parse_definitions(wire::SCHEMA).unwrap().is_empty());
     }
+    #[test]
+    fn catalog_named_types_preserve_constraints_and_order() {
+        let source = "DEFINE TYPE pse_probe AS string ASSERT $value IN ['ready','done'];";
+        let expected = parse_definitions(source).unwrap();
+        compare(
+            &expected,
+            &parse_definitions(&source.replace("DEFINE TYPE ", "DEFINE TYPE OVERWRITE ")).unwrap(),
+        )
+        .unwrap();
+        for changed in [
+            source.replace("AS string", "AS int"),
+            source.replace("'done'", "'failed'"),
+            source.replace(";", " PERMISSIONS NONE;"),
+        ] {
+            assert!(compare(&expected, &parse_definitions(&changed).unwrap()).is_err());
+        }
+        let ordered = parse_definitions("DEFINE TYPE pse_ordered AS 'z' | 'a';").unwrap();
+        let reordered = parse_definitions("DEFINE TYPE pse_ordered AS 'a' | 'z';").unwrap();
+        assert!(compare(&ordered, &reordered).is_err());
+        let mut info = Object::new();
+        for category in ["tables", "functions", "apis", "accesses"] {
+            info.insert(category, Object::new());
+        }
+        assert!(ManagedCatalog::from_database(&info).is_err());
+        let mut types = Object::new();
+        types.insert("pse_probe", source);
+        info.insert("types", types);
+        let observed = ManagedCatalog::from_database(&info).unwrap();
+        compare(&expected, &observed.definitions).unwrap();
+    }
+
+    #[test]
+    fn native_operation_inputs_distinguish_defaults_omission_and_removal() {
+        let key = "input-control".to_owned();
+        let bytes = pse_model::Bytes::from(vec![1, 2, 3]);
+        let create = wire::RuntimeCanonicalProjectImportsCreate {
+            key: &key,
+            issuing_store: &key,
+            bundle_digest: &key,
+            project: &key,
+            branch: &key,
+            problem: &key,
+            revision: &key,
+            origin: &bytes,
+            request: &bytes,
+            artifact: None,
+            retired_artifacts: None,
+            complete: None,
+        };
+        let encoded = wire::create_canonical_project_imports(&create).unwrap();
+        assert!(!encoded.contains_key("artifact"));
+        assert!(!encoded.contains_key("complete"));
+        assert_eq!(encoded.get("key"), Some(&Value::String(key.clone())));
+        let unchanged = wire::RuntimeCanonicalProjectImportsMerge::default();
+        assert!(
+            wire::merge_canonical_project_imports(&unchanged)
+                .unwrap()
+                .is_empty()
+        );
+        let merge = wire::RuntimeCanonicalProjectImportsMerge {
+            artifact: wire::NativeMerge::Remove,
+            retired_artifacts: wire::NativeMerge::Set(bytes.clone()),
+            complete: wire::NativeUpdate::Set(false),
+        };
+        let encoded = wire::merge_canonical_project_imports(&merge).unwrap();
+        assert_eq!(encoded.get("artifact"), Some(&Value::None));
+        assert_eq!(encoded.get("complete"), Some(&Value::Bool(false)));
+        assert!(!encoded.contains_key("key"));
+        let replacement = wire::RuntimeCanonicalProjectImportsReplace {
+            artifact: None,
+            retired_artifacts: Some(bytes),
+            complete: false,
+        };
+        let encoded = wire::replace_canonical_project_imports(&replacement).unwrap();
+        assert_eq!(encoded.get("artifact"), Some(&Value::None));
+        assert!(!encoded.contains_key("issuing_store"));
+        let mut original = Object::new();
+        original.insert("key", key);
+        original.insert("title", "borrowed");
+        original.insert("deleted", false);
+        original.insert(
+            "generation",
+            crate::canonical_codec::encode_uint(u64::MAX).unwrap(),
+        );
+        let row = wire::decode_canonical_projects(original).unwrap();
+        let input = wire::RuntimeCanonicalProjectsCreate::from(&row);
+        assert!(std::ptr::eq(input.title, &row.title));
+        let object = wire::create_canonical_projects(&input).unwrap();
+        assert_eq!(
+            crate::canonical_codec::decode_uint(object.get("generation").unwrap().clone()).unwrap(),
+            u64::MAX
+        );
+    }
+
     #[test]
     fn catalog_parser_refuses_data_effects_and_retains_function_semantics() {
         for sql in [

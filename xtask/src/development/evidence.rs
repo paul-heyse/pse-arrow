@@ -813,10 +813,10 @@ impl EvidenceStore {
         let activity = self.access.admit()?;
         activity.scope(async {
             let input=crate::generated::model::runtime::evidence_generations::Row{key:generation.clone(),authority:snapshot.authority.clone(),codec:snapshot.codec.clone(),source_id:snapshot.source_id.clone(),snapshot_digest:snapshot.snapshot_digest.clone(),content_digest:content_digest.clone(),coverage:snapshot.coverage.parse().map_err(|_|config("invalid coverage vocabulary"))?,expected_members:snapshot.facts.len().try_into().map_err(|_|config("membership count overflow"))?,state:crate::generated::model::enums::EvidenceGenerationState::Staged};
-            let input=wire::encode_evidence_generations(&input)?;
+            let input=wire::create_evidence_generations(&(&input).into())?;
             let mut facts=Vec::with_capacity(snapshot.facts.len());
             for fact in &snapshot.facts {
-                facts.push(Value::Object(wire::encode_evidence_facts(&fact.to_row(&generation)?)?));
+                facts.push(Value::Object(wire::create_evidence_facts(&(&fact.to_row(&generation)?).into())?));
             }
             let stage=r#"BEGIN;
 IF time::micros()>=$expiry { THROW 'evidence original deadline expired'; };
@@ -1154,7 +1154,7 @@ COMMIT;"#;
             transport::bounded_query(db.query(format!("DEFINE DATABASE IF NOT EXISTS `{}`;",options.database)).request_context(RequestContext::control(deadline.into_std()))).await?;
             transport::request(db.use_ns(&options.namespace).use_db(&options.database).request_context(RequestContext::control(deadline.into_std()))).await?;
             let marker=crate::generated::model::runtime::evidence_interpretations::Row{key:"current".into(),interpretation:wire::INTERPRETATION.into(),schema_digest:wire::SCHEMA_DIGEST.into(),issuing_store:uuid::Uuid::new_v4().to_string(),service_instance_id:options.service_instance_id.clone(),active_generation:None};
-            let input=wire::encode_evidence_interpretations(&marker)?;
+            let input=wire::create_evidence_interpretations(&(&marker).into())?;
             let reader=serde_json::to_string(&options.credentials.reader_password).map_err(|e|config(e.to_string()))?;let importer=serde_json::to_string(&options.credentials.importer_password).map_err(|e|config(e.to_string()))?;
             // The fresh schemas and marker commit together. Snapshot isolation
             // permits the v4 index builder's independent bookkeeping writes.

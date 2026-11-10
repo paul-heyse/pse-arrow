@@ -19,12 +19,12 @@ DEFINE FUNCTION fn::pse_files_v1::owner($expiry:int,$key:string,$incarnation:str
 };
 DEFINE FUNCTION fn::pse_files_v1::register_owner($expiry:int,$row:object) -> object {
     fn::pse_files_v1::admission($expiry,$row.storage_incarnation,false);
-    IF $row.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store OR $row.drained OR $row.pid=0dec OR string::len($row.boot)=0 OR string::len($row.start)=0 OR string::len($row.pid_namespace)=0 { THROW 'PSE_REFUSAL:file_process_identity_incomplete'; };
+    IF $row.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store OR $row.drained OR $row.pid=0u64 OR string::len($row.boot)=0 OR string::len($row.start)=0 OR string::len($row.pid_namespace)=0 { THROW 'PSE_REFUSAL:file_process_identity_incomplete'; };
     LET $old=SELECT * FROM ONLY type::record('canonical_file_owners',$row.key) FOR UPDATE;
     IF $old!=NONE { IF object::remove($old,'id')!=$row { THROW 'PSE_REFUSAL:file_owner_identity_reused'; }; RETURN $old; };
     RETURN CREATE ONLY type::record('canonical_file_owners',$row.key) CONTENT $row;
 };
-DEFINE FUNCTION fn::pse_files_v1::reserve($expiry:int,$row:object,$run:option<string>,$attempt:option<string>,$generation:option<decimal>) -> object {
+DEFINE FUNCTION fn::pse_files_v1::reserve($expiry:int,$row:object,$run:option<string>,$attempt:option<string>,$generation:option<u64>) -> object {
     fn::pse_files_v1::owner($expiry,$row.owner,$row.storage_incarnation);
     LET $same=SELECT * FROM canonical_file_instances WHERE intent=$row.intent LIMIT 1;
     IF array::len($same)!=0 {
@@ -41,7 +41,7 @@ DEFINE FUNCTION fn::pse_files_v1::reserve($expiry:int,$row:object,$run:option<st
         LET $artifact=SELECT * FROM ONLY type::record('canonical_artifacts',$row.selection) FOR UPDATE;
         IF $artifact=NONE OR $artifact.retiring OR $artifact.active OR $artifact.creation_expires_at<=time::micros() { THROW 'PSE_REFUSAL:artifact_file_original_creation_unavailable'; };
     } ELSE { THROW 'PSE_REFUSAL:file_intent_owner_kind'; };
-    IF $row.state!='pending' OR $row.digest!='' OR $row.payload_bytes!=0dec OR $row.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'PSE_REFUSAL:file_original_intent_malformed'; };
+    IF $row.state!='pending' OR $row.digest!='' OR $row.payload_bytes!=0u64 OR $row.issuing_store!=(SELECT * FROM ONLY canonical_interpretations:current).issuing_store { THROW 'PSE_REFUSAL:file_original_intent_malformed'; };
     RETURN CREATE ONLY type::record('canonical_file_instances',$row.key) CONTENT $row;
 };
 // Custody recovery changes no original occurrence, writer generation, deadline,
@@ -68,7 +68,7 @@ DEFINE FUNCTION fn::pse_files_v1::seal($expiry:int,$key:string,$owner:string,$in
     fn::pse_files_v1::owner($expiry,$owner,$incarnation);
     LET $row=SELECT * FROM ONLY type::record('canonical_file_instances',$key) FOR UPDATE;
     IF $row=NONE OR $row.owner!=$owner OR $row.storage_incarnation!=$incarnation OR $descriptor.instance!=$key OR $row.state NOT IN ['pending','sealed','attached'] { THROW 'PSE_REFUSAL:file_sealing_original_intent_unavailable'; };
-    IF string::len($descriptor.digest)!=64 OR $descriptor.bytes=0dec OR $descriptor.bytes>33554432dec OR $descriptor.encoding NOT IN ['arrow-ipc-file','opaque-json','opaque-bytes'] OR ($descriptor.encoding='arrow-ipc-file' AND $descriptor.batch_count=0dec) OR ($descriptor.encoding!='arrow-ipc-file' AND $descriptor.batch_count!=0dec) { THROW 'PSE_REFUSAL:sealed_file_extent_or_encoding_invalid'; };
+    IF string::len($descriptor.digest)!=64 OR $descriptor.bytes=0u64 OR $descriptor.bytes>33554432u64 OR $descriptor.encoding NOT IN ['arrow-ipc-file','opaque-json','opaque-bytes'] OR ($descriptor.encoding='arrow-ipc-file' AND $descriptor.batch_count=0u64) OR ($descriptor.encoding!='arrow-ipc-file' AND $descriptor.batch_count!=0u64) { THROW 'PSE_REFUSAL:sealed_file_extent_or_encoding_invalid'; };
     IF $row.state!='pending' {
         IF $row.digest!=$descriptor.digest OR $row.payload_bytes!=$descriptor.bytes OR $row.encoding!=$descriptor.encoding OR $row.batch_count!=$descriptor.batch_count OR $row.schema!=$descriptor.schema OR $row.interpretation!=$descriptor.interpretation { THROW 'PSE_REFUSAL:sealed_file_immutable_descriptor_differs'; };
         RETURN $row;
@@ -79,7 +79,7 @@ DEFINE FUNCTION fn::pse_files_v1::attach($expiry:int,$batch:object,$kind:string,
     LET $file=SELECT * FROM ONLY type::record('canonical_file_instances',$batch.file_instance) FOR UPDATE;
     IF $file=NONE { THROW 'PSE_REFUSAL:sealed_file_instance_unavailable'; };
     fn::pse_files_v1::admission($expiry,$file.storage_incarnation,false);
-    IF $file.state NOT IN ['sealed','attached'] OR $file.digest!=(IF $kind='result' {$batch.digest} ELSE {$batch.file_digest}) OR $file.payload_bytes!=$batch.payload_bytes OR $file.encoding!=$batch.encoding OR $file.schema!=$batch.schema OR ($file.encoding='arrow-ipc-file' AND (IF $kind='result' {$batch.payload_index} ELSE {$batch.file_batch_index})>=$file.batch_count) OR ($file.encoding!='arrow-ipc-file' AND (IF $kind='result' {$batch.payload_index} ELSE {$batch.file_batch_index})!=0dec) { THROW 'PSE_REFUSAL:logical_batch_sealed_file_binding_differs'; };
+    IF $file.state NOT IN ['sealed','attached'] OR $file.digest!=(IF $kind='result' {$batch.digest} ELSE {$batch.file_digest}) OR $file.payload_bytes!=$batch.payload_bytes OR $file.encoding!=$batch.encoding OR $file.schema!=$batch.schema OR ($file.encoding='arrow-ipc-file' AND (IF $kind='result' {$batch.payload_index} ELSE {$batch.file_batch_index})>=$file.batch_count) OR ($file.encoding!='arrow-ipc-file' AND (IF $kind='result' {$batch.payload_index} ELSE {$batch.file_batch_index})!=0u64) { THROW 'PSE_REFUSAL:logical_batch_sealed_file_binding_differs'; };
     IF $file.owner_kind!=$kind OR $file.selection!=$selection { THROW 'PSE_REFUSAL:file_original_intent_selected_another_owner'; };
     LET $old=SELECT * FROM ONLY type::record('canonical_file_borrowers',$borrower) FOR UPDATE;
     IF $old!=NONE AND ($old.released OR $old.instance!=$file.key OR $old.owner_kind!=$kind OR $old.owner!=$selection) { THROW 'PSE_REFUSAL:file_borrower_identity_released_or_reused'; };
@@ -141,7 +141,7 @@ DEFINE FUNCTION fn::pse_files_v1::settle_intent($expiry:int,$expected:object,$in
     } ELSE IF $file.owner_kind='artifact' {
         LET $artifact=SELECT * FROM ONLY type::record('canonical_artifacts',$file.selection) FOR UPDATE;
         IF $artifact!=NONE AND !$artifact.retiring AND $artifact.creation_expires_at>time::micros() { RETURN false; };
-        IF $artifact=NONE { LET $parts=string::split($file.selection,':'); LET $guards=SELECT artifact_creation_closed_through FROM canonical_guards WHERE incarnation=$parts[1] LIMIT 1; IF array::len($guards)!=1 OR ($guards[0].artifact_creation_closed_through ?? 0dec)< <decimal>$parts[3] { THROW 'PSE_REFUSAL:original_artifact_file_settlement_floor_unavailable'; }; };
+        IF $artifact=NONE { LET $parts=string::split($file.selection,':'); LET $guards=SELECT artifact_creation_closed_through FROM canonical_guards WHERE incarnation=$parts[1] LIMIT 1; IF array::len($guards)!=1 OR ($guards[0].artifact_creation_closed_through ?? 0u64)< <u64>$parts[3] { THROW 'PSE_REFUSAL:original_artifact_file_settlement_floor_unavailable'; }; };
     } ELSE { THROW 'PSE_REFUSAL:original_file_settlement_owner_kind'; };
     UPDATE ONLY type::record('canonical_file_instances',$file.key) SET state='abandoned';
     fn::pse_execution_v1::deadline($expiry); RETURN true;
@@ -182,7 +182,7 @@ DEFINE FUNCTION fn::pse_files_v1::drain_owner($expiry:int,$expected:object) -> b
         // original key permanently before any delayed create can acquire it.
         LET $gate=SELECT * FROM ONLY canonical_file_admission:current FOR UPDATE;
         LET $marker=SELECT * FROM ONLY canonical_interpretations:current;
-        IF $gate=NONE OR $marker=NONE OR $expected.storage_incarnation!=$gate.storage_incarnation OR $expected.storage_incarnation!=$marker.payload_incarnation OR $expected.issuing_store!=$marker.issuing_store OR $expected.drained OR $expected.pid=0dec OR string::len($expected.key)!=36 OR string::len($expected.boot)=0 OR string::len($expected.start)=0 OR string::len($expected.pid_namespace)=0 { THROW 'PSE_REFUSAL:file_pending_owner_drain_original_identity_unavailable'; };
+        IF $gate=NONE OR $marker=NONE OR $expected.storage_incarnation!=$gate.storage_incarnation OR $expected.storage_incarnation!=$marker.payload_incarnation OR $expected.issuing_store!=$marker.issuing_store OR $expected.drained OR $expected.pid=0u64 OR string::len($expected.key)!=36 OR string::len($expected.boot)=0 OR string::len($expected.start)=0 OR string::len($expected.pid_namespace)=0 { THROW 'PSE_REFUSAL:file_pending_owner_drain_original_identity_unavailable'; };
         CREATE ONLY type::record('canonical_file_owners',$expected.key) CONTENT object::extend($expected,{drained:true});
     } ELSE {
         IF object::remove($owner,['id','drained'])!=object::remove($expected,['id','drained']) { THROW 'PSE_REFUSAL:file_owner_drain_exact_identity_differs'; };

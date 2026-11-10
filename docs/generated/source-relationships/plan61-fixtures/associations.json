@@ -1,7 +1,7 @@
 {
   "descriptor_sha256": "e7e786ce7ea633983f941279e952a9dc7e9d46e846419e067a853bd3f86b8003",
   "inputs": {
-    "Cargo.lock": "90fe555f3ebdfac8ebfe04496dc572d22147233b53dfbb5ff394e8fd602a0da0",
+    "Cargo.lock": "9afed6f45015db96ca773cdb13cf25368e974fb1b5a92f8cefb39ea1517f4790",
     "Cargo.toml": "1f466e904be2d9aff8a716a7885bf340037ef8af3a9538af839a14d18ea26b72",
     "crates/pse-codegen/src/codegen/boundary_projection.rs": "9f3f458de203e56fe0eff34db4e82fe69007696044a89097ced9306c94c9bac3",
     "crates/pse-host/tests/fixtures/plan61/buf.lock": "f167aece00cd881df9e57b220d5edeff1343c5020a6caed6b425a213f75991ee",
