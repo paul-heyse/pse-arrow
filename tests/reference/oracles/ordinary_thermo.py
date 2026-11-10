@@ -12,11 +12,10 @@ import csv
 import io
 import json
 import math
-from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from importlib.metadata import version
 from pathlib import Path
-from typing import Protocol, cast
+from typing import TYPE_CHECKING, Protocol, cast
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -35,8 +34,14 @@ from idaes.models.properties.modular_properties.phase_equil.forms import (
 )
 from idaes.models.properties.modular_properties.pure import RPP5, Perrys
 from idaes.models.properties.modular_properties.state_definitions import FTPx
-from pyomo.core.expr.numeric_expr import NumericValue
-from pyomo.environ import Param, exp, units, value
+from pyomo.environ import Param, exp
+
+from .pyomo_support import units, value
+
+if TYPE_CHECKING:
+    from collections.abc import Collection, Mapping
+
+    from pyomo.core.expr.numeric_expr import NumericValue
 
 ROOT = Path(__file__).resolve().parents[3]
 SPECIES = {"benzene": "71-43-2", "toluene": "108-88-3"}
@@ -48,7 +53,7 @@ PROPERTY_ARTIFACTS = (
     f"{_SOURCE}/feos-poling2000.json",
     "packages/reference/data/perry7/data/perry_liquid.parquet",
 )
-type Five = tuple[float, float, float, float, float]
+Five = tuple[float, float, float, float, float]
 
 
 @dataclass(frozen=True)
@@ -72,7 +77,7 @@ def _mapping(raw: object) -> dict[str, object]:
 
 def _number(raw: object) -> float:
     if isinstance(raw, bool) or not isinstance(raw, (int, float, str)):
-        raise ValueError("scientific coefficient is not a number")
+        raise TypeError("scientific coefficient is not a number")
     result = float(raw)
     if not math.isfinite(result):
         raise ValueError("scientific coefficient must be finite")
@@ -117,7 +122,7 @@ def parse_inputs(artifacts: Mapping[str, bytes]) -> dict[str, SpeciesInput]:
     gas: dict[str, Five] = {}
     raw: object = json.loads(artifacts[gas_path])
     if not isinstance(raw, list):
-        raise ValueError("FeOS input must contain a record population")
+        raise TypeError("FeOS input must contain a record population")
     for item in raw:
         row = _mapping(item)
         cas = _mapping(row["identifier"]).get("cas")
@@ -129,7 +134,7 @@ def parse_inputs(artifacts: Mapping[str, bytes]) -> dict[str, SpeciesInput]:
     with pa.BufferReader(artifacts[liquid_path]) as source:
         records: object = pq.read_table(source).to_pylist()
     if not isinstance(records, list):
-        raise ValueError("Perry source must contain records")
+        raise TypeError("Perry source must contain records")
     for item in records:
         row = _mapping(item)
         cas = row["subject"]
@@ -163,7 +168,9 @@ class _MethodConfig(Protocol):
     parameter_data: dict[str, object]
 
 
-class _WagnerComponent(Protocol):
+class WagnerComponent(Protocol):
+    """Original component parameters consumed by the selected pressure method."""
+
     config: _MethodConfig
     ordinary_wagner_a: NumericValue
     ordinary_wagner_b: NumericValue
@@ -177,7 +184,7 @@ class Wagner25:
     """Poling's 2.5,5 pressure law with its separate fitted critical coordinates."""
 
     @staticmethod
-    def build_parameters(component: _WagnerComponent) -> None:
+    def build_parameters(component: WagnerComponent) -> None:
         """Install fixed coefficients using the public IDAES property-method hook."""
         raw = component.config.parameter_data["ordinary_wagner"]
         if not isinstance(raw, tuple) or len(raw) != 6:
@@ -201,11 +208,11 @@ class Wagner25:
     @staticmethod
     def return_expression(
         _state: object,
-        component: _WagnerComponent,
+        component: WagnerComponent,
         temperature: NumericValue,
         dT: bool = False,
     ) -> NumericValue:
-        """Evaluate pressure or its analytical temperature derivative for initialization."""
+        """Evaluate pressure or its analytical temperature derivative."""
         theta = temperature / component.ordinary_wagner_tc
         tau = 1 - theta
         terms = (
@@ -255,39 +262,33 @@ class CaloricIdeal(Ideal):
     """
 
     @staticmethod
-    def enth_mol_phase_comp(
-        state: _CaloricState, phase: str, name: str
-    ) -> NumericValue:
+    def enth_mol_phase_comp(b: _CaloricState, p: str, j: str) -> NumericValue:
         """Delegate pure caloric evaluation to the selected IDAES library methods."""
-        component = state.params.get_component(name)
-        selected = state.params.get_phase(phase)
+        component = b.params.get_component(j)
+        selected = b.params.get_phase(p)
         if selected.is_liquid_phase():
             return cast(
                 "NumericValue",
-                Perrys.enth_mol_liq_comp.return_expression(
-                    state, component, state.temperature
-                ),
+                Perrys.enth_mol_liq_comp.return_expression(b, component, b.temperature),
             )
         if selected.is_vapor_phase():
             return cast(
                 "NumericValue",
-                RPP5.enth_mol_ig_comp.return_expression(
-                    state, component, state.temperature
-                ),
+                RPP5.enth_mol_ig_comp.return_expression(b, component, b.temperature),
             )
         raise ValueError(
             "the ordinary caloric selection has only liquid and vapor phases"
         )
 
     @staticmethod
-    def enth_mol_phase(state: _CaloricState, phase: str) -> NumericValue:
+    def enth_mol_phase(b: _CaloricState, p: str) -> NumericValue:
         """Use the explicit ordinary ideal-mixture enthalpy convention."""
         return cast(
             "NumericValue",
             sum(
-                state.mole_frac_phase_comp[phase, name]
-                * CaloricIdeal.enth_mol_phase_comp(state, phase, name)
-                for name in state.components_in_phase(phase)
+                b.mole_frac_phase_comp[p, name]
+                * CaloricIdeal.enth_mol_phase_comp(b, p, name)
+                for name in b.components_in_phase(p)
             ),
         )
 

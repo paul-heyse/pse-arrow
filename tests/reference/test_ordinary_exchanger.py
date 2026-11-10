@@ -9,18 +9,10 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
-from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 from oracles.ordinary_exchanger import observations, solve_exchanger
-
-if TYPE_CHECKING:
-    from tests.reference.oracles.reference_environment import (
-        ReferenceEnvironment,
-        prepared_solver,
-    )
-else:
-    from oracles.reference_environment import ReferenceEnvironment, prepared_solver
+from oracles.reference_environment import ReferenceEnvironment, prepared_solver
 
 
 class OrdinaryExchangerReferenceTests(unittest.TestCase):
@@ -39,21 +31,20 @@ class OrdinaryExchangerReferenceTests(unittest.TestCase):
                 os.environ, {"PATH": f"{temporary}{os.pathsep}{os.environ['PATH']}"}
             ):
                 solve_exchanger(environment=environment)
-            self.assertFalse(marker.exists())  # noqa: PT009 - named unittest control
+            self.assertFalse(marker.exists())
         for stage, count in (("initializer", "14"), ("design", "1"), ("costing", "1")):
             name = f"exchanger.{stage}"
-            self.assertEqual(  # noqa: PT009 - named unittest control
+            self.assertEqual(
                 environment.evidence[f"{name}.executable"], str(prepared.path)
             )
-            self.assertEqual(  # noqa: PT009 - named unittest control
-                environment.evidence[f"{name}.sha256"], prepared.sha256
-            )
-            self.assertTrue(environment.evidence[f"{name}.release"])  # noqa: PT009 - unittest
-            self.assertEqual(environment.evidence[f"{name}.solves"], count)  # noqa: PT009 - unittest
+            self.assertEqual(environment.evidence[f"{name}.sha256"], prepared.sha256)
+            self.assertTrue(environment.evidence[f"{name}.release"])
+            self.assertEqual(environment.evidence[f"{name}.solves"], count)
 
     def test_reference_design_rating_and_arithmetic_keep_original_balances(
         self,
     ) -> None:
+        """Reference design rating and arithmetic keep original balances."""
         for arithmetic, rating in ((False, False), (False, True), (True, False)):
             with self.subTest(arithmetic=arithmetic, rating=rating):
                 output = observations(

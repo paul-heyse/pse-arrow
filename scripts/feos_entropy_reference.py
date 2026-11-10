@@ -2,12 +2,14 @@
 # Copyright (c) 2026 Paul Heyse
 """Independent homogeneous entropy from teqp residuals and Decimal Cp/T integrals."""
 
+from __future__ import annotations
+
 import hashlib
 import json
 import sys
 from decimal import Decimal, localcontext
 from pathlib import Path
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 import numpy as np
 import pyarrow as pa
@@ -16,6 +18,9 @@ import teqp
 
 from scripts.frozen_reference import regenerate_selected
 from scripts.plan14_reference import caloric, saft_coefficients, write_reference
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Mapping
 
 
 class ReferenceCase(TypedDict):
@@ -27,6 +32,13 @@ class ReferenceCase(TypedDict):
     entropy: float
     ideal_entropy: float
     residual_entropy: float
+
+
+def _case_inputs(cases: Iterable[Mapping[str, object]]) -> list[dict[str, object]]:
+    """Project the original case coordinates without numerical observations."""
+    return [
+        {name: case[name] for name in ("cas", "fractions", "input")} for case in cases
+    ]
 
 
 def main() -> None:
@@ -96,13 +108,14 @@ def main() -> None:
         na = Decimal("6.02214076e23")
         pressure_unit = kb / Decimal("1e-30")
         offset = kb * na * (pressure_unit / Decimal(100000)).ln()
-    output = {
-        "generator": {
-            "library": "teqp",
-            "version": teqp.__version__,
-            "python": sys.version.split()[0],
-            "caloric_precision": 60,
-        },
+    generator = {
+        "library": "teqp",
+        "version": teqp.__version__,
+        "python": sys.version.split()[0],
+        "caloric_precision": 60,
+    }
+    output: dict[str, object] = {
+        "generator": generator,
         "reference": "Pure ideal gas S=0 at 298.15 K and 100000 Pa; mixture includes ideal mixing; no third-law claim",
         "residual_formula": "R*(Ar10-Ar00) at identical T, molar density and composition",
         "feos_reference_pressure_pa": str(pressure_unit),
@@ -125,15 +138,10 @@ def main() -> None:
             producer = frozen["generator"].pop("python")
             comparable = dict(output)
             comparable["generator"] = {
-                name: value
-                for name, value in output["generator"].items()
-                if name != "python"
+                name: value for name, value in generator.items() if name != "python"
             }
-            for record in (frozen, comparable):
-                record["cases"] = [
-                    {name: case[name] for name in ("cas", "fractions", "input")}
-                    for case in record["cases"]
-                ]
+            frozen["cases"] = _case_inputs(frozen["cases"])
+            comparable["cases"] = _case_inputs(cases)
             if (
                 not producer.startswith("3.12.")
                 or sys.version_info[:2] != (3, 12)

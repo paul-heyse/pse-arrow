@@ -7,12 +7,18 @@ from __future__ import annotations
 import hashlib
 import math
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING
 
-from google.protobuf import message_factory
+from google.protobuf.message import Message
 
-from proto_exchange import encode_reference, reference_type
+from proto_exchange import (
+    encode_reference,
+    message_class,
+    message_field,
+    reference_type,
+    repeated_field,
+    scalar_field,
+)
 
 from .ordinary_exchange import (
     _bounded_read,
@@ -26,8 +32,7 @@ from .ordinary_exchange import (
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
-
-    from google.protobuf.message import Message
+    from pathlib import Path
 
 
 _ARTIFACTS = (
@@ -46,13 +51,17 @@ def require(condition: bool, reason: str) -> None:
 
 def _artifacts(contract: Message) -> None:
     require(
-        tuple(item.path for item in contract.artifacts) == _ARTIFACTS,
+        tuple(
+            scalar_field(item, "path", str)
+            for item in repeated_field(contract, "artifacts", Message)
+        )
+        == _ARTIFACTS,
         "scalar source artifact population differs",
     )
-    for item in contract.artifacts:
-        content = _read_artifact(item.path, 1 << 20)
+    for item in repeated_field(contract, "artifacts", Message):
+        content = _read_artifact(scalar_field(item, "path", str), 1 << 20)
         require(
-            bytes(item.sha256) == hashlib.sha256(content).digest(),
+            scalar_field(item, "sha256", bytes) == hashlib.sha256(content).digest(),
             "scalar source artifact differs from the selected original",
         )
 
@@ -75,12 +84,13 @@ class ScalarCase:
         """Verify descriptor closure, version, original identities and artifacts."""
         envelope = reference_type(_bounded_read(descriptors))
         pool = envelope.DESCRIPTOR.file.pool
-        contract_type = message_factory.GetMessageClass(
+        contract_type = message_class(
             pool.FindMessageTypeByName("pse.reference.v1.ReferenceCaseContract")
         )
         contract = contract_type.FromString(_bounded_read(source))
         require(
-            _message(contract, "version").value == 1, "unsupported scalar case version"
+            scalar_field(_message(contract, "version"), "value", int) == 1,
+            "unsupported scalar case version",
         )
         meaning = _message(contract, "meaning")
         for field, size in (
@@ -100,23 +110,27 @@ class ScalarCase:
 
     def inputs(self, keys: Sequence[str]) -> dict[str, float]:
         """Check the original physical inputs and return exact IEEE values."""
-        fixed = self.contract.specification
+        fixed = repeated_field(self.contract, "specification", Message)
         require(
-            tuple(item.key for item in fixed) == tuple(keys),
+            tuple(scalar_field(item, "key", str) for item in fixed) == tuple(keys),
             "scalar input population differs",
         )
         for item in fixed:
             _physical(item)
-        return {item.key: bits_float(int(item.value)) for item in fixed}
+        return {
+            scalar_field(item, "key", str): bits_float(scalar_field(item, "value", int))
+            for item in fixed
+        }
 
     def outputs(self, keys: Sequence[str]) -> None:
-        """Validate exact observable identities and physical meanings before solver work."""
-        observables = self.contract.observables
+        """Validate observable identities and physical meanings before solver work."""
+        observables = repeated_field(self.contract, "observables", Message)
         require(
-            tuple(item.key for item in observables) == tuple(keys),
+            tuple(scalar_field(item, "key", str) for item in observables)
+            == tuple(keys),
             "scalar output population differs",
         )
-        output_ids = [bytes(item.output) for item in observables]
+        output_ids = [scalar_field(item, "output", bytes) for item in observables]
         require(
             len(set(output_ids)) == len(output_ids)
             and all(
@@ -130,16 +144,20 @@ class ScalarCase:
     def publish(self, destination: Path, values: Iterable[float]) -> None:
         """Publish independent outputs under their validated original correspondence."""
         envelope = self.envelope(version=1)
-        envelope.meaning.CopyFrom(_message(self.contract, "meaning"))
-        observables = self.contract.observables
-        envelope.required.extend(item.output for item in observables)
+        message_field(envelope, "meaning").CopyFrom(_message(self.contract, "meaning"))
+        observables = repeated_field(self.contract, "observables", Message)
+        repeated_field(envelope, "required", bytes).extend(
+            scalar_field(item, "output", bytes) for item in observables
+        )
         for coordinate, value in zip(observables, values, strict=True):
             require(
                 math.isfinite(value), "scalar reference returned nonfinite evidence"
             )
             physical = _message(coordinate, "physical")
-            envelope.outcome.completed.outputs.add(
-                id=coordinate.output,
+            repeated_field(
+                message_field(envelope, "outcome", "completed"), "outputs", Message
+            ).add(
+                id=scalar_field(coordinate, "output", bytes),
                 quantity=_identity(_message(physical, "quantity")),
                 unit=_identity(_message(physical, "representation_unit")),
                 value=float_bits(value),

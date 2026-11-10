@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
-"""Evaluate the pinned independent Chapman–Enskog pure ethane expression."""
+"""Evaluate the pinned independent Chapman-Enskog pure ethane expression."""
 
 import json
 import sys
@@ -16,8 +16,8 @@ from idaes.models.properties.modular_properties.pure.ChapmanEnskog import (
     ChapmanEnskogLennardJones,
     collision_integral_neufeld_callback,
 )
-from pyomo.environ import units, value
 
+from oracles.pyomo_support import units, value
 from oracles.reference_environment import ReferenceEnvironment
 
 

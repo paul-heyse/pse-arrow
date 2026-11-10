@@ -11,17 +11,13 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from idaes.core import FlowsheetBlock, MaterialBalanceType
 from idaes.core.util.model_statistics import degrees_of_freedom
-from idaes.models.properties.modular_properties.base.generic_property import (
-    GenericParameterBlock,
-    GenericStateBlockData,
-)
+from idaes.models.properties.modular_properties.base import generic_property
 from idaes.models.unit_models import Flash, Heater, Separator
 from idaes.models.unit_models.separator import SplittingType
-from pyomo.core.base.block import BlockData
 from pyomo.environ import (
     Block,
     ConcreteModel,
@@ -30,24 +26,43 @@ from pyomo.environ import (
     Param,
     Var,
     assert_optimal_termination,
-    units,
-    value,
 )
 from pyomo.opt import SolverResults, TerminationCondition
 
 from .ordinary_thermo import SPECIES, SpeciesInput, configuration, load_inputs
+from .pyomo_support import units, value
 from .reference_environment import ReferenceEnvironment
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable, Mapping
+
+    from pyomo.core.base.constraint import ConstraintData
+    from pyomo.core.base.param import ParamData
+    from pyomo.core.base.var import VarData
+    from pyomo.core.expr.numeric_expr import NumericValue
+
+    from .ordinary_models import (
+        Connection,
+        Flowsheet,
+        OrdinaryModel,
+        Parameters,
+        Splitter,
+        State,
+    )
+    from .ordinary_models import Heater as HeaterView
+
+
+_parameter_block = cast(
+    "Callable[..., Parameters]", vars(generic_property)["GenericParameterBlock"]
+)
 
 
 @dataclass(frozen=True)
 class RecycleSolution:
     """Accepted tear and separately solved unchanged original specification."""
 
-    model: ConcreteModel
-    tear: ConcreteModel
+    model: OrdinaryModel
+    tear: OrdinaryModel
     tear_result: SolverResults
     original_result: SolverResults
 
@@ -56,21 +71,27 @@ class RecycleSolution:
 class OverheatedFailure:
     """Actual failed stage, retained separately from the untouched original."""
 
-    original: ConcreteModel
-    stage: ConcreteModel
+    original: OrdinaryModel
+    stage: OrdinaryModel
     result: SolverResults
     original_before: tuple[float, ...]
     original_after: tuple[float, ...]
 
 
 def _connect(
-    connection: BlockData,
-    source: GenericStateBlockData,
-    target: GenericStateBlockData,
+    connection: Connection,
+    source: State,
+    target: State,
 ) -> None:
-    connection.flow = Constraint(expr=target.flow_mol == source.flow_mol)
-    connection.temperature = Constraint(expr=target.temperature == source.temperature)
-    connection.pressure = Constraint(expr=target.pressure == source.pressure)
+    connection.flow = cast(
+        "ConstraintData", Constraint(expr=target.flow_mol == source.flow_mol)
+    )
+    connection.temperature = cast(
+        "ConstraintData", Constraint(expr=target.temperature == source.temperature)
+    )
+    connection.pressure = cast(
+        "ConstraintData", Constraint(expr=target.pressure == source.pressure)
+    )
     connection.composition = Constraint(
         list(SPECIES),
         rule=lambda _block, species: (
@@ -79,7 +100,7 @@ def _connect(
     )
 
 
-def _states(model: ConcreteModel) -> tuple[GenericStateBlockData, ...]:
+def _states(model: OrdinaryModel) -> tuple[State, ...]:
     fs = model.fs
     return (
         fs.fresh[0],
@@ -96,11 +117,11 @@ def _states(model: ConcreteModel) -> tuple[GenericStateBlockData, ...]:
     )
 
 
-def _energy(state: GenericStateBlockData) -> float:
+def _energy(state: State) -> float:
     return float(value(state.flow_mol * state.enth_mol))
 
 
-def original_specification(model: ConcreteModel) -> tuple[float, ...]:
+def original_specification(model: OrdinaryModel) -> tuple[float, ...]:
     """Read selected specifications and unchanged receiver bounds, not outputs."""
     fs = model.fs
     return tuple(
@@ -121,15 +142,15 @@ def original_specification(model: ConcreteModel) -> tuple[float, ...]:
     )
 
 
-def build_recycle(*, inputs: Mapping[str, SpeciesInput] | None = None) -> ConcreteModel:
+def build_recycle(*, inputs: Mapping[str, SpeciesInput] | None = None) -> OrdinaryModel:
     """Build the original closed process, with its inactive explicit tear stage."""
-    model = ConcreteModel()
-    model.fs = FlowsheetBlock(dynamic=False)
+    model = cast("OrdinaryModel", ConcreteModel())
+    model.fs = cast("Flowsheet", FlowsheetBlock(dynamic=False))
     fs = model.fs
     if inputs is None:
         inputs = load_inputs()
-    fs.ideal = GenericParameterBlock(**configuration("ideal", inputs=inputs))
-    fs.liquid = GenericParameterBlock(**configuration("liquid", inputs=inputs))
+    fs.ideal = _parameter_block(**configuration("ideal", inputs=inputs))
+    fs.liquid = _parameter_block(**configuration("liquid", inputs=inputs))
     fs.fresh = fs.ideal.build_state_block([0], defined_state=True)
     fs.recycled = fs.liquid.build_state_block([0], defined_state=True)
     fs.mixed = fs.ideal.build_state_block([0], defined_state=False)
@@ -154,34 +175,43 @@ def build_recycle(*, inputs: Mapping[str, SpeciesInput] | None = None) -> Concre
         + fs.recycled[0].flow_mol * fs.recycled[0].enth_mol
     )
     fs.mixing_pressure = Constraint(expr=fs.mixed[0].pressure == fs.fresh[0].pressure)
-    fs.heater = Heater(
-        property_package=fs.ideal,
-        has_phase_equilibrium=True,
-        has_pressure_change=True,
-        material_balance_type=MaterialBalanceType.componentTotal,
+    fs.heater = cast(
+        "HeaterView",
+        Heater(
+            property_package=fs.ideal,
+            has_phase_equilibrium=True,
+            has_pressure_change=True,
+            material_balance_type=MaterialBalanceType.componentTotal,
+        ),
     )
     fs.heater.control_volume.properties_out[0].temperature.fix(368.0)
     fs.heater.deltaP.fix(0.0)
-    fs.flash = Flash(
-        property_package=fs.ideal,
-        has_heat_transfer=True,
-        has_pressure_change=True,
-        material_balance_type=MaterialBalanceType.componentTotal,
+    fs.flash = cast(
+        "HeaterView",
+        Flash(
+            property_package=fs.ideal,
+            has_heat_transfer=True,
+            has_pressure_change=True,
+            material_balance_type=MaterialBalanceType.componentTotal,
+        ),
     )
     fs.flash.heat_duty.fix(0.0)
     fs.flash.deltaP.fix(0.0)
-    fs.splitter = Separator(
-        property_package=fs.liquid,
-        outlet_list=["purge", "recycle"],
-        split_basis=SplittingType.totalFlow,
-        material_balance_type=MaterialBalanceType.componentTotal,
+    fs.splitter = cast(
+        "Splitter",
+        Separator(
+            property_package=fs.liquid,
+            outlet_list=["purge", "recycle"],
+            split_basis=SplittingType.totalFlow,
+            material_balance_type=MaterialBalanceType.componentTotal,
+        ),
     )
     fs.splitter.split_fraction[0, "purge"].fix(0.25)
-    fs.mixed_connection = Block()
+    fs.mixed_connection = cast("Connection", Block())
     _connect(
         fs.mixed_connection, fs.mixed[0], fs.heater.control_volume.properties_in[0]
     )
-    fs.heated_connection = Block()
+    fs.heated_connection = cast("Connection", Block())
     _connect(
         fs.heated_connection,
         fs.heater.control_volume.properties_out[0],
@@ -198,13 +228,16 @@ def build_recycle(*, inputs: Mapping[str, SpeciesInput] | None = None) -> Concre
             liquid.mole_frac_comp[j] == flashed.mole_frac_phase_comp["Liq", j]
         ),
     )
-    fs.closed_recycle = Block()
+    fs.closed_recycle = cast("Connection", Block())
     _connect(fs.closed_recycle, fs.splitter.recycle_state[0], fs.recycled[0])
-    fs.tear_temperature = Param(initialize=368.0, mutable=True, units=units.K)
-    fs.tear_energy = Expression(
-        expr=fs.tear_caloric[0].flow_mol * fs.tear_caloric[0].enth_mol
+    fs.tear_temperature = cast(
+        "ParamData", Param(initialize=368.0, mutable=True, units=units.K)
     )
-    fs.tear_connection = Block()
+    fs.tear_energy = cast(
+        "NumericValue",
+        Expression(expr=fs.tear_caloric[0].flow_mol * fs.tear_caloric[0].enth_mol),
+    )
+    fs.tear_connection = cast("Connection", Block())
     _connect(fs.tear_connection, fs.tear_caloric[0], fs.recycled[0])
     fs.tear_connection.temperature.set_value(
         fs.recycled[0].temperature == fs.tear_temperature
@@ -224,7 +257,7 @@ def build_recycle(*, inputs: Mapping[str, SpeciesInput] | None = None) -> Concre
 
 
 def _solve(
-    model: ConcreteModel, environment: ReferenceEnvironment, stage: str
+    model: OrdinaryModel, environment: ReferenceEnvironment, stage: str
 ) -> SolverResults:
     solver = environment.solver("ipopt", stage)
     solver.options.update(
@@ -240,7 +273,7 @@ def _solve(
     return result
 
 
-def _tear_model(original: ConcreteModel, temperature: float) -> ConcreteModel:
+def _tear_model(original: OrdinaryModel, temperature: float) -> OrdinaryModel:
     stage = original.clone()
     stage.fs.closed_recycle.deactivate()
     stage.fs.tear_connection.activate()
@@ -291,7 +324,7 @@ def solve_recycle(
             "accepted tear violates the original liquid energy transport"
         )
     for coordinate in tear.component_data_objects(Var):
-        target = original.find_component(coordinate.name)
+        target = cast("VarData", original.find_component(coordinate.name))
         if not target.fixed:
             target.set_value(value(coordinate))
     if original_specification(original) != before:
@@ -356,7 +389,8 @@ def overheated_failure(
     result = _solve(stage, environment, "recycle.overheated_tear")
     if result.solver.termination_condition != TerminationCondition.infeasible:
         raise RuntimeError(
-            f"overheated stage did not reach its intended numerical failure: {result.solver}"
+            "overheated stage did not reach its intended numerical failure: "
+            f"{result.solver}"
         )
     if len(result.solution) == 0:
         raise RuntimeError(

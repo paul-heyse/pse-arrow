@@ -4,7 +4,8 @@
 
 Preserves the original covariance parity experiment: known observation standard
 deviations, SSE_weighted, parmest estimates and finite-difference inverse Fisher
-information. The oracle consumes passive source-owned case facts and emits only its own results.
+information. The oracle consumes passive source-owned case facts and emits
+only its own results.
 """
 
 from __future__ import annotations
@@ -16,6 +17,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
+
+from proto_exchange import scalar_field
 
 from .reference_environment import ReferenceEnvironment
 from .scalar_case import ScalarCase, require
@@ -182,7 +185,7 @@ def _case(original: ScalarCase) -> LineCase:
     y_keys = [f"y:{index}" for index in range(5)]
     values = original.inputs([*x_keys, *y_keys, "sigma"])
     case = LineCase(
-        id=original.contract.case_name,
+        id=scalar_field(original.contract, "case_name", str),
         x=[values[key] for key in x_keys],
         y=[values[key] for key in y_keys],
         sigma=values["sigma"],

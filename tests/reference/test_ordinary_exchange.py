@@ -12,11 +12,17 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
-from google.protobuf import message_factory
 from google.protobuf.message import Message
 
 from oracles import ordinary_exchange as exchange
-from proto_exchange import reference_type
+from proto_exchange import (
+    message_class,
+    message_field,
+    reference_type,
+    repeated_field,
+    scalar_field,
+    set_scalar,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -30,6 +36,7 @@ class OrdinaryExchangeUnitTests(unittest.TestCase):
     """Independent units and inputs need no candidate or fabricated physical DTO."""
 
     def test_original_fixed_roles_are_read_before_solving(self) -> None:
+        """Original fixed roles are read before solving."""
         recycle = {
             "feed.state.flow",
             "feed.state.T",
@@ -55,10 +62,12 @@ class OrdinaryExchangeUnitTests(unittest.TestCase):
                 self.assertNotIn("exchanger.area", selected)
 
     def test_ieee_binary_coordinates_preserve_signed_zero_and_nan_payload(self) -> None:
+        """Ieee binary coordinates preserve signed zero and nan payload."""
         for bits in (0, 1 << 63, 0x7FF8000000001234, 0x3FF0000000000000):
             self.assertEqual(exchange.float_bits(exchange.bits_float(bits)), bits)
 
     def test_artifacts_are_exact_source_paths_with_no_caller_reads(self) -> None:
+        """Artifacts are exact source paths with no caller reads."""
         paths = exchange.artifact_paths()
         self.assertEqual(len(paths), len(set(paths)))
         self.assertIn("packages/reference/conformance.toml", paths)
@@ -99,24 +108,23 @@ class OrdinaryExchangeUnitTests(unittest.TestCase):
                 (package_root / "models/selected.pse").touch()
             with patch.object(exchange, "ROOT", root):
                 paths = exchange.artifact_paths(manifest)
-            self.assertIn(  # noqa: PT009 - named unittest control
+            self.assertIn(
                 "packages/reference/distinct-physical/models/selected.pse", paths
             )
-            self.assertFalse(  # noqa: PT009 - named unittest control
-                any(path.endswith("README.toml") for path in paths)
-            )
+            self.assertFalse(any(path.endswith("README.toml") for path in paths))
 
     def test_absent_optional_identity_is_not_an_explicit_nil_identity(self) -> None:
+        """Absent optional identity is not an explicit nil identity."""
         pool = reference_type(DESCRIPTORS.read_bytes()).DESCRIPTOR.file.pool
-        key = message_factory.GetMessageClass(
+        key = message_class(
             pool.FindMessageTypeByName("pse.reference.v1.QuantityTypeKey")
         )()
         self.assertIsNone(exchange._optional_identity(key, "basis"))
-        key.basis.id = bytes(16)
+        set_scalar(message_field(key, "basis"), "id", bytes(16))
         self.assertTrue(key.HasField("basis"))
         with self.assertRaisesRegex(ValueError, "nil"):
             exchange._optional_identity(key, "basis")
-        key.basis.id = bytes([0x31]) * 16
+        set_scalar(message_field(key, "basis"), "id", bytes([0x31]) * 16)
         self.assertEqual(exchange._optional_identity(key, "basis"), bytes([0x31]) * 16)
 
     def test_scientific_input_refuses_oversized_bytes_before_parsing(self) -> None:
@@ -126,14 +134,15 @@ class OrdinaryExchangeUnitTests(unittest.TestCase):
             artifact.write_bytes(b"12345")
             with (
                 patch.object(exchange, "_safe_path", return_value=artifact),
-                self.assertRaisesRegex(ValueError, "byte limit"),  # noqa: PT027 - unittest
+                self.assertRaisesRegex(ValueError, "byte limit"),
             ):
-                exchange._read_artifact("property.tsv", 4)  # noqa: SLF001 - bounded read seam
+                exchange._read_artifact("property.tsv", 4)
 
     def test_invalid_wire_contract_refuses_before_scientific_input_reads(self) -> None:
+        """Invalid wire contract refuses before scientific input reads."""
         descriptors = DESCRIPTORS.read_bytes()
         pool = reference_type(descriptors).DESCRIPTOR.file.pool
-        contract_type = message_factory.GetMessageClass(
+        contract_type = message_class(
             pool.FindMessageTypeByName("pse.reference.v1.ReferenceCaseContract")
         )
         with patch.object(
@@ -145,7 +154,7 @@ class OrdinaryExchangeUnitTests(unittest.TestCase):
         ):
             for version_number, case in ((2, exchange.CASE_NAMES[0]), (1, "unknown")):
                 contract = contract_type(case_name=case)
-                contract.version.value = version_number
+                set_scalar(message_field(contract, "version"), "value", version_number)
                 with (
                     self.subTest(version=version_number, case=case),
                     self.assertRaises(ValueError),
@@ -159,6 +168,7 @@ class OrdinaryExchangeSolverTests(unittest.TestCase):
     """Independent exchange refusal controls that exercise a real solver."""
 
     def test_nonfinite_failed_witness_cannot_supply_a_reference_failure(self) -> None:
+        """Nonfinite failed witness cannot supply a reference failure."""
         read_original = exchange.ordinary_recycle.overheated_observations
 
         def changed(
@@ -180,24 +190,27 @@ class OrdinaryExchangeSolverTests(unittest.TestCase):
 
 
 class OrdinaryExchangeBinaryTests(unittest.TestCase):
-    """A missing native contract fixture is an error, never passing reference evidence."""
+    """Require the original native contract fixture for binary controls."""
 
     @classmethod
     def setUpClass(cls) -> None:
+        """Load the five actual native contracts selected by the recipe."""
         directory = os.environ.get("PSE_ORDINARY_REFERENCE_CONTRACTS")
         if directory is None:
             raise RuntimeError(
-                "PSE_ORDINARY_REFERENCE_CONTRACTS must select the five actual native contract binaries"
+                "PSE_ORDINARY_REFERENCE_CONTRACTS must select the five "
+                "actual native contract binaries"
             )
         cls.contract_directory = Path(directory)
         cls.descriptors = DESCRIPTORS.read_bytes()
         cls.envelope_type = reference_type(cls.descriptors)
         pool = cls.envelope_type.DESCRIPTOR.file.pool
-        cls.contract_type = message_factory.GetMessageClass(
+        cls.contract_type = message_class(
             pool.FindMessageTypeByName("pse.reference.v1.ReferenceCaseContract")
         )
 
     def contract(self, case: str) -> Message:
+        """Decode one selected original contract in its private descriptor world."""
         return self.contract_type.FromString(
             (
                 self.contract_directory
@@ -206,10 +219,14 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
         )
 
     def test_actual_physical_owners_and_typed_identity_wrappers_agree(self) -> None:
+        """Actual physical owners and typed identity wrappers agree."""
         checked: set[str] = set()
         for case in exchange.CASE_NAMES:
             contract = self.contract(case)
-            for item in (*contract.specification, *contract.observables):
+            for item in (
+                *repeated_field(contract, "specification", Message),
+                *repeated_field(contract, "observables", Message),
+            ):
                 for field in (
                     "quantity",
                     "quantity_kind",
@@ -219,9 +236,9 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
                     "reference_state",
                     "subject",
                 ):
-                    if not item.physical.HasField(field):
+                    if not message_field(item, "physical").HasField(field):
                         continue
-                    owner = exchange._message(item.physical, field)
+                    owner = exchange._message(message_field(item, "physical"), field)
                     identity = exchange._message(owner, "id")
                     self.assertEqual(
                         exchange._identity(owner), exchange._identity(identity)
@@ -230,7 +247,7 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
                     for invalid in (b"", bytes(16), bytes(15), bytes(17)):
                         changed = type(owner)()
                         changed.CopyFrom(owner)
-                        changed.id.id = invalid
+                        set_scalar(message_field(changed, "id"), "id", invalid)
                         with (
                             self.subTest(owner=owner.DESCRIPTOR.full_name),
                             self.assertRaises(ValueError),
@@ -242,7 +259,7 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
                         if missing == "owner":
                             changed.ClearField("id")
                         else:
-                            changed.id.ClearField("id")
+                            message_field(changed, "id").ClearField("id")
                         with (
                             self.subTest(
                                 owner=owner.DESCRIPTOR.full_name, missing=missing
@@ -255,24 +272,29 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
             exchange._identity(self.contract(exchange.CASE_NAMES[0]))
 
     def test_species_display_alias_keeps_the_original_subject_identity(self) -> None:
+        """Species display alias keeps the original subject identity."""
         for case in exchange.CASE_NAMES:
             original = next(
-                item.physical
-                for item in self.contract(case).specification
-                if ".z[" in item.key
+                message_field(item, "physical")
+                for item in repeated_field(
+                    self.contract(case), "specification", Message
+                )
+                if ".z[" in scalar_field(item, "key", str)
             )
             for label in ("species", "chemistry.species", "display alias"):
                 changed = type(original)()
                 changed.CopyFrom(original)
-                changed.subject.name = label
+                set_scalar(message_field(changed, "subject"), "name", label)
                 exchange._validate_physical(changed, "MoleFraction")
                 self.assertEqual(
-                    exchange._identity(changed.subject), exchange._SPECIES_KIND_ID
+                    exchange._identity(message_field(changed, "subject")),
+                    exchange._SPECIES_KIND_ID,
                 )
 
     def test_all_five_actual_contracts_produce_the_complete_ordered_population(
         self,
     ) -> None:
+        """All five actual contracts produce the complete ordered population."""
         for case in exchange.CASE_NAMES:
             with self.subTest(case=case):
                 contract = self.contract(case)
@@ -281,30 +303,66 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
                         self.descriptors, contract.SerializeToString()
                     )
                 )
-                self.assertEqual(actual.meaning, contract.meaning)
                 self.assertEqual(
-                    list(actual.required),
-                    [item.output for item in contract.observables],
+                    message_field(actual, "meaning"), message_field(contract, "meaning")
+                )
+                self.assertEqual(
+                    list(repeated_field(actual, "required", bytes)),
+                    [
+                        scalar_field(item, "output", bytes)
+                        for item in repeated_field(contract, "observables", Message)
+                    ],
                 )
                 if case == exchange.CASE_NAMES[-1]:
-                    self.assertEqual(actual.outcome.WhichOneof("kind"), "failed")
-                    self.assertEqual(actual.outcome.failed.code, "trial_rejected")
-                    self.assertEqual(actual.outcome.failed.stage, "overheated_tear")
+                    self.assertEqual(
+                        message_field(actual, "outcome").WhichOneof("kind"), "failed"
+                    )
+                    self.assertEqual(
+                        scalar_field(
+                            message_field(actual, "outcome", "failed"), "code", int
+                        ),
+                        "trial_rejected",
+                    )
+                    self.assertEqual(
+                        scalar_field(
+                            message_field(actual, "outcome", "failed"), "stage", str
+                        ),
+                        "overheated_tear",
+                    )
                     continue
-                self.assertEqual(actual.outcome.WhichOneof("kind"), "completed")
-                self.assertFalse(actual.outcome.completed.blocks)
-                outputs = actual.outcome.completed.outputs
-                self.assertEqual(len(outputs), len(contract.observables))
+                self.assertEqual(
+                    message_field(actual, "outcome").WhichOneof("kind"), "completed"
+                )
+                self.assertFalse(
+                    scalar_field(
+                        message_field(actual, "outcome", "completed"), "blocks", int
+                    )
+                )
+                outputs = repeated_field(
+                    message_field(actual, "outcome", "completed"), "outputs", Message
+                )
+                self.assertEqual(
+                    len(outputs), len(repeated_field(contract, "observables", Message))
+                )
                 for produced, expected in zip(
-                    outputs, contract.observables, strict=True
+                    outputs,
+                    repeated_field(contract, "observables", Message),
+                    strict=True,
                 ):
-                    self.assertEqual(produced.id, expected.output)
-                    self.assertTrue(math.isfinite(exchange.bits_float(produced.value)))
+                    self.assertEqual(
+                        scalar_field(produced, "id", bytes),
+                        scalar_field(expected, "output", bytes),
+                    )
+                    self.assertTrue(
+                        math.isfinite(
+                            exchange.bits_float(scalar_field(produced, "value", int))
+                        )
+                    )
                     for output, source in (
                         ("basis", "basis"),
                         ("datum", "reference_state"),
                     ):
-                        key = expected.physical.quantity.key
+                        key = message_field(expected, "physical", "quantity", "key")
                         self.assertEqual(
                             produced.HasField(output), key.HasField(source)
                         )
@@ -313,9 +371,13 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
                                 getattr(produced, output), getattr(key, source).id
                             )
                 values = {
-                    expected.key: exchange.bits_float(produced.value)
+                    scalar_field(expected, "key", str): exchange.bits_float(
+                        scalar_field(produced, "value", int)
+                    )
                     for produced, expected in zip(
-                        outputs, contract.observables, strict=True
+                        outputs,
+                        repeated_field(contract, "observables", Message),
+                        strict=True,
                     )
                 }
                 if case == exchange.CASE_NAMES[3]:
@@ -346,6 +408,7 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
     def test_changed_correspondence_refuses_before_the_reference_calculation(
         self,
     ) -> None:
+        """Changed correspondence refuses before the reference calculation."""
         original = self.contract(exchange.CASE_NAMES[0])
 
         def mutations() -> list[Message]:
@@ -354,72 +417,162 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
                 copy = self.contract_type()
                 copy.CopyFrom(original)
                 result.append(copy)
-            result[0].version.value = 2
-            result[1].case_name = "ordinary_delivery.unknown"
-            result[2].observables.reverse()
-            result[3].observables[1].output = result[3].observables[0].output
-            del result[4].specification[-1]
-            result[5].specification[0].value = exchange.float_bits(999.0)
-            result[6].artifacts[0].sha256 = bytes(32)
-            result[7].artifacts[0].path = "../candidate.bin"
-            result[8].observables[
-                0
-            ].physical.representation_unit.dimension.exponents.values[0].num += 1
-            result[9].observables[0].physical.ClearField("basis")
-            enthalpy = next(
-                item for item in result[10].observables if item.key.endswith(".h")
+            set_scalar(message_field(result[0], "version"), "value", 2)
+            set_scalar(result[1], "case_name", "ordinary_delivery.unknown")
+            repeated_field(result[2], "observables", Message).reverse()
+            set_scalar(
+                repeated_field(result[3], "observables", Message)[1],
+                "output",
+                scalar_field(
+                    repeated_field(result[3], "observables", Message)[0],
+                    "output",
+                    bytes,
+                ),
             )
-            enthalpy.physical.reference_state.pressure.value = exchange.float_bits(
-                101325.0
+            del repeated_field(result[4], "specification", Message)[-1]
+            set_scalar(
+                repeated_field(result[5], "specification", Message)[0],
+                "value",
+                exchange.float_bits(999.0),
+            )
+            set_scalar(
+                repeated_field(result[6], "artifacts", Message)[0], "sha256", bytes(32)
+            )
+            set_scalar(
+                repeated_field(result[7], "artifacts", Message)[0],
+                "path",
+                "../candidate.bin",
+            )
+            exponent = repeated_field(
+                message_field(
+                    repeated_field(result[8], "observables", Message)[0],
+                    "physical",
+                    "representation_unit",
+                    "dimension",
+                    "exponents",
+                ),
+                "values",
+                Message,
+            )[0]
+            set_scalar(exponent, "num", scalar_field(exponent, "num", int) + 1)
+            message_field(
+                repeated_field(result[9], "observables", Message)[0], "physical"
+            ).ClearField("basis")
+            enthalpy = next(
+                item
+                for item in repeated_field(result[10], "observables", Message)
+                if scalar_field(item, "key", str).endswith(".h")
+            )
+            set_scalar(
+                message_field(enthalpy, "physical", "reference_state", "pressure"),
+                "value",
+                exchange.float_bits(101325.0),
             )
             scalar = next(
                 item
-                for item in result[11].observables
-                if item.key == "cost.area_count_ft2"
+                for item in repeated_field(result[11], "observables", Message)
+                if scalar_field(item, "key", str) == "cost.area_count_ft2"
             )
-            scalar.physical.quantity.key.basis.id = bytes(16)
+            set_scalar(
+                message_field(scalar, "physical", "quantity", "key", "basis"),
+                "id",
+                bytes(16),
+            )
             money = next(
-                item for item in result[12].observables if item.key == "cost.capital"
+                item
+                for item in repeated_field(result[12], "observables", Message)
+                if scalar_field(item, "key", str) == "cost.capital"
             )
-            money.physical.representation_unit.symbol = "USD_2018"
-            result[13].observables[0].physical.quantity_kind.extensive = False
+            set_scalar(
+                message_field(money, "physical", "representation_unit"),
+                "symbol",
+                "USD_2018",
+            )
+            set_scalar(
+                message_field(
+                    repeated_field(result[13], "observables", Message)[0],
+                    "physical",
+                    "quantity_kind",
+                ),
+                "extensive",
+                False,
+            )
             pressure = next(
                 item
-                for item in result[14].specification
-                if item.key.endswith(".pressure")
+                for item in repeated_field(result[14], "specification", Message)
+                if scalar_field(item, "key", str).endswith(".pressure")
             )
-            pressure.physical.quantity.key.scale_kind.value = "difference"
-            numerical_start = result[15].specification.add()
+            set_scalar(
+                message_field(pressure, "physical", "quantity", "key", "scale_kind"),
+                "value",
+                "difference",
+            )
+            numerical_start = repeated_field(result[15], "specification", Message).add()
             numerical_start.CopyFrom(
-                next(item for item in original.specification if item.key.endswith(".T"))
+                next(
+                    item
+                    for item in repeated_field(original, "specification", Message)
+                    if scalar_field(item, "key", str).endswith(".T")
+                )
             )
-            numerical_start.key = "exchanger.hot.outlet.T"
-            numerical_start.value = exchange.float_bits(360.0)
+            set_scalar(numerical_start, "key", "exchanger.hot.outlet.T")
+            set_scalar(numerical_start, "value", exchange.float_bits(360.0))
             species = next(
-                item for item in result[16].specification if ".z[" in item.key
+                item
+                for item in repeated_field(result[16], "specification", Message)
+                if ".z[" in scalar_field(item, "key", str)
             )
-            species.physical.subject.id.id = bytes([0x52]) * 16
-            species.physical.quantity.key.subject_kind.id = bytes([0x52]) * 16
+            set_scalar(
+                message_field(species, "physical", "subject", "id"),
+                "id",
+                bytes([0x52]) * 16,
+            )
+            set_scalar(
+                message_field(species, "physical", "quantity", "key", "subject_kind"),
+                "id",
+                bytes([0x52]) * 16,
+            )
             duty = next(
-                item for item in result[17].observables if item.key.endswith(".duty")
+                item
+                for item in repeated_field(result[17], "observables", Message)
+                if scalar_field(item, "key", str).endswith(".duty")
             )
             transported = next(
                 item
-                for item in original.observables
-                if item.key.endswith(".energy_flow")
+                for item in repeated_field(original, "observables", Message)
+                if scalar_field(item, "key", str).endswith(".energy_flow")
             )
-            duty.physical.reference_state.CopyFrom(transported.physical.reference_state)
-            duty.physical.quantity.key.reference_state.CopyFrom(
-                transported.physical.quantity.key.reference_state
+            message_field(duty, "physical", "reference_state").CopyFrom(
+                message_field(transported, "physical", "reference_state")
+            )
+            message_field(
+                message_field(duty, "physical", "quantity", "key"), "reference_state"
+            ).CopyFrom(
+                message_field(
+                    message_field(transported, "physical", "quantity", "key"),
+                    "reference_state",
+                )
             )
             duty_role = next(
-                item for item in result[18].observables if item.key.endswith(".duty")
+                item
+                for item in repeated_field(result[18], "observables", Message)
+                if scalar_field(item, "key", str).endswith(".duty")
             )
             self.assertEqual(
-                duty_role.physical.representation_unit.symbol,
-                transported.physical.representation_unit.symbol,
+                scalar_field(
+                    message_field(duty_role, "physical", "representation_unit"),
+                    "symbol",
+                    str,
+                ),
+                scalar_field(
+                    message_field(transported, "physical", "representation_unit"),
+                    "symbol",
+                    str,
+                ),
             )
-            duty_role.physical.CopyFrom(transported.physical)
+            message_field(duty_role, "physical").CopyFrom(
+                message_field(transported, "physical")
+            )
             return result
 
         with patch.object(
@@ -438,6 +591,7 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
     def test_reference_math_failure_cannot_become_a_passing_failed_outcome(
         self,
     ) -> None:
+        """Reference math failure cannot become a passing failed outcome."""
         contract = self.contract(exchange.CASE_NAMES[-1])
         with (
             patch.object(
@@ -455,11 +609,10 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
         """Use verified input bytes while the checkout path holds a substitute."""
         contract = self.contract(exchange.CASE_NAMES[-1])
         path = exchange.PROPERTY_ARTIFACTS[0]
-        original_path = exchange._safe_path  # noqa: SLF001 - exercise input acquisition
+        original_path = exchange._safe_path
         verified = original_path(path).read_bytes()
         parse = exchange.parse_inputs
-        calculate = exchange._reference_outputs  # noqa: SLF001 - wrap performing solve
-
+        calculate = exchange._reference_outputs
         with tempfile.TemporaryDirectory() as directory:
             replacement = Path(directory) / "property.tsv"
             replacement.write_bytes(verified)
@@ -468,7 +621,7 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
                 artifacts: Mapping[str, bytes],
             ) -> dict[str, exchange.SpeciesInput]:
                 replacement.write_bytes(b"substituted invalid property data")
-                self.assertEqual(artifacts[path], verified)  # noqa: PT009 - unittest
+                self.assertEqual(artifacts[path], verified)
                 return parse(artifacts)
 
             def solve_before_restoration(
@@ -477,9 +630,7 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
                 inputs: Mapping[str, exchange.SpeciesInput],
                 environment: exchange.ReferenceEnvironment,
             ) -> dict[str, float] | None:
-                self.assertNotEqual(  # noqa: PT009 - named unittest control
-                    replacement.read_bytes(), verified
-                )
+                self.assertNotEqual(replacement.read_bytes(), verified)
                 try:
                     return calculate(case_name, inputs=inputs, environment=environment)
                 finally:
@@ -510,9 +661,15 @@ class OrdinaryExchangeBinaryTests(unittest.TestCase):
                 payload = exchange.produce_reference(
                     self.descriptors, contract.SerializeToString()
                 )
-            self.assertEqual(parsed.call_count, 1)  # noqa: PT009 - unittest
-            self.assertEqual(  # noqa: PT009 - named unittest control
-                self.envelope_type.FromString(payload).outcome.failed.stage,
+            self.assertEqual(parsed.call_count, 1)
+            self.assertEqual(
+                scalar_field(
+                    message_field(
+                        self.envelope_type.FromString(payload), "outcome", "failed"
+                    ),
+                    "stage",
+                    str,
+                ),
                 "overheated_tear",
             )
 

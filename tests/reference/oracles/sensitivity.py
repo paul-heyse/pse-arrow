@@ -16,6 +16,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
+from proto_exchange import scalar_field
+
 from .reference_environment import ReferenceEnvironment
 from .scalar_case import ScalarCase, require
 
@@ -166,7 +168,7 @@ def check_sipopt(
 def _case(original: ScalarCase) -> SensitivityCase:
     values = original.inputs(_INPUTS)
     case = SensitivityCase(
-        id=original.contract.case_name,
+        id=scalar_field(original.contract, "case_name", str),
         nominal={name: values[f"nominal:{name}"] for name in _PARAMETERS},
         perturbed={name: values[f"perturbed:{name}"] for name in _PARAMETERS},
         variables=list(_VARIABLES),

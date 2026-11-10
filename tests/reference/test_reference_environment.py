@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Receiving controls for the independent reference environment."""
-# ruff: noqa: PT009, PT027 -- named reference recipes use standard-library unittest
 
 from __future__ import annotations
 
@@ -21,22 +20,14 @@ from pyomo.environ import ConcreteModel, Objective, SolverFactory, Var
 if TYPE_CHECKING:
     from pyomo.core.base.var import ScalarVar
     from pyomo.opt.solver.shellcmd import SystemCallSolver
-    from tests.reference.oracles.reference_environment import (
-        SOLVER_LOG_BYTES,
-        Executable,
-        ReferenceAdmissionError,
-        ReferenceEnvironment,
-        locked_pins,
-    )
-else:
-    # Named reference recipes run these unittest modules from tests/reference.
-    from oracles.reference_environment import (
-        SOLVER_LOG_BYTES,
-        Executable,
-        ReferenceAdmissionError,
-        ReferenceEnvironment,
-        locked_pins,
-    )
+
+from oracles.reference_environment import (
+    SOLVER_LOG_BYTES,
+    Executable,
+    ReferenceAdmissionError,
+    ReferenceEnvironment,
+    locked_pins,
+)
 
 
 class ReferenceEnvironmentTests(unittest.TestCase):

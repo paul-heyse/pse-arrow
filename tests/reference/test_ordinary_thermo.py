@@ -6,20 +6,26 @@ from __future__ import annotations
 
 import math
 import unittest
+from typing import TYPE_CHECKING, cast
 
-from idaes.models.properties.modular_properties.base.generic_property import (
-    GenericParameterBlock,
-)
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from oracles.ordinary_models import OrdinaryModel, Parameters
+
+from idaes.models.properties.modular_properties.base import generic_property
 from idaes.models.properties.modular_properties.pure import RPP5, Perrys
-from pyomo.environ import ConcreteModel, units, value
+from pyomo.environ import ConcreteModel
 
 from oracles.ordinary_thermo import SPECIES, Wagner25, configuration, load_inputs
+from oracles.pyomo_support import units, value
 
 
 class OrdinaryThermodynamicReferenceTests(unittest.TestCase):
     """The oracle uses the selected publication values and explicit datum."""
 
     def test_source_population_and_distinct_pressure_critical_coordinates(self) -> None:
+        """Source population and distinct pressure critical coordinates."""
         sources = load_inputs()
         self.assertEqual(set(sources), set(SPECIES))
         self.assertEqual(
@@ -34,8 +40,11 @@ class OrdinaryThermodynamicReferenceTests(unittest.TestCase):
     def test_actual_idaes_methods_preserve_gas_five_terms_and_liquid_datum(
         self,
     ) -> None:
-        model = ConcreteModel()
-        model.properties = GenericParameterBlock(**configuration("ideal"))
+        """Actual idaes methods preserve gas five terms and liquid datum."""
+        model = cast("OrdinaryModel", ConcreteModel())
+        model.properties = cast(
+            "Callable[..., Parameters]", vars(generic_property)["GenericParameterBlock"]
+        )(**configuration("ideal"))
         self.assertEqual(value(model.properties.pressure_ref), 100000.0)
         self.assertEqual(value(model.properties.temperature_ref), 298.15)
         model.states = model.properties.build_state_block([0], defined_state=True)
@@ -122,9 +131,13 @@ class OrdinaryThermodynamicReferenceTests(unittest.TestCase):
                 self.assertAlmostEqual(derivative / finite_difference, 1.0, places=8)
 
     def test_single_phase_and_pr_are_actual_distinct_parameter_blocks(self) -> None:
+        """Single phase and pr are actual distinct parameter blocks."""
         for kind in ("liquid", "pr"):
-            model = ConcreteModel()
-            model.properties = GenericParameterBlock(**configuration(kind))
+            model = cast("OrdinaryModel", ConcreteModel())
+            model.properties = cast(
+                "Callable[..., Parameters]",
+                vars(generic_property)["GenericParameterBlock"],
+            )(**configuration(kind))
             model.states = model.properties.build_state_block([0], defined_state=True)
             self.assertEqual(
                 set(model.properties.phase_list),
@@ -135,11 +148,14 @@ class OrdinaryThermodynamicReferenceTests(unittest.TestCase):
                 self.assertAlmostEqual(value(state.eps_1_Vap_Liq), 0.01)
                 self.assertAlmostEqual(value(state.eps_2_Vap_Liq), 0.0005)
 
-    def test_actual_liquid_phase_keeps_selected_caloric_enthalpy_without_pressure_increment(
+    def test_liquid_caloric_enthalpy_is_pressure_independent(
         self,
     ) -> None:
-        model = ConcreteModel()
-        model.properties = GenericParameterBlock(**configuration("liquid"))
+        """Keep the selected liquid caloric enthalpy independent of pressure."""
+        model = cast("OrdinaryModel", ConcreteModel())
+        model.properties = cast(
+            "Callable[..., Parameters]", vars(generic_property)["GenericParameterBlock"]
+        )(**configuration("liquid"))
         model.states = model.properties.build_state_block([0], defined_state=True)
         state = model.states[0]
         state.temperature.set_value(368.0)

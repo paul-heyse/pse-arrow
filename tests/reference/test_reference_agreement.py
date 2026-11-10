@@ -1,17 +1,12 @@
 # SPDX-License-Identifier: MIT OR Apache-2.0
 # Copyright (c) 2026 Paul Heyse
 """Controls for separating independent scientific agreement from native policy."""
-# ruff: noqa: PT027 -- named reference recipes use standard-library unittest
 
 from __future__ import annotations
 
 import unittest
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from tests.reference.oracles import sensitivity
-else:
-    from oracles import sensitivity
+from oracles import sensitivity
 
 
 class ReferenceAgreementTests(unittest.TestCase):

@@ -12,7 +12,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from google.protobuf import message_factory
+from google.protobuf.message import Message
+
+from proto_exchange import (
+    message_class,
+    message_field,
+    repeated_field,
+    scalar_field,
+    set_scalar,
+)
 
 from .ordinary_exchange import _message, float_bits
 from .reference_environment import ReferenceEnvironment
@@ -168,7 +176,7 @@ def indexed(sets: list[RowSet]) -> Sets:
 
 
 def _case(original: ScalarCase) -> LinearCase:
-    variables = list("abcde")
+    variables: list[str] = list("abcde")
     rows = ("first", "second", "third", "fourth", "fifth")
     point = [f"point:{name}" for name in variables]
     inputs = list(point)
@@ -178,7 +186,7 @@ def _case(original: ScalarCase) -> LinearCase:
     values = original.inputs(inputs)
     original.outputs([f"row:{row}" for row in rows])
     case = LinearCase(
-        id=original.contract.case_name,
+        id=scalar_field(original.contract, "case_name", str),
         variables=variables,
         point=[values[key] for key in point],
         rows=[
@@ -215,24 +223,29 @@ def main() -> None:
         "reference execution imported the candidate product",
     )
     pool = original.envelope.DESCRIPTOR.file.pool
-    result_type = message_factory.GetMessageClass(
+    result_type = message_class(
         pool.FindMessageTypeByName("pse.reference.v1.ReferenceDegeneracyResult")
     )
     result = result_type(version=1)
-    result.meaning.CopyFrom(_message(original.contract, "meaning"))
-    row_ids = {item.key: item.output for item in original.contract.observables}
+    message_field(result, "meaning").CopyFrom(_message(original.contract, "meaning"))
+    row_ids = {
+        scalar_field(item, "key", str): scalar_field(item, "output", bytes)
+        for item in repeated_field(original.contract, "observables", Message)
+    }
     for support, expected in EXPECTED.items():
         # Dict insertion order is the independently declared original row order.
-        members = result.supports.add()
-        members.rows.extend(row_ids[f"row:{row}"] for row in expected)
+        members = repeated_field(result, "supports", Message).add()
+        repeated_field(members, "rows", bytes).extend(
+            row_ids[f"row:{row}"] for row in expected
+        )
         if support in reference:
-            reported = members.certificate.reported
-            reported.multipliers.extend(
+            reported = message_field(members, "certificate", "reported")
+            repeated_field(reported, "multipliers", int).extend(
                 float_bits(reference[support][row]) for row in expected
             )
-            reported.irreducible_at_tolerance = True
+            set_scalar(reported, "irreducible_at_tolerance", True)
         else:
-            members.certificate.unreported.SetInParent()
+            message_field(members, "certificate", "unreported").SetInParent()
     original.publish_result(Path(sys.argv[3]), result, 64 << 10)
     sys.stderr.write(
         "degeneracy_reference_environment "

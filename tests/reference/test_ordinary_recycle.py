@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 import unittest
 
-from pyomo.environ import Constraint, Var, value
+from pyomo.environ import Constraint, Var
 from pyomo.opt import TerminationCondition
 
 from oracles.ordinary_recycle import (
@@ -17,6 +17,7 @@ from oracles.ordinary_recycle import (
     overheated_observations,
     solve_recycle,
 )
+from oracles.pyomo_support import value
 
 
 class OrdinaryRecycleReferenceTests(unittest.TestCase):
@@ -25,6 +26,7 @@ class OrdinaryRecycleReferenceTests(unittest.TestCase):
     def test_actual_tear_then_original_preserve_components_energy_and_bounds(
         self,
     ) -> None:
+        """Actual tear then original preserve components energy and bounds."""
         solution = solve_recycle()
         output = observations(solution)
         self.assertEqual(len(output), 14)
@@ -92,6 +94,7 @@ class OrdinaryRecycleReferenceTests(unittest.TestCase):
         print("ORDINARY_RECYCLE_REFERENCE=" + json.dumps(output, sort_keys=True))
 
     def test_actual_overheated_stage_fails_without_changing_the_original(self) -> None:
+        """Actual overheated stage fails without changing the original."""
         failure = overheated_failure()
         self.assertEqual(
             failure.result.solver.termination_condition, TerminationCondition.infeasible

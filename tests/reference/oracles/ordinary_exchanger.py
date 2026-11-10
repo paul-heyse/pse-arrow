@@ -9,40 +9,53 @@ native/reference output mapping and complete comparison are separate consumers.
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import idaes.logger as idaeslog
 from idaes.core import FlowsheetBlock, UnitModelCostingBlock
 from idaes.core.util.model_statistics import degrees_of_freedom
+from idaes.models.costing import SSLW
 from idaes.models.costing.SSLW import (
     HXMaterial,
     HXTubeLength,
     HXType,
-    SSLWCosting,
     SSLWCostingData,
 )
-from idaes.models.properties.modular_properties.base.generic_property import (
-    GenericParameterBlock,
-)
+from idaes.models.properties.modular_properties.base import generic_property
+from idaes.models.unit_models import heat_exchanger
 from idaes.models.unit_models.heat_exchanger import (
-    HeatExchanger,
     HeatExchangerFlowPattern,
     delta_temperature_amtd_callback,
     delta_temperature_lmtd_callback,
 )
-from pyomo.core.expr.numeric_expr import NumericValue
-from pyomo.environ import (
-    ConcreteModel,
-    assert_optimal_termination,
-    units,
-    value,
-)
+from pyomo.environ import ConcreteModel, assert_optimal_termination
 
 from .ordinary_thermo import SPECIES, SpeciesInput, configuration
+from .pyomo_support import units, value
 from .reference_environment import ReferenceEnvironment
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Callable, Mapping
+
+    from pyomo.core.expr.numeric_expr import NumericValue
+
+    from .ordinary_models import (
+        Costing,
+        Exchanger,
+        Flowsheet,
+        OrdinaryModel,
+        Parameters,
+    )
+
+
+_parameter_block = cast(
+    "Callable[..., Parameters]", vars(generic_property)["GenericParameterBlock"]
+)
+
+_heat_exchanger = cast(
+    "Callable[..., Exchanger]", vars(heat_exchanger)["HeatExchanger"]
+)
+_costing = cast("Callable[..., Costing]", vars(SSLW)["SSLWCosting"])
 
 
 def build_exchanger(
@@ -50,14 +63,14 @@ def build_exchanger(
     arithmetic: bool = False,
     rating: bool = False,
     inputs: Mapping[str, SpeciesInput] | None = None,
-) -> ConcreteModel:
+) -> OrdinaryModel:
     """Build the original fixed specification, without initialization or a solve."""
     if arithmetic and rating:
         raise ValueError("the selected rating case uses the logarithmic closure")
-    model = ConcreteModel()
-    model.fs = FlowsheetBlock(dynamic=False)
-    model.fs.properties = GenericParameterBlock(**configuration("pr", inputs=inputs))
-    model.fs.exchanger = HeatExchanger(
+    model = cast("OrdinaryModel", ConcreteModel())
+    model.fs = cast("Flowsheet", FlowsheetBlock(dynamic=False))
+    model.fs.properties = _parameter_block(**configuration("pr", inputs=inputs))
+    model.fs.exchanger = _heat_exchanger(
         hot_side={
             "property_package": model.fs.properties,
             "has_phase_equilibrium": True,
@@ -105,7 +118,7 @@ def build_exchanger(
     return model
 
 
-def fixed_inputs(model: ConcreteModel, *, rating: bool) -> dict[str, NumericValue]:
+def fixed_inputs(model: OrdinaryModel, *, rating: bool) -> dict[str, NumericValue]:
     """Select authored fixed-header roles from an untouched reference model."""
     exchanger = model.fs.exchanger
     result: dict[str, NumericValue] = {}
@@ -143,7 +156,7 @@ def solve_exchanger(
     rating: bool = False,
     environment: ReferenceEnvironment | None = None,
     inputs: Mapping[str, SpeciesInput] | None = None,
-) -> ConcreteModel:
+) -> OrdinaryModel:
     """Solve the original design, then optionally its area-fixed rating question."""
     if arithmetic and rating:
         raise ValueError("the selected rating case uses the logarithmic closure")
@@ -182,15 +195,18 @@ def solve_exchanger(
         if degrees_of_freedom(model) != 0:
             raise RuntimeError("the independent rating specification is not square")
         solve("exchanger.rating")
-    model.fs.costing = SSLWCosting()
-    exchanger.costing = UnitModelCostingBlock(
-        flowsheet_costing_block=model.fs.costing,
-        costing_method=SSLWCostingData.cost_heat_exchanger,
-        costing_method_arguments={
-            "hx_type": HXType.Utube,
-            "material_type": HXMaterial.StainlessSteelStainlessSteel,
-            "tube_length": HXTubeLength.TwelveFoot,
-        },
+    model.fs.costing = _costing()
+    exchanger.costing = cast(
+        "Costing",
+        UnitModelCostingBlock(
+            flowsheet_costing_block=model.fs.costing,
+            costing_method=SSLWCostingData.cost_heat_exchanger,
+            costing_method_arguments={
+                "hx_type": HXType.Utube,
+                "material_type": HXMaterial.StainlessSteelStainlessSteel,
+                "tube_length": HXTubeLength.TwelveFoot,
+            },
+        ),
     )
     exchanger.costing.number_of_units.fix(1)
     exchanger.costing.hx_oversize.set_value(1.1)
@@ -200,7 +216,7 @@ def solve_exchanger(
     return model
 
 
-def observations(model: ConcreteModel) -> dict[str, float]:
+def observations(model: OrdinaryModel) -> dict[str, float]:
     """Read the entire agreed exchanger scalar population from the solved model."""
     exchanger = model.fs.exchanger
     result: dict[str, float] = {}

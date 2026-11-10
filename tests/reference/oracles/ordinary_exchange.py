@@ -20,15 +20,21 @@ import tomllib
 from fractions import Fraction
 from importlib.metadata import version
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
-from google.protobuf import message_factory
 from google.protobuf.message import Message
-from pyomo.core.expr.numeric_expr import NumericValue
-from pyomo.environ import units, value
 from pyomo.opt import TerminationCondition
 
-from proto_exchange import MAXIMUM_BYTES, encode_reference, reference_type
+from proto_exchange import (
+    MAXIMUM_BYTES,
+    encode_reference,
+    message_class,
+    message_field,
+    reference_type,
+    repeated_field,
+    scalar_field,
+    set_scalar,
+)
 
 from . import ordinary_exchanger, ordinary_recycle
 from .ordinary_thermo import (
@@ -38,10 +44,13 @@ from .ordinary_thermo import (
     SpeciesInput,
     parse_inputs,
 )
+from .pyomo_support import units, value
 from .reference_environment import ReferenceEnvironment
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
+
+    from pyomo.core.expr.numeric_expr import NumericValue
 
 CASE_NAMES = (
     "ordinary_delivery.exchanger_design",
@@ -109,7 +118,7 @@ def bits_float(bits: int) -> float:
 def _message(parent: Message, field: str) -> Message:
     if not parent.HasField(field):
         raise ValueError(f"required original physical field absent: {field}")
-    return cast("Message", getattr(parent, field))
+    return message_field(parent, field)
 
 
 _IDENTITY_OWNERS = {
@@ -138,7 +147,7 @@ def _identity(owner: Message) -> bytes:
         raise ValueError(f"unsupported original physical identity owner: {name}")
     if not identity_owner.HasField("id"):
         raise ValueError("original physical identity is absent")
-    identity = bytes(identity_owner.id)
+    identity = scalar_field(identity_owner, "id", bytes)
     if len(identity) != 16 or identity == bytes(16):
         raise ValueError("original physical identity is malformed or nil")
     return identity
@@ -149,7 +158,7 @@ def _optional_identity(parent: Message, field: str) -> bytes | None:
 
 
 def _word(parent: Message, field: str) -> str:
-    return str(_message(parent, field).value)
+    return scalar_field(_message(parent, field), "value", str)
 
 
 def _number(parent: Message, field: str) -> float:
@@ -157,12 +166,15 @@ def _number(parent: Message, field: str) -> float:
 
 
 def _dimension(owner: Message) -> tuple[Fraction, ...]:
-    exponents = _message(owner, "exponents").values
+    exponents = repeated_field(_message(owner, "exponents"), "values", Message)
     if len(exponents) != 8:
         raise ValueError("physical dimension requires all eight declared coordinates")
     result: list[Fraction] = []
     for exponent in exponents:
-        numerator, denominator = int(exponent.num), int(exponent.den)
+        numerator, denominator = (
+            scalar_field(exponent, "num", int),
+            scalar_field(exponent, "den", int),
+        )
         if not -32768 <= numerator <= 32767 or not 1 <= denominator <= 32767:
             raise ValueError("physical rational dimension is outside its exact width")
         reduced = Fraction(numerator, denominator)
@@ -259,10 +271,10 @@ def _read_artifact(relative: str, remaining: int) -> bytes:
 def _validate_artifacts(
     contract: Message, *, retain_properties: bool = False
 ) -> dict[str, bytes]:
-    entries = contract.artifacts
+    entries = repeated_field(contract, "artifacts", Message)
     if len(entries) > _SOURCE_FILE_LIMIT:
         raise ValueError("ordinary source closure exceeds its file limit")
-    paths = {str(entry.path) for entry in entries}
+    paths = {scalar_field(entry, "path", str) for entry in entries}
     manifest = _read_artifact(_MANIFEST, _SOURCE_LIMIT)
     if len(paths) != len(entries) or paths != set(artifact_paths(manifest)):
         raise ValueError(
@@ -271,10 +283,10 @@ def _validate_artifacts(
     retained = {}
     remaining = _SOURCE_LIMIT - len(manifest)
     for entry in entries:
-        expected = bytes(entry.sha256)
+        expected = scalar_field(entry, "sha256", bytes)
         if len(expected) != 32:
             raise ValueError("artifact SHA256 does not contain 32 original bytes")
-        path = str(entry.path)
+        path = scalar_field(entry, "path", str)
         content = manifest if path == _MANIFEST else _read_artifact(path, remaining)
         if hashlib.sha256(content).digest() != expected:
             raise ValueError(f"scientific input artifact SHA256 differs: {path}")
@@ -362,9 +374,13 @@ def _validate_physical(
     kind = _message(physical, "quantity_kind")
     canonical = _message(physical, "canonical_unit")
     representation = _message(physical, "representation_unit")
-    if not quantity.HasField("name") or quantity.name != type_name:
+    if (
+        not quantity.HasField("name")
+        or scalar_field(quantity, "name", str) != type_name
+    ):
         raise ValueError(
-            f"original quantity type {quantity.name!r} does not match independent role {type_name!r}"
+            f"original quantity type {scalar_field(quantity, 'name', str)!r} "
+            f"does not match independent role {type_name!r}"
         )
     _identity(quantity)
     if _identity(_message(key, "kind")) != _identity(kind):
@@ -378,7 +394,9 @@ def _validate_physical(
         else original_unit_symbol
     )
     if any(
-        unit.symbol != symbol or unit.is_affine for unit in (canonical, representation)
+        scalar_field(unit, "symbol", str) != symbol
+        or scalar_field(unit, "is_affine", bool)
+        for unit in (canonical, representation)
     ):
         raise ValueError(
             "declared original unit spelling/affinity differs from the reference"
@@ -434,7 +452,7 @@ def _validate_physical(
         else "additive"
     ):
         raise ValueError("physical additive/origin-sensitive arithmetic differs")
-    if bool(kind.extensive) != (
+    if scalar_field(kind, "extensive", bool) != (
         type_name
         in {
             "Flow",
@@ -446,7 +464,9 @@ def _validate_physical(
         }
     ) or kind.HasField("category"):
         raise ValueError("physical extensive/discrete convention differs")
-    if len(key.shape) or len(physical.shape):
+    if len(repeated_field(key, "shape", Message)) or len(
+        repeated_field(physical, "shape", Message)
+    ):
         raise ValueError("ordinary scalar reports cannot acquire an array shape")
     molar = type_name in {"Flow", "ComponentFlow", "MoleFraction", "MolarEnthalpy"}
     if key.HasField("basis") != molar or physical.HasField("basis") != molar:
@@ -487,9 +507,9 @@ def _validate_physical(
         reference = _message(physical, "reference_state")
         if (
             _optional_identity(key, "reference_state") != _identity(reference)
-            or reference.name != "stock"
+            or scalar_field(reference, "name", str) != "stock"
             or _word(reference, "kind") != "ideal_gas_at_conditions"
-            or reference.include_enthalpy_of_formation
+            or scalar_field(reference, "include_enthalpy_of_formation", bool)
             or reference.HasField("subject")
         ):
             raise ValueError("native stock reference meaning differs")
@@ -533,7 +553,7 @@ def _validate_context(physicals: list[Message]) -> None:
     types: dict[str, Message] = {}
     for physical in physicals:
         quantity = _message(physical, "quantity")
-        types[str(quantity.name)] = physical
+        types[scalar_field(quantity, "name", str)] = physical
         for field in (
             "quantity",
             "quantity_kind",
@@ -641,7 +661,8 @@ def _reference_outputs(
         or any(witness[f"source {species}"] != 0.005 for species in SPECIES)
     ):
         raise RuntimeError(
-            "actual overheated failure did not retain the original physical contradiction"
+            "actual overheated failure did not retain the original "
+            "physical contradiction"
         )
     # Separate retained failure evidence; this diagnostic never supplies the
     # binary reference response or substitutes for the proof checks above.
@@ -663,11 +684,11 @@ def read_case_contract(
         raise ValueError("reference contract exceeds the selected binary byte bound")
     envelope_type = reference_type(descriptors)
     pool = envelope_type.DESCRIPTOR.file.pool
-    contract_type = message_factory.GetMessageClass(
+    contract_type = message_class(
         pool.FindMessageTypeByName("pse.reference.v1.ReferenceCaseContract")
     )
     contract = contract_type.FromString(contract_payload)
-    if _message(contract, "version").value != 1:
+    if scalar_field(_message(contract, "version"), "value", int) != 1:
         raise ValueError("unsupported reference case contract interpretation")
     meaning = _message(contract, "meaning")
     for field, extent in (
@@ -685,10 +706,10 @@ def read_case_contract(
 
 def ordered_observables(contract: Message, keys: Sequence[str]) -> list[Message]:
     """Check the original ordered output roles and unique non-nil identities."""
-    observables = list(contract.observables)
-    if tuple(item.key for item in observables) != tuple(keys):
+    observables = list(repeated_field(contract, "observables", Message))
+    if tuple(scalar_field(item, "key", str) for item in observables) != tuple(keys):
         raise ValueError("complete ordered scientific output roles differ")
-    identities = [bytes(item.output) for item in observables]
+    identities = [scalar_field(item, "output", bytes) for item in observables]
     if len(set(identities)) != len(keys) or any(
         len(identity) != 16 or identity == bytes(16) for identity in identities
     ):
@@ -702,25 +723,27 @@ def complete_envelope(
     envelope: Message, observables: Sequence[Message], values: Mapping[str, float]
 ) -> None:
     """Attach independently solved values to the admitted original output shape."""
-    if tuple(values) != tuple(item.key for item in observables) or not all(
-        math.isfinite(number) for number in values.values()
-    ):
+    if tuple(values) != tuple(
+        scalar_field(item, "key", str) for item in observables
+    ) or not all(math.isfinite(number) for number in values.values()):
         raise RuntimeError(
             "independent reference output population is incomplete or nonfinite"
         )
     for contract_output in observables:
-        physical = contract_output.physical
-        key = physical.quantity.key
-        output = envelope.outcome.completed.outputs.add(
-            id=contract_output.output,
-            quantity=_identity(physical.quantity),
-            unit=_identity(physical.representation_unit),
-            value=float_bits(values[contract_output.key]),
+        physical = message_field(contract_output, "physical")
+        key = message_field(physical, "quantity", "key")
+        output = repeated_field(
+            message_field(envelope, "outcome", "completed"), "outputs", Message
+        ).add(
+            id=scalar_field(contract_output, "output", bytes),
+            quantity=_identity(message_field(physical, "quantity")),
+            unit=_identity(message_field(physical, "representation_unit")),
+            value=float_bits(values[scalar_field(contract_output, "key", str)]),
         )
         for field, source in (("basis", "basis"), ("datum", "reference_state")):
             identity = _optional_identity(key, source)
             if identity is not None:
-                setattr(output, field, identity)
+                set_scalar(output, field, identity)
 
 
 def produce_reference(
@@ -733,53 +756,69 @@ def produce_reference(
     if version("protobuf") != "7.36.2":
         raise RuntimeError("ordinary binary reference requires protobuf7.36.2")
     envelope_type, contract, meaning = read_case_contract(descriptors, contract_payload)
-    if contract.case_name not in CASE_NAMES:
+    if scalar_field(contract, "case_name", str) not in CASE_NAMES:
         raise ValueError("unsupported ordinary case contract interpretation")
-    keys = EXCHANGER_KEYS if contract.case_name in CASE_NAMES[:3] else RECYCLE_KEYS
+    keys = (
+        EXCHANGER_KEYS
+        if scalar_field(contract, "case_name", str) in CASE_NAMES[:3]
+        else RECYCLE_KEYS
+    )
     observables = ordered_observables(contract, keys)
     inputs = parse_inputs(_validate_artifacts(contract, retain_properties=True))
-    expected = _fixed_inputs(contract.case_name, inputs)
-    original_inputs = list(contract.specification)
+    expected = _fixed_inputs(scalar_field(contract, "case_name", str), inputs)
+    original_inputs = list(repeated_field(contract, "specification", Message))
     if len(original_inputs) != len(expected) or {
-        item.key for item in original_inputs
+        scalar_field(item, "key", str) for item in original_inputs
     } != set(expected):
         raise ValueError(
             "original fixed input population differs; numerical starts are excluded"
         )
     for item in original_inputs:
-        coordinate = expected[item.key]
+        coordinate = expected[scalar_field(item, "key", str)]
         if (
             units.convert_value(
                 1.0,
                 from_units=units.get_units(coordinate),
-                to_units=_reference_unit(_type_for_key(item.key)),
+                to_units=_reference_unit(_type_for_key(scalar_field(item, "key", str))),
             )
             != 1.0
         ):
             message = "independent original fixed input uses a different unit"
             raise ValueError(message)
-        if int(item.value) != float_bits(float(value(coordinate))):
-            message = f"original fixed input value differs: {item.key}"
+        if scalar_field(item, "value", int) != float_bits(float(value(coordinate))):
+            message = (
+                f"original fixed input value differs: {scalar_field(item, 'key', str)}"
+            )
             raise ValueError(message)
-        _validate_physical(_message(item, "physical"), _type_for_key(item.key))
+        _validate_physical(
+            _message(item, "physical"), _type_for_key(scalar_field(item, "key", str))
+        )
     for item in observables:
-        _validate_physical(_message(item, "physical"), _type_for_key(item.key))
+        _validate_physical(
+            _message(item, "physical"), _type_for_key(scalar_field(item, "key", str))
+        )
     _validate_context(
         [_message(item, "physical") for item in (*original_inputs, *observables)]
     )
     environment = ReferenceEnvironment.from_process()
     values = _reference_outputs(
-        contract.case_name, inputs=inputs, environment=environment
+        scalar_field(contract, "case_name", str), inputs=inputs, environment=environment
     )
     _validate_artifacts(contract)
     if evidence is not None:
         evidence.update(environment.evidence)
     envelope = envelope_type(version=1)
-    envelope.meaning.CopyFrom(meaning)
-    envelope.required.extend(item.output for item in observables)
+    message_field(envelope, "meaning").CopyFrom(meaning)
+    repeated_field(envelope, "required", bytes).extend(
+        scalar_field(item, "output", bytes) for item in observables
+    )
     if values is None:
-        envelope.outcome.failed.code = "trial_rejected"
-        envelope.outcome.failed.stage = "overheated_tear"
+        set_scalar(
+            message_field(envelope, "outcome", "failed"), "code", "trial_rejected"
+        )
+        set_scalar(
+            message_field(envelope, "outcome", "failed"), "stage", "overheated_tear"
+        )
     else:
         complete_envelope(envelope, observables, values)
     return encode_reference(envelope)

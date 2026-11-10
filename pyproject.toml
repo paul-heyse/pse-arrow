@@ -36,6 +36,7 @@ parity = [
   "pyomo==6.10.1; python_full_version < '3.15'",
   "pint==0.26.1; python_full_version >= '3.12' and python_full_version < '3.15'",
   "pint==0.25.3; python_full_version < '3.12'",
+  "types-protobuf==7.35.1.20260906",
 ]
 # The frozen thermodynamic bank retains its independently qualified teqp release.
 thermo-reference = [
@@ -130,7 +131,13 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/reference/oracles/*.py" = ["INP001", "PLC0415"]
+# Independent reference programs report explicit refusal reasons and terminal evidence.
+"tests/reference/**/*.py" = ["INP001", "TRY003", "T20"]
+"tests/reference/oracles/*.py" = ["PLC0415"]
+# These isolated reference controls intentionally use stdlib unittest, not pytest.
+"tests/reference/test_*.py" = ["PT009", "PT027", "S101"]
+# Unit refusal controls deliberately exercise the admission module's private boundary.
+"tests/reference/test_ordinary_exchange.py" = ["SLF001"]
 "scripts/tests/**" = ["S101"]
 # Independent oracle drivers own explicit subprocesses, JSON and terminal reports.
 "scripts/**" = [
@@ -160,7 +167,16 @@ allow-star-arg-any = false
 [tool.ruff.lint.pep8-naming]
 # Literal fields of IDAES's NRTL state and teqp's coefficient API; protocols must
 # name the external members exactly, rather than rename their scientific meaning.
-extend-ignore-names = ["eq_Gij_coeff", "eq_A", "eq_B", "sigma_Angstrom"]
+extend-ignore-names = [
+  "eq_Gij_coeff",
+  "eq_A",
+  "eq_B",
+  "sigma_Angstrom",
+  "dT",
+  "deltaP",
+  "eps_1_Vap_Liq",
+  "eps_2_Vap_Liq",
+]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "parents"
@@ -172,6 +188,7 @@ ban-relative-imports = "parents"
 [tool.pyrefly]
 # Retained Python is independent reference code, checked in its actual environment.
 project-includes = ["scripts", "tests/reference"]
+search-path = [".", "tests/reference"]
 project-excludes = [
   "**/.venv*/**",
   "**/target/**",

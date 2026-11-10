@@ -19,9 +19,16 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, TextIO, cast
 from unittest.mock import patch
 
-from google.protobuf import message_factory
+from google.protobuf.message import Message
 
-from proto_exchange import encode_reference, reference_type
+from proto_exchange import (
+    encode_reference,
+    message_class,
+    message_field,
+    reference_type,
+    repeated_field,
+    scalar_field,
+)
 
 from .ordinary_exchange import (
     _bounded_read,
@@ -37,7 +44,6 @@ from .reference_environment import ReferenceEnvironment
 if TYPE_CHECKING:
     import pyomo.dae as dae
     import pyomo.environ as pyo
-    from google.protobuf.message import Message
     from idaes.models.control.controller import ControllerType
     from pyomo.core.base.var import IndexedVar, VarData
 
@@ -325,38 +331,49 @@ def _sample_key(role: str, time: float) -> str:
 
 def _artifacts(contract: Message) -> None:
     require(
-        tuple(item.path for item in contract.artifacts) == _ARTIFACTS,
+        tuple(
+            scalar_field(item, "path", str)
+            for item in repeated_field(contract, "artifacts", Message)
+        )
+        == _ARTIFACTS,
         "PID source artifact population differs",
     )
-    for item in contract.artifacts:
-        content = _read_artifact(item.path, 1 << 20)
+    for item in repeated_field(contract, "artifacts", Message):
+        content = _read_artifact(scalar_field(item, "path", str), 1 << 20)
         require(
-            bytes(item.sha256) == hashlib.sha256(content).digest(),
+            scalar_field(item, "sha256", bytes) == hashlib.sha256(content).digest(),
             "PID source artifact differs from the selected original",
         )
 
 
 def _case(contract: Message) -> LoopCase:
-    require(_message(contract, "version").value == 1, "unsupported PID case version")
-    fixed = list(contract.specification)
+    require(
+        scalar_field(_message(contract, "version"), "value", int) == 1,
+        "unsupported PID case version",
+    )
+    fixed = list(repeated_field(contract, "specification", Message))
     grid = [0.0, 1.0, 2.0, 5.0, 10.0, 20.0]
     roles = _FIXED | {_sample_key("time", time): "Time" for time in grid}
     require(
-        tuple(item.key for item in fixed) == tuple(roles),
+        tuple(scalar_field(item, "key", str) for item in fixed) == tuple(roles),
         "PID input population differs",
     )
     values = {}
     for item in fixed:
-        _validate_physical(_message(item, "physical"), roles[item.key])
+        _validate_physical(
+            _message(item, "physical"), roles[scalar_field(item, "key", str)]
+        )
         # The enclosing fixed input is explicit; fixed64 zero uses proto3's default.
-        values[item.key] = bits_float(int(item.value))
+        values[scalar_field(item, "key", str)] = bits_float(
+            scalar_field(item, "value", int)
+        )
     for time in grid:
         require(
             float_bits(values[_sample_key("time", time)]) == float_bits(time),
             "original sample times changed",
         )
     case = LoopCase(
-        id=contract.case_name,
+        id=scalar_field(contract, "case_name", str),
         samples_seconds=grid,
         tau_seconds=values["tau_seconds"],
         kp=values["kp"],
@@ -376,12 +393,12 @@ def _case(contract: Message) -> LoopCase:
 
 
 def main() -> None:
-    """Receive the exact case, perform independent solvers, and publish original bytes."""
+    """Receive the case, run independent solvers, and publish original bytes."""
     require(len(sys.argv) == 4, "expected descriptor, contract and response paths")
     require(sys.flags.isolated == 1, "oracle requires the interpreter's -I option")
     envelope_type = reference_type(_bounded_read(Path(sys.argv[1])))
     pool = envelope_type.DESCRIPTOR.file.pool
-    contract_type = message_factory.GetMessageClass(
+    contract_type = message_class(
         pool.FindMessageTypeByName("pse.reference.v1.ReferenceCaseContract")
     )
     contract = contract_type.FromString(_bounded_read(Path(sys.argv[2])))
@@ -405,12 +422,12 @@ def main() -> None:
         for role in ("exact_process", "petsc_process")
         for time in case.samples_seconds
     } | {"steady_process": "Scalar", "steady_integral_seconds": "Time"}
-    observables = list(contract.observables)
+    observables = list(repeated_field(contract, "observables", Message))
     require(
-        tuple(item.key for item in observables) == tuple(roles),
+        tuple(scalar_field(item, "key", str) for item in observables) == tuple(roles),
         "PID output population differs",
     )
-    output_ids = [bytes(item.output) for item in observables]
+    output_ids = [scalar_field(item, "output", bytes) for item in observables]
     require(
         len(set(output_ids)) == len(output_ids)
         and all(
@@ -419,7 +436,9 @@ def main() -> None:
         "PID output identities are invalid or repeated",
     )
     for item in observables:
-        _validate_physical(_message(item, "physical"), roles[item.key])
+        _validate_physical(
+            _message(item, "physical"), roles[scalar_field(item, "key", str)]
+        )
     with contextlib.redirect_stdout(sys.stderr):
         environment = ReferenceEnvironment.from_process(
             ("idaes-pse", "pyomo", "protobuf", "numpy", "pint", "scipy"),
@@ -440,19 +459,21 @@ def main() -> None:
     )
     _artifacts(contract)
     envelope = envelope_type(version=1)
-    envelope.meaning.CopyFrom(meaning)
-    envelope.required.extend(output_ids)
+    message_field(envelope, "meaning").CopyFrom(meaning)
+    repeated_field(envelope, "required", bytes).extend(output_ids)
     for coordinate, value in zip(
         observables,
         (*values, *integrated, steady_process, steady_integral),
         strict=True,
     ):
         require(math.isfinite(value), "PID reference returned nonfinite evidence")
-        physical = coordinate.physical
-        envelope.outcome.completed.outputs.add(
-            id=coordinate.output,
-            quantity=_identity(physical.quantity),
-            unit=_identity(physical.representation_unit),
+        physical = message_field(coordinate, "physical")
+        repeated_field(
+            message_field(envelope, "outcome", "completed"), "outputs", Message
+        ).add(
+            id=scalar_field(coordinate, "output", bytes),
+            quantity=_identity(message_field(physical, "quantity")),
+            unit=_identity(message_field(physical, "representation_unit")),
             value=float_bits(value),
         )
     with Path(sys.argv[3]).open("xb") as stream:

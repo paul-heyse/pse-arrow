@@ -9,8 +9,18 @@ message class for binary interchange. Native scientific admission remains separa
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Protocol, TypeVar, cast
+
 from google.protobuf import descriptor_pb2, descriptor_pool, message_factory
+from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.message import Message
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable, Iterator
+
+    from google.protobuf.descriptor import Descriptor
+
+T = TypeVar("T")
 
 MAXIMUM_BYTES = 16 << 20
 
@@ -59,3 +69,107 @@ def encode_reference(message: Message) -> bytes:
     if message.ByteSize() > MAXIMUM_BYTES:
         raise ValueError("reference envelope exceeds the selected byte bound")
     return message.SerializeToString(deterministic=True)
+
+
+def message_class(descriptor: object) -> type[Message]:
+    """Use the protobuf factory for Python or accelerated native descriptors.
+
+    The stubs name only the Python Descriptor, while the selected upb runtime
+    exposes an equivalent descriptor through the same public factory contract.
+    """
+    return message_factory.GetMessageClass(cast("Descriptor", descriptor))
+
+
+def message_field(parent: Message, name: str, *path: str) -> Message:
+    """Access original singular message fields without imposing presence."""
+    for part in (name, *path):
+        field = parent.DESCRIPTOR.fields_by_name[part]
+        if field.is_repeated or field.message_type is None:
+            raise TypeError("selected field is not a singular protobuf message")
+        parent = cast("Message", getattr(parent, part))
+    return parent
+
+
+def set_scalar(parent: Message, name: str, value: object) -> None:
+    """Set a scalar through the original protobuf descriptor's validation."""
+    field = parent.DESCRIPTOR.fields_by_name[name]
+    if field.is_repeated or field.message_type is not None:
+        raise TypeError("selected field is not a singular protobuf scalar")
+    setattr(parent, name, value)
+
+
+def scalar_field(parent: Message, name: str, kind: type[T]) -> T:
+    """Read an original scalar, checking its actual runtime representation."""
+    field = parent.DESCRIPTOR.fields_by_name[name]
+    if field.is_repeated or field.message_type is not None:
+        raise TypeError("selected field is not a singular protobuf scalar")
+    result: object = getattr(parent, name)
+    if not isinstance(result, kind) or (kind is int and isinstance(result, bool)):
+        raise TypeError("protobuf scalar has a different runtime representation")
+    return result
+
+
+class RepeatedField(Protocol[T]):
+    """The consumed public interface of original repeated protobuf containers."""
+
+    def __iter__(self) -> Iterator[T]:
+        """Iterate the original ordered field population."""
+        ...
+
+    def __len__(self) -> int:
+        """Count the original field population."""
+        ...
+
+    def __getitem__(self, index: int) -> T:
+        """Select one original field element."""
+        ...
+
+    def __delitem__(self, index: int | slice) -> None:
+        """Delete selected original field elements in mutation controls."""
+        ...
+
+    def add(self, **fields: object) -> T:
+        """Construct a new message in this container's descriptor world."""
+        ...
+
+    def extend(self, values: Iterable[T]) -> None:
+        """Append values through the original protobuf container."""
+        ...
+
+    def reverse(self) -> None:
+        """Reverse the original population in a correspondence mutation control."""
+        ...
+
+    def append(self, value: T) -> None:
+        """Append one value through the original protobuf container."""
+        ...
+
+
+def repeated_field(parent: Message, name: str, kind: type[T]) -> RepeatedField[T]:
+    """Read a repeated field, checking its actual element representation."""
+    field = parent.DESCRIPTOR.fields_by_name[name]
+    if not field.is_repeated:
+        raise TypeError("selected field is not a repeated protobuf field")
+    # The descriptor establishes element kind even for an empty population.
+    if field.message_type is not None:
+        valid_kind = issubclass(kind, Message)
+    else:
+        scalar_kind = {
+            FieldDescriptor.TYPE_BOOL: bool,
+            FieldDescriptor.TYPE_STRING: str,
+            FieldDescriptor.TYPE_BYTES: bytes,
+            FieldDescriptor.TYPE_FLOAT: float,
+            FieldDescriptor.TYPE_DOUBLE: float,
+        }.get(field.type, int)
+        valid_kind = kind is scalar_kind
+    if not valid_kind:
+        raise TypeError("protobuf repeated field has a different declared element kind")
+    result = cast("RepeatedField[object]", getattr(parent, name))
+    if not all(
+        isinstance(item, kind) and not (kind is int and isinstance(item, bool))
+        for item in result
+    ):
+        raise TypeError(
+            "protobuf repeated field has a different element representation"
+        )
+    return cast("RepeatedField[T]", result)

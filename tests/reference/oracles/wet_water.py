@@ -9,9 +9,11 @@ import json
 import math
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol, cast
 
-from proto_exchange import encode_reference
+from google.protobuf.message import Message
+
+from proto_exchange import encode_reference, message_field, repeated_field, scalar_field
 
 from .ordinary_exchange import (
     _bounded_read,
@@ -28,7 +30,60 @@ from .ordinary_exchange import (
 from .reference_environment import ReferenceEnvironment
 
 if TYPE_CHECKING:
-    from google.protobuf.message import Message
+    from collections.abc import Callable
+
+    from pyomo.core.base.var import IndexedVar, VarData
+    from pyomo.core.expr.numeric_expr import NumericValue
+    from pyomo.dae import ContinuousSet
+
+
+class SteamState(Protocol):
+    """Selected variables and IAPWS95 expressions of one turbine state."""
+
+    flow_mol: VarData
+    pressure: VarData
+    enth_mol: VarData
+    temperature: NumericValue
+    entr_mol: NumericValue
+    vapor_frac: NumericValue
+
+
+class SteamStates(Protocol):
+    """Actual IAPWS95 state blocks indexed by time."""
+
+    def __getitem__(self, time: float) -> SteamState:
+        """Read an original turbine state at one flowsheet time."""
+        ...
+
+
+class SteamVolume(Protocol):
+    """The inlet and outlet IAPWS95 state owners."""
+
+    properties_in: SteamStates
+    properties_out: SteamStates
+
+
+class SteamTurbine(Protocol):
+    """The selected dynamically constructed IDAES turbine component surface."""
+
+    control_volume: SteamVolume
+    properties_isentropic: SteamStates
+    deltaP: IndexedVar
+    efficiency_isentropic: IndexedVar
+    work_mechanical: IndexedVar
+
+    def initialize(self, *, solver: str, optarg: dict[str, float]) -> None:
+        """Initialize the actual turbine under the witnessed solver alias."""
+        ...
+
+
+class SteamFlowsheet(Protocol):
+    """Actual flowsheet owner for the water property package and turbine."""
+
+    time: ContinuousSet
+    water: object
+    expander: SteamTurbine
+
 
 CASE = "steam_fixtures.wet_water_turbine"
 CASE_ID = bytes.fromhex("64d0300000000000000000000000021d")
@@ -61,28 +116,43 @@ _SOLVE = "steam.wet_turbine.solve"
 
 
 def _verify_artifacts(contract: Message) -> None:
-    if tuple(item.path for item in contract.artifacts) != ARTIFACTS:
+    if (
+        tuple(
+            scalar_field(item, "path", str)
+            for item in repeated_field(contract, "artifacts", Message)
+        )
+        != ARTIFACTS
+    ):
         raise ValueError("wet Water source artifact population differs")
-    for item in contract.artifacts:
-        if hashlib.sha256(_read_artifact(item.path, 1 << 20)).digest() != item.sha256:
-            raise ValueError(f"wet Water original source differs: {item.path}")
+    for item in repeated_field(contract, "artifacts", Message):
+        if hashlib.sha256(
+            _read_artifact(scalar_field(item, "path", str), 1 << 20)
+        ).digest() != scalar_field(item, "sha256", bytes):
+            raise ValueError(
+                f"wet Water original source differs: {scalar_field(item, 'path', str)}"
+            )
 
 
 def _admit_case(
     contract: Message, meaning: Message
 ) -> tuple[dict[str, float], list[Message]]:
-    if contract.case_name != CASE or bytes(meaning.case) != CASE_ID:
+    if (
+        scalar_field(contract, "case_name", str) != CASE
+        or scalar_field(meaning, "case", bytes) != CASE_ID
+    ):
         raise ValueError("wet Water original authored case identity differs")
     _verify_artifacts(contract)
-    inputs = list(contract.specification)
-    if tuple(item.key for item in inputs) != tuple(key for key, _, _ in INPUTS):
+    inputs = list(repeated_field(contract, "specification", Message))
+    if tuple(scalar_field(item, "key", str) for item in inputs) != tuple(
+        key for key, _, _ in INPUTS
+    ):
         raise ValueError("wet Water original fixed input population differs")
     fixed: dict[str, float] = {}
     for item, (key, quantity, expected) in zip(inputs, INPUTS, strict=True):
         _validate_physical(_message(item, "physical"), quantity)
-        if item.value != float_bits(expected):
+        if scalar_field(item, "value", int) != float_bits(expected):
             raise ValueError(f"wet Water original fixed value differs: {key}")
-        fixed[key] = bits_float(item.value)
+        fixed[key] = bits_float(scalar_field(item, "value", int))
     outputs = ordered_observables(contract, tuple(key for key, _ in OUTPUTS))
     for item, (_, quantity) in zip(outputs, OUTPUTS, strict=True):
         _validate_physical(_message(item, "physical"), quantity)
@@ -134,13 +204,20 @@ def solve(
     from idaes.core.util.model_statistics import degrees_of_freedom
     from idaes.models.properties import iapws95
     from idaes.models.unit_models import Turbine
-    from pyomo.environ import ConcreteModel, assert_optimal_termination, units, value
+    from pyomo.environ import ConcreteModel, assert_optimal_termination
+
+    from .pyomo_support import units, value
 
     model = ConcreteModel()
-    model.process = FlowsheetBlock(dynamic=False)
-    model.process.water = iapws95.Iapws95ParameterBlock()
-    turbine = model.process.expander = Turbine(property_package=model.process.water)
-    first = model.process.time.first()
+    flowsheet = cast("SteamFlowsheet", FlowsheetBlock(dynamic=False))
+    model.process = flowsheet
+    flowsheet.water = cast(
+        "Callable[[], object]", vars(iapws95)["Iapws95ParameterBlock"]
+    )()
+    turbine = flowsheet.expander = cast(
+        "SteamTurbine", Turbine(property_package=flowsheet.water)
+    )
+    first = flowsheet.time.first()
     inlet = turbine.control_volume.properties_in[first]
     pressure = fixed["inlet_pressure"]
     flow = fixed["inlet_flow"]
@@ -221,8 +298,10 @@ def main() -> None:
         raise RuntimeError("prepared IAPWS95 property images changed during the solve")
     _verify_artifacts(contract)
     envelope = envelope_type(version=1)
-    envelope.meaning.CopyFrom(meaning)
-    envelope.required.extend(item.output for item in outputs)
+    message_field(envelope, "meaning").CopyFrom(meaning)
+    repeated_field(envelope, "required", bytes).extend(
+        scalar_field(item, "output", bytes) for item in outputs
+    )
     complete_envelope(envelope, outputs, values)
     encoded = encode_reference(envelope)
     with destination.open("xb") as stream:
