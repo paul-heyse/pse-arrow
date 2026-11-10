@@ -65,22 +65,6 @@
       "direction": "Both",
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "[pse_quantity::dimension::Ratio; 8]"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "Array8PhysicalRatio",
-      "declaration_kind": "rust_projection",
-      "direction": "Both",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/pse.engineering.v1.rs",
       "source_identity": null,
       "source_path": "crates/pse-contract/src/boundary_projection/array.rs",
@@ -210,22 +194,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-quantity/src/ids.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_quantity::ids::BasisId"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "BasisId",
-      "declaration_kind": "rust_projection",
-      "direction": "Both",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/ids.rs",
       "source_role": "semantic_owner",
@@ -385,22 +353,6 @@
       "direction": "Both",
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-quantity/src/ids.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_quantity::ids::BoundIndexId"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "BoundIndexId",
-      "declaration_kind": "rust_projection",
-      "direction": "Both",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/pse.engineering.v1.rs",
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/ids.rs",
@@ -530,22 +482,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-quantity/src/index.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_quantity::index::BoundIndexRef"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "BoundIndexReference",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/index.rs",
       "source_role": "semantic_owner",
@@ -690,22 +626,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-quantity/src/ids.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_quantity::ids::DomainId"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "DomainId",
-      "declaration_kind": "rust_projection",
-      "direction": "Both",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/ids.rs",
       "source_role": "semantic_owner",
@@ -850,22 +770,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-quantity/src/ids.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_quantity::ids::EntityKindId"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "EntityKindId",
-      "declaration_kind": "rust_projection",
-      "direction": "Both",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/ids.rs",
       "source_role": "semantic_owner",
@@ -1010,22 +914,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/modeling/documents.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::modeling::documents::InspectionConnection"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "InspectionConnection",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-runtime/src/workflow/modeling/documents.rs",
       "source_role": "semantic_owner",
@@ -1170,22 +1058,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/modeling/documents.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::modeling::documents::InspectionDomain"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "InspectionDomain",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-runtime/src/workflow/modeling/documents.rs",
       "source_role": "semantic_owner",
@@ -1330,22 +1202,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/modeling/documents.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::modeling::documents::InspectionExecution"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "InspectionExecution",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-runtime/src/workflow/modeling/documents.rs",
       "source_role": "semantic_owner",
@@ -1490,22 +1346,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionFixture"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "InspectionFixture",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
       "source_role": "semantic_owner",
@@ -1650,22 +1490,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/modeling/documents.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::modeling::documents::InspectionInstance"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "InspectionInstance",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-runtime/src/workflow/modeling/documents.rs",
       "source_role": "semantic_owner",
@@ -1810,22 +1634,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionIntegration"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "InspectionIntegration",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
       "source_role": "semantic_owner",
@@ -1970,22 +1778,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/modeling/documents.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::modeling::documents::InspectionLineage"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "InspectionLineage",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-runtime/src/workflow/modeling/documents.rs",
       "source_role": "semantic_owner",
@@ -2130,22 +1922,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/modeling/documents.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::modeling::documents::InspectionMember"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "InspectionMember",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-runtime/src/workflow/modeling/documents.rs",
       "source_role": "semantic_owner",
@@ -2290,22 +2066,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/modeling/documents.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::modeling::documents::InspectionPopulation"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "InspectionPopulation",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-runtime/src/workflow/modeling/documents.rs",
       "source_role": "semantic_owner",
@@ -2450,22 +2210,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/modeling/documents.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::modeling::documents::InspectionPort"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "InspectionPort",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-runtime/src/workflow/modeling/documents.rs",
       "source_role": "semantic_owner",
@@ -2610,22 +2354,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionQuadrature"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "InspectionQuadrature",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
       "source_role": "semantic_owner",
@@ -2770,22 +2498,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleControl"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "InspectionScheduleControl",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
       "source_role": "semantic_owner",
@@ -2930,22 +2642,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionScheduleInterval"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "InspectionScheduleInterval",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
       "source_role": "semantic_owner",
@@ -3090,22 +2786,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::modeling::documents::inspection_fixture::InspectionSpecification"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "InspectionSpecification",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-runtime/src/workflow/modeling/inspection_fixture.rs",
       "source_role": "semantic_owner",
@@ -3250,22 +2930,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-quantity/src/kind.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_quantity::kind::KindFactor"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "KindFactor",
-      "declaration_kind": "rust_projection",
-      "direction": "Both",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/kind.rs",
       "source_role": "semantic_owner",
@@ -3410,22 +3074,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-modeling/src/contextual.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_modeling::contextual::BoundaryRef"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "ModelingBoundaryRef",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/contextual.rs",
       "source_role": "semantic_owner",
@@ -3570,22 +3218,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-modeling/src/resolved.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_modeling::resolved::Carrier"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "ModelingCarrier",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved.rs",
       "source_role": "semantic_owner",
@@ -3730,22 +3362,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-modeling/src/resolved.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_modeling::resolved::CarrierKind"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "ModelingCarrierKind",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/resolved.rs",
       "source_role": "semantic_owner",
@@ -3890,22 +3506,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-model/src/generated/enums.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_model::generated::enums::ModelingDeclarationKind"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "ModelingDeclarationKind",
-      "declaration_kind": "rust_projection",
-      "direction": "Both",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-model/src/generated/enums.rs",
       "source_role": "semantic_owner",
@@ -4050,22 +3650,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-modeling/src/specialize/finite.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_modeling::specialize::finite::DomainKey"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "ModelingDomainKey",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/specialize/finite.rs",
       "source_role": "semantic_owner",
@@ -4210,22 +3794,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-modeling/src/specialize/finite.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_modeling::specialize::finite::FamilyKey"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "ModelingFamilyKey",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/specialize/finite.rs",
       "source_role": "semantic_owner",
@@ -4401,22 +3969,6 @@
       "direction": "Output",
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-runtime/src/workflow/modeling/documents.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_runtime::workflow::modeling::documents::ModelingInspection"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "ModelingInspection",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/pse.engineering.v1.rs",
       "source_identity": null,
       "source_path": "crates/pse-runtime/src/workflow/modeling/documents.rs",
@@ -4546,22 +4098,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-modeling/src/contextual.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_modeling::contextual::PhysicalRefinement"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "ModelingPhysicalRefinement",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/contextual.rs",
       "source_role": "semantic_owner",
@@ -4721,22 +4257,6 @@
       "direction": "Both",
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-model/src/generated/enums.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_model::generated::enums::ModelingProcedure"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "ModelingProcedure",
-      "declaration_kind": "rust_projection",
-      "direction": "Both",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/pse.engineering.v1.rs",
       "source_identity": null,
       "source_path": "crates/pse-model/src/generated/enums.rs",
@@ -4866,22 +4386,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-modeling/src/contextual.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_modeling::contextual::TransferDirection"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "ModelingTransferDirection",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/contextual.rs",
       "source_role": "semantic_owner",
@@ -5026,22 +4530,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-modeling/src/types.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_modeling::types::Type"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "ModelingType",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-modeling/src/types.rs",
       "source_role": "semantic_owner",
@@ -5186,22 +4674,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_quantity::resolved::receipts::ContractWire"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "PhysicalContractFacts",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
       "source_role": "semantic_owner",
@@ -5346,22 +4818,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_quantity::resolved::receipts::ContractRecord"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "PhysicalContractRecord",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
       "source_role": "semantic_owner",
@@ -5506,22 +4962,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-quantity/src/dimension.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_quantity::dimension::DimensionVector"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "PhysicalDimensionVector",
-      "declaration_kind": "rust_projection",
-      "direction": "Both",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/dimension.rs",
       "source_role": "semantic_owner",
@@ -5666,22 +5106,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_quantity::resolved::receipts::FormulaWire"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "PhysicalFormulaFacts",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
       "source_role": "semantic_owner",
@@ -5826,22 +5250,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_quantity::resolved::receipts::QualifiedFactorWire"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "PhysicalQualifiedFactor",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
       "source_role": "semantic_owner",
@@ -5986,22 +5394,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-quantity/src/dimension.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_quantity::dimension::Ratio"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "PhysicalRatio",
-      "declaration_kind": "rust_projection",
-      "direction": "Both",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/dimension.rs",
       "source_role": "semantic_owner",
@@ -6146,22 +5538,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_quantity::resolved::receipts::SchemeRecord"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "PhysicalSchemeRecord",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
       "source_role": "semantic_owner",
@@ -6306,22 +5682,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_quantity::resolved::receipts::SchemeWire"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "PhysicalSchemeShape",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/resolved_receipts.rs",
       "source_role": "semantic_owner",
@@ -6466,22 +5826,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-quantity/src/ids.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_quantity::ids::QuantityKindId"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "QuantityKindId",
-      "declaration_kind": "rust_projection",
-      "direction": "Both",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/ids.rs",
       "source_role": "semantic_owner",
@@ -6626,22 +5970,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-quantity/src/scheme.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_quantity::scheme::Scheme"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "QuantityScheme",
-      "declaration_kind": "rust_projection",
-      "direction": "Output",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/scheme.rs",
       "source_role": "semantic_owner",
@@ -6786,22 +6114,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-quantity/src/quantity_type.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_quantity::quantity_type::QuantityTypeKey"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "QuantityTypeKey",
-      "declaration_kind": "rust_projection",
-      "direction": "Both",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/quantity_type.rs",
       "source_role": "semantic_owner",
@@ -6946,22 +6258,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-quantity/src/enums.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_quantity::enums::ScaleKind"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "ScaleKind",
-      "declaration_kind": "rust_projection",
-      "direction": "Both",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/enums.rs",
       "source_role": "semantic_owner",
@@ -7106,22 +6402,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "(alloc::string::String, pse_modeling::types::Type)"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "Tuple2OfStringAndModelingType",
-      "declaration_kind": "rust_projection",
-      "direction": "Both",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-contract/src/boundary_projection/tuple_pair.rs",
       "source_role": "semantic_owner",
@@ -7266,22 +6546,6 @@
       "generator_path": "xtask/src/codegen/engineering.rs",
       "generator_symbol": "compile_selection",
       "output_path": "crates/pse-runtime/src/generated/engineering-inspection/mod.rs",
-      "source_identity": null,
-      "source_path": "crates/pse-quantity/src/unit.rs",
-      "source_role": "semantic_owner",
-      "source_symbol": "pse_quantity::unit::UnitFactor"
-    },
-    {
-      "basis": "declared",
-      "contract_sections": [
-        "blueprint §4.7"
-      ],
-      "declaration_key": "UnitFactor",
-      "declaration_kind": "rust_projection",
-      "direction": "Both",
-      "generator_path": "xtask/src/codegen/engineering.rs",
-      "generator_symbol": "compile_selection",
-      "output_path": "crates/pse-runtime/src/generated/engineering-inspection/native-policy.rs",
       "source_identity": null,
       "source_path": "crates/pse-quantity/src/unit.rs",
       "source_role": "semantic_owner",

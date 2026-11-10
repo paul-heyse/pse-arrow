@@ -1,17 +1,17 @@
 {
   "descriptor_sha256": "e7e786ce7ea633983f941279e952a9dc7e9d46e846419e067a853bd3f86b8003",
   "inputs": {
-    "Cargo.lock": "64b11847e503b5089faf3828b8f7a7d5d832cca938027f2ad30805feeb38a13a",
-    "Cargo.toml": "036f95eae2bb00c0ff9b696146da23e0e0d438d76e493ba381a60fce119ad265",
+    "Cargo.lock": "c83e9860440732389d963d5e9fea95585a07e29787a9fa10985def3d97cf3629",
+    "Cargo.toml": "bb0fb8137cbc2dcd3c5f3ee680e5812afa99dd8e5810b51ad77b1a6be72990e5",
     "crates/pse-codegen/src/codegen/boundary_projection.rs": "bf6310208bfa277ff01b234735d484a19ff33afc4d491482ff5cda9db7a6accb",
     "crates/pse-host/tests/fixtures/plan61/buf.lock": "f167aece00cd881df9e57b220d5edeff1343c5020a6caed6b425a213f75991ee",
     "crates/pse-host/tests/fixtures/plan61/buf.yaml": "647235719a93a58593b90d87641e03656ddcae35971f822322dc0e30eac528e0",
     "crates/pse-host/tests/fixtures/plan61/plan61/qualification/v1/contract.proto": "14f4a2feec86d4f574b6e0c302fcc8fbaca4c8d93c296b82c2ef425ea995ead2",
     "scripts/protobuf-associations.rs": "9612092ad4a1424d391ad3843e1aa74f1d2257b2370f975422f8498fbc7c9a35",
-    "xtask/Cargo.toml": "b000c471cda75258f4c24f22b80eca5ccfa0f4207d186a450ef0102baa8b3d39",
+    "xtask/Cargo.toml": "ab8e88094f84a7b6bf2f22070c636d241522df82488661ef7dd0a3bbd72a7bc1",
     "xtask/src/codegen/code_intelligence.rs": "eee1848cb76292a869c157a99d7a6d581cab03b64ba08f67dec8bdfe9919ac38",
     "xtask/src/codegen/code_intelligence/associations.rs": "f693bd1f50108d5c8fcf08826f8bf2a46b859da50b4d695e483d3a85cf24e4c2",
-    "xtask/src/codegen/proto_projection.rs": "641410dfa53ad48974fd6e9ed175b0b0596324758b7b0b2aa0ab97215e078439",
+    "xtask/src/codegen/proto_projection.rs": "1caa81b859d0c725279955029b1e23d0d8bfafcdc5a550e031c3e822af22778d",
     "xtask/src/codegen/proto_projection/composition.rs": "db56a7fd7c2b83ede9bb9d51a969bc81165fd542f292553729dae4aad9d7643a"
   },
   "associations": [

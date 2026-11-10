@@ -273,12 +273,13 @@ mod tests {
     #[test]
     fn knowledge_schema_is_tooling_only_with_declared_fulltext_and_native_graph() {
         let registry = xtask::development::catalog::assemble().unwrap();
-        let canonical = pse_codegen::codegen::canonical_schema_with_projections(
-            &pse_schema::catalog::assemble().unwrap(),
-            &pse_model::study::native_projection_graph().unwrap(),
-        )
-        .unwrap();
-        assert!(!canonical.contains("knowledge_"));
+        let canonical = pse_schema::catalog::assemble().unwrap();
+        assert!(
+            !canonical
+                .relations()
+                .iter()
+                .any(|relation| relation.key.name.starts_with("knowledge_"))
+        );
         let mut tree = GeneratedTree::empty(vec![PathBuf::from("xtask/src/generated")]);
         append(&registry, &mut tree).unwrap();
         let ddl = std::str::from_utf8(
