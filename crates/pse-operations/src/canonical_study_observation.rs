@@ -74,6 +74,10 @@ pub enum CurrentSnapshot {
 /// Current-state delivery is explicitly different from a durable transition history.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
+#[allow(
+    clippy::large_enum_variant,
+    reason = "The bounded update stream delivers snapshots as its data; retain their compact headers inline instead of allocating for every successful delivery"
+)]
 pub enum FollowUpdate {
     /// An as-of snapshot, with continuing authority checked at the next bounded deadline.
     Snapshot {

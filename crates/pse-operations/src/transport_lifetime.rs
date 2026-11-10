@@ -833,7 +833,7 @@ mod tests {
             .unwrap();
         let (entered_tx, entered_rx) = tokio::sync::oneshot::channel();
         let (resume_tx, resume_rx) = tokio::sync::oneshot::channel();
-        let drains = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let drains = Arc::new(AtomicUsize::new(0));
         let owned_drains = drains.clone();
         caller.block_on(async {
             let closing = access.clone();

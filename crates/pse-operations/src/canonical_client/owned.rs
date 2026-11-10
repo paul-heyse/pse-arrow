@@ -638,13 +638,11 @@ impl Body for WireBody {
                     }
                     if let Some(batch) =
                         self.context.as_ref().and_then(RequestContext::batch_limits)
-                    {
-                        if let Err(reason) =
+                        && let Err(reason) =
                             super::wire::Counts::default().check(&frame[5..], schema, batch)
-                        {
-                            self.done = true;
-                            return Poll::Ready(Some(Err(refused(reason))));
-                        }
+                    {
+                        self.done = true;
+                        return Poll::Ready(Some(Err(refused(reason))));
                     }
                     if let Err(reason) = self.counts.check(&frame[5..], schema, limits) {
                         self.done = true;

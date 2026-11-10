@@ -578,13 +578,11 @@ async fn current_summary_and_fixed_viewer_follow_preserve_scientific_classificat
                 snapshot: CurrentSnapshot::Study(current),
                 ..
             } = follow.next().await.unwrap()
-            {
-                if current.header.outcome
+                && current.header.outcome
                     == Some(pse_model::generated::enums::CanonicalTerminalOutcome::Cancelled)
-                {
-                    assert!(!current.header.cancelled);
-                    break;
-                }
+            {
+                assert!(!current.header.cancelled);
+                break;
             }
         }
     })
@@ -621,10 +619,9 @@ async fn current_summary_and_fixed_viewer_follow_preserve_scientific_classificat
                 snapshot: CurrentSnapshot::Study(current),
                 ..
             } = follow.next().await.unwrap()
+                && current.header.cancelled
             {
-                if current.header.cancelled {
-                    break;
-                }
+                break;
             }
         }
     })
