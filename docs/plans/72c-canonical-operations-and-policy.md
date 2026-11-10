@@ -90,6 +90,16 @@ selection. Correct that test/dependency configuration before rerunning. These ar
 verification/repair obligations, not passing evidence. The maintainer requested no further
 investigation or new runs in this engagement.
 
+Final `scripts/pse run-all hygiene governance-tests` settled with failure: hygiene passed
+13/19 recipes and failed six; governance passed 23/25 tests. Zero remains the target.
+Codegen, Rust documentation, licensing, spelling and ADR checks passed. The new bootstrap
+test's optional parser dependency, an unnecessary bootstrap borrow, and generated manual
+`Default` implementations remain clippy repairs (fix the generator and preserve generic
+bound meaning). Other reported findings are 302 Python lint errors, 417 typing diagnostics,
+the dependency ceiling discussed above, three unused dependencies/three audit warnings and
+two scientific-receipt unsafe-governance failures. These counts record actual failed scope;
+they are not accepted baselines. All executing owners settled; no live fixture remains.
+
 A repeated default-concurrency selection exposed
 the engine's global index-build barrier: schema setup in one logical database can wait
 behind long writes in another. The initialization owner is being corrected to submit
