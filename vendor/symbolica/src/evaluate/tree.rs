@@ -259,7 +259,8 @@ fn register_constant_external_container<T>(
 }
 
 // Shared by the root and every function compiled in this build.
-struct LinearizationContext<'a> {
+struct LinearizationContext<'a, 'c> {
+    observer: Option<&'c dyn super::checked_build::BuildObserver>,
     external_functions: Vec<ExternalFunctionContainer<Complex<Rational>>>,
     // Hidden global slots for each body; a pending entry detects recursive definitions.
     functions: HashMap<usize, Option<Vec<Slot>>>,
@@ -272,7 +273,7 @@ struct LinearizationContext<'a> {
     expanding_functions: HashSet<usize>,
 }
 
-impl LinearizationContext<'_> {
+impl LinearizationContext<'_, '_> {
     fn constant_slot(&mut self, constant: Complex<Rational>) -> Slot {
         let index = *self
             .constant_indices
@@ -311,6 +312,19 @@ impl<'a> AtomView<'a> {
         params: &[Atom],
         settings: OptimizationSettings,
     ) -> Result<ExpressionEvaluator<Complex<Rational>>, EvaluationError> {
+        Self::to_evaluator_observed(expressions, fn_map, params, settings, None)
+    }
+
+    pub(crate) fn to_evaluator_observed(
+        expressions: &[Self],
+        fn_map: &FunctionMap,
+        params: &[Atom],
+        settings: OptimizationSettings,
+        observer: Option<&dyn super::checked_build::BuildObserver>,
+    ) -> Result<ExpressionEvaluator<Complex<Rational>>, EvaluationError> {
+        if let Some(observer) = observer {
+            observer.stage(OperationStage::Construction);
+        }
         if settings.verbose {
             let mut cse = HashSet::default();
             let mut count = OperationCount::default();
@@ -321,7 +335,13 @@ impl<'a> AtomView<'a> {
         }
 
         if settings.horner_iterations == 0 {
-            return Self::linearize_multiple(expressions, fn_map, params, settings);
+            return Self::linearize_multiple_observed(
+                expressions,
+                fn_map,
+                params,
+                settings,
+                observer,
+            );
         }
 
         let v = match &settings.hot_start {
@@ -347,14 +367,14 @@ impl<'a> AtomView<'a> {
         };
 
         let scheme = if settings.horner_iterations > 1 {
-            Self::optimize_horner_scheme_multiple(expressions, &v, &settings)
+            Self::optimize_horner_scheme_multiple_observed(expressions, &v, &settings, observer)
         } else {
             v
         };
 
         let hornered_expressions = expressions
             .iter()
-            .map(|x| x.horner_scheme(Some(&scheme), true, true))
+            .map(|x| super::checked_build::horner(*x, &scheme, observer))
             .collect::<Vec<_>>();
 
         if settings.horner_iterations == 1 && settings.verbose {
@@ -368,15 +388,24 @@ impl<'a> AtomView<'a> {
 
         let mut f = fn_map.clone();
         for Expr { body, .. } in f.tagged_fn_map.values_mut() {
-            *body = body.as_view().horner_scheme(Some(&scheme), true, true);
+            *body = super::checked_build::horner(body.as_view(), &scheme, observer);
         }
 
-        let mut e = Self::linearize_multiple(&hornered_expressions, &f, params, settings)?;
+        let mut e = Self::linearize_multiple_observed(
+            &hornered_expressions,
+            &f,
+            params,
+            settings,
+            observer,
+        )?;
 
         drop(f);
         drop(hornered_expressions);
 
         loop {
+            if let Some(observer) = observer {
+                observer.stage(OperationStage::Optimization);
+            }
             let r = e.remove_common_instructions();
 
             if r == 0 || e.settings.abort_level > 0 {
@@ -391,6 +420,9 @@ impl<'a> AtomView<'a> {
         }
 
         for _ in 0..e.settings.cpe_iterations.unwrap_or(usize::MAX) {
+            if let Some(observer) = observer {
+                observer.stage(OperationStage::Optimization);
+            }
             let r = e.remove_common_pairs();
             if r == 0 || e.settings.abort_level > 0 {
                 e.settings.abort_level = 0;
@@ -403,6 +435,9 @@ impl<'a> AtomView<'a> {
             }
         }
 
+        if let Some(observer) = observer {
+            observer.stage(OperationStage::Optimization);
+        }
         e.optimize_stack();
         Ok(e)
     }
@@ -415,13 +450,22 @@ impl<'a> AtomView<'a> {
         vars: &[Indeterminate],
         settings: &OptimizationSettings,
     ) -> Vec<Indeterminate> {
+        Self::optimize_horner_scheme_multiple_observed(expressions, vars, settings, None)
+    }
+
+    fn optimize_horner_scheme_multiple_observed(
+        expressions: &[Self],
+        vars: &[Indeterminate],
+        settings: &OptimizationSettings,
+        observer: Option<&dyn super::checked_build::BuildObserver>,
+    ) -> Vec<Indeterminate> {
         if vars.is_empty() {
             return vars.to_vec();
         }
 
         let horner: Vec<_> = expressions
             .iter()
-            .map(|x| x.horner_scheme(Some(vars), true, true))
+            .map(|x| super::checked_build::horner(*x, vars, observer))
             .collect();
         let mut subexpr = HashSet::default();
         let mut best_ops = OperationCount::default();
@@ -459,6 +503,8 @@ impl<'a> AtomView<'a> {
 
         std::thread::scope(|s| {
             let abort = Arc::new(AtomicBool::new(false));
+            let mut workers = Vec::with_capacity(n_cores.saturating_sub(1));
+            let mut failure = None;
 
             for i in 0..n_cores {
                 let mut rng = MonteCarloRng::new(0, i);
@@ -471,6 +517,7 @@ impl<'a> AtomView<'a> {
                 let mut last_add = usize::MAX;
                 let abort = abort.clone();
 
+                let worker_abort = abort.clone();
                 let mut op = move || {
                     integer_context.run(|| {
                         let _unlock = inherited_unlock.activate();
@@ -516,7 +563,7 @@ impl<'a> AtomView<'a> {
 
                             let horner: Vec<_> = expressions
                                 .iter()
-                                .map(|x| x.horner_scheme(Some(&cvars), true, true))
+                                .map(|x| super::checked_build::horner(*x, &cvars, observer))
                                 .collect();
                             let mut subexpr = HashSet::default();
                             let mut cur_ops = OperationCount::default();
@@ -581,13 +628,26 @@ impl<'a> AtomView<'a> {
                     })
                 };
 
+                let mut op = move || {
+                    let result = panic::catch_unwind(panic::AssertUnwindSafe(&mut op));
+                    if result.is_err() {
+                        worker_abort.store(true, Ordering::Relaxed);
+                    }
+                    result
+                };
                 if i + 1 < n_cores {
-                    s.spawn(op);
-                } else {
-                    // execute in the main thread and do the abort check on the main thread
-                    // this helps with catching ctrl-c
-                    op()
+                    workers.push(s.spawn(op));
+                } else if let Err(payload) = op() {
+                    super::checked_build::preserve_panic(&mut failure, payload);
                 }
+            }
+            for worker in workers {
+                if let Err(payload) = worker.join().unwrap_or_else(Err) {
+                    super::checked_build::preserve_panic(&mut failure, payload);
+                }
+            }
+            if let Some(payload) = failure {
+                panic::resume_unwind(payload);
             }
         });
 
@@ -602,11 +662,12 @@ impl<'a> AtomView<'a> {
         Arc::try_unwrap(best_scheme).unwrap().into_inner().unwrap()
     }
 
-    pub(crate) fn linearize_multiple<T: AtomCore>(
+    fn linearize_multiple_observed<T: AtomCore>(
         expressions: &[T],
         fn_map: &FunctionMap,
         params: &[Atom],
         settings: OptimizationSettings,
+        observer: Option<&dyn super::checked_build::BuildObserver>,
     ) -> Result<ExpressionEvaluator<Complex<Rational>>, EvaluationError> {
         let expressions = expressions
             .iter()
@@ -614,6 +675,7 @@ impl<'a> AtomView<'a> {
             .collect::<Vec<_>>();
         let params = params.iter().map(|p| p.as_view()).collect::<Vec<_>>();
         let mut context = LinearizationContext {
+            observer,
             external_functions: Vec::new(),
             functions: HashMap::default(),
             constants: Vec::new(),
@@ -663,7 +725,7 @@ impl<'a> AtomView<'a> {
         fn_map: &'a FunctionMap,
         params: &[AtomView<'a>],
         settings: &OptimizationSettings,
-        context: &mut LinearizationContext<'a>,
+        context: &mut LinearizationContext<'a, '_>,
     ) -> Result<(Vec<Instruction>, Vec<Slot>), EvaluationError> {
         let mut instr = Vec::new();
 
@@ -696,7 +758,7 @@ impl<'a> AtomView<'a> {
         results: Vec<Slot>,
         param_count: usize,
         reserved_indices: usize,
-        context: &mut LinearizationContext<'a>,
+        context: &mut LinearizationContext<'a, '_>,
     ) -> Result<(Vec<(Instr, ComplexPhase)>, Vec<usize>), EvaluationError> {
         macro_rules! slot_map {
             ($s: expr) => {
@@ -813,7 +875,7 @@ impl<'a> AtomView<'a> {
     #[allow(clippy::too_many_arguments)]
     fn linearize_function_call(
         fn_map: &'a FunctionMap,
-        context: &mut LinearizationContext<'a>,
+        context: &mut LinearizationContext<'a, '_>,
         settings: &OptimizationSettings,
         symbol: Symbol,
         tags: Vec<Atom>,
@@ -948,7 +1010,7 @@ impl<'a> AtomView<'a> {
         function: &'a Expr,
         arg_slots: Vec<Slot>,
         fn_map: &'a FunctionMap,
-        context: &mut LinearizationContext<'a>,
+        context: &mut LinearizationContext<'a, '_>,
         params: &HashMap<AtomView<'a>, Slot>,
         settings: &OptimizationSettings,
         instr: &mut Vec<Instruction>,
@@ -1004,12 +1066,15 @@ impl<'a> AtomView<'a> {
     fn linearize_impl(
         &self,
         fn_map: &'a FunctionMap,
-        context: &mut LinearizationContext<'a>,
+        context: &mut LinearizationContext<'a, '_>,
         params: &HashMap<AtomView<'a>, Slot>,
         settings: &OptimizationSettings,
         instr: &mut Vec<Instruction>,
         subexpressions: &mut HashMap<AtomView<'a>, Slot>,
     ) -> Result<Slot, EvaluationError> {
+        if let Some(observer) = context.observer {
+            observer.linearization(*self);
+        }
         if matches!(*self, AtomView::Var(_) | AtomView::Fun(_)) {
             if let Some(slot) = params.get(self) {
                 return Ok(*slot);
@@ -1029,7 +1094,16 @@ impl<'a> AtomView<'a> {
                     CoefficientView::Large(l, i) => Complex::new(l.to_rat(), i.to_rat()),
                     CoefficientView::Float(r, i) => {
                         // TODO: converting back to rational is slow
-                        Complex::new(r.to_float().to_rational(), i.to_float().to_rational())
+                        let r = r.to_float();
+                        if let Some(observer) = context.observer {
+                            observer.float_rational(&r);
+                        }
+                        let r = r.to_rational();
+                        let i = i.to_float();
+                        if let Some(observer) = context.observer {
+                            observer.float_rational(&i);
+                        }
+                        Complex::new(r, i.to_rational())
                     }
                     CoefficientView::Indeterminate => {
                         return Err(EvaluationError::UnsupportedCoefficient {

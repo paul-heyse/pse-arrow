@@ -26,7 +26,9 @@ use symjit::{Applet, Composer, Config, Defuns, Storage, Translator};
 
 #[cfg(feature = "native_code_generation")]
 mod backend;
+mod checked_build;
 mod checked_copy;
+mod checked_shape;
 mod control;
 mod domain;
 mod dual;

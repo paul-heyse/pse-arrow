@@ -652,6 +652,7 @@ impl AtomView<'_> {
 
     /// Normalize an atom.
     pub fn normalize(&self, workspace: &Workspace, out: &mut Atom) {
+        let _admission = workspace.normalization(*self);
         if !self.needs_normalization() {
             out.set_from_view(self);
             return;
@@ -861,6 +862,7 @@ impl AtomView<'_> {
 
         out_f.set_normalized(true);
 
+        let _numeric_admission = workspace.normalization(out.as_view());
         if Self::normalize_builtin(id, workspace, out) {
             return;
         }
@@ -892,6 +894,13 @@ impl AtomView<'_> {
             exp
         };
 
+        // Children may have produced a new Float precision/exponent. Observe
+        // the actual normalized operands before a native numeric power/exp.
+        let prepared_power = workspace.observed_power(base, exp);
+        let _numeric_admission = prepared_power
+            .as_ref()
+            .map(|power| workspace.normalization(power.as_view()));
+
         if base == InlineVar::new(Symbol::E).as_view() {
             // simplify logs inside exp
             if exp.contains_symbol(Symbol::LOG) {
@@ -912,6 +921,7 @@ impl AtomView<'_> {
                     break 'pow_simplify;
                 } else if let AtomView::Num(n) = base {
                     // simplify a number raised to a numerical power
+                    workspace.coefficient_power(n.get_coeff_view(), exp_num);
                     let (prefactor, new_base_num, new_exp_num) = n.get_coeff_view().pow(&exp_num);
 
                     if matches!(&new_base_num, Coefficient::Complex(c) if c.re.is_one() && c.im.is_zero())
@@ -1340,7 +1350,12 @@ impl AtomView<'_> {
                         let r = c.norm_squared();
                         let mut buffer = workspace.new_atom();
                         buffer.to_num(r);
-                        *out = buffer.pow((1, 2));
+                        let mut power = workspace.new_atom();
+                        power.to_pow(
+                            buffer.as_view(),
+                            crate::atom::InlineNum::new(1, 2).as_view(),
+                        );
+                        power.as_view().normalize(workspace, out);
                     }
                     return true;
                 }

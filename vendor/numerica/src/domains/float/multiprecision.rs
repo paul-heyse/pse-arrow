@@ -858,6 +858,18 @@ impl Float {
             .map(|(num, den)| Rational::from_int_unchecked(num, den))
     }
 
+    /// Bound the exact stored value's rational numerator and denominator bit
+    /// lengths without constructing that rational or changing its precision.
+    ///
+    /// The MPFR backend returns conservative bounds from its stored precision
+    /// and full-width binary exponent, including exponents outside i32. Zero
+    /// returns `(0, 1)`; infinities, NaN and unsupported backends return `None`.
+    /// These are mathematical integer sizes, not allocator or native scratch
+    /// byte bounds; a caller must admit conversion backing separately.
+    pub fn rational_bit_bounds(&self) -> Option<(u128, u128)> {
+        self.0.rational_bit_bounds()
+    }
+
     /// Consume this wrapper and return the selected backend's value.
     #[inline]
     pub fn into_raw(self) -> MultiPrecisionFloat {
@@ -1294,5 +1306,97 @@ mod precision_tests {
         assert_eq!(Float::parse("1", Some(80)).unwrap().prec(), 80);
         assert_eq!(Float::parse("1`40", None).unwrap().prec(), 133);
         assert_eq!(Float::parse("1`", None).unwrap().prec(), 53);
+    }
+}
+
+#[cfg(all(test, feature = "float-mpfr"))]
+mod rational_bit_bounds_tests {
+    use super::{Float, MultiPrecisionFloat};
+
+    #[test]
+    fn rational_bit_bounds_contain_stored_ratios_without_changing_precision() {
+        for precision in [2, 53, 257, 4097] {
+            for value in [
+                0.,
+                -0.,
+                1.,
+                -1.,
+                1.5,
+                -0.1,
+                f64::MIN_POSITIVE,
+                f64::from_bits(1),
+                f64::MAX,
+            ] {
+                let value = Float::with_val(precision, value);
+                let before = value.as_raw().to_string_radix(16, None);
+                let negative = value.as_raw().is_sign_negative();
+                let (numerator, denominator) = value.rational_bit_bounds().unwrap();
+                let rational = value.try_to_rational().unwrap();
+                assert!(u128::from(rational.numerator_ref().significant_bits()) <= numerator);
+                assert!(u128::from(rational.denominator_ref().significant_bits()) <= denominator);
+                assert_eq!(value.prec(), precision);
+                assert_eq!(value.as_raw().to_string_radix(16, None), before);
+                assert_eq!(value.as_raw().is_sign_negative(), negative);
+                if value.as_raw().is_zero() {
+                    assert_eq!((numerator, denominator), (0, 1));
+                }
+            }
+        }
+        for special in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert_eq!(Float::with_val(113, special).rational_bit_bounds(), None);
+        }
+    }
+
+    #[cfg(all(
+        feature = "integer-gmp",
+        target_family = "unix",
+        target_pointer_width = "64"
+    ))]
+    #[test]
+    fn rational_bit_bounds_cover_wide_exponents_without_materializing_integers() {
+        use gmp_mpfr_sys::mpfr;
+        struct Range {
+            min: mpfr::exp_t,
+            max: mpfr::exp_t,
+        }
+        impl Drop for Range {
+            fn drop(&mut self) {
+                // SAFETY: restore the current thread's original MPFR range.
+                unsafe {
+                    assert_eq!(mpfr::set_emin(self.min), 0);
+                    assert_eq!(mpfr::set_emax(self.max), 0);
+                }
+            }
+        }
+        // SAFETY: this qualified backend has thread-local MPFR settings; the
+        // guard restores them on normal return and unwind. No large significand
+        // or exact integer is constructed by changing the exponent range.
+        let _range = unsafe {
+            assert_ne!(mpfr::buildopt_tls_p(), 0);
+            let saved = Range {
+                min: mpfr::get_emin(),
+                max: mpfr::get_emax(),
+            };
+            assert_eq!(mpfr::set_emin(mpfr::get_emin_min()), 0);
+            assert_eq!(mpfr::set_emax(mpfr::get_emax_max()), 0);
+            saved
+        };
+        for exponent in [1_i64 << 40, -(1_i64 << 40)] {
+            let mut raw = MultiPrecisionFloat::with_val(113, -0.75);
+            // SAFETY: initialized nonzero MPFR value, live unique borrow, and
+            // exponent within the temporarily selected valid native range.
+            assert_eq!(unsafe { mpfr::set_exp(raw.as_raw_mut(), exponent) }, 0);
+            let value = Float::from_raw(raw);
+            let expected = if exponent > 0 {
+                (exponent as u128, 1)
+            } else {
+                (113, (113_i128 - i128::from(exponent)) as u128 + 1)
+            };
+            assert_eq!(value.rational_bit_bounds(), Some(expected));
+            assert_eq!(value.prec(), 113);
+            assert!(value.as_raw().is_sign_negative());
+            // SAFETY: the initialized value is still live and immutably borrowed.
+            assert_eq!(unsafe { (*value.as_raw().as_raw()).exp }, exponent);
+        }
     }
 }

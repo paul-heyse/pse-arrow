@@ -30,6 +30,17 @@ require their own checked admission; bypassing the integer cache does not establ
 that larger contract. [The allocation-context owner](numerica-allocation-context.md)
 records the exact lexical contract and current standalone source selection.
 
+The maintained Symbolica direct builder now borrows an operation control through
+its actual Horner workers, coefficient normalization and scalar lowering. The
+checked public exporter admits its wider instruction/slot representation before
+copying, and the checked shape entry admits native HyperDual/Dualizer metadata
+before constructing it. Returned programs retain no producer control. These
+profiles cover visible integer/MPFR, Atom/workspace, staging and optimizer backing;
+private GMP/MPFR algorithm scratch retains the separate opaque foreign allowance.
+Legacy EvalTree construction, new exact numerical fractional-power normalization
+and remaining constructor/copy ingress need their own qualified contracts; these
+entries do not grant those profiles eligibility.
+
 Cargo cache markers and `.cargo-checksum.json` are omitted. The original package
 checksums in the linked archive table identify the imported sources; they do not authenticate patched
 files. VCS metadata and packaged lockfiles remain upstream snapshots. `Cargo.toml.orig`

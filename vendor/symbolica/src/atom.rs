@@ -604,6 +604,12 @@ impl EvaluationInfo {
         Err("No precision-aware constant evaluator registered".to_owned())
     }
 
+    /// Check whether a numeric implementation for `T` is registered, without
+    /// invoking a tagged generator or cloning a direct callable.
+    pub fn has_evaluator<T: 'static>(&self) -> bool {
+        self.eval_fns.contains_key(&TypeId::of::<T>())
+    }
+
     /// Resolve the numeric evaluator for type `T` and the given symbolic tags.
     ///
     /// For tagless registrations, the direct callable is returned. For tagged

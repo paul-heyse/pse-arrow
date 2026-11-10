@@ -1556,11 +1556,35 @@ impl State {
 
 /// A workspace that stores recyclable atoms. Upon dropping, the atoms automatically returned to a
 /// thread-local workspace (which may be a different one than the one it was created by).
-pub struct Workspace {
+pub struct Workspace<'a> {
     atom_buffer: RefCell<Vec<Atom>>,
+    observer: Option<&'a dyn WorkspaceObserver>,
 }
 
-impl Workspace {
+/// A borrowed observer of the actual normalizer, never installed in local state.
+pub(crate) trait WorkspaceObserver: Sync {
+    fn enter(&self, atom: crate::atom::AtomView<'_>) -> usize;
+    fn leave(&self, admitted: usize);
+    fn power(
+        &self,
+        base: crate::coefficient::CoefficientView<'_>,
+        exponent: crate::coefficient::CoefficientView<'_>,
+    );
+}
+
+pub(crate) struct NormalizationGuard<'a> {
+    observer: Option<&'a dyn WorkspaceObserver>,
+    admitted: usize,
+}
+impl Drop for NormalizationGuard<'_> {
+    fn drop(&mut self) {
+        if let Some(observer) = self.observer {
+            observer.leave(self.admitted);
+        }
+    }
+}
+
+impl<'a> Workspace<'a> {
     const ATOM_BUFFER_MAX: usize = 30;
     const ATOM_CACHE_SIZE_MAX: usize = 20_000_000;
 
@@ -1568,12 +1592,48 @@ impl Workspace {
     const fn new() -> Self {
         Workspace {
             atom_buffer: RefCell::new(Vec::new()),
+            observer: None,
         }
+    }
+
+    pub(crate) fn controlled(observer: &'a dyn WorkspaceObserver) -> Self {
+        Self {
+            atom_buffer: RefCell::new(Vec::new()),
+            observer: Some(observer),
+        }
+    }
+
+    pub(crate) fn normalization(&self, atom: crate::atom::AtomView<'_>) -> NormalizationGuard<'_> {
+        NormalizationGuard {
+            observer: self.observer,
+            admitted: self.observer.map_or(0, |observer| observer.enter(atom)),
+        }
+    }
+
+    pub(crate) fn coefficient_power(
+        &self,
+        base: crate::coefficient::CoefficientView<'_>,
+        exponent: crate::coefficient::CoefficientView<'_>,
+    ) {
+        if let Some(observer) = self.observer {
+            observer.power(base, exponent);
+        }
+    }
+
+    pub(crate) fn observed_power(
+        &self,
+        base: crate::atom::AtomView<'_>,
+        exponent: crate::atom::AtomView<'_>,
+    ) -> Option<RecycledAtom> {
+        self.observer?;
+        let mut power = self.new_atom();
+        power.to_pow(base, exponent);
+        Some(power)
     }
 
     /// Get a thread-local workspace.
     #[inline]
-    pub fn get_local() -> &'static LocalKey<Workspace> {
+    pub fn get_local() -> &'static LocalKey<Workspace<'static>> {
         LicenseManager::check();
 
         &WORKSPACE

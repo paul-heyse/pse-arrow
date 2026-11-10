@@ -12,7 +12,7 @@ fn bytes<E, T>(n: usize) -> Result<usize, OperationError<E>> {
 
 // No owned Atom is formatted here: a canonical tag can invoke a custom printer.
 // Retained bodies likewise need a separate recursive sharing/backing contract.
-fn extent<T, E>(
+pub(super) fn extent<T, E>(
     evaluator: &ExpressionEvaluator<T>,
     payload: impl Fn(&T) -> Result<usize, OperationError<E>>,
 ) -> Result<OperationExtent, OperationError<E>> {

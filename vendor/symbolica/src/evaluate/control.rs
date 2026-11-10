@@ -7,6 +7,8 @@
 /// A safe-point stage within the checked operation.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum OperationStage {
+    /// Direct symbolic lowering and native normalization/Horner construction.
+    Construction,
     /// Scalar instruction expansion and its representation conversion.
     #[default]
     Vectorization,

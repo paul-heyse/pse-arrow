@@ -460,6 +460,41 @@ impl<'a> EvaluatorBuilder<'a> {
     }
 
     /// Build the evaluator.
+    /// Build the maintained direct profile with borrowed current-operation
+    /// admission. Horner iterations, parallel workers and CPE settings are kept.
+    /// Unknown callbacks, retained bodies and legacy EvalTree construction refuse
+    /// before growth. The returned evaluator retains no caller control.
+    pub fn try_build_with<C: OperationControl + Send>(
+        self,
+        control: &mut C,
+    ) -> Result<ExpressionEvaluator<Complex<Rational>>, OperationError<C::Error>>
+    where
+        C::Error: Send,
+    {
+        self.try_build_known_with(&[], control)
+    }
+
+    /// Build with a closed table of qualified local numerical heads. This table
+    /// does not authorize custom symbolic normalization or tagged generators.
+    pub fn try_build_known_with<C: OperationControl + Send>(
+        self,
+        heads: &[KnownHead],
+        control: &mut C,
+    ) -> Result<ExpressionEvaluator<Complex<Rational>>, OperationError<C::Error>>
+    where
+        C::Error: Send,
+    {
+        super::checked_build::build(
+            &self.exprs,
+            &self.fn_map,
+            &self.params,
+            self.optimization_settings,
+            heads,
+            control,
+        )
+    }
+
+    /// Build the evaluator using the native selected translation algorithm.
     pub fn build(self) -> Result<ExpressionEvaluator<Complex<Rational>>, EvaluationError> {
         // EvalTree::linearize expands every function call, so preserving an explicit call boundary
         // requires the direct translator even when the legacy tree optimizer was requested.

@@ -46,6 +46,11 @@ pub(crate) trait MultiPrecisionFloatRational {
         direction: RoundingDirection,
     ) -> Self;
     fn to_integer_ratio(&self) -> Option<(MultiPrecisionInteger, MultiPrecisionInteger)>;
+    /// Borrowed bounds for exact rational numerator/denominator bit lengths.
+    /// Backends without an allocation-free stored-value inspection return `None`.
+    fn rational_bit_bounds(&self) -> Option<(u128, u128)> {
+        None
+    }
 }
 
 #[cfg(feature = "float-mpfr")]
@@ -145,6 +150,28 @@ impl MultiPrecisionFloatRational for MultiPrecisionFloat {
             let (num, den) = value.into_numer_denom();
             (backend_integer_from_rug(num), backend_integer_from_rug(den))
         })
+    }
+
+    fn rational_bit_bounds(&self) -> Option<(u128, u128)> {
+        if !self.is_finite() {
+            return None;
+        }
+        if self.is_zero() {
+            return Some((0, 1));
+        }
+        // SAFETY: `self` owns an initialized MPFR value and remains borrowed;
+        // only public ABI precision/exponent fields are read. Rug's ordinary
+        // `prec` and `get_exp` narrow these fields and can panic on wider values.
+        let raw = unsafe { &*self.as_raw() };
+        let precision = i128::from(raw.prec);
+        let exponent = i128::from(raw.exp);
+        // A p-bit significand is an integer times 2^(e-p). Reduction can only
+        // shrink these bounds. i128 arithmetic covers the complete MPFR ABI
+        // exponent/precision ranges without allocating either integer.
+        Some((
+            precision.max(exponent) as u128,
+            (precision - exponent).max(0) as u128 + 1,
+        ))
     }
 }
 

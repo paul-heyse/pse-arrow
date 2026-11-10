@@ -1783,8 +1783,19 @@ impl<'a> AtomView<'a> {
     /// also whether any child of the current expression was changed by the map.
     pub(crate) fn replace_map_bottom_up<F: FnMut(AtomView, &Context, &mut Settable<'_, Atom>)>(
         &self,
-        mut m: F,
+        m: F,
         nested: bool, // an optimization to avoid unnecessary normalization
+    ) -> Atom {
+        Workspace::get_local().with(|ws| self.replace_map_bottom_up_in(ws, m, nested))
+    }
+
+    pub(crate) fn replace_map_bottom_up_in<
+        F: FnMut(AtomView, &Context, &mut Settable<'_, Atom>),
+    >(
+        &self,
+        ws: &Workspace,
+        mut m: F,
+        nested: bool,
     ) -> Atom {
         let mut out = Atom::new();
 
@@ -1795,19 +1806,16 @@ impl<'a> AtomView<'a> {
             child_changed: false,
         };
 
-        Workspace::get_local().with(|ws| {
-            let mut set = Settable::from(&mut out);
-            self.replace_map_bottom_up_impl(ws, &mut m, context, nested, &mut set);
+        let mut set = Settable::from(&mut out);
+        self.replace_map_bottom_up_impl(ws, &mut m, context, nested, &mut set);
 
-            if let Some(value) = set.get() {
-                let mut a = ws.new_atom();
-                value.as_view().normalize(ws, &mut a);
-                std::mem::swap(&mut out, &mut a);
-            } else {
-                out.set_from_view(self);
-            }
-        });
-
+        if let Some(value) = set.get() {
+            let mut a = ws.new_atom();
+            value.as_view().normalize(ws, &mut a);
+            std::mem::swap(&mut out, &mut a);
+        } else {
+            out.set_from_view(self);
+        }
         out
     }
 

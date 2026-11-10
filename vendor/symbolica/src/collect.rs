@@ -1169,21 +1169,25 @@ impl<'a> AtomView<'a> {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn collect_by_coefficient(&self) -> Atom {
-        Workspace::get_local().with(|ws| {
-            self.replace_map_bottom_up(
-                |term, _, out| {
-                    term.collect_num_exact_no_norm_impl(ws, out);
+        Workspace::get_local().with(|ws| self.collect_by_coefficient_in(ws))
+    }
 
-                    if let Some(value) = out.get() {
-                        let mut n = ws.new_atom();
-                        value.as_view().normalize(ws, &mut n);
-                        std::mem::swap(&mut **out, &mut n);
-                    }
-                },
-                true,
-            )
-        })
+    fn collect_by_coefficient_in(&self, ws: &Workspace) -> Atom {
+        self.replace_map_bottom_up_in(
+            ws,
+            |term, _, out| {
+                term.collect_num_exact_no_norm_impl(ws, out);
+
+                if let Some(value) = out.get() {
+                    let mut n = ws.new_atom();
+                    value.as_view().normalize(ws, &mut n);
+                    std::mem::swap(&mut **out, &mut n);
+                }
+            },
+            true,
+        )
     }
 
     pub(crate) fn collect_num_exact_no_norm_impl(&self, ws: &Workspace, out: &mut Settable<Atom>) {
@@ -1423,8 +1427,19 @@ impl<'a> AtomView<'a> {
         enter_functions: bool,
         collect_by_coefficient: bool,
     ) -> Atom {
+        Workspace::get_local()
+            .with(|ws| self.horner_scheme_in(ws, xs, enter_functions, collect_by_coefficient))
+    }
+
+    pub(crate) fn horner_scheme_in(
+        &self,
+        ws: &Workspace,
+        xs: Option<&[Indeterminate]>,
+        enter_functions: bool,
+        collect_by_coefficient: bool,
+    ) -> Atom {
         let r = if let Some(xs) = xs {
-            self.horner_scheme_impl(xs, enter_functions)
+            self.horner_scheme_impl_in(ws, xs, enter_functions)
         } else {
             // sort variables by their occurrence count
             let mut v = HashMap::default();
@@ -1437,18 +1452,19 @@ impl<'a> AtomView<'a> {
                 .map(|(x, _)| Indeterminate::try_from(x.to_owned()).unwrap())
                 .collect::<Vec<_>>();
 
-            self.horner_scheme_impl(&res, enter_functions)
+            self.horner_scheme_impl_in(ws, &res, enter_functions)
         };
 
         if collect_by_coefficient {
-            r.as_view().collect_by_coefficient()
+            r.as_view().collect_by_coefficient_in(ws)
         } else {
             r
         }
     }
 
-    pub(crate) fn horner_scheme_impl<'b>(
+    fn horner_scheme_impl_in(
         &self,
+        ws: &Workspace,
         xs: &[Indeterminate],
         enter_functions: bool,
     ) -> Atom {
@@ -1458,13 +1474,11 @@ impl<'a> AtomView<'a> {
             index.entry(x.as_view()).or_insert(i);
         }
 
-        Workspace::get_local().with(|ws| {
-            let r = self.horner_scheme_impl_no_norm(ws, xs, &index, 0, enter_functions);
+        let r = self.horner_scheme_impl_no_norm(ws, xs, &index, 0, enter_functions);
 
-            let mut out = Atom::new();
-            r.as_view().normalize(ws, &mut out);
-            out
-        })
+        let mut out = Atom::new();
+        r.as_view().normalize(ws, &mut out);
+        out
     }
 
     /// If `atom` is the indeterminate `x` or `x^n` with a positive integer `n`, return `n`.

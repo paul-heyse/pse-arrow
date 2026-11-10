@@ -21,6 +21,19 @@ Mathematical values, arithmetic and default caching outside fresh calls are unch
 Symbolica workspace storage, coefficient growth and producer safe points need their
 own construction controls; this capability alone does not establish those bounds.
 
+The maintained MPFR backend also exposes `Float::rational_bit_bounds()` as a
+borrowed inspection of the stored value. It reads the pinned backend's wide raw
+precision and exponent without cloning, parsing or constructing an integer.
+Finite zero gives `(0, 1)`; finite nonzero values give conservative numerator and
+denominator bit lengths; nonfinite values and unqualified backends give `None`.
+This preserves the stored precision and value. It does not widen other native
+Float arithmetic APIs: checked callers must qualify their precision/exponent
+range before invoking operations that narrow those fields.
+
+These are visible mathematical allocation contracts. Private GMP/MPFR algorithm
+scratch remains under the caller's separately admitted opaque foreign allowance,
+which is conservative policy rather than a claim about allocator usable size or RSS.
+
 The focused standalone control uses the packaged lockfile and selected backend:
 
 ```sh
@@ -28,6 +41,9 @@ scripts/pse-env -- cargo test --manifest-path vendor/numerica/Cargo.toml \
   --locked --no-default-features --features integer-gmp,float-mpfr \
   --lib integer_allocation_context
 ```
+
+The borrowed MPFR inspection controls use the same command with the filter
+`rational_bit_bounds_tests`.
 
 For standalone Symbolica commands from the repository root, also supply the explicit
 source selector below. It directs optional transitive users to the same maintained

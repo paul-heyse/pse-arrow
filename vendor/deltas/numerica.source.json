@@ -1,6 +1,6 @@
 {
   "archive_sha256": "836accdb415b7667573bd12676e0b2eb4440e3f60b110038d96a9086f5651c15",
-  "delta_sha256": "df2c703a37e139f0d7a4d47c4714bb6d58e11a1e0968967c68255fde0f334f6f",
+  "delta_sha256": "340e2e216f9ccb85d16e4ef5833ee2fe15f7df78a6be0e8bdfcdddb9cb5b709a",
   "files": {
     ".cargo_vcs_info.json": {
       "mode": "100644",
@@ -64,7 +64,7 @@
     },
     "src/domains/backend/float.rs": {
       "mode": "100644",
-      "sha256": "e43181cdab8f71c69b8df8ac1963ec83a0a779708add600f1cc4f77810f7b6f0"
+      "sha256": "b77734165d87edd08d86039e8fb9d24286705317644eee740a4aecc9b5494481"
     },
     "src/domains/backend/integer.rs": {
       "mode": "100644",
@@ -128,7 +128,7 @@
     },
     "src/domains/float/multiprecision.rs": {
       "mode": "100644",
-      "sha256": "ed49b16eff4521a7fadd61bf623c4753a6d60522eb0b8dee9856814d892464d1"
+      "sha256": "0d420f85671b2c9edea7fd524de911f8e632129465ec6f38436c99eeb61d16a8"
     },
     "src/domains/float/native.rs": {
       "mode": "100644",

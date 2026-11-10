@@ -297,7 +297,7 @@ index d7d5728a7d5c76685d571615fb8b4742823e7cc8..fc3eb20e6ccf7f6c592b26fd7b124266
 -    println!("cargo:rerun-if-changed=build.rs");
  }
 diff --git a/src/atom.rs b/src/atom.rs
-index 51600220a103d0ee1bda3c554f7df62f1fb3dadf..06238ad5c24d220743b962b86d70a6c49e4fc0c5 100644
+index 51600220a103d0ee1bda3c554f7df62f1fb3dadf..184b9cb281eca591a02b13be19ab8e3926928401 100644
 --- a/src/atom.rs
 +++ b/src/atom.rs
 @@ -41,6 +41,7 @@
@@ -308,6 +308,19 @@ index 51600220a103d0ee1bda3c554f7df62f1fb3dadf..06238ad5c24d220743b962b86d70a6c4
  mod properties;
  pub mod representation;
  
+@@ -603,6 +604,12 @@ impl EvaluationInfo {
+         Err("No precision-aware constant evaluator registered".to_owned())
+     }
+ 
++    /// Check whether a numeric implementation for `T` is registered, without
++    /// invoking a tagged generator or cloning a direct callable.
++    pub fn has_evaluator<T: 'static>(&self) -> bool {
++        self.eval_fns.contains_key(&TypeId::of::<T>())
++    }
++
+     /// Resolve the numeric evaluator for type `T` and the given symbolic tags.
+     ///
+     /// For tagless registrations, the direct callable is returned. For tagged
 diff --git a/src/atom/coefficient.rs b/src/atom/coefficient.rs
 index a32e9695635e55c4c908162c4f36197485037a2e..51182bd44b6416a34fda29488bba2a6c65757a1d 100644
 --- a/src/atom/coefficient.rs
@@ -912,15 +925,124 @@ index 8c90a1dd6de9c14c3d47c945b75f0a5a595c8008..36fd188de3ea15c67789dc379b7e8b5e
  
  const ZERO_DATA: [u8; 3] = [NUM_ID, 1, 0];
  
+diff --git a/src/collect.rs b/src/collect.rs
+index c15bee87e38206f3a0ea68b146542344ec832fc2..fe2c7556cd9a0bdfd9b5026b0078dc99a0758ce7 100644
+--- a/src/collect.rs
++++ b/src/collect.rs
+@@ -1169,21 +1169,25 @@ impl<'a> AtomView<'a> {
+         }
+     }
+ 
++    #[cfg(test)]
+     pub(crate) fn collect_by_coefficient(&self) -> Atom {
+-        Workspace::get_local().with(|ws| {
+-            self.replace_map_bottom_up(
+-                |term, _, out| {
+-                    term.collect_num_exact_no_norm_impl(ws, out);
+-
+-                    if let Some(value) = out.get() {
+-                        let mut n = ws.new_atom();
+-                        value.as_view().normalize(ws, &mut n);
+-                        std::mem::swap(&mut **out, &mut n);
+-                    }
+-                },
+-                true,
+-            )
+-        })
++        Workspace::get_local().with(|ws| self.collect_by_coefficient_in(ws))
++    }
++
++    fn collect_by_coefficient_in(&self, ws: &Workspace) -> Atom {
++        self.replace_map_bottom_up_in(
++            ws,
++            |term, _, out| {
++                term.collect_num_exact_no_norm_impl(ws, out);
++
++                if let Some(value) = out.get() {
++                    let mut n = ws.new_atom();
++                    value.as_view().normalize(ws, &mut n);
++                    std::mem::swap(&mut **out, &mut n);
++                }
++            },
++            true,
++        )
+     }
+ 
+     pub(crate) fn collect_num_exact_no_norm_impl(&self, ws: &Workspace, out: &mut Settable<Atom>) {
+@@ -1422,9 +1426,20 @@ impl<'a> AtomView<'a> {
+         xs: Option<&[Indeterminate]>,
+         enter_functions: bool,
+         collect_by_coefficient: bool,
++    ) -> Atom {
++        Workspace::get_local()
++            .with(|ws| self.horner_scheme_in(ws, xs, enter_functions, collect_by_coefficient))
++    }
++
++    pub(crate) fn horner_scheme_in(
++        &self,
++        ws: &Workspace,
++        xs: Option<&[Indeterminate]>,
++        enter_functions: bool,
++        collect_by_coefficient: bool,
+     ) -> Atom {
+         let r = if let Some(xs) = xs {
+-            self.horner_scheme_impl(xs, enter_functions)
++            self.horner_scheme_impl_in(ws, xs, enter_functions)
+         } else {
+             // sort variables by their occurrence count
+             let mut v = HashMap::default();
+@@ -1437,18 +1452,19 @@ impl<'a> AtomView<'a> {
+                 .map(|(x, _)| Indeterminate::try_from(x.to_owned()).unwrap())
+                 .collect::<Vec<_>>();
+ 
+-            self.horner_scheme_impl(&res, enter_functions)
++            self.horner_scheme_impl_in(ws, &res, enter_functions)
+         };
+ 
+         if collect_by_coefficient {
+-            r.as_view().collect_by_coefficient()
++            r.as_view().collect_by_coefficient_in(ws)
+         } else {
+             r
+         }
+     }
+ 
+-    pub(crate) fn horner_scheme_impl<'b>(
++    fn horner_scheme_impl_in(
+         &self,
++        ws: &Workspace,
+         xs: &[Indeterminate],
+         enter_functions: bool,
+     ) -> Atom {
+@@ -1458,13 +1474,11 @@ impl<'a> AtomView<'a> {
+             index.entry(x.as_view()).or_insert(i);
+         }
+ 
+-        Workspace::get_local().with(|ws| {
+-            let r = self.horner_scheme_impl_no_norm(ws, xs, &index, 0, enter_functions);
++        let r = self.horner_scheme_impl_no_norm(ws, xs, &index, 0, enter_functions);
+ 
+-            let mut out = Atom::new();
+-            r.as_view().normalize(ws, &mut out);
+-            out
+-        })
++        let mut out = Atom::new();
++        r.as_view().normalize(ws, &mut out);
++        out
+     }
+ 
+     /// If `atom` is the indeterminate `x` or `x^n` with a positive integer `n`, return `n`.
 diff --git a/src/evaluate.rs b/src/evaluate.rs
-index 565f85db38bdb56e0eaa14e4a6d703a88b26dd51..f58b94f2584cf473228866ab0006c68a3215c707 100644
+index 565f85db38bdb56e0eaa14e4a6d703a88b26dd51..028db3e7a32295d6f29c6cbc09ffbf9f29b0dc26 100644
 --- a/src/evaluate.rs
 +++ b/src/evaluate.rs
-@@ -26,25 +26,31 @@ use symjit::{Applet, Composer, Config, Defuns, Storage, Translator};
+@@ -26,25 +26,33 @@ use symjit::{Applet, Composer, Config, Defuns, Storage, Translator};
  
  #[cfg(feature = "native_code_generation")]
  mod backend;
++mod checked_build;
 +mod checked_copy;
++mod checked_shape;
 +mod control;
  mod domain;
  mod dual;
@@ -1024,9 +1146,1047 @@ index 1fad7aac401041e024cd169e0fe0c824bc47545a..f842990feabadd5ffdc62c45971a0606
      /// Number of scalar inputs per evaluation (independent of SIMD width or CUDA batch size).
      pub fn get_input_len(&self) -> usize {
          self.library.borrow_dependent().dimensions.input_len
+diff --git a/src/evaluate/checked_build.rs b/src/evaluate/checked_build.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..a95f8791cef885279c472aac2102ce9ee92744b8
+--- /dev/null
++++ b/src/evaluate/checked_build.rs
+@@ -0,0 +1,1032 @@
++//! Borrowed controls on the shared direct translator and its actual workers.
++use super::*;
++use crate::coefficient::{SerializedFloat, SerializedRational};
++use crate::state::{Workspace, WorkspaceObserver};
++use numerica::domains::backend::integer::IntegerAllocationContext;
++
++fn add<E>(a: usize, b: usize) -> Result<usize, OperationError<E>> {
++    a.checked_add(b).ok_or(OperationError::Overflow)
++}
++fn mul<E>(a: usize, b: usize) -> Result<usize, OperationError<E>> {
++    a.checked_mul(b).ok_or(OperationError::Overflow)
++}
++fn limbs<E>(bits: usize) -> Result<usize, OperationError<E>> {
++    // Native fresh GMP destinations round to limbs; arithmetic destinations can
++    // retain the carry limb. Old/new destinations coexist in the working bound.
++    mul(add(add(bits, 63)? / 64, 2)?, size_of::<u64>())
++}
++
++/// Common-denominator complex-rational height, including unreduced intermediates.
++#[derive(Clone, Copy)]
++struct Height {
++    a: usize,
++    d: usize,
++}
++impl Height {
++    const ONE: Self = Self { a: 1, d: 1 };
++    fn sum<E>(self, other: Self) -> Result<Self, OperationError<E>> {
++        Ok(Self {
++            a: add(add(self.a, other.d)?.max(add(other.a, self.d)?), 1)?,
++            d: add(self.d, other.d)?,
++        })
++    }
++    fn product<E>(self, other: Self) -> Result<Self, OperationError<E>> {
++        Ok(Self {
++            a: add(add(self.a, other.a)?, 1)?,
++            d: add(self.d, other.d)?,
++        })
++    }
++    fn power<E>(mut self, exponent: i64) -> Result<Self, OperationError<E>> {
++        if exponent < 0 {
++            self = Self {
++                a: add(self.a, self.d)?,
++                d: add(mul(2, self.a)?, 1)?,
++            };
++        }
++        let n = usize::try_from(exponent.unsigned_abs()).map_err(|_| OperationError::Overflow)?;
++        Ok(Self {
++            a: mul(n, add(self.a, 1)?)?,
++            d: mul(n, self.d)?,
++        })
++    }
++    fn bits<E>(self) -> Result<usize, OperationError<E>> {
++        add(self.a, self.d)
++    }
++}
++
++#[derive(Clone, Copy)]
++struct Bound {
++    height: Height,
++    peak: usize,
++    nodes: usize,
++    wide_float: bool,
++}
++
++struct State<'a, C: OperationControl> {
++    control: &'a mut C,
++    refusal: Option<OperationError<C::Error>>,
++    height: usize,
++}
++
++struct Session<'a, C: OperationControl> {
++    state: Mutex<State<'a, C>>,
++    input: usize,
++    nodes: usize,
++    source_bytes: usize,
++    parameters: usize,
++    outputs: usize,
++    names: usize,
++    workers: usize,
++    permutations: usize,
++}
++
++impl<C: OperationControl> Session<'_, C> {
++    fn fail(&self, error: OperationError<C::Error>) -> ! {
++        let mut state = self
++            .state
++            .lock()
++            .unwrap_or_else(std::sync::PoisonError::into_inner);
++        if state.refusal.is_none() {
++            state.refusal = Some(error);
++        }
++        drop(state);
++        panic::resume_unwind(Box::new(Stop));
++    }
++
++    fn value<T>(&self, value: Result<T, OperationError<C::Error>>) -> T {
++        match value {
++            Ok(value) => value,
++            Err(error) => self.fail(error),
++        }
++    }
++
++    fn extent(
++        &self,
++        height: usize,
++        stage: OperationStage,
++        work: usize,
++    ) -> Result<OperationExtent, OperationError<C::Error>> {
++        let n = self.nodes.max(1);
++        let entries = add(self.parameters, mul(24, n)?)?;
++        let instructions = mul(24, n)?;
++        let integer = limbs(mul(4, add(height, 2)?)?)?;
++        let coefficient = add(size_of::<Complex<Rational>>(), mul(4, integer)?)?;
++        // Coefficient collection and integer-power distribution introduce at most
++        // a Mul/Num or Pow wrapper per original edge. No linear user heads are
++        // admitted. Three nodes per original node bound every canonical result.
++        let atom = add(
++            self.source_bytes,
++            mul(mul(3, n)?, add(64, mul(4, integer)?)?)?,
++        )?;
++        // Each recursive collection/replacement frame can hold input, rebuilt and
++        // normalized encodings. Vec growth includes old/new geometric overlap.
++        let workspace = mul(mul(3, add(n, 1)?)?, atom)?;
++        // At most eight live complex coefficient values (32 integers) occur in
++        // native complex/rational normalization, including unreduced cross-products.
++        // Private GMP/MPFR algorithm scratch is NOT inferred from these limbs:
++        // it remains the caller's separately admitted opaque foreign allowance.
++        let arithmetic = mul(add(n, 1)?, mul(8, coefficient)?)?;
++        let output = add(
++            add(
++                mul(entries, coefficient)?,
++                mul(
++                    instructions,
++                    add(size_of::<(Instr, ComplexPhase)>(), 4 * size_of::<usize>())?,
++                )?,
++            )?,
++            add(
++                mul(self.outputs, size_of::<usize>())?,
++                add(
++                    self.names,
++                    mul(n, size_of::<ExternalFunctionContainer<Complex<Rational>>>())?,
++                )?,
++            )?,
++        )?;
++        // Lowering simultaneously retains public Instruction/Slot and private
++        // Instr forms, constant/alias/subexpression tables and branch maps. A
++        // pair belongs to at most one operand pair occurrence, so all CPE keys,
++        // occurrence lists and heap records together have at most n^2 entries.
++        let records = add(
++            mul(n, 64 * size_of::<usize>())?,
++            mul(mul(n, n)?, 32 * size_of::<usize>())?,
++        )?;
++        let permutation_bytes = mul(
++            self.permutations,
++            add(size_of::<Vec<usize>>(), 9 * size_of::<usize>())?,
++        )?;
++        let temporary = add(
++            add(
++                mul(add(self.workers, 2)?, add(workspace, arithmetic)?)?,
++                mul(3, add(output, records)?)?,
++            )?,
++            permutation_bytes,
++        )?;
++        let extent = OperationExtent {
++            stage,
++            work,
++            input_bytes: self.input,
++            temporary_bytes: temporary,
++            output_bytes: output,
++            output_entries: entries,
++        };
++        extent.peak_bytes().ok_or(OperationError::Overflow)?;
++        Ok(extent)
++    }
++
++    fn check(&self, height: usize, stage: OperationStage, work: usize) {
++        let mut state = self
++            .state
++            .lock()
++            .unwrap_or_else(std::sync::PoisonError::into_inner);
++        if state.refusal.is_some() {
++            drop(state);
++            panic::resume_unwind(Box::new(Stop));
++        }
++        let height = height.max(state.height);
++        let extent = self.extent(height, stage, work);
++        let result = match extent {
++            Ok(extent) => state.control.check(extent).map_err(OperationError::Control),
++            Err(error) => Err(error),
++        };
++        match result {
++            Ok(()) => state.height = height,
++            Err(error) => {
++                state.refusal = Some(error);
++                drop(state);
++                panic::resume_unwind(Box::new(Stop));
++            }
++        }
++    }
++
++    fn finalize(&self, product: &ExpressionEvaluator<Complex<Rational>>) {
++        let resident = self.value(super::checked_copy::extent(product, control::payload));
++        let mut state = self
++            .state
++            .lock()
++            .unwrap_or_else(std::sync::PoisonError::into_inner);
++        if state.refusal.is_some() {
++            drop(state);
++            panic::resume_unwind(Box::new(Stop));
++        }
++        let extent = self
++            .extent(state.height, OperationStage::Finalization, 0)
++            .map(|extent| OperationExtent {
++                output_bytes: resident.input_bytes,
++                output_entries: product.stack.len(),
++                ..extent
++            });
++        let checked = match extent {
++            Ok(extent) => state.control.check(extent).map_err(OperationError::Control),
++            Err(error) => Err(error),
++        };
++        if let Err(error) = checked {
++            state.refusal = Some(error);
++            drop(state);
++            panic::resume_unwind(Box::new(Stop));
++        }
++    }
++
++    fn float(&self, value: SerializedFloat<'_>) -> (Height, bool) {
++        let precision = value
++            .0
++            .get(..4)
++            .and_then(|bytes| bytes.try_into().ok())
++            .map(u32::from_le_bytes)
++            .unwrap_or(0) as usize;
++        if precision == 0 {
++            self.fail(OperationError::Unsupported(
++                "invalid serialized float precision",
++            ));
++        }
++        // Stage one precedes MPFR parsing/decoding. Parsing text and precision
++        // backing is admitted without materializing an integer ratio.
++        self.check(
++            self.value(add(precision, self.value(mul(value.0.len(), 8)))),
++            OperationStage::Construction,
++            0,
++        );
++        let decoded = value.to_float();
++        let (numerator, denominator) = decoded.rational_bit_bounds().unwrap_or_else(|| {
++            self.fail(OperationError::Unsupported(
++                "nonfinite or unqualified float backend",
++            ))
++        });
++        let a = usize::try_from(numerator).unwrap_or_else(|_| self.fail(OperationError::Overflow));
++        let d =
++            usize::try_from(denominator).unwrap_or_else(|_| self.fail(OperationError::Overflow));
++        let wide = a.max(d) > i32::MAX as usize;
++        (Height { a, d }, wide)
++    }
++
++    fn coefficient(&self, value: CoefficientView<'_>) -> (Height, bool) {
++        fn rational<E>(value: SerializedRational<'_>) -> Result<(usize, usize), OperationError<E>> {
++            match value {
++                SerializedRational::Natural(n, d) => Ok((
++                    (64 - n.unsigned_abs().leading_zeros()) as usize,
++                    (64 - d.unsigned_abs().leading_zeros()) as usize,
++                )),
++                SerializedRational::Large(value) => Ok((
++                    mul(value.num_digits.len(), 8)?,
++                    mul(value.den_digits.len(), 8)?,
++                )),
++            }
++        }
++        let ((nr, dr), (ni, di), wide) = match value {
++            CoefficientView::Natural(nr, dr, ni, di) => (
++                self.value(rational(SerializedRational::Natural(nr, dr))),
++                self.value(rational(SerializedRational::Natural(ni, di))),
++                false,
++            ),
++            CoefficientView::Large(r, i) => {
++                (self.value(rational(r)), self.value(rational(i)), false)
++            }
++            CoefficientView::Float(r, i) => {
++                let (r, rw) = self.float(r);
++                let (i, iw) = self.float(i);
++                ((r.a, r.d), (i.a, i.d), rw || iw)
++            }
++            _ => self.fail(OperationError::Unsupported(
++                "checked construction coefficient domain",
++            )),
++        };
++        (
++            Height {
++                a: self.value(add(nr, di)).max(self.value(add(ni, dr))),
++                d: self.value(add(dr.max(1), di.max(1))),
++            },
++            wide,
++        )
++    }
++
++    fn bound(&self, atom: AtomView<'_>) -> Bound {
++        let mut height = Height::ONE;
++        let mut peak = 2;
++        let mut nodes = 1;
++        let mut wide_float = false;
++        match atom {
++            AtomView::Num(number) => {
++                (height, wide_float) = self.coefficient(number.get_coeff_view());
++            }
++            AtomView::Var(_) => {}
++            AtomView::Add(_) | AtomView::Mul(_) | AtomView::Fun(_) => {
++                let children = match atom {
++                    AtomView::Add(a) => a.iter(),
++                    AtomView::Mul(m) => m.iter(),
++                    AtomView::Fun(f) => f.iter(),
++                    _ => unreachable!(),
++                };
++                for child in children {
++                    let child = self.bound(child);
++                    nodes = self.value(add(nodes, child.nodes));
++                    peak = peak.max(child.peak);
++                    wide_float |= child.wide_float;
++                    height = if matches!(atom, AtomView::Add(_)) {
++                        self.value(height.sum(child.height))
++                    } else if matches!(atom, AtomView::Mul(_)) {
++                        self.value(height.product(child.height))
++                    } else {
++                        Height::ONE
++                    };
++                }
++            }
++            AtomView::Pow(power) => {
++                let (base, exponent) = power.get_base_exp();
++                let base = self.bound(base);
++                let exp_bound = self.bound(exponent);
++                nodes = self.value(add(1, self.value(add(base.nodes, exp_bound.nodes))));
++                peak = base.peak.max(exp_bound.peak);
++                wide_float = base.wide_float || exp_bound.wide_float;
++                height = if let AtomView::Num(exp) = exponent
++                    && let CoefficientView::Natural(n, 1, 0, _) = exp.get_coeff_view()
++                {
++                    self.value(base.height.power(n))
++                } else {
++                    base.height
++                };
++            }
++        }
++        peak = peak.max(self.value(height.bits()));
++        Bound {
++            height,
++            peak,
++            nodes,
++            wide_float,
++        }
++    }
++}
++
++impl<C: OperationControl + Send> WorkspaceObserver for Session<'_, C>
++where
++    C::Error: Send,
++{
++    fn enter(&self, atom: AtomView<'_>) -> usize {
++        let bound = self.bound(atom);
++        if bound.wide_float && (atom.needs_normalization() || matches!(atom, AtomView::Fun(_))) {
++            self.fail(OperationError::Unsupported(
++                "native float arithmetic precision/exponent range",
++            ));
++        }
++        // sqrt/log/exp can raise MPFR precision. Their visible precision bound
++        // is admitted from the actual current operands before normalization;
++        // nested results are scanned again before the next native operation.
++        self.check(
++            self.value(add(self.value(mul(2, bound.peak)), 64)),
++            OperationStage::Construction,
++            1,
++        );
++        0
++    }
++    fn leave(&self, _: usize) {}
++    fn power(&self, base: CoefficientView<'_>, exponent: CoefficientView<'_>) {
++        let (height, wide) = self.coefficient(base);
++        if wide {
++            self.fail(OperationError::Unsupported(
++                "native float arithmetic precision/exponent range",
++            ));
++        }
++        let height = match exponent {
++            CoefficientView::Natural(n, 1, 0, _) => self.value(height.power(n)),
++            _ if matches!(base, CoefficientView::Float(..))
++                || matches!(exponent, CoefficientView::Float(..)) =>
++            {
++                let (other, wide) = self.coefficient(exponent);
++                if wide {
++                    self.fail(OperationError::Unsupported(
++                        "native float arithmetic precision/exponent range",
++                    ));
++                }
++                Height {
++                    a: self.value(add(self.value(height.bits()), self.value(other.bits()))),
++                    d: 64,
++                }
++            }
++            _ => self.fail(OperationError::Unsupported(
++                "new exact numerical fractional-power normalization",
++            )),
++        };
++        self.check(self.value(height.bits()), OperationStage::Construction, 1);
++    }
++}
++
++impl<C: OperationControl + Send> BuildObserver for Session<'_, C>
++where
++    C::Error: Send,
++{
++    fn horner(&self, atom: AtomView<'_>) {
++        let bound = self.bound(atom);
++        self.check(bound.peak, OperationStage::Construction, 1);
++    }
++    fn linearization(&self, atom: AtomView<'_>) {
++        let bound = self.bound(atom);
++        self.check(bound.peak, OperationStage::Construction, 1);
++    }
++    fn float_rational(&self, value: &Float) {
++        let (numerator, denominator) = value.rational_bit_bounds().unwrap_or_else(|| {
++            self.fail(OperationError::Unsupported(
++                "nonfinite or unqualified float backend",
++            ))
++        });
++        let bits = numerator
++            .checked_add(denominator)
++            .and_then(|n| usize::try_from(n).ok())
++            .unwrap_or_else(|| self.fail(OperationError::Overflow));
++        // Stage two precedes the actual exponent-sized dyadic allocation.
++        self.check(bits, OperationStage::Construction, 1);
++    }
++    fn stage(&self, stage: OperationStage) {
++        self.check(1, stage, 0);
++    }
++}
++
++fn alias<'a>(map: &'a FunctionMap, atom: AtomView<'_>) -> Option<&'a Expr> {
++    map.tagged_fn_map.iter().find_map(|((symbol, tags), body)| {
++        let matches = match atom {
++            AtomView::Var(v) => v.get_symbol() == *symbol && tags.is_empty(),
++            AtomView::Fun(f) => {
++                f.get_symbol() == *symbol
++                    && f.get_nargs() == tags.len()
++                    && f.iter().zip(tags).all(|(a, b)| a == b.as_view())
++            }
++            _ => false,
++        };
++        matches.then_some(body)
++    })
++}
++
++fn qualify<E>(
++    atom: AtomView<'_>,
++    params: &[Atom],
++    map: &FunctionMap,
++    heads: &[KnownHead],
++    depth: usize,
++    opaque: bool,
++) -> Result<(usize, usize), OperationError<E>> {
++    if depth
++        > map
++            .tagged_fn_map
++            .len()
++            .checked_add(1)
++            .ok_or(OperationError::Overflow)?
++    {
++        return Err(OperationError::Unsupported("cyclic alias construction"));
++    }
++    let symbol = match atom {
++        AtomView::Var(v) => Some(v.get_symbol()),
++        AtomView::Fun(f) => Some(f.get_symbol()),
++        _ => None,
++    };
++    let is_parameter = params.iter().any(|p| p.as_view() == atom);
++    let mut names = 0;
++    if let Some(symbol) = symbol {
++        if symbol.get_normalization_function().is_some() || symbol.is_linear() {
++            return Err(OperationError::Unsupported(
++                "custom or linear-head normalization",
++            ));
++        }
++        if let Some(info) = symbol.get_evaluation_info()
++            && info.has_evaluator::<Complex<Float>>()
++        {
++            return Err(OperationError::Unsupported(
++                "custom floating-point normalization callback",
++            ));
++        }
++        names = symbol
++            .get_aliases()
++            .iter()
++            .map(|a| a.len())
++            .max()
++            .unwrap_or(0)
++            .max(symbol.get_name().len());
++        if !opaque && !is_parameter {
++            if let Some(body) = alias(map, atom) {
++                let (nodes, body_names) =
++                    qualify(body.body.as_view(), params, map, heads, depth + 1, false)?;
++                let mut nodes = add(nodes, 1)?;
++                names = add(names, body_names)?;
++                // Lowering treats the whole fixed-tag alias as a definition;
++                // Horner still visits its original arguments before lowering.
++                if let AtomView::Fun(f) = atom {
++                    for child in f {
++                        let (n, child_names) = qualify(child, params, map, heads, depth, true)?;
++                        nodes = add(nodes, n)?;
++                        names = add(names, child_names)?;
++                    }
++                }
++                return Ok((nodes, names));
++            }
++            let builtin = symbol.is_fixed_builtin();
++            if !builtin {
++                let head = KnownHead::find::<E>(heads, symbol)?;
++                let arity = if let AtomView::Fun(f) = atom {
++                    f.get_nargs()
++                } else {
++                    0
++                };
++                if arity != head.arity {
++                    return Err(OperationError::Unsupported("qualified head arity"));
++                }
++            }
++        }
++    }
++    let mut nodes = 1;
++    match atom {
++        AtomView::Add(a) => {
++            for child in a {
++                let (n, names_) = qualify(child, params, map, heads, depth, opaque)?;
++                nodes = add(nodes, n)?;
++                names = add(names, names_)?;
++            }
++        }
++        AtomView::Mul(m) => {
++            for child in m {
++                let (n, names_) = qualify(child, params, map, heads, depth, opaque)?;
++                nodes = add(nodes, n)?;
++                names = add(names, names_)?;
++            }
++        }
++        AtomView::Fun(f) => {
++            for child in f {
++                let (n, names_) =
++                    qualify(child, params, map, heads, depth, opaque || is_parameter)?;
++                nodes = add(nodes, n)?;
++                names = add(names, names_)?;
++            }
++        }
++        AtomView::Pow(p) => {
++            for child in [p.get_base(), p.get_exp()] {
++                let (n, names_) = qualify(child, params, map, heads, depth, opaque)?;
++                nodes = add(nodes, n)?;
++                names = add(names, names_)?;
++            }
++        }
++        AtomView::Num(n) => {
++            if !matches!(
++                n.get_coeff_view(),
++                CoefficientView::Natural(..)
++                    | CoefficientView::Large(..)
++                    | CoefficientView::Float(..)
++            ) {
++                return Err(OperationError::Unsupported(
++                    "checked construction coefficient domain",
++                ));
++            }
++        }
++        AtomView::Var(_) => {}
++    }
++    Ok((nodes, names))
++}
++
++pub(super) fn build<C: OperationControl + Send>(
++    expressions: &[AtomView<'_>],
++    map: &FunctionMap,
++    params: &[Atom],
++    settings: OptimizationSettings,
++    heads: &[KnownHead],
++    control: &mut C,
++) -> Result<ExpressionEvaluator<Complex<Rational>>, OperationError<C::Error>>
++where
++    C::Error: Send,
++{
++    control
++        .check(OperationExtent {
++            stage: OperationStage::Construction,
++            ..OperationExtent::default()
++        })
++        .map_err(OperationError::Control)?;
++    if !settings.direct_translation {
++        return Err(OperationError::Unsupported(
++            "legacy evaluation-tree construction",
++        ));
++    }
++    if settings.hot_start.is_some() || settings.abort_check.is_some() || settings.abort_level != 0 {
++        return Err(OperationError::Unsupported(
++            "retained hot-start or legacy abort callback",
++        ));
++    }
++    if settings.n_cores == 0 {
++        return Err(OperationError::Unsupported("zero Horner worker count"));
++    }
++    if map
++        .tagged_fn_map
++        .values()
++        .any(|body| !body.is_alias || !body.args.is_empty() || !body.options.should_inline())
++    {
++        return Err(OperationError::Unsupported(
++            "non-alias or retained function definitions",
++        ));
++    }
++    let mut nodes = 0;
++    let mut names = 0;
++    let mut source_bytes = 0;
++    for atom in expressions
++        .iter()
++        .copied()
++        .chain(params.iter().map(Atom::as_view))
++        .chain(map.tagged_fn_map.values().map(|body| body.body.as_view()))
++    {
++        let (n, names_) = qualify(atom, params, map, heads, 0, false)?;
++        nodes = add(nodes, n)?;
++        names = add(names, names_)?;
++        source_bytes = add(source_bytes, atom.get_byte_size())?;
++    }
++    let mut input = add(source_bytes, mul(params.len(), size_of::<Atom>())?)?;
++    input = add(input, mul(expressions.len(), size_of::<AtomView>())?)?;
++    for atom in params {
++        input = add(input, atom.get_capacity())?;
++    }
++    for ((_, tags), body) in &map.tagged_fn_map {
++        input = add(input, body.body.get_capacity())?;
++        input = add(input, mul(tags.capacity(), size_of::<Atom>())?)?;
++        for tag in tags {
++            input = add(input, tag.get_capacity())?;
++        }
++    }
++    input = add(
++        input,
++        mul(
++            map.tagged_fn_map
++                .capacity()
++                .checked_next_power_of_two()
++                .ok_or(OperationError::Overflow)?,
++            2 * (size_of::<((Symbol, Vec<Atom>), Expr)>() + 16),
++        )?,
++    )?;
++    input = add(
++        input,
++        mul(
++            map.tag
++                .capacity()
++                .checked_next_power_of_two()
++                .ok_or(OperationError::Overflow)?,
++            2 * (size_of::<(Symbol, usize)>() + 16),
++        )?,
++    )?;
++    let mut permutations = 0;
++    let mut factorial = 1usize;
++    for count in 1..=9.min(nodes).min(settings.max_horner_scheme_variables) {
++        factorial = mul(factorial, count)?;
++        if factorial <= settings.horner_iterations {
++            permutations = factorial;
++        }
++    }
++    let workers = LicenseManager::max_threads(settings.n_cores)
++        .min(settings.horner_iterations.saturating_sub(1));
++    let session = Session {
++        state: Mutex::new(State {
++            control,
++            refusal: None,
++            height: 1,
++        }),
++        input,
++        nodes,
++        source_bytes,
++        parameters: params.len(),
++        outputs: expressions.len(),
++        names,
++        workers,
++        permutations,
++    };
++    let result = panic::catch_unwind(panic::AssertUnwindSafe(|| {
++        IntegerAllocationContext::fresh().run(|| {
++            session.check(1, OperationStage::Construction, 0);
++            for expression in expressions {
++                let bound = session.bound(*expression);
++                session.check(bound.peak, OperationStage::Construction, 0);
++            }
++            for body in map.tagged_fn_map.values() {
++                let bound = session.bound(body.body.as_view());
++                session.check(bound.peak, OperationStage::Construction, 0);
++            }
++            let product =
++                AtomView::to_evaluator_observed(expressions, map, params, settings, Some(&session));
++            if let Ok(product) = &product {
++                session.finalize(product);
++            }
++            product
++        })
++    }));
++    let state = session
++        .state
++        .into_inner()
++        .unwrap_or_else(std::sync::PoisonError::into_inner);
++    match result {
++        Err(payload) if payload.is::<Stop>() => {
++            Err(state.refusal.unwrap_or(OperationError::Interrupted))
++        }
++        Err(payload) => panic::resume_unwind(payload),
++        Ok(_) if state.refusal.is_some() => Err(state.refusal.unwrap()),
++        Ok(result) => result.map_err(|error| OperationError::InvalidProgram(error.to_string())),
++    }
++}
++
++/// Private unwind payload for an already-recorded original typed refusal.
++pub(crate) struct Stop;
++
++pub(crate) fn preserve_panic(
++    current: &mut Option<Box<dyn std::any::Any + Send>>,
++    incoming: Box<dyn std::any::Any + Send>,
++) {
++    if current
++        .as_ref()
++        .is_none_or(|previous| previous.is::<Stop>() && !incoming.is::<Stop>())
++    {
++        *current = Some(incoming);
++    }
++}
++
++pub(crate) trait BuildObserver: WorkspaceObserver {
++    fn horner(&self, atom: AtomView<'_>);
++    fn linearization(&self, atom: AtomView<'_>);
++    fn float_rational(&self, value: &Float);
++    fn stage(&self, stage: OperationStage);
++}
++
++pub(crate) fn horner(
++    atom: AtomView<'_>,
++    scheme: &[Indeterminate],
++    observer: Option<&dyn BuildObserver>,
++) -> Atom {
++    if let Some(observer) = observer {
++        observer.horner(atom);
++        let workspace = Workspace::controlled(observer);
++        atom.horner_scheme_in(&workspace, Some(scheme), true, true)
++    } else {
++        atom.horner_scheme(Some(scheme), true, true)
++    }
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use crate::{domains::backend::integer::IntegerAllocationContext, parse};
++    use std::sync::atomic::{AtomicUsize, Ordering};
++
++    #[test]
++    fn checked_builder_preserves_horner_products_and_reports_retained_backing() {
++        let x = parse!("checked_builder_x");
++        let expression = parse!("(2*checked_builder_x+2)^128 + checked_builder_x^2");
++        let mut final_bytes = 0;
++        let product = expression
++            .evaluator(&[x.clone()])
++            .direct_translation(true)
++            .horner_iterations(16)
++            .cores(4)
++            .cpe_iterations(Some(3))
++            .try_build_with(&mut |extent: OperationExtent| {
++                if extent.stage == OperationStage::Finalization {
++                    final_bytes = extent.output_bytes;
++                }
++                Ok::<_, std::convert::Infallible>(())
++            })
++            .unwrap();
++        let resident = super::super::checked_copy::extent::<_, std::convert::Infallible>(
++            &product,
++            control::payload,
++        )
++        .unwrap();
++        assert_eq!(final_bytes, resident.input_bytes);
++        assert_eq!(product.settings.horner_iterations, 16);
++        assert_eq!(product.settings.n_cores, 4);
++        assert_eq!(product.settings.cpe_iterations, Some(3));
++        assert!(product.settings.abort_check.is_none());
++        let mut product = product.map_coeff(&|c| c.re.to_f64());
++        let mut baseline = expression
++            .evaluator(&[x])
++            .direct_translation(true)
++            .horner_iterations(16)
++            .cores(4)
++            .cpe_iterations(Some(3))
++            .build()
++            .unwrap()
++            .map_coeff(&|c| c.re.to_f64());
++        for x in [0., 0.25, 1.] {
++            assert_eq!(
++                product.evaluate_single(&[x]),
++                baseline.evaluate_single(&[x])
++            );
++        }
++    }
++
++    #[test]
++    fn checked_builder_preserves_original_typed_refusal_and_sticky_worker_stop() {
++        #[derive(Debug, PartialEq, Eq)]
++        struct Refused(u64);
++        let inputs = [
++            parse!("checked_stop_a"),
++            parse!("checked_stop_b"),
++            parse!("checked_stop_c"),
++        ];
++        let expression = parse!(
++            "(checked_stop_a+checked_stop_b+checked_stop_c)^2+checked_stop_a*checked_stop_b+checked_stop_b*checked_stop_c"
++        );
++        let mut calls = 0;
++        let mut refused = false;
++        let result = expression
++            .evaluator(&inputs)
++            .direct_translation(true)
++            .horner_iterations(64)
++            .cores(4)
++            .try_build_with(&mut |_: OperationExtent| {
++                assert!(!refused, "an original refusal is sticky across all workers");
++                calls += 1;
++                if calls == 40 {
++                    refused = true;
++                    Err(Refused(67))
++                } else {
++                    Ok(())
++                }
++            });
++        assert_eq!(result.unwrap_err(), OperationError::Control(Refused(67)));
++        assert!(refused);
++        assert!(!IntegerAllocationContext::capture().is_fresh());
++    }
++
++    #[test]
++    fn checked_builder_admits_float_precision_then_exponent_before_dyadic_growth() {
++        #[derive(Debug, PartialEq, Eq)]
++        struct Refused;
++        let expression = Atom::num(Float::deserialize(b"1@100000", 53));
++        let mut largest = 0;
++        let result = expression
++            .evaluator(&[] as &[Atom])
++            .direct_translation(true)
++            .horner_iterations(0)
++            .try_build_with(&mut |extent: OperationExtent| {
++                largest = largest.max(extent.peak_bytes().unwrap());
++                if largest > 8_000_000 {
++                    Err(Refused)
++                } else {
++                    Ok(())
++                }
++            });
++        assert_eq!(result.unwrap_err(), OperationError::Control(Refused));
++        assert!(largest > 8_000_000);
++    }
++
++    #[test]
++    fn checked_builder_keeps_fixed_tag_aliases_and_function_shaped_inputs() {
++        let head = crate::symbol!(
++            "checked_builder_known_head",
++            eval = EvaluationInfo::new().register(|args: &[f64]| args[0] + 3.)
++        );
++        let parameter = parse!("checked_builder_opaque(checked_builder_local)");
++        let alias = parse!("checked_builder_alias(7)");
++        let expression = head.call(&[parameter.clone()][..]) + &alias;
++        let definitions = [(alias, &parameter * Atom::num(2))];
++        let heads = [KnownHead {
++            symbol: head,
++            arity: 1,
++            first: [None; 2],
++            second: [None; 3],
++        }];
++        let product = expression
++            .evaluator(&[parameter])
++            .add_aliases(definitions)
++            .unwrap()
++            .direct_translation(true)
++            .horner_iterations(16)
++            .cores(4)
++            .try_build_known_with(&heads, &mut |_: OperationExtent| {
++                Ok::<_, std::convert::Infallible>(())
++            })
++            .unwrap();
++        let mut numeric = product.map_coeff(&|c| c.re.to_f64());
++        assert_eq!(numeric.evaluate_single(&[2.]), 9.);
++    }
++
++    #[test]
++    fn checked_builder_refuses_custom_normalization_before_callback_or_growth() {
++        static INVOCATIONS: AtomicUsize = AtomicUsize::new(0);
++        let head = crate::symbol!(
++            "checked_builder_custom_normalization",
++            norm = |_, _| {
++                INVOCATIONS.fetch_add(1, Ordering::SeqCst);
++            }
++        );
++        let x = parse!("checked_builder_custom_x");
++        let mut expression = Atom::new();
++        expression.to_fun(head).add_arg(x.as_view());
++        let mut reports = 0;
++        let result = expression
++            .evaluator(&[x])
++            .direct_translation(true)
++            .try_build_with(&mut |extent: OperationExtent| {
++                reports += 1;
++                assert_eq!(extent.output_bytes, 0);
++                Ok::<_, std::convert::Infallible>(())
++            });
++        assert!(matches!(result, Err(OperationError::Unsupported(_))));
++        assert_eq!(reports, 1);
++        assert_eq!(INVOCATIONS.load(Ordering::SeqCst), 0);
++    }
++
++    #[derive(Default)]
++    struct Probe {
++        active: AtomicUsize,
++        powers: AtomicUsize,
++        threads: Mutex<std::collections::HashSet<std::thread::ThreadId>>,
++        stop_power: bool,
++    }
++    impl WorkspaceObserver for Probe {
++        fn enter(&self, _: AtomView<'_>) -> usize {
++            assert!(IntegerAllocationContext::capture().is_fresh());
++            self.active.fetch_add(1, Ordering::SeqCst);
++            1
++        }
++        fn leave(&self, n: usize) {
++            self.active.fetch_sub(n, Ordering::SeqCst);
++        }
++        fn power(&self, _: CoefficientView<'_>, exponent: CoefficientView<'_>) {
++            self.powers.fetch_add(1, Ordering::SeqCst);
++            if self.stop_power
++                && matches!(exponent, CoefficientView::Natural(n, 1, 0, 1) if n > 128)
++            {
++                panic::resume_unwind(Box::new(Stop));
++            }
++        }
++    }
++    impl BuildObserver for Probe {
++        fn horner(&self, _: AtomView<'_>) {
++            assert!(IntegerAllocationContext::capture().is_fresh());
++            self.threads
++                .lock()
++                .unwrap()
++                .insert(std::thread::current().id());
++        }
++        fn linearization(&self, _: AtomView<'_>) {}
++        fn float_rational(&self, _: &Float) {}
++        fn stage(&self, _: OperationStage) {}
++    }
++
++    #[test]
++    fn controlled_horner_normalizer_stops_before_factored_integer_power() {
++        let expression = parse!("(2*controlled_horner_x+2)^1000000");
++        let observer = Probe {
++            stop_power: true,
++            ..Probe::default()
++        };
++        let stopped = panic::catch_unwind(panic::AssertUnwindSafe(|| {
++            IntegerAllocationContext::fresh()
++                .run(|| horner(expression.as_view(), &[], Some(&observer)))
++        }));
++        assert!(stopped.unwrap_err().is::<Stop>());
++        assert!(observer.powers.load(Ordering::SeqCst) > 0);
++        assert_eq!(
++            observer.active.load(Ordering::SeqCst),
++            0,
++            "normalization leases unwind"
++        );
++        assert!(!IntegerAllocationContext::capture().is_fresh());
++    }
++
++    #[test]
++    fn controlled_horner_workers_keep_native_parallel_search_and_values() {
++        let parameters = [
++            parse!("controlled_parallel_a"),
++            parse!("controlled_parallel_b"),
++            parse!("controlled_parallel_c"),
++            parse!("controlled_parallel_d"),
++        ];
++        let expression = parse!(
++            "(controlled_parallel_a+controlled_parallel_b+controlled_parallel_c+controlled_parallel_d)^2+controlled_parallel_a*controlled_parallel_b+controlled_parallel_b*controlled_parallel_c+controlled_parallel_c*controlled_parallel_d"
++        );
++        let settings = OptimizationSettings {
++            direct_translation: true,
++            horner_iterations: 32,
++            n_cores: 4,
++            ..OptimizationSettings::default()
++        };
++        let observer = Probe::default();
++        let evaluator = IntegerAllocationContext::fresh()
++            .run(|| {
++                AtomView::to_evaluator_observed(
++                    &[expression.as_view()],
++                    &FunctionMap::new(),
++                    &parameters,
++                    settings.clone(),
++                    Some(&observer),
++                )
++            })
++            .unwrap();
++        let baseline = AtomView::to_evaluator(
++            &[expression.as_view()],
++            &FunctionMap::new(),
++            &parameters,
++            settings,
++        )
++        .unwrap();
++        assert_eq!(observer.active.load(Ordering::SeqCst), 0);
++        assert_eq!(
++            observer.threads.lock().unwrap().len(),
++            LicenseManager::max_threads(4).min(31)
++        );
++        let mut actual = evaluator.map_coeff(&|c| c.re.to_f64());
++        let mut expected = baseline.map_coeff(&|c| c.re.to_f64());
++        for inputs in [[1., 2., 3., 4.], [0., -2., 0.5, 4.]] {
++            assert_eq!(
++                actual.evaluate_single(&inputs),
++                expected.evaluate_single(&inputs)
++            );
++        }
++    }
++}
 diff --git a/src/evaluate/checked_copy.rs b/src/evaluate/checked_copy.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..fdb02dd8f333f2e4e6fd1684ee3c619b97454d80
+index 0000000000000000000000000000000000000000..20a6aacce70280b18e4212001e7a597f35c2ddf5
 --- /dev/null
 +++ b/src/evaluate/checked_copy.rs
 @@ -0,0 +1,271 @@
@@ -1044,7 +2204,7 @@ index 0000000000000000000000000000000000000000..fdb02dd8f333f2e4e6fd1684ee3c619b
 +
 +// No owned Atom is formatted here: a canonical tag can invoke a custom printer.
 +// Retained bodies likewise need a separate recursive sharing/backing contract.
-+fn extent<T, E>(
++pub(super) fn extent<T, E>(
 +    evaluator: &ExpressionEvaluator<T>,
 +    payload: impl Fn(&T) -> Result<usize, OperationError<E>>,
 +) -> Result<OperationExtent, OperationError<E>> {
@@ -1810,12 +2970,414 @@ index 0000000000000000000000000000000000000000..3a7bc6d1972e50cc08fb417fea93e645
 +        ));
 +    }
 +}
+diff --git a/src/evaluate/checked_shape.rs b/src/evaluate/checked_shape.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..1cff32069a45008dd02be8f3a1344e5636679402
+--- /dev/null
++++ b/src/evaluate/checked_shape.rs
+@@ -0,0 +1,396 @@
++//! Admit native dynamic Taylor metadata before constructing the dualizer.
++use super::*;
++use numerica::domains::{backend::integer::IntegerAllocationContext, dual::HyperDual};
++use std::mem::align_of;
++
++fn add<E>(a: usize, b: usize) -> Result<usize, OperationError<E>> {
++    a.checked_add(b).ok_or(OperationError::Overflow)
++}
++fn mul<E>(a: usize, b: usize) -> Result<usize, OperationError<E>> {
++    a.checked_mul(b).ok_or(OperationError::Overflow)
++}
++fn bytes<E, T>(n: usize) -> Result<usize, OperationError<E>> {
++    mul(n, size_of::<T>())
++}
++
++// The selected native HashMap/HashSet use power-of-two SwissTable buckets,
++// maximum 7/8 occupancy and at least four buckets. Include control bytes, the
++// trailing control group and alignment, plus old/new table growth overlap.
++fn table_bytes<E, T>(n: usize) -> Result<usize, OperationError<E>> {
++    if n == 0 {
++        return Ok(0);
++    }
++    let buckets = add(mul(n, 8)?, 6)? / 7;
++    let buckets = buckets
++        .max(4)
++        .checked_next_power_of_two()
++        .ok_or(OperationError::Overflow)?;
++    mul(
++        2,
++        add(add(bytes::<E, T>(buckets)?, buckets)?, 16 + align_of::<T>())?,
++    )
++}
++
++struct Metadata {
++    input: usize,
++    peak: usize,
++    resident: usize,
++    work: usize,
++}
++
++fn metadata<E>(
++    shape: &[Vec<usize>],
++    zeros: &[(usize, usize)],
++) -> Result<Metadata, OperationError<E>> {
++    let Some(unit) = shape.first() else {
++        return Err(OperationError::Unsupported("empty Taylor shape"));
++    };
++    let width = shape.len();
++    let axes = unit.len();
++    let mut input = add(
++        bytes::<E, Vec<usize>>(width)?,
++        bytes::<E, (usize, usize)>(zeros.len())?,
++    )?;
++    let mut squares = 0;
++    let mut mixed = 0;
++    for component in shape {
++        if component.len() != axes {
++            return Err(OperationError::Unsupported(
++                "inconsistent Taylor shape axes",
++            ));
++        }
++        input = add(input, bytes::<E, usize>(component.capacity())?)?;
++        let depth = component
++            .iter()
++            .try_fold(0usize, |depth, &power| add::<E>(depth, power))?;
++        if depth > 2 {
++            return Err(OperationError::Unsupported("Taylor depth greater than two"));
++        }
++        if depth == 2 {
++            if component.contains(&2) {
++                squares = add(squares, 1)?;
++            } else {
++                mixed = add(mixed, 1)?;
++            }
++        }
++    }
++    if unit.iter().any(|&power| power != 0) {
++        return Err(OperationError::Unsupported("Taylor unit must be first"));
++    }
++    // Unit times every non-unit, one square pair and two ordered mixed pairs.
++    // This exact output cardinality avoids reserving a dense width² table.
++    let entries = add(add(width - 1, squares)?, mul(2, mixed)?)?;
++    let table_capacity = if entries == 0 {
++        0
++    } else {
++        entries
++            .max(4)
++            .checked_next_power_of_two()
++            .ok_or(OperationError::Overflow)?
++    };
++    let shape_rows = bytes::<E, Vec<usize>>(width)?;
++    let shape_data = bytes::<E, usize>(mul(width, axes)?)?;
++    let value_data = bytes::<E, Complex<Rational>>(width)?;
++    let table = bytes::<E, (usize, usize, usize)>(table_capacity)?;
++    // Native DualShape is two Vecs, max_pow and the shared allocation counters.
++    let shared_shape = size_of::<Vec<Vec<usize>>>()
++        + size_of::<usize>()
++        + size_of::<Vec<(usize, usize, usize)>>()
++        + 2 * size_of::<usize>();
++    let zero_table = table_bytes::<E, (usize, usize)>(zeros.len())?;
++    let resident = add(
++        size_of::<Dualizer<HyperDual<Complex<Rational>>>>(),
++        add(
++            add(add(shape_rows, shape_data)?, value_data)?,
++            add(add(table, shared_shape)?, zero_table)?,
++        )?,
++    )?;
++    // Native construction owns a second clone of every shape as the map key,
++    // max-per-axis/sum/ancestor scratch, old/new multiplication-table capacity,
++    // and the copied structural-zero input while collecting its hash set.
++    let native_temporary = add(
++        add(shape_data, table_bytes::<E, (Vec<usize>, usize)>(width)?)?,
++        add(
++            add(bytes::<E, usize>(mul(3, axes)?)?, table)?,
++            bytes::<E, (usize, usize)>(zeros.len())?,
++        )?,
++    )?;
++    let validation = add(bytes::<E, usize>(axes)?, bytes::<E, (usize, usize)>(width)?)?;
++    let peak = add(resident, native_temporary)?.max(validation);
++    // Report the native pair/coordinate scan work separately from stored table
++    // cardinality. The current native constructor performs that scan even when
++    // only a sparse set of products survives.
++    let work = mul(mul(width, width)?, add(mul(3, axes)?, 1)?)?;
++    Ok(Metadata {
++        input,
++        peak,
++        resident,
++        work,
++    })
++}
++
++fn validate<E>(
++    shape: &[Vec<usize>],
++    zeros: &[(usize, usize)],
++    parameters: usize,
++) -> Result<(), OperationError<E>> {
++    let axes = shape[0].len();
++    let mut first = vec![false; axes];
++    let mut seconds = Vec::with_capacity(shape.len());
++    let mut units = 0;
++    for component in shape {
++        let mut indices = component
++            .iter()
++            .enumerate()
++            .flat_map(|(axis, &power)| std::iter::repeat_n(axis, power));
++        match (indices.next(), indices.next()) {
++            (None, None) => units += 1,
++            (Some(a), None) => {
++                if first[a] {
++                    return Err(OperationError::Unsupported("duplicate Taylor component"));
++                }
++                first[a] = true;
++            }
++            (Some(a), Some(b)) => seconds.push((a, b)),
++            _ => unreachable!("a component has at most two coordinates"),
++        }
++    }
++    seconds.sort_unstable();
++    if units != 1 || seconds.windows(2).any(|pair| pair[0] == pair[1]) {
++        return Err(OperationError::Unsupported("duplicate Taylor component"));
++    }
++    if seconds.iter().any(|&(a, b)| !first[a] || !first[b]) {
++        return Err(OperationError::Unsupported(
++            "Taylor shape is not ancestor-closed",
++        ));
++    }
++    if zeros.iter().any(|&(parameter, component)| {
++        parameter >= parameters || component == 0 || component >= shape.len()
++    }) {
++        return Err(OperationError::Unsupported(
++            "invalid structural zero component",
++        ));
++    }
++    Ok(())
++}
++
++fn flatten<E>(error: OperationError<OperationError<E>>) -> OperationError<E> {
++    match error {
++        OperationError::Control(error) => error,
++        OperationError::Overflow => OperationError::Overflow,
++        OperationError::Allocation => OperationError::Allocation,
++        OperationError::Unsupported(reason) => OperationError::Unsupported(reason),
++        OperationError::InvalidProgram(reason) => OperationError::InvalidProgram(reason),
++        OperationError::Interrupted => OperationError::Interrupted,
++    }
++}
++
++impl ExpressionEvaluator<Complex<Rational>> {
++    /// Construct and vectorize native Taylor metadata under the same borrowed
++    /// control, including metadata still live during coefficient expansion.
++    pub fn try_vectorize_shape_with<C: OperationControl>(
++        &self,
++        shape: &[Vec<usize>],
++        zero_components: &[(usize, usize)],
++        control: &mut C,
++    ) -> Result<Self, OperationError<C::Error>> {
++        self.try_vectorize_shape_known_with(shape, zero_components, &[], control)
++    }
++
++    /// As `try_vectorize_known_with`, also admitting and validating dynamic
++    /// HyperDual/Dualizer construction before their native buffers can grow.
++    /// Shapes are unique, unit-first, ancestor-closed and of depth at most two.
++    pub fn try_vectorize_shape_known_with<C: OperationControl>(
++        &self,
++        shape: &[Vec<usize>],
++        zero_components: &[(usize, usize)],
++        heads: &[KnownHead],
++        control: &mut C,
++    ) -> Result<Self, OperationError<C::Error>> {
++        control
++            .check(OperationExtent {
++                stage: OperationStage::Construction,
++                ..Default::default()
++            })
++            .map_err(OperationError::Control)?;
++        let source = super::checked_copy::extent(self, super::control::payload::<C::Error>)?;
++        let meta = metadata::<C::Error>(shape, zero_components)?;
++        let input = add(source.input_bytes, meta.input)?;
++        let extent = OperationExtent {
++            stage: OperationStage::Construction,
++            work: meta.work,
++            input_bytes: input,
++            temporary_bytes: meta.peak,
++            output_entries: shape.len(),
++            ..Default::default()
++        };
++        extent.peak_bytes().ok_or(OperationError::Overflow)?;
++        control.check(extent).map_err(OperationError::Control)?;
++        validate::<C::Error>(shape, zero_components, self.param_count)?;
++        control
++            .check(OperationExtent { work: 0, ..extent })
++            .map_err(OperationError::Control)?;
++        IntegerAllocationContext::fresh().run(|| {
++            let dual = Dualizer::new(
++                HyperDual::<Complex<Rational>>::new(shape.to_vec()),
++                zero_components.to_vec(),
++            );
++            let mut wrapped =
++                |mut extent: OperationExtent| -> Result<(), OperationError<C::Error>> {
++                    extent.input_bytes = add(extent.input_bytes, meta.input)?;
++                    extent.temporary_bytes = add(extent.temporary_bytes, meta.resident)?;
++                    extent.peak_bytes().ok_or(OperationError::Overflow)?;
++                    control.check(extent).map_err(OperationError::Control)
++                };
++            self.try_vectorize_known_with(&dual, heads, &mut wrapped)
++                .map_err(flatten)
++        })
++    }
++}
++
++#[cfg(test)]
++mod checked_shape_tests {
++    use super::*;
++    use std::convert::Infallible;
++
++    fn source() -> ExpressionEvaluator<Complex<Rational>> {
++        let x = crate::parse!("checked_shape::x");
++        let y = crate::parse!("checked_shape::y");
++        (x.clone() * &x * &y + y.clone() * 2)
++            .evaluator(&[x, y])
++            .build()
++            .unwrap()
++    }
++    fn shape() -> Vec<Vec<usize>> {
++        vec![
++            vec![0, 0],
++            vec![0, 1],
++            vec![1, 0],
++            vec![1, 1],
++            vec![0, 2],
++            vec![2, 0],
++        ]
++    }
++    #[test]
++    fn checked_shape_precedes_native_growth_and_preserves_typed_refusal() {
++        let source = source();
++        let shape = shape();
++        let mut metadata_peak = 0;
++        source
++            .try_vectorize_shape_with(&shape, &[], &mut |extent: OperationExtent| {
++                if extent.stage == OperationStage::Construction {
++                    metadata_peak = metadata_peak.max(extent.peak_bytes().unwrap());
++                }
++                Ok::<_, Infallible>(())
++            })
++            .unwrap();
++        assert!(metadata_peak > 0);
++        let mut calls = 0;
++        let error = source
++            .try_vectorize_shape_with(&shape, &[], &mut |extent: OperationExtent| {
++                calls += 1;
++                if extent.peak_bytes().unwrap() > metadata_peak - 1 {
++                    Err("one byte short")
++                } else {
++                    Ok(())
++                }
++            })
++            .unwrap_err();
++        assert_eq!(error, OperationError::Control("one byte short"));
++        assert_eq!(
++            calls, 2,
++            "refusal occurs at metadata admission, before native construction"
++        );
++        let error = source
++            .try_vectorize_shape_with(&shape, &[], &mut |extent: OperationExtent| {
++                if extent.stage == OperationStage::Vectorization {
++                    assert!(
++                        extent.temporary_bytes > 0,
++                        "native metadata is live in subsequent admission"
++                    );
++                    Err("original operation stopped")
++                } else {
++                    Ok(())
++                }
++            })
++            .unwrap_err();
++        assert_eq!(error, OperationError::Control("original operation stopped"));
++    }
++    #[test]
++    fn checked_shape_mixed_reordered_components_match_native_and_analytic_coefficients() {
++        let source = source();
++        let shape = shape();
++        let zeros = vec![
++            (0, 1),
++            (0, 3),
++            (0, 4),
++            (0, 5),
++            (1, 2),
++            (1, 3),
++            (1, 4),
++            (1, 5),
++        ];
++        let checked = source
++            .try_vectorize_shape_with(&shape, &zeros, &mut |_| Ok::<_, Infallible>(()))
++            .unwrap();
++        let native = source
++            .clone()
++            .vectorize(&Dualizer::new(
++                HyperDual::<Complex<Rational>>::new(shape),
++                zeros,
++            ))
++            .unwrap();
++        let mut checked = checked.map_coeff(&|value| value.re.to_f64());
++        let mut native = native.map_coeff(&|value| value.re.to_f64());
++        let inputs = [2., 0., 1., 0., 0., 0., 3., 1., 0., 0., 0., 0.];
++        let mut actual = vec![0.; 6];
++        let mut expected = vec![0.; 6];
++        checked.evaluate(&inputs, &mut actual);
++        native.evaluate(&inputs, &mut expected);
++        assert_eq!(actual, expected);
++        assert_eq!(actual, [18., 6., 12., 4., 0., 3.]);
++    }
++    #[test]
++    fn checked_shape_rejects_invalid_metadata_and_accepts_zero_axis_unit() {
++        let source = source();
++        for shape in [
++            vec![],
++            vec![vec![1]],
++            vec![vec![0], vec![0]],
++            vec![vec![0], vec![2]],
++            vec![vec![0, 0], vec![1]],
++            vec![vec![0], vec![3]],
++            vec![vec![0, 0], vec![1, 0], vec![1, 1]],
++        ] {
++            let result =
++                source.try_vectorize_shape_with(&shape, &[], &mut |_| Ok::<_, Infallible>(()));
++            assert!(
++                matches!(result, Err(OperationError::Unsupported(_))),
++                "invalid shape {shape:?}"
++            );
++        }
++        for zero in [(0, 0), (0, 6), (2, 1)] {
++            assert!(matches!(
++                source.try_vectorize_shape_with(
++                    &shape(),
++                    &[zero],
++                    &mut |_| Ok::<_, Infallible>(())
++                ),
++                Err(OperationError::Unsupported(_))
++            ));
++        }
++        let constant = crate::parse!("5").evaluator::<Atom>(&[]).build().unwrap();
++        let product = constant
++            .try_vectorize_shape_with(&[vec![]], &[], &mut |_| Ok::<_, Infallible>(()))
++            .unwrap();
++        let mut product = product.map_coeff(&|value| value.re.to_f64());
++        let mut values = vec![0.];
++        product.evaluate(&[], &mut values);
++        assert_eq!(values, [5.]);
++        assert!(matches!(metadata::<Infallible>(&[vec![0; 2]], &[]), Ok(_)));
++        assert!(matches!(
++            table_bytes::<Infallible, (usize, usize)>(usize::MAX),
++            Err(OperationError::Overflow)
++        ));
++    }
++}
 diff --git a/src/evaluate/control.rs b/src/evaluate/control.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..3f543118441179acb5539ae4609daf25edbde218
+index 0000000000000000000000000000000000000000..20e232e2c935273b9e06ee16de15cc031d07887c
 --- /dev/null
 +++ b/src/evaluate/control.rs
-@@ -0,0 +1,676 @@
+@@ -0,0 +1,678 @@
 +//! Borrowed admission for a single evaluator construction operation.
 +//!
 +//! Extents describe mathematical backing, including vector capacity overlap, rather
@@ -1825,6 +3387,8 @@ index 0000000000000000000000000000000000000000..3f543118441179acb5539ae4609daf25
 +/// A safe-point stage within the checked operation.
 +#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 +pub enum OperationStage {
++    /// Direct symbolic lowering and native normalization/Horner construction.
++    Construction,
 +    /// Scalar instruction expansion and its representation conversion.
 +    #[default]
 +    Vectorization,
@@ -4567,6 +6131,52 @@ index 0000000000000000000000000000000000000000..8ff1b4eedcdf04360a3600c9042e6207
 +    }
 +    assert_eq!(encode(&source), bytes);
 +}
+diff --git a/src/evaluate/function_map.rs b/src/evaluate/function_map.rs
+index 25ba9685ef838b354b87c0d30f02f74e3cefdc2a..cd98aa92c94527734c2eef7bec83840546fa994d 100644
+--- a/src/evaluate/function_map.rs
++++ b/src/evaluate/function_map.rs
+@@ -460,6 +460,41 @@ impl<'a> EvaluatorBuilder<'a> {
+     }
+ 
+     /// Build the evaluator.
++    /// Build the maintained direct profile with borrowed current-operation
++    /// admission. Horner iterations, parallel workers and CPE settings are kept.
++    /// Unknown callbacks, retained bodies and legacy EvalTree construction refuse
++    /// before growth. The returned evaluator retains no caller control.
++    pub fn try_build_with<C: OperationControl + Send>(
++        self,
++        control: &mut C,
++    ) -> Result<ExpressionEvaluator<Complex<Rational>>, OperationError<C::Error>>
++    where
++        C::Error: Send,
++    {
++        self.try_build_known_with(&[], control)
++    }
++
++    /// Build with a closed table of qualified local numerical heads. This table
++    /// does not authorize custom symbolic normalization or tagged generators.
++    pub fn try_build_known_with<C: OperationControl + Send>(
++        self,
++        heads: &[KnownHead],
++        control: &mut C,
++    ) -> Result<ExpressionEvaluator<Complex<Rational>>, OperationError<C::Error>>
++    where
++        C::Error: Send,
++    {
++        super::checked_build::build(
++            &self.exprs,
++            &self.fn_map,
++            &self.params,
++            self.optimization_settings,
++            heads,
++            control,
++        )
++    }
++
++    /// Build the evaluator using the native selected translation algorithm.
+     pub fn build(self) -> Result<ExpressionEvaluator<Complex<Rational>>, EvaluationError> {
+         // EvalTree::linearize expands every function call, so preserving an explicit call boundary
+         // requires the direct translator even when the legacy tree optimizer was requested.
 diff --git a/src/evaluate/instruction.rs b/src/evaluate/instruction.rs
 index dce794cd08bb6e3aebbac2decfeabb1317ed6964..723c2481f953037da500967d84cceba83bf35e65 100644
 --- a/src/evaluate/instruction.rs
@@ -4837,10 +6447,153 @@ index 0000000000000000000000000000000000000000..99804cff1fcae0d0f54b0fe13467d232
 +        instructions, result_indices: results, external_fns, settings: OptimizationSettings::default() })
 +}
 diff --git a/src/evaluate/tree.rs b/src/evaluate/tree.rs
-index 02180c95399cea01594839c404e5787ea0e07e72..143a5c1febc5486e4e08c113edbd98d82e500506 100644
+index 02180c95399cea01594839c404e5787ea0e07e72..18b951f956df8ec9ba58296d37436b36f615a2fe 100644
 --- a/src/evaluate/tree.rs
 +++ b/src/evaluate/tree.rs
-@@ -454,6 +454,8 @@ impl<'a> AtomView<'a> {
+@@ -259,7 +259,8 @@ fn register_constant_external_container<T>(
+ }
+ 
+ // Shared by the root and every function compiled in this build.
+-struct LinearizationContext<'a> {
++struct LinearizationContext<'a, 'c> {
++    observer: Option<&'c dyn super::checked_build::BuildObserver>,
+     external_functions: Vec<ExternalFunctionContainer<Complex<Rational>>>,
+     // Hidden global slots for each body; a pending entry detects recursive definitions.
+     functions: HashMap<usize, Option<Vec<Slot>>>,
+@@ -272,7 +273,7 @@ struct LinearizationContext<'a> {
+     expanding_functions: HashSet<usize>,
+ }
+ 
+-impl LinearizationContext<'_> {
++impl LinearizationContext<'_, '_> {
+     fn constant_slot(&mut self, constant: Complex<Rational>) -> Slot {
+         let index = *self
+             .constant_indices
+@@ -311,6 +312,19 @@ impl<'a> AtomView<'a> {
+         params: &[Atom],
+         settings: OptimizationSettings,
+     ) -> Result<ExpressionEvaluator<Complex<Rational>>, EvaluationError> {
++        Self::to_evaluator_observed(expressions, fn_map, params, settings, None)
++    }
++
++    pub(crate) fn to_evaluator_observed(
++        expressions: &[Self],
++        fn_map: &FunctionMap,
++        params: &[Atom],
++        settings: OptimizationSettings,
++        observer: Option<&dyn super::checked_build::BuildObserver>,
++    ) -> Result<ExpressionEvaluator<Complex<Rational>>, EvaluationError> {
++        if let Some(observer) = observer {
++            observer.stage(OperationStage::Construction);
++        }
+         if settings.verbose {
+             let mut cse = HashSet::default();
+             let mut count = OperationCount::default();
+@@ -321,7 +335,13 @@ impl<'a> AtomView<'a> {
+         }
+ 
+         if settings.horner_iterations == 0 {
+-            return Self::linearize_multiple(expressions, fn_map, params, settings);
++            return Self::linearize_multiple_observed(
++                expressions,
++                fn_map,
++                params,
++                settings,
++                observer,
++            );
+         }
+ 
+         let v = match &settings.hot_start {
+@@ -347,14 +367,14 @@ impl<'a> AtomView<'a> {
+         };
+ 
+         let scheme = if settings.horner_iterations > 1 {
+-            Self::optimize_horner_scheme_multiple(expressions, &v, &settings)
++            Self::optimize_horner_scheme_multiple_observed(expressions, &v, &settings, observer)
+         } else {
+             v
+         };
+ 
+         let hornered_expressions = expressions
+             .iter()
+-            .map(|x| x.horner_scheme(Some(&scheme), true, true))
++            .map(|x| super::checked_build::horner(*x, &scheme, observer))
+             .collect::<Vec<_>>();
+ 
+         if settings.horner_iterations == 1 && settings.verbose {
+@@ -368,15 +388,24 @@ impl<'a> AtomView<'a> {
+ 
+         let mut f = fn_map.clone();
+         for Expr { body, .. } in f.tagged_fn_map.values_mut() {
+-            *body = body.as_view().horner_scheme(Some(&scheme), true, true);
++            *body = super::checked_build::horner(body.as_view(), &scheme, observer);
+         }
+ 
+-        let mut e = Self::linearize_multiple(&hornered_expressions, &f, params, settings)?;
++        let mut e = Self::linearize_multiple_observed(
++            &hornered_expressions,
++            &f,
++            params,
++            settings,
++            observer,
++        )?;
+ 
+         drop(f);
+         drop(hornered_expressions);
+ 
+         loop {
++            if let Some(observer) = observer {
++                observer.stage(OperationStage::Optimization);
++            }
+             let r = e.remove_common_instructions();
+ 
+             if r == 0 || e.settings.abort_level > 0 {
+@@ -391,6 +420,9 @@ impl<'a> AtomView<'a> {
+         }
+ 
+         for _ in 0..e.settings.cpe_iterations.unwrap_or(usize::MAX) {
++            if let Some(observer) = observer {
++                observer.stage(OperationStage::Optimization);
++            }
+             let r = e.remove_common_pairs();
+             if r == 0 || e.settings.abort_level > 0 {
+                 e.settings.abort_level = 0;
+@@ -403,6 +435,9 @@ impl<'a> AtomView<'a> {
+             }
+         }
+ 
++        if let Some(observer) = observer {
++            observer.stage(OperationStage::Optimization);
++        }
+         e.optimize_stack();
+         Ok(e)
+     }
+@@ -414,6 +449,15 @@ impl<'a> AtomView<'a> {
+         expressions: &[Self],
+         vars: &[Indeterminate],
+         settings: &OptimizationSettings,
++    ) -> Vec<Indeterminate> {
++        Self::optimize_horner_scheme_multiple_observed(expressions, vars, settings, None)
++    }
++
++    fn optimize_horner_scheme_multiple_observed(
++        expressions: &[Self],
++        vars: &[Indeterminate],
++        settings: &OptimizationSettings,
++        observer: Option<&dyn super::checked_build::BuildObserver>,
+     ) -> Vec<Indeterminate> {
+         if vars.is_empty() {
+             return vars.to_vec();
+@@ -421,7 +465,7 @@ impl<'a> AtomView<'a> {
+ 
+         let horner: Vec<_> = expressions
+             .iter()
+-            .map(|x| x.horner_scheme(Some(vars), true, true))
++            .map(|x| super::checked_build::horner(*x, vars, observer))
+             .collect();
+         let mut subexpr = HashSet::default();
+         let mut best_ops = OperationCount::default();
+@@ -454,9 +498,13 @@ impl<'a> AtomView<'a> {
  
          let n_cores = LicenseManager::max_threads(settings.n_cores).min(n_iterations);
          let inherited_unlock = crate::license::InheritedLibraryUnlock::capture();
@@ -4849,9 +6602,16 @@ index 02180c95399cea01594839c404e5787ea0e07e72..143a5c1febc5486e4e08c113edbd98d8
  
          std::thread::scope(|s| {
              let abort = Arc::new(AtomicBool::new(false));
-@@ -470,109 +472,113 @@ impl<'a> AtomView<'a> {
++            let mut workers = Vec::with_capacity(n_cores.saturating_sub(1));
++            let mut failure = None;
+ 
+             for i in 0..n_cores {
+                 let mut rng = MonteCarloRng::new(0, i);
+@@ -469,120 +517,138 @@ impl<'a> AtomView<'a> {
+                 let mut last_add = usize::MAX;
                  let abort = abort.clone();
  
++                let worker_abort = abort.clone();
                  let mut op = move || {
 -                    let _unlock = inherited_unlock.activate();
 -                    for j in 0..n_iterations / n_cores {
@@ -4957,7 +6717,7 @@ index 02180c95399cea01594839c404e5787ea0e07e72..143a5c1febc5486e4e08c113edbd98d8
 -                            last_mul = cur_ops.multiplications;
 +                            let horner: Vec<_> = expressions
 +                                .iter()
-+                                .map(|x| x.horner_scheme(Some(&cvars), true, true))
++                                .map(|x| super::checked_build::horner(*x, &cvars, observer))
 +                                .collect();
 +                            let mut subexpr = HashSet::default();
 +                            let mut cur_ops = OperationCount::default();
@@ -5045,8 +6805,129 @@ index 02180c95399cea01594839c404e5787ea0e07e72..143a5c1febc5486e4e08c113edbd98d8
 +                    })
                  };
  
++                let mut op = move || {
++                    let result = panic::catch_unwind(panic::AssertUnwindSafe(&mut op));
++                    if result.is_err() {
++                        worker_abort.store(true, Ordering::Relaxed);
++                    }
++                    result
++                };
                  if i + 1 < n_cores {
-@@ -3166,6 +3172,8 @@ impl Expression<Complex<Rational>> {
+-                    s.spawn(op);
+-                } else {
+-                    // execute in the main thread and do the abort check on the main thread
+-                    // this helps with catching ctrl-c
+-                    op()
++                    workers.push(s.spawn(op));
++                } else if let Err(payload) = op() {
++                    super::checked_build::preserve_panic(&mut failure, payload);
+                 }
+             }
++            for worker in workers {
++                if let Err(payload) = worker.join().unwrap_or_else(Err) {
++                    super::checked_build::preserve_panic(&mut failure, payload);
++                }
++            }
++            if let Some(payload) = failure {
++                panic::resume_unwind(payload);
++            }
+         });
+ 
+         if settings.verbose {
+@@ -596,11 +662,12 @@ impl<'a> AtomView<'a> {
+         Arc::try_unwrap(best_scheme).unwrap().into_inner().unwrap()
+     }
+ 
+-    pub(crate) fn linearize_multiple<T: AtomCore>(
++    fn linearize_multiple_observed<T: AtomCore>(
+         expressions: &[T],
+         fn_map: &FunctionMap,
+         params: &[Atom],
+         settings: OptimizationSettings,
++        observer: Option<&dyn super::checked_build::BuildObserver>,
+     ) -> Result<ExpressionEvaluator<Complex<Rational>>, EvaluationError> {
+         let expressions = expressions
+             .iter()
+@@ -608,6 +675,7 @@ impl<'a> AtomView<'a> {
+             .collect::<Vec<_>>();
+         let params = params.iter().map(|p| p.as_view()).collect::<Vec<_>>();
+         let mut context = LinearizationContext {
++            observer,
+             external_functions: Vec::new(),
+             functions: HashMap::default(),
+             constants: Vec::new(),
+@@ -657,7 +725,7 @@ impl<'a> AtomView<'a> {
+         fn_map: &'a FunctionMap,
+         params: &[AtomView<'a>],
+         settings: &OptimizationSettings,
+-        context: &mut LinearizationContext<'a>,
++        context: &mut LinearizationContext<'a, '_>,
+     ) -> Result<(Vec<Instruction>, Vec<Slot>), EvaluationError> {
+         let mut instr = Vec::new();
+ 
+@@ -690,7 +758,7 @@ impl<'a> AtomView<'a> {
+         results: Vec<Slot>,
+         param_count: usize,
+         reserved_indices: usize,
+-        context: &mut LinearizationContext<'a>,
++        context: &mut LinearizationContext<'a, '_>,
+     ) -> Result<(Vec<(Instr, ComplexPhase)>, Vec<usize>), EvaluationError> {
+         macro_rules! slot_map {
+             ($s: expr) => {
+@@ -807,7 +875,7 @@ impl<'a> AtomView<'a> {
+     #[allow(clippy::too_many_arguments)]
+     fn linearize_function_call(
+         fn_map: &'a FunctionMap,
+-        context: &mut LinearizationContext<'a>,
++        context: &mut LinearizationContext<'a, '_>,
+         settings: &OptimizationSettings,
+         symbol: Symbol,
+         tags: Vec<Atom>,
+@@ -942,7 +1010,7 @@ impl<'a> AtomView<'a> {
+         function: &'a Expr,
+         arg_slots: Vec<Slot>,
+         fn_map: &'a FunctionMap,
+-        context: &mut LinearizationContext<'a>,
++        context: &mut LinearizationContext<'a, '_>,
+         params: &HashMap<AtomView<'a>, Slot>,
+         settings: &OptimizationSettings,
+         instr: &mut Vec<Instruction>,
+@@ -998,12 +1066,15 @@ impl<'a> AtomView<'a> {
+     fn linearize_impl(
+         &self,
+         fn_map: &'a FunctionMap,
+-        context: &mut LinearizationContext<'a>,
++        context: &mut LinearizationContext<'a, '_>,
+         params: &HashMap<AtomView<'a>, Slot>,
+         settings: &OptimizationSettings,
+         instr: &mut Vec<Instruction>,
+         subexpressions: &mut HashMap<AtomView<'a>, Slot>,
+     ) -> Result<Slot, EvaluationError> {
++        if let Some(observer) = context.observer {
++            observer.linearization(*self);
++        }
+         if matches!(*self, AtomView::Var(_) | AtomView::Fun(_)) {
+             if let Some(slot) = params.get(self) {
+                 return Ok(*slot);
+@@ -1023,7 +1094,16 @@ impl<'a> AtomView<'a> {
+                     CoefficientView::Large(l, i) => Complex::new(l.to_rat(), i.to_rat()),
+                     CoefficientView::Float(r, i) => {
+                         // TODO: converting back to rational is slow
+-                        Complex::new(r.to_float().to_rational(), i.to_float().to_rational())
++                        let r = r.to_float();
++                        if let Some(observer) = context.observer {
++                            observer.float_rational(&r);
++                        }
++                        let r = r.to_rational();
++                        let i = i.to_float();
++                        if let Some(observer) = context.observer {
++                            observer.float_rational(&i);
++                        }
++                        Complex::new(r, i.to_rational())
+                     }
+                     CoefficientView::Indeterminate => {
+                         return Err(EvaluationError::UnsupportedCoefficient {
+@@ -3166,6 +3246,8 @@ impl Expression<Complex<Rational>> {
  
          let n_cores = LicenseManager::max_threads(settings.n_cores).min(n_iterations);
          let inherited_unlock = crate::license::InheritedLibraryUnlock::capture();
@@ -5055,7 +6936,7 @@ index 02180c95399cea01594839c404e5787ea0e07e72..143a5c1febc5486e4e08c113edbd98d8
  
          std::thread::scope(|s| {
              let abort = Arc::new(AtomicBool::new(false));
-@@ -3182,112 +3190,116 @@ impl Expression<Complex<Rational>> {
+@@ -3182,112 +3264,116 @@ impl Expression<Complex<Rational>> {
                  let abort = abort.clone();
  
                  let mut op = move || {
@@ -5258,6 +7139,116 @@ index 02180c95399cea01594839c404e5787ea0e07e72..143a5c1febc5486e4e08c113edbd98d8
                  };
  
                  if i + 1 < n_cores {
+diff --git a/src/id.rs b/src/id.rs
+index 373173b3dde5695e3b6c76f530cb8adc76e9e5cc..6d9e007bc544711dabde7fcdf337fc8a9a6d0c3e 100644
+--- a/src/id.rs
++++ b/src/id.rs
+@@ -1783,8 +1783,19 @@ impl<'a> AtomView<'a> {
+     /// also whether any child of the current expression was changed by the map.
+     pub(crate) fn replace_map_bottom_up<F: FnMut(AtomView, &Context, &mut Settable<'_, Atom>)>(
+         &self,
+-        mut m: F,
++        m: F,
+         nested: bool, // an optimization to avoid unnecessary normalization
++    ) -> Atom {
++        Workspace::get_local().with(|ws| self.replace_map_bottom_up_in(ws, m, nested))
++    }
++
++    pub(crate) fn replace_map_bottom_up_in<
++        F: FnMut(AtomView, &Context, &mut Settable<'_, Atom>),
++    >(
++        &self,
++        ws: &Workspace,
++        mut m: F,
++        nested: bool,
+     ) -> Atom {
+         let mut out = Atom::new();
+ 
+@@ -1795,19 +1806,16 @@ impl<'a> AtomView<'a> {
+             child_changed: false,
+         };
+ 
+-        Workspace::get_local().with(|ws| {
+-            let mut set = Settable::from(&mut out);
+-            self.replace_map_bottom_up_impl(ws, &mut m, context, nested, &mut set);
+-
+-            if let Some(value) = set.get() {
+-                let mut a = ws.new_atom();
+-                value.as_view().normalize(ws, &mut a);
+-                std::mem::swap(&mut out, &mut a);
+-            } else {
+-                out.set_from_view(self);
+-            }
+-        });
++        let mut set = Settable::from(&mut out);
++        self.replace_map_bottom_up_impl(ws, &mut m, context, nested, &mut set);
+ 
++        if let Some(value) = set.get() {
++            let mut a = ws.new_atom();
++            value.as_view().normalize(ws, &mut a);
++            std::mem::swap(&mut out, &mut a);
++        } else {
++            out.set_from_view(self);
++        }
+         out
+     }
+ 
+diff --git a/src/normalize.rs b/src/normalize.rs
+index 2da52a3fcf0de3b800a9411b6355e5c3d66ba8db..4c2c6644f58117fd28b45320e7ecde0904efb6d1 100644
+--- a/src/normalize.rs
++++ b/src/normalize.rs
+@@ -652,6 +652,7 @@ impl AtomView<'_> {
+ 
+     /// Normalize an atom.
+     pub fn normalize(&self, workspace: &Workspace, out: &mut Atom) {
++        let _admission = workspace.normalization(*self);
+         if !self.needs_normalization() {
+             out.set_from_view(self);
+             return;
+@@ -861,6 +862,7 @@ impl AtomView<'_> {
+ 
+         out_f.set_normalized(true);
+ 
++        let _numeric_admission = workspace.normalization(out.as_view());
+         if Self::normalize_builtin(id, workspace, out) {
+             return;
+         }
+@@ -892,6 +894,13 @@ impl AtomView<'_> {
+             exp
+         };
+ 
++        // Children may have produced a new Float precision/exponent. Observe
++        // the actual normalized operands before a native numeric power/exp.
++        let prepared_power = workspace.observed_power(base, exp);
++        let _numeric_admission = prepared_power
++            .as_ref()
++            .map(|power| workspace.normalization(power.as_view()));
++
+         if base == InlineVar::new(Symbol::E).as_view() {
+             // simplify logs inside exp
+             if exp.contains_symbol(Symbol::LOG) {
+@@ -912,6 +921,7 @@ impl AtomView<'_> {
+                     break 'pow_simplify;
+                 } else if let AtomView::Num(n) = base {
+                     // simplify a number raised to a numerical power
++                    workspace.coefficient_power(n.get_coeff_view(), exp_num);
+                     let (prefactor, new_base_num, new_exp_num) = n.get_coeff_view().pow(&exp_num);
+ 
+                     if matches!(&new_base_num, Coefficient::Complex(c) if c.re.is_one() && c.im.is_zero())
+@@ -1340,7 +1350,12 @@ impl AtomView<'_> {
+                         let r = c.norm_squared();
+                         let mut buffer = workspace.new_atom();
+                         buffer.to_num(r);
+-                        *out = buffer.pow((1, 2));
++                        let mut power = workspace.new_atom();
++                        power.to_pow(
++                            buffer.as_view(),
++                            crate::atom::InlineNum::new(1, 2).as_view(),
++                        );
++                        power.as_view().normalize(workspace, out);
+                     }
+                     return true;
+                 }
 diff --git a/src/poly/univariate.rs b/src/poly/univariate.rs
 index ea11041071da2240d1d097f0bd9f0ef2d9ab7f23..fab6c117a4920a354ded673f3e20a7c2873f138f 100644
 --- a/src/poly/univariate.rs
@@ -5591,10 +7582,98 @@ index 7fac867d337cb888371313162b1b6d976ab350a3..730cf12253f607f9299ffdd959fc415b
      /// using bisection.
      pub fn refine_root_interval(
 diff --git a/src/state.rs b/src/state.rs
-index 4838620edb1c61a5ea59943e306377a6daa2d7f4..56b6cce52fc70b4951854b7b879d9a28317dffb0 100644
+index 4838620edb1c61a5ea59943e306377a6daa2d7f4..fc0a64e708e26bdd44909bf472b89d93855634be 100644
 --- a/src/state.rs
 +++ b/src/state.rs
-@@ -1582,6 +1582,9 @@ impl Workspace {
+@@ -1556,11 +1556,35 @@ impl State {
+ 
+ /// A workspace that stores recyclable atoms. Upon dropping, the atoms automatically returned to a
+ /// thread-local workspace (which may be a different one than the one it was created by).
+-pub struct Workspace {
++pub struct Workspace<'a> {
+     atom_buffer: RefCell<Vec<Atom>>,
++    observer: Option<&'a dyn WorkspaceObserver>,
+ }
+ 
+-impl Workspace {
++/// A borrowed observer of the actual normalizer, never installed in local state.
++pub(crate) trait WorkspaceObserver: Sync {
++    fn enter(&self, atom: crate::atom::AtomView<'_>) -> usize;
++    fn leave(&self, admitted: usize);
++    fn power(
++        &self,
++        base: crate::coefficient::CoefficientView<'_>,
++        exponent: crate::coefficient::CoefficientView<'_>,
++    );
++}
++
++pub(crate) struct NormalizationGuard<'a> {
++    observer: Option<&'a dyn WorkspaceObserver>,
++    admitted: usize,
++}
++impl Drop for NormalizationGuard<'_> {
++    fn drop(&mut self) {
++        if let Some(observer) = self.observer {
++            observer.leave(self.admitted);
++        }
++    }
++}
++
++impl<'a> Workspace<'a> {
+     const ATOM_BUFFER_MAX: usize = 30;
+     const ATOM_CACHE_SIZE_MAX: usize = 20_000_000;
+ 
+@@ -1568,12 +1592,48 @@ impl Workspace {
+     const fn new() -> Self {
+         Workspace {
+             atom_buffer: RefCell::new(Vec::new()),
++            observer: None,
+         }
+     }
+ 
++    pub(crate) fn controlled(observer: &'a dyn WorkspaceObserver) -> Self {
++        Self {
++            atom_buffer: RefCell::new(Vec::new()),
++            observer: Some(observer),
++        }
++    }
++
++    pub(crate) fn normalization(&self, atom: crate::atom::AtomView<'_>) -> NormalizationGuard<'_> {
++        NormalizationGuard {
++            observer: self.observer,
++            admitted: self.observer.map_or(0, |observer| observer.enter(atom)),
++        }
++    }
++
++    pub(crate) fn coefficient_power(
++        &self,
++        base: crate::coefficient::CoefficientView<'_>,
++        exponent: crate::coefficient::CoefficientView<'_>,
++    ) {
++        if let Some(observer) = self.observer {
++            observer.power(base, exponent);
++        }
++    }
++
++    pub(crate) fn observed_power(
++        &self,
++        base: crate::atom::AtomView<'_>,
++        exponent: crate::atom::AtomView<'_>,
++    ) -> Option<RecycledAtom> {
++        self.observer?;
++        let mut power = self.new_atom();
++        power.to_pow(base, exponent);
++        Some(power)
++    }
++
+     /// Get a thread-local workspace.
+     #[inline]
+-    pub fn get_local() -> &'static LocalKey<Workspace> {
++    pub fn get_local() -> &'static LocalKey<Workspace<'static>> {
+         LicenseManager::check();
+ 
+         &WORKSPACE
+@@ -1582,6 +1642,9 @@ impl Workspace {
      /// Return a recycled atom from this workspace. The atom may have the same value as before.
      #[inline]
      pub fn new_atom(&self) -> RecycledAtom {
@@ -5604,7 +7683,7 @@ index 4838620edb1c61a5ea59943e306377a6daa2d7f4..56b6cce52fc70b4951854b7b879d9a28
          if let Ok(mut a) = self.atom_buffer.try_borrow_mut() {
              if let Some(b) = a.pop() {
                  b.into()
-@@ -1612,6 +1615,9 @@ impl Workspace {
+@@ -1612,6 +1675,9 @@ impl Workspace {
      /// Return an atom's allocation to this workspace for reuse. If the pool is
      /// already borrowed, the atom is dropped instead.
      pub fn return_atom(&self, atom: Atom) {
@@ -5614,7 +7693,7 @@ index 4838620edb1c61a5ea59943e306377a6daa2d7f4..56b6cce52fc70b4951854b7b879d9a28
          if let Ok(mut a) = self.atom_buffer.try_borrow_mut() {
              a.push(atom);
          }
-@@ -1698,6 +1704,9 @@ impl AsRef<Atom> for RecycledAtom {
+@@ -1698,6 +1764,9 @@ impl AsRef<Atom> for RecycledAtom {
  impl Drop for RecycledAtom {
      #[inline]
      fn drop(&mut self) {
@@ -5624,7 +7703,7 @@ index 4838620edb1c61a5ea59943e306377a6daa2d7f4..56b6cce52fc70b4951854b7b879d9a28
          if let Atom::Zero = self.0 {
              return;
          }
-@@ -1730,6 +1739,53 @@ mod tests {
+@@ -1730,6 +1799,53 @@ mod tests {
  
      use super::{CustomFunctionDefinitionKeys, State};
  
