@@ -1,6 +1,6 @@
 ---
 title: "Plan73f: Explicit-measure expectation studies"
-status: draft
+status: in-progress
 date: 2026-11-09
 doc_role: plan
 doc_owner: docs/plans/73f-explicit-measure-expectation-studies.md
@@ -141,3 +141,7 @@ F05 starts when F01–F04 function together. It finishes with targeted journeys 
 **Proposed:** targeted tests use independent1050 W and875 W expectations, analytic normalization, malformed units/probabilities, categorical mixtures, unavailable outputs, compatible/incompatible merges, independent scratch, replayed populations and protected independent reading. Exercise cancellation and settlement through the actual study owner. H owns scope-end qualification; no full static campaign per package. No test, probe or performance measurement was run in authoring. Report actual commands, selection and zero-target failures when implementation is exercised.
 
 **Affine representation acceptance for F03:** replay the identical retained proposal samples with an affine point output in Kelvin and Celsius and their correspondingly converted reference points. Estimates must differ by the declared offset and identical interval-scaled uncertainty, even when the finite proposal weights do not sum to the sample count. Keep a separate dimensionless constant-one output with zero reference to expose target/proposal normalization mistakes.
+
+## Execution checkpoint — 2026-11-10
+
+Execution begins at clean baseline `e427c474b`. ADR-0265/0266 establish the new scientific contracts before dependent implementation. The approved scope includes typed selected-observation members beside ordinary case solves. Existing A–C products remain foundations; root owns shared schema/native/result integration and three assignments own D, E and F implementation. Package completion requires actual consumer cutover, deletions and scoped acceptance; Plan66 and H retain their separate scope.

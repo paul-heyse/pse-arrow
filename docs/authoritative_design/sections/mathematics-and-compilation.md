@@ -1230,6 +1230,27 @@ alone do not establish normalized source, proof/guard or physical correspondence
 production symbolic receiving authority. Plan73b/C03 own actual cutover and evidence; math
 transfer prerequisites alone do not establish production receiving.
 
+#### 14.3.4 Selected exact, analytical and assurance products
+
+> Decision: ADR-0265 (proposed; authorized Plan73d/e implementation).
+
+A compiler-admitted selection retains original definitions, physical coordinates, guards,
+provider premises and source occurrence mapping. Request-local exact objective views serve
+classification/projection and bounded exact blocks without making sparse proof dense. Native
+elimination carries sufficient parameter exclusions and source-row witnesses; exceptional
+specializations consume original equations. Algebraic recovery is not physical feasibility.
+Chosen-precision and propagated-error estimates are distinct from validated directed arithmetic.
+The first enclosure profile admits real rational arithmetic and integer powers only, checking
+original source as well as final instructions. Unsupported operations refuse rather than
+promote an approximate callback. Existing root/Gram witnesses retain their stronger authority.
+
+Analytical derivative, series, identity and indexed products retain their actual scope/order,
+physical datum, branch/domain and original binder context. Native mathematical printer output
+is stored with that context under ordinary result custody; it is not a scientific codec or
+identity. Historical reading performs no new science. Typed selected observations compile
+actual physical output expressions through existing admitted execution/batch owners, independently
+of case solves and without treating equation residuals as output values.
+
 ### 14.4 Incrementality
 
 > Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) (proposed) — resolved product identity and incremental reuse.

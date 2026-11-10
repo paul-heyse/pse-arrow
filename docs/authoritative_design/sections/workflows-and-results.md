@@ -1143,6 +1143,26 @@ before current nested decoding. Unsupported historical readmission refuses expli
 missing historical policy or scientific facts are not invented. Native execution and recovery
 ownership remain in [§20.6](identity-and-publication.md#section-20-6).
 
+#### 19.3.1 Explicit-measure expectation parents
+
+> Decision: ADR-0266 (proposed; authorized Plan73f implementation).
+
+An admitted expectation binds an original source, normalized categorical/unit-cube law,
+physically typed transform and outputs, estimator controls and failure meaning. Fixed sampling
+averages target draws once. Adaptive sampling uses reciprocal proposal weights, centered
+physical output accumulators and a separate dimensionless training target; no additional
+Jacobian or empirical weight-sum normalization changes the pushforward law. A missing required
+positive-weight output withholds a completed expectation. Operational cancellation/loss is
+not a scientific failure indicator, and a nominal statistical error is not an enclosure.
+
+The existing native operation owner executes an expectation parent and immutable finite
+child studies. Case-solve members and typed selected-observation members retain distinct
+scientific outcomes and original occurrence identity. Frozen iteration proposals are merged
+once at a barrier before update. Original protected checkpoint state binds source, child,
+proposal, accumulators, streams and merged coverage; recovery resumes that sealed boundary,
+not a newly seeded substitute population. Producer-independent reading uses original stored
+products and permissions without resampling or acquiring broader payload access.
+
 ### 19.4 Parameter estimation
 
 > Decision: [ADR-0218](../../adr/0218-scientific-research-workbench.md) (proposed; maintainer-authorized Plan51c target).

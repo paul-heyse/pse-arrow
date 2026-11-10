@@ -1,6 +1,6 @@
 ---
 title: "Plan73d: Exact structure and numerical assurance"
-status: draft
+status: in-progress
 date: 2026-11-09
 doc_role: plan
 doc_owner: docs/plans/73d-exact-structure-and-numerical-assurance.md
@@ -463,3 +463,7 @@ At closure record evidence labels, command/mode/scope/zero baseline and actual f
 material remaining limits, one mistake corrected and deliberate deviations. Move enduring
 contracts to their architecture owners through the decision route, then retire this plan with
 the series under ADR-0096. There is no implementation Outcome yet.
+
+## Execution checkpoint — 2026-11-10
+
+Execution begins at clean baseline `e427c474b`. ADR-0265/0266 establish the new scientific contracts before dependent implementation. The approved scope includes typed selected-observation members beside ordinary case solves. Existing A–C products remain foundations; root owns shared schema/native/result integration and three assignments own D, E and F implementation. Package completion requires actual consumer cutover, deletions and scoped acceptance; Plan66 and H retain their separate scope.
