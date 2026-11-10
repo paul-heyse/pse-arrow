@@ -778,7 +778,7 @@ pub struct Symbol {
 impl serde::Serialize for Symbol {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         let mut data = vec![];
-        self.export(&mut data);
+        self.export(&mut data).map_err(serde::ser::Error::custom)?;
         data.serialize(serializer)
     }
 }

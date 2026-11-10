@@ -296,8 +296,52 @@ index d7d5728a7d5c76685d571615fb8b4742823e7cc8..fc3eb20e6ccf7f6c592b26fd7b124266
      }
 -    println!("cargo:rerun-if-changed=build.rs");
  }
+diff --git a/src/analytical.rs b/src/analytical.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..cc255cfa6788372d52fe42cb5109cdd22432f3df
+--- /dev/null
++++ b/src/analytical.rs
+@@ -0,0 +1,26 @@
++//! Borrowed current-operation controls for exact analytical products.
++use crate::{atom::{Atom,AtomView,Indeterminate},domains::atom::AtomField,evaluate::{OperationControl,OperationExtent},poly::series::{Series,SeriesDepth,SeriesError},state::Workspace};
++/// Whole-operation failure; no variant contains a partial analytical product.
++#[derive(Debug)]
++pub enum SeriesOperationError<E>{
++    /// The original caller refused further work.
++    Control(E),
++    /// Native formal series semantics refused the expression.
++    Series(SeriesError),
++}
++impl<E> From<SeriesError> for SeriesOperationError<E>{fn from(error:SeriesError)->Self{Self::Series(error)}}
++/// Differentiate with safe points before each recursive source operation. A scalar
++/// exact arithmetic/normalization call remains indivisible. Refusal discards the
++/// complete product, leaving caller-owned source and control unchanged.
++pub fn derivative_with<C:OperationControl>(source:AtomView<'_>,axis:&Indeterminate,control:&mut C)->Result<Atom,C::Error>{
++    let mut output=Atom::Zero;
++    Workspace::get_local().with(|workspace|source.derivative_with_ws_into_control(axis,workspace,&mut output,control))?;
++    control.check(OperationExtent{input_bytes:source.get_byte_size(),output_bytes:output.as_view().get_byte_size(),..Default::default()})?;
++    Ok(output)
++}
++/// Expand using the ordinary native series implementation, polling the borrowed
++/// control at recursive entry, retry and repeated derivative generation. Native
++/// scalar series arithmetic is indivisible; callers admit its bounded width first.
++pub fn series_with<C:OperationControl>(source:AtomView<'_>,axis:&Indeterminate,point:AtomView<'_>,depth:SeriesDepth,control:&mut C)->Result<Series<AtomField>,SeriesOperationError<C::Error>>{
++    source.series_control(axis,point,depth,control)
++}
+diff --git a/src/api/python/integer.rs b/src/api/python/integer.rs
+index 51b51316d9b3fb817f0ecbb615f89fe4984e124a..5128b8720670531859581dabb4f6f089d4af0b05 100644
+--- a/src/api/python/integer.rs
++++ b/src/api/python/integer.rs
+@@ -106,6 +106,7 @@ impl PythonInteger {
+             gamma.map(|x| x.0),
+         )
+         .map_err(|e| match e {
++            IntegerRelationError::Interrupted => exceptions::PyValueError::new_err("Integer relation reconstruction interrupted"),
+             IntegerRelationError::CoefficientLimit => {
+                 exceptions::PyValueError::new_err("Coefficient limit exceeded")
+             }
 diff --git a/src/atom.rs b/src/atom.rs
-index 51600220a103d0ee1bda3c554f7df62f1fb3dadf..184b9cb281eca591a02b13be19ab8e3926928401 100644
+index 51600220a103d0ee1bda3c554f7df62f1fb3dadf..1d20832b0ca6b952019934961ca4dd0cc36358f9 100644
 --- a/src/atom.rs
 +++ b/src/atom.rs
 @@ -41,6 +41,7 @@
@@ -321,6 +365,15 @@ index 51600220a103d0ee1bda3c554f7df62f1fb3dadf..184b9cb281eca591a02b13be19ab8e39
      /// Resolve the numeric evaluator for type `T` and the given symbolic tags.
      ///
      /// For tagless registrations, the direct callable is returned. For tagged
+@@ -771,7 +778,7 @@ pub struct Symbol {
+ impl serde::Serialize for Symbol {
+     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+         let mut data = vec![];
+-        self.export(&mut data);
++        self.export(&mut data).map_err(serde::ser::Error::custom)?;
+         data.serialize(serializer)
+     }
+ }
 diff --git a/src/atom/coefficient.rs b/src/atom/coefficient.rs
 index a32e9695635e55c4c908162c4f36197485037a2e..51182bd44b6416a34fda29488bba2a6c65757a1d 100644
 --- a/src/atom/coefficient.rs
@@ -1032,6 +1085,345 @@ index c15bee87e38206f3a0ea68b146542344ec832fc2..fe2c7556cd9a0bdfd9b5026b0078dc99
      }
  
      /// If `atom` is the indeterminate `x` or `x^n` with a positive integer `n`, return `n`.
+diff --git a/src/derivative.rs b/src/derivative.rs
+index f24824ae06c5eac986981b4c09e35c77b31cb0dc..8f460dddfd74c8e7af5d55475e46bb0c1ffac112 100644
+--- a/src/derivative.rs
++++ b/src/derivative.rs
+@@ -43,12 +43,26 @@ impl AtomView<'_> {
+         workspace: &Workspace,
+         out: &mut Atom,
+     ) -> bool {
++        match self.derivative_with_ws_into_control(x, workspace, out, &mut |_: crate::evaluate::OperationExtent| Ok::<_, std::convert::Infallible>(())) {
++            Ok(value) => value,
++            Err(never) => match never {},
++        }
++    }
++
++    pub(crate) fn derivative_with_ws_into_control<C: crate::evaluate::OperationControl>(
++        &self,
++        x: &Indeterminate,
++        workspace: &Workspace,
++        out: &mut Atom,
++        control: &mut C,
++    ) -> Result<bool, C::Error> {
++        control.check(crate::evaluate::OperationExtent { work: 1, input_bytes:self.get_byte_size(), ..Default::default() })?;
+         if x == self {
+             out.to_num(1);
+-            return true;
++            return Ok(true);
+         }
+ 
+-        match self {
++        Ok(match self {
+             AtomView::Num(_) | AtomView::Var(_) => {
+                 out.to_num(Coefficient::zero());
+                 false
+@@ -64,7 +78,7 @@ impl AtomView<'_> {
+                             self.printer(PrintOptions::file())
+                         );
+                         out.to_num(Coefficient::Indeterminate);
+-                        return false;
++                        return Ok(false);
+                     }
+ 
+                     let der_depth_count = (f_orig.get_nargs() - 1) / 2;
+@@ -76,7 +90,7 @@ impl AtomView<'_> {
+                                 self.printer(PrintOptions::file())
+                             );
+                             out.to_num(Coefficient::Indeterminate);
+-                            return false;
++                            return Ok(false);
+                         }
+                     };
+ 
+@@ -101,14 +115,14 @@ impl AtomView<'_> {
+                 let mut args_der = Vec::with_capacity(f.get_nargs());
+                 for (i, arg) in f.iter().enumerate() {
+                     let mut arg_der = workspace.new_atom();
+-                    if arg.derivative_with_ws_into(x, workspace, &mut arg_der) {
++                    if arg.derivative_with_ws_into_control(x, workspace, &mut arg_der, control)? {
+                         args_der.push((i, arg_der));
+                     }
+                 }
+ 
+                 if args_der.is_empty() {
+                     out.to_num(Coefficient::zero());
+-                    return false;
++                    return Ok(false);
+                 }
+ 
+                 // derive special functions
+@@ -154,7 +168,7 @@ impl AtomView<'_> {
+                         mul.as_view().normalize(workspace, out);
+                     }
+ 
+-                    return true;
++                    return Ok(true);
+                 }
+ 
+                 if f.get_nargs() == 3 && f.get_symbol_id() == Symbol::IF_ID {
+@@ -175,7 +189,7 @@ impl AtomView<'_> {
+                     };
+ 
+                     fn_der.as_view().normalize(workspace, out);
+-                    return true;
++                    return Ok(true);
+                 }
+ 
+                 // create a derivative function that tags which index was derived
+@@ -233,14 +247,14 @@ impl AtomView<'_> {
+                 let (base, exp) = p.get_base_exp();
+ 
+                 let mut exp_der = workspace.new_atom();
+-                let exp_der_non_zero = exp.derivative_with_ws_into(x, workspace, &mut exp_der);
++                let exp_der_non_zero = exp.derivative_with_ws_into_control(x, workspace, &mut exp_der, control)?;
+ 
+                 let mut base_der = workspace.new_atom();
+-                let base_der_non_zero = base.derivative_with_ws_into(x, workspace, &mut base_der);
++                let base_der_non_zero = base.derivative_with_ws_into_control(x, workspace, &mut base_der, control)?;
+ 
+                 if !exp_der_non_zero && !base_der_non_zero {
+                     out.to_num(0);
+-                    return false;
++                    return Ok(false);
+                 }
+ 
+                 let mut exp_der_contrib = workspace.new_atom();
+@@ -266,7 +280,7 @@ impl AtomView<'_> {
+ 
+                     if !base_der_non_zero {
+                         out.set_from_view(&exp_der_contrib.as_view());
+-                        return true;
++                        return Ok(true);
+                     }
+                 }
+ 
+@@ -318,7 +332,7 @@ impl AtomView<'_> {
+                 let mut non_zero = false;
+                 for arg in args.iter() {
+                     let mut arg_der = workspace.new_atom();
+-                    if arg.derivative_with_ws_into(x, workspace, &mut arg_der) {
++                    if arg.derivative_with_ws_into_control(x, workspace, &mut arg_der, control)? {
+                         if let Atom::Mul(mm) = arg_der.deref_mut() {
+                             for other_arg in args.iter() {
+                                 if other_arg != arg {
+@@ -356,7 +370,7 @@ impl AtomView<'_> {
+                 let mut arg_der = workspace.new_atom();
+                 let mut non_zero = false;
+                 for arg in args.iter() {
+-                    if arg.derivative_with_ws_into(x, workspace, &mut arg_der) {
++                    if arg.derivative_with_ws_into_control(x, workspace, &mut arg_der, control)? {
+                         add.extend(arg_der.as_view());
+                         non_zero = true;
+                     }
+@@ -370,7 +384,7 @@ impl AtomView<'_> {
+                     false
+                 }
+             }
+-        }
++        })
+     }
+ 
+     pub(crate) fn series(
+@@ -379,9 +393,23 @@ impl AtomView<'_> {
+         expansion_point: AtomView,
+         depth: SeriesDepth,
+     ) -> Result<Series<AtomField>, SeriesError> {
++        match self.series_control(x,expansion_point,depth,&mut |_: crate::evaluate::OperationExtent|Ok::<_,std::convert::Infallible>(())) {
++            Ok(value)=>Ok(value),
++            Err(crate::analytical::SeriesOperationError::Series(error))=>Err(error),
++            Err(crate::analytical::SeriesOperationError::Control(never))=>match never {},
++        }
++    }
++
++    pub(crate) fn series_control<C: crate::evaluate::OperationControl>(
++        &self,
++        x: &Indeterminate,
++        expansion_point: AtomView,
++        depth: SeriesDepth,
++        control:&mut C,
++    ) -> Result<Series<AtomField>, crate::analytical::SeriesOperationError<C::Error>> {
+         let order = depth.order();
+         if !depth.is_absolute() && (order.is_negative() || order.is_zero()) {
+-            return Err(SeriesError::NonPositiveRelativeDepth { depth });
++            return Err(SeriesError::NonPositiveRelativeDepth { depth }.into());
+         }
+ 
+         // heuristic current depth
+@@ -399,6 +427,8 @@ impl AtomView<'_> {
+         };
+ 
+         loop {
++            let width=current_depth.numerator().to_i64().and_then(|value|usize::try_from(value).ok()).and_then(|value|value.checked_add(2)).ok_or_else(||crate::analytical::SeriesOperationError::Series(SeriesError::UnsupportedLargeExponent{expression:self.to_owned()}))?;
++            control.check(crate::evaluate::OperationExtent {work:width.saturating_mul(width),input_bytes:self.get_byte_size(),temporary_bytes:self.get_byte_size().saturating_mul(width).saturating_mul(width).saturating_mul(4),output_entries:width,..Default::default()}).map_err(crate::analytical::SeriesOperationError::Control)?;
+             let info = Series::new(
+                 &field,
+                 None,
+@@ -407,7 +437,7 @@ impl AtomView<'_> {
+                 &current_depth + &(1.into(), current_depth.denominator()).into(),
+             );
+ 
+-            let mut series = self.series_impl(x, expansion_point, &info)?;
++            let mut series = self.series_impl_control(x, expansion_point, &info, control)?;
+             if !depth.is_absolute() && series.relative_order() >= *order {
+                 series.truncate_relative_order(order.clone());
+                 break Ok(series);
+@@ -429,6 +459,21 @@ impl AtomView<'_> {
+         expansion_point: AtomView,
+         info: &Series<AtomField>,
+     ) -> Result<Series<AtomField>, SeriesError> {
++        match self.series_impl_control(x,expansion_point,info,&mut |_: crate::evaluate::OperationExtent|Ok::<_,std::convert::Infallible>(())) {
++            Ok(value)=>Ok(value),
++            Err(crate::analytical::SeriesOperationError::Series(error))=>Err(error),
++            Err(crate::analytical::SeriesOperationError::Control(never))=>match never {},
++        }
++    }
++
++    pub(crate) fn series_impl_control<C: crate::evaluate::OperationControl>(
++        &self,
++        x: &Indeterminate,
++        expansion_point: AtomView,
++        info: &Series<AtomField>,
++        control:&mut C,
++    ) -> Result<Series<AtomField>, crate::analytical::SeriesOperationError<C::Error>> {
++        control.check(crate::evaluate::OperationExtent {work:1,input_bytes:self.get_byte_size(),..Default::default()}).map_err(crate::analytical::SeriesOperationError::Control)?;
+         if !self.contains_indeterminate(x) {
+             return Ok(info.constant(self.to_owned()));
+         }
+@@ -443,7 +488,7 @@ impl AtomView<'_> {
+             AtomView::Fun(f) => {
+                 let mut args_series = Vec::with_capacity(f.get_nargs());
+                 for arg in f {
+-                    args_series.push(arg.series_impl(x, expansion_point, info)?);
++                    args_series.push(arg.series_impl_control(x, expansion_point, info, control)?);
+                 }
+ 
+                 if args_series.is_empty() {
+@@ -456,7 +501,7 @@ impl AtomView<'_> {
+                 {
+                     return Err(SeriesError::NonConstantIf {
+                         expression: self.to_owned(),
+-                    });
++                    }.into());
+                 }
+ 
+                 if !f.get_symbol().is_fixed_builtin()
+@@ -473,25 +518,25 @@ impl AtomView<'_> {
+                     let a = f_eval.finish();
+ 
+                     if !matches!(a, Atom::Fun(_)) {
+-                        return a.as_view().series_impl(x, expansion_point, info);
++                        return a.as_view().series_impl_control(x, expansion_point, info, control);
+                     }
+                 }
+ 
+                 match f.get_symbol_id() {
+-                    Symbol::COS_ID => args_series[0].cos(),
+-                    Symbol::SIN_ID => args_series[0].sin(),
+-                    Symbol::LOG_ID => args_series[0].log(),
++                    Symbol::COS_ID => args_series[0].cos().map_err(Into::into),
++                    Symbol::SIN_ID => args_series[0].sin().map_err(Into::into),
++                    Symbol::LOG_ID => args_series[0].log().map_err(Into::into),
+                     _ => {
+                         if let Some(custom_series) = &f.get_symbol().get_series_function()
+                             && let Some((singular, regularized)) = custom_series(&args_series)
+                         {
+                             let singular_series =
+-                                singular.as_view().series_impl(x, expansion_point, info)?;
++                                singular.as_view().series_impl_control(x, expansion_point, info, control)?;
+                             // TODO: expand deeper?
+                             let regularized_series =
+                                 regularized
+                                     .as_view()
+-                                    .series_impl(x, expansion_point, info)?;
++                                    .series_impl_control(x, expansion_point, info, control)?;
+                             return Ok(&singular_series * &regularized_series);
+                         }
+ 
+@@ -502,7 +547,7 @@ impl AtomView<'_> {
+                         {
+                             return Err(SeriesError::FunctionArgumentPole {
+                                 expression: self.to_owned(),
+-                            });
++                            }.into());
+                         }
+ 
+                         let mut f_eval = FunctionBuilder::new(f.get_symbol());
+@@ -525,7 +570,9 @@ impl AtomView<'_> {
+                         let mut d = a.clone();
+                         for i in 1..=depth {
+                             // Collect repeated calls before differentiating again, to prevent exponential growth.
+-                            d = d.as_view().derivative(x).collect_symbol::<i32>(symbol);
++                            let mut derivative=Atom::Zero;
++                            Workspace::get_local().with(|workspace|d.as_view().derivative_with_ws_into_control(x,workspace,&mut derivative,control)).map_err(crate::analytical::SeriesOperationError::Control)?;
++                            d=derivative.collect_symbol::<i32>(symbol);
+ 
+                             if d.is_zero() {
+                                 break;
+@@ -547,14 +594,14 @@ impl AtomView<'_> {
+             AtomView::Pow(p) => {
+                 let (base, exp) = p.get_base_exp();
+ 
+-                let mut base_series = base.series_impl(x, expansion_point, info)?;
++                let mut base_series = base.series_impl_control(x, expansion_point, info, control)?;
+ 
+                 if let AtomView::Num(n) = exp {
+                     if let CoefficientView::Natural(n, d, ni, _) = n.get_coeff_view() {
+                         if ni != 0 {
+                             return Err(SeriesError::UnsupportedComplexExponent {
+                                 expression: self.to_owned(),
+-                            });
++                            }.into());
+                         }
+ 
+                         if n < 0 {
+@@ -584,37 +631,37 @@ impl AtomView<'_> {
+                                         + &(1.into(), current_depth.denominator()).into(),
+                                 );
+ 
+-                                base_series = base.series_impl(x, expansion_point, &info)?;
++                                base_series = base.series_impl_control(x, expansion_point, &info, control)?;
+                                 current_depth = &current_depth * &2.into();
+                                 first_attempt = false;
+                             }
+                         }
+ 
+-                        base_series.rpow((n, d).into())
++                        base_series.rpow((n, d).into()).map_err(Into::into)
+                     } else {
+                         Err(SeriesError::UnsupportedLargeExponent {
+                             expression: self.to_owned(),
+-                        })
++                        }.into())
+                     }
+                 } else {
+-                    let e = exp.series_impl(x, expansion_point, info)?;
+-                    base_series.pow(&e)
++                    let e = exp.series_impl_control(x, expansion_point, info, control)?;
++                    base_series.pow(&e).map_err(Into::into)
+                 }
+             }
+             AtomView::Mul(args) => {
+                 let mut iter = args.iter();
+-                let mut series = iter.next().unwrap().series_impl(x, expansion_point, info)?;
++                let mut series = iter.next().unwrap().series_impl_control(x, expansion_point, info, control)?;
+                 for arg in iter {
+-                    series = &series * &arg.series_impl(x, expansion_point, info)?;
++                    series = &series * &arg.series_impl_control(x, expansion_point, info, control)?;
+                 }
+ 
+                 Ok(series)
+             }
+             AtomView::Add(args) => {
+                 let mut iter = args.iter();
+-                let mut series = iter.next().unwrap().series_impl(x, expansion_point, info)?;
++                let mut series = iter.next().unwrap().series_impl_control(x, expansion_point, info, control)?;
+                 for arg in iter {
+-                    series = &series + &arg.series_impl(x, expansion_point, info)?;
++                    series = &series + &arg.series_impl_control(x, expansion_point, info, control)?;
+                 }
+ 
+                 Ok(series)
 diff --git a/src/evaluate.rs b/src/evaluate.rs
 index 565f85db38bdb56e0eaa14e4a6d703a88b26dd51..028db3e7a32295d6f29c6cbc09ffbf9f29b0dc26 100644
 --- a/src/evaluate.rs
@@ -2979,10 +3371,10 @@ index 0000000000000000000000000000000000000000..9e2f2d131d81f3449ecf0d5c2c8f17ec
 +}
 diff --git a/src/evaluate/checked_copy.rs b/src/evaluate/checked_copy.rs
 new file mode 100644
-index 0000000000000000000000000000000000000000..ef4381d2268af3c8179ddc0a25332d14d0c36fdf
+index 0000000000000000000000000000000000000000..70c376dc91969923667ca8fc6a91f6c2d0afdb03
 --- /dev/null
 +++ b/src/evaluate/checked_copy.rs
-@@ -0,0 +1,586 @@
+@@ -0,0 +1,775 @@
 +//! Passive admission of the public instruction representation's actual widening.
 +use super::*;
 +use numerica::domains::backend::integer::IntegerAllocationContext;
@@ -3567,6 +3959,195 @@ index 0000000000000000000000000000000000000000..ef4381d2268af3c8179ddc0a25332d14
 +        control: &mut C,
 +    ) -> Result<ExpressionEvaluator<f64>, OperationError<C::Error>> {
 +        self.try_map_f64_known_with(&[], control)
++    }
++}
++
++impl ExpressionEvaluator<Complex<Rational>> {
++    /// Fallible precision mapping for the native real diagnostic profile. Arbitrary
++    /// callbacks, tagged generators, branches and nested bodies are not admitted.
++    pub fn try_map_coeff_with_prec<T: EvaluationDomain + Real, C: OperationControl>(
++        &self,
++        map: &impl Fn(&Complex<Rational>) -> Result<T, String>,
++        precision: u32,
++        control: &mut C,
++    ) -> Result<ExpressionEvaluator<T>, OperationError<C::Error>> {
++        if precision == 0 {
++            return Err(OperationError::Unsupported("zero precision"));
++        }
++        let source = extent(self, control::payload)?;
++        if self.settings.abort_check.is_some() {
++            return Err(OperationError::Unsupported(
++                "retained producer abort callback",
++            ));
++        }
++        for external in &self.external_fns {
++            let literal_constant = external.fixed_args.is_empty()
++                && [Symbol::PI, Symbol::E].contains(&external.symbol);
++            let fixed_builtin = external.fixed_args.len() == 1
++                && [
++                    Symbol::EXP,
++                    Symbol::LOG,
++                    Symbol::SIN,
++                    Symbol::COS,
++                    Symbol::SQRT,
++                    Symbol::ABS,
++                    Symbol::CONJ,
++                ]
++                .contains(&external.symbol)
++                && external.fixed_args[0].im.is_zero();
++            if external.imp.is_some()
++                || external.body.is_some()
++                || !external.stack.is_empty()
++                || external.constant_index.is_none()
++                || !external.tags.is_empty()
++                || !(literal_constant || fixed_builtin)
++            {
++                return Err(OperationError::Unsupported(
++                    "unqualified precision provider",
++                ));
++            }
++        }
++        // Phase metadata may be `Any` for an unconstrained symbolic formal. Real
++        // inputs, real constants and the checked instruction profile establish this
++        // realization's real arithmetic; that metadata is not a complex input proof.
++        for (instruction, _) in &self.instructions {
++            if matches!(
++                instruction,
++                Instr::ExternalFun(..) | Instr::IfElse(..) | Instr::Goto(..) | Instr::Join(..)
++            ) {
++                return Err(OperationError::Unsupported(
++                    "nonreal or conditional diagnostic programme",
++                ));
++            }
++        }
++        if self.stack.iter().any(|value| !value.im.is_zero()) {
++            return Err(OperationError::Unsupported(
++                "nonreal diagnostic coefficient",
++            ));
++        }
++        let limbs = (precision as usize)
++            .checked_add(63)
++            .ok_or(OperationError::Overflow)?
++            / 64;
++        let target = bytes::<C::Error, T>(self.stack.len())?
++            .checked_add(
++                self.stack
++                    .len()
++                    .checked_mul(limbs.checked_mul(32).ok_or(OperationError::Overflow)?)
++                    .ok_or(OperationError::Overflow)?,
++            )
++            .ok_or(OperationError::Overflow)?;
++        control
++            .check(OperationExtent {
++                stage: OperationStage::Construction,
++                work: self.stack.len(),
++                input_bytes: source.input_bytes,
++                temporary_bytes: source
++                    .input_bytes
++                    .checked_mul(8)
++                    .ok_or(OperationError::Overflow)?,
++                output_bytes: target,
++                output_entries: self.stack.len(),
++            })
++            .map_err(OperationError::Control)?;
++        let mut stack = Vec::new();
++        stack
++            .try_reserve_exact(self.stack.len())
++            .map_err(|_| OperationError::Allocation)?;
++        for value in &self.stack {
++            control
++                .check(OperationExtent {
++                    work: 1,
++                    ..OperationExtent::default()
++                })
++                .map_err(OperationError::Control)?;
++            stack.push(map(value).map_err(OperationError::InvalidProgram)?);
++        }
++        for external in &self.external_fns {
++            let index = external
++                .constant_index
++                .ok_or(OperationError::Unsupported("constant slot"))?;
++            if self.param_count + index >= self.reserved_indices {
++                return Err(OperationError::Unsupported("invalid constant slot"));
++            }
++            stack[self.param_count + index] = if external.fixed_args.len() == 1 {
++                let argument =
++                    map(&external.fixed_args[0]).map_err(OperationError::InvalidProgram)?;
++                match external.symbol.get_id() {
++                    Symbol::EXP_ID => argument.exp(),
++                    Symbol::LOG_ID => argument.log(),
++                    Symbol::SIN_ID => argument.sin(),
++                    Symbol::COS_ID => argument.cos(),
++                    Symbol::SQRT_ID => argument.sqrt(),
++                    Symbol::ABS_ID => argument.norm(),
++                    Symbol::CONJ_ID => argument.conj(),
++                    _ => {
++                        return Err(OperationError::Unsupported(
++                            "fixed precision constant profile",
++                        ));
++                    }
++                }
++            } else {
++                external
++                    .evaluate_constant::<T>(precision)
++                    .map_err(OperationError::InvalidProgram)?
++            };
++        }
++        let product = ExpressionEvaluator {
++            stack,
++            param_count: self.param_count,
++            reserved_indices: self.reserved_indices,
++            instructions: self.instructions.clone(),
++            result_indices: self.result_indices.clone(),
++            external_fns: vec![],
++            settings: self.settings.clone(),
++        };
++        control
++            .check(OperationExtent {
++                stage: OperationStage::Finalization,
++                work: 0,
++                input_bytes: source.input_bytes,
++                output_bytes: target,
++                output_entries: product.stack.len(),
++                ..OperationExtent::default()
++            })
++            .map_err(OperationError::Control)?;
++        Ok(product)
++    }
++
++    /// Map only certifying real arithmetic to balls. Source eligibility remains a
++    /// separate caller obligation; this validates the actual final native programme.
++    pub fn try_map_real_ball_with<C: OperationControl>(
++        &self,
++        precision: u32,
++        control: &mut C,
++    ) -> Result<ExpressionEvaluator<crate::domains::float::RealBall>, OperationError<C::Error>>
++    {
++        use crate::domains::float::RealBall;
++        if !self.external_fns.is_empty()
++            || self.instructions.iter().any(|(instruction, _)| {
++                !matches!(
++                    instruction,
++                    Instr::Add(..) | Instr::Mul(..) | Instr::Pow(..)
++                )
++            })
++        {
++            return Err(OperationError::Unsupported(
++                "noncertifying real-ball instruction",
++            ));
++        }
++        self.try_map_coeff_with_prec(
++            &|value| {
++                if !value.im.is_zero() {
++                    return Err("nonreal ball coefficient".into());
++                }
++                Ok(RealBall::from_rational_bounds(
++                    &value.re, &value.re, precision,
++                ))
++            },
++            precision,
++            control,
++        )
 +    }
 +}
 diff --git a/src/evaluate/checked_export.rs b/src/evaluate/checked_export.rs
@@ -5164,6 +5745,22 @@ index 0000000000000000000000000000000000000000..20e232e2c935273b9e06ee16de15cc03
 +        Ok(extent)
 +    }
 +}
+diff --git a/src/evaluate/domain.rs b/src/evaluate/domain.rs
+index 4e38da1eaffeb77778430662cc6195f6d88b82c6..aa131c9591f80756e1f0768561aa0701e06f7db1 100644
+--- a/src/evaluate/domain.rs
++++ b/src/evaluate/domain.rs
+@@ -326,3 +326,11 @@ impl EvaluationDomain for Complex<ErrorPropagatingFloat<Float>> {
+         ))
+     }
+ }
++
++// Real-ball arithmetic is admitted only through the checked arithmetic constructor.
++// This trait supplies native storage, never transcendental certification.
++impl EvaluationDomain for crate::domains::float::RealBall {
++    const FIXED_PRECISION: Option<u32> = None;
++    fn resolve_function(_: &[AtomView], _: &EvaluationInfo)
++        -> Option<Box<dyn ExternalFunction<Self>>> { None }
++}
 diff --git a/src/evaluate/dual.rs b/src/evaluate/dual.rs
 index 0b33aa61e586a3a78a83197eb96afbb57e405506..8443ebf1a8d25abcb6cfbd588f195ccbcc6723fd 100644
 --- a/src/evaluate/dual.rs
@@ -5453,10 +6050,63 @@ index 0b33aa61e586a3a78a83197eb96afbb57e405506..8443ebf1a8d25abcb6cfbd588f195ccb
  
          fn scalar_add<T: DualNumberStructure>(
 diff --git a/src/evaluate/evaluator.rs b/src/evaluate/evaluator.rs
-index 597dbcf8f935bfd135bb924b864fa576db24ad97..c48694e66ab0468647b71f58c2951311d447a899 100644
+index 597dbcf8f935bfd135bb924b864fa576db24ad97..4c2b4d4bbee3c3118ce3b57707de48fae71f9dad 100644
 --- a/src/evaluate/evaluator.rs
 +++ b/src/evaluate/evaluator.rs
-@@ -654,18 +654,30 @@ impl<T: Default> ExpressionEvaluator<T> {
+@@ -277,9 +277,20 @@ impl<T: Real> ExpressionEvaluator<T> {
+         stack: &mut [T],
+         external_fns: &mut [ExternalFunctionContainer<T>],
+     ) {
++        let result = Self::evaluate_program_with(instructions, stack, external_fns,
++            &mut |_| Ok::<_, std::convert::Infallible>(()));
++        match result { Ok(()) => {}, Err(never) => match never {} }
++    }
++
++    fn evaluate_program_with<E>(
++        instructions: &[(Instr, ComplexPhase)], stack: &mut [T],
++        external_fns: &mut [ExternalFunctionContainer<T>],
++        control: &mut impl FnMut(usize) -> Result<(), E>,
++    ) -> Result<(), E> {
+         let mut tmp = T::new_zero();
+         let mut i = 0;
+         while i < instructions.len() {
++            control(i)?;
+             let (instr, _) = unsafe { &instructions.get_unchecked(i) };
+             match instr {
+                 Instr::Add(r, v) => unsafe {
+@@ -343,6 +354,31 @@ impl<T: Real> ExpressionEvaluator<T> {
+ 
+             i += 1;
+         }
++        control(instructions.len())?;
++        Ok(())
++    }
++
++    /// Execute a checked real programme with current cancellation/work admission.
++    /// Branches and callbacks are refused so no nested interpreter can evade safe points.
++    /// Results are copied only after the final control check.
++    pub fn try_evaluate_with<C: OperationControl>(&mut self, params: &[T], out: &mut [T],
++        control: &mut C) -> Result<(), OperationError<C::Error>> {
++        if params.len() != self.param_count || out.len() != self.result_indices.len() {
++            return Err(OperationError::Unsupported("diagnostic input/output shape"));
++        }
++        if self.instructions.iter().any(|(instruction, _)| matches!(instruction,
++            Instr::ExternalFun(..) | Instr::IfElse(..) | Instr::Goto(..) | Instr::Join(..))) {
++            return Err(OperationError::Unsupported("uncontrolled callback or branch"));
++        }
++        for (target, parameter) in self.stack.iter_mut().zip(params) { target.set_from(parameter); }
++        Self::evaluate_program_with(&self.instructions, &mut self.stack, &mut self.external_fns,
++            &mut |work| control.check(OperationExtent { stage: OperationStage::Finalization,
++                work, output_entries: self.result_indices.len(), ..OperationExtent::default() }))
++            .map_err(OperationError::Control)?;
++        for (target, index) in out.iter_mut().zip(&self.result_indices) {
++            target.set_from(&self.stack[*index]);
++        }
++        Ok(())
+     }
+ 
+     /// Evaluate the expression evaluator and write the results in `out`.
+@@ -654,18 +690,30 @@ impl<T: Default> ExpressionEvaluator<T> {
          self,
          f: &F,
          binary_prec: u32,
@@ -8683,6 +9333,18 @@ index 373173b3dde5695e3b6c76f530cb8adc76e9e5cc..6d9e007bc544711dabde7fcdf337fc8a
          out
      }
  
+diff --git a/src/lib.rs b/src/lib.rs
+index 439d974d97e84d80ff8e8a8edc96df7154cb78e2..ceff3738f0b2fe653083d42260985c932f69d5ca 100644
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -43,6 +43,7 @@ use std::sync::atomic::AtomicBool;
+ pub mod api;
+ #[cfg(not(feature = "python_export"))]
+ mod api;
++pub mod analytical;
+ pub mod atom;
+ pub mod coefficient;
+ mod collect;
 diff --git a/src/normalize.rs b/src/normalize.rs
 index 2da52a3fcf0de3b800a9411b6355e5c3d66ba8db..4c2c6644f58117fd28b45320e7ecde0904efb6d1 100644
 --- a/src/normalize.rs
@@ -8739,6 +9401,97 @@ index 2da52a3fcf0de3b800a9411b6355e5c3d66ba8db..4c2c6644f58117fd28b45320e7ecde09
                      }
                      return true;
                  }
+diff --git a/src/poly/polynomial.rs b/src/poly/polynomial.rs
+index dec27b46447fad48c8654df58eda03733353d78b..8d58b483aab9a903ede15ffb9b0ece666228be58 100755
+--- a/src/poly/polynomial.rs
++++ b/src/poly/polynomial.rs
+@@ -6901,8 +6901,24 @@ impl<F: Field, E: PositiveExponent> MultivariatePolynomial<F, E, LexOrder> {
+     where
+         F: PolynomialGCD<E>,
+     {
++        match self.rational_approximant_univariate_with(deg_n,deg_d,&mut |_: crate::evaluate::OperationExtent|Ok::<_,std::convert::Infallible>(())) {
++            Ok(value)=>value,
++            Err(never)=>match never {},
++        }
++    }
++
++    /// Native Padé with borrowed operation control at entry and each Euclidean
++    /// iteration. Exact polynomial arithmetic/GCD calls remain indivisible.
++    pub fn rational_approximant_univariate_with<C:crate::evaluate::OperationControl>(&self, deg_n: u32, deg_d: u32,control:&mut C) -> Result<Option<(Self, Self)>,C::Error>
++    where
++        F: PolynomialGCD<E>,
++    {
++        control.check(crate::evaluate::OperationExtent {work:self.nterms(),..Default::default()})?;
++        if self.is_zero() {
++            return Ok(Some((self.clone(), self.one())));
++        }
+         let Some(var) = self.last_exponents().iter().position(|x| *x > E::zero()) else {
+-            return Some((self.clone(), self.one()));
++            return Ok(Some((self.clone(), self.one())));
+         };
+ 
+         let mut exp = self.last_exponents().to_vec();
+@@ -6914,6 +6930,7 @@ impl<F: Field, E: PositiveExponent> MultivariatePolynomial<F, E, LexOrder> {
+         let mut w1 = self.one();
+ 
+         while w0.degree(var).to_u32() > deg_n {
++            control.check(crate::evaluate::OperationExtent {work:w0.nterms().saturating_mul(v0.nterms()),..Default::default()})?;
+             let (q, r) = v0.quot_rem_univariate(&mut w0);
+             (w1, v1) = (v1 - q * &w1, w1);
+             (v0, w0) = (w0, r);
+@@ -6922,7 +6939,7 @@ impl<F: Field, E: PositiveExponent> MultivariatePolynomial<F, E, LexOrder> {
+         // TODO: normalize denominator?
+         let r = w0.gcd(&w1);
+ 
+-        Some((w0 / &r, w1 / &r))
++        Ok(Some((w0 / &r, w1 / &r)))
+     }
+ 
+     /// Shift a variable `var` to `var+shift`, using an optimized routine that
+diff --git a/src/poly/series.rs b/src/poly/series.rs
+index 8cf4bb6221a3e378f1e74e4e1105ef3052a0dcd5..629f828fd771f3e09df154e4c9f4d59d63c1a6ec 100644
+--- a/src/poly/series.rs
++++ b/src/poly/series.rs
+@@ -227,6 +227,21 @@ pub struct Series<F: Ring> {
+     ramification: usize, // the factor that makes the exponents integer
+ }
+ 
++/// Native series precision without interpreting the internal infinity sentinel as
++/// a finite rational. Exact source termination is a separate mathematical fact.
++#[derive(Clone, Debug, PartialEq, Eq)]
++pub enum SeriesPrecision {
++    /// A finite remainder described in both coordinate conventions.
++    Finite {
++        /// Omitted order relative to the leading exponent.
++        relative: Rational,
++        /// Omitted absolute coordinate exponent.
++        absolute: Rational,
++    },
++    /// No finite omitted order is represented by the native series.
++    Infinite,
++}
++
+ impl<F: Ring + std::fmt::Debug> std::fmt::Debug for Series<F> {
+     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+         if self.order == 0 {
+@@ -254,6 +269,17 @@ impl<F: Ring + std::fmt::Display> std::fmt::Display for Series<F> {
+ }
+ 
+ impl<F: Ring> Series<F> {
++    /// Inspect omitted-order metadata safely, including exact infinite precision.
++    pub fn precision(&self) -> SeriesPrecision {
++        if self.order == i64::MAX as usize {
++            SeriesPrecision::Infinite
++        } else {
++            SeriesPrecision::Finite {
++                relative: self.relative_order(),
++                absolute: self.absolute_order(),
++            }
++        }
++    }
+     /// Constructs a zero series with fixed order. Instead of using this constructor,
+     /// prefer to create new series from existing ones, so that the
+     /// variable map and field are inherited.
 diff --git a/src/poly/univariate.rs b/src/poly/univariate.rs
 index ea11041071da2240d1d097f0bd9f0ef2d9ab7f23..fab6c117a4920a354ded673f3e20a7c2873f138f 100644
 --- a/src/poly/univariate.rs
@@ -9071,6 +9824,244 @@ index 7fac867d337cb888371313162b1b6d976ab350a3..730cf12253f607f9299ffdd959fc415b
      /// Approximate the single root of the polynomial in the interval (lower, higher) with a given tolerance
      /// using bisection.
      pub fn refine_root_interval(
+diff --git a/src/solve.rs b/src/solve.rs
+index 58872d5ae1d9769cd535e1b71b6be9f2a31abcbd..79e68e66527a8fd317f5e39c024f28e697362d15 100644
+--- a/src/solve.rs
++++ b/src/solve.rs
+@@ -2120,3 +2120,233 @@ mod test {
+         assert!((r[1] - F64::from(-3.0944227920271083e-1)).norm() < 1e-10.into());
+     }
+ }
++
++/// Checked selected affine extraction. Native conversion is bounded by a conservative
++/// source expansion envelope and interrupted between original rows. Parameters retain
++/// rational-function meaning; functions and noninteger powers are outside this profile.
++pub fn system_to_matrix_with<
++    E: PositiveExponent,
++    T1: AtomCore,
++    T2: AtomCore,
++    C: crate::evaluate::OperationControl,
++>(
++    system: &[T1],
++    vars: &[T2],
++    control: &mut C,
++) -> Result<
++    (
++        Matrix<RationalPolynomialField<Z, E>>,
++        Matrix<RationalPolynomialField<Z, E>>,
++    ),
++    crate::evaluate::OperationError<C::Error>,
++> {
++    use crate::evaluate::{OperationError, OperationExtent, OperationStage};
++    fn envelope<E: PositiveExponent, C: crate::evaluate::OperationControl>(
++        atom: AtomView<'_>,
++        depth: usize,
++        work: &mut usize,
++        control: &mut C,
++    ) -> Result<(usize, usize, usize), OperationError<C::Error>> {
++        if depth > 128 {
++            return Err(OperationError::Unsupported("exact matrix source depth"));
++        }
++        *work = work.checked_add(1).ok_or(OperationError::Overflow)?;
++        control
++            .check(OperationExtent {
++                work: *work,
++                ..OperationExtent::default()
++            })
++            .map_err(OperationError::Control)?;
++        let (terms, bits, degree) = match atom {
++            AtomView::Num(number) => {
++                let value = match number.get_coeff_view() {
++                    crate::coefficient::CoefficientView::Natural(n, d, 0, _) if d != 0 => {
++                        Rational::new(n, d)
++                    }
++                    crate::coefficient::CoefficientView::Large(real, imaginary)
++                        if imaginary.is_zero() =>
++                    {
++                        real.to_rat()
++                    }
++                    _ => {
++                        return Err(OperationError::Unsupported(
++                            "nonrational exact matrix coefficient",
++                        ));
++                    }
++                };
++                (
++                    1,
++                    value
++                        .numerator_ref()
++                        .significant_bits()
++                        .checked_add(value.denominator_ref().significant_bits())
++                        .and_then(|n| usize::try_from(n).ok())
++                        .ok_or(OperationError::Overflow)?
++                        .max(1),
++                    0,
++                )
++            }
++            AtomView::Var(_) => (1, 1, 1),
++            AtomView::Add(add) => {
++                // Rational addition may multiply all denominators before cancellation.
++                let mut terms = 1usize;
++                let mut bits = 1usize;
++                let mut count = 0usize;
++                let mut degree = 0usize;
++                for argument in add.iter() {
++                    let (t, b, d) = envelope::<E, C>(argument, depth + 1, work, control)?;
++                    terms = terms.checked_mul(t).ok_or(OperationError::Overflow)?;
++                    bits = bits.checked_add(b).ok_or(OperationError::Overflow)?;
++                    degree = degree.checked_add(d).ok_or(OperationError::Overflow)?;
++                    count = count.checked_add(1).ok_or(OperationError::Overflow)?;
++                }
++                let terms = terms
++                    .checked_mul(count.max(1))
++                    .ok_or(OperationError::Overflow)?;
++                (
++                    terms,
++                    bits.checked_add(terms.max(1).ilog2() as usize + 1)
++                        .ok_or(OperationError::Overflow)?,
++                    degree,
++                )
++            }
++            AtomView::Mul(mul) => {
++                let mut terms = 1usize;
++                let mut bits = 1usize;
++                let mut degree = 0usize;
++                for argument in mul.iter() {
++                    let (t, b, d) = envelope::<E, C>(argument, depth + 1, work, control)?;
++                    terms = terms.checked_mul(t).ok_or(OperationError::Overflow)?;
++                    bits = bits.checked_add(b).ok_or(OperationError::Overflow)?;
++                    degree = degree.checked_add(d).ok_or(OperationError::Overflow)?;
++                }
++                (terms, bits, degree)
++            }
++            AtomView::Pow(power) => {
++                let exponent = i64::try_from(power.get_exp())
++                    .map_err(|_| OperationError::Unsupported("noninteger exact matrix power"))?;
++                let (terms, bits, degree) =
++                    envelope::<E, C>(power.get_base(), depth + 1, work, control)?;
++                let exponent =
++                    u32::try_from(exponent.unsigned_abs()).map_err(|_| OperationError::Overflow)?;
++                (
++                    terms
++                        .checked_pow(exponent)
++                        .ok_or(OperationError::Overflow)?,
++                    bits.checked_mul(exponent as usize)
++                        .ok_or(OperationError::Overflow)?
++                        .max(1),
++                    degree
++                        .checked_mul(exponent as usize)
++                        .ok_or(OperationError::Overflow)?,
++                )
++            }
++            _ => {
++                return Err(OperationError::Unsupported(
++                    "nonrational exact matrix operation",
++                ));
++            }
++        };
++        let exponent = i32::try_from(degree).map_err(|_| OperationError::Overflow)?;
++        E::try_from(exponent)
++            .map_err(|_| OperationError::Unsupported("exact matrix exponent extent"))?;
++        let bytes = terms
++            .checked_mul(
++                bits.div_ceil(8)
++                    .checked_add(64)
++                    .ok_or(OperationError::Overflow)?,
++            )
++            .and_then(|bytes| bytes.checked_mul(64))
++            .ok_or(OperationError::Overflow)?;
++        control
++            .check(OperationExtent {
++                stage: OperationStage::Construction,
++                work: (*work).checked_add(terms).ok_or(OperationError::Overflow)?,
++                input_bytes: atom.get_byte_size(),
++                temporary_bytes: bytes,
++                output_bytes: bytes,
++                output_entries: terms,
++            })
++            .map_err(OperationError::Control)?;
++        Ok((terms, bits, degree))
++    }
++    if system.is_empty() || vars.is_empty() {
++        return Err(OperationError::Unsupported("empty exact matrix selection"));
++    }
++    let mut work = 0;
++    let mut input_bytes = 0usize;
++    let mut total_terms = 0usize;
++    let mut maximum_bits = 1usize;
++    for expression in system {
++        let atom = expression.as_atom_view();
++        let (terms, bits, _) = envelope::<E, C>(atom, 0, &mut work, control)?;
++        total_terms = total_terms
++            .checked_add(terms)
++            .ok_or(OperationError::Overflow)?;
++        maximum_bits = maximum_bits.max(bits);
++        input_bytes = input_bytes
++            .checked_add(atom.get_byte_size())
++            .ok_or(OperationError::Overflow)?;
++    }
++    // The coefficient field may contain many parameter variables besides the
++    // selected unknowns. Original source visits conservatively bound their union
++    // before extraction and native variable-map unification allocate exponent rows.
++    let width = work
++        .max(vars.len())
++        .checked_mul(size_of::<E>())
++        .and_then(|n| n.checked_add(maximum_bits.div_ceil(8)))
++        .and_then(|n| n.checked_add(128))
++        .ok_or(OperationError::Overflow)?;
++    let output_bytes = total_terms
++        .checked_mul(width)
++        .and_then(|n| n.checked_mul(64))
++        .ok_or(OperationError::Overflow)?;
++    control
++        .check(OperationExtent {
++            stage: OperationStage::Construction,
++            work,
++            input_bytes,
++            temporary_bytes: output_bytes,
++            output_bytes,
++            output_entries: total_terms,
++        })
++        .map_err(OperationError::Control)?;
++    let mut rows = Vec::new();
++    let mut rhs = Vec::new();
++    for expression in system {
++        control
++            .check(OperationExtent {
++                work,
++                ..OperationExtent::default()
++            })
++            .map_err(OperationError::Control)?;
++        let (matrix, right) =
++            Atom::system_to_matrix::<E, _, _>(std::slice::from_ref(expression), vars)
++                .map_err(|error| OperationError::InvalidProgram(error.to_string()))?;
++        rows.extend(matrix.into_vec());
++        rhs.extend(right.into_vec());
++    }
++    if let Some((first, rest)) = rows.split_first_mut() {
++        for _ in 0..2 {
++            for value in rest.iter_mut().chain(rhs.iter_mut()) {
++                first.unify_variables(value);
++            }
++        }
++    }
++    let field = RationalPolynomialField::new(Z);
++    let rows = Matrix::from_linear(
++        rows,
++        u32::try_from(system.len()).map_err(|_| OperationError::Overflow)?,
++        u32::try_from(vars.len()).map_err(|_| OperationError::Overflow)?,
++        field.clone(),
++    )
++    .map_err(|error| OperationError::InvalidProgram(error.to_string()))?;
++    control
++        .check(OperationExtent {
++            stage: OperationStage::Finalization,
++            work,
++            ..OperationExtent::default()
++        })
++        .map_err(OperationError::Control)?;
++    Ok((rows, Matrix::new_vec(rhs, field)))
++}
 diff --git a/src/state.rs b/src/state.rs
 index 4838620edb1c61a5ea59943e306377a6daa2d7f4..fc0a64e708e26bdd44909bf472b89d93855634be 100644
 --- a/src/state.rs

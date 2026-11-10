@@ -156,6 +156,30 @@ representation; stack and common-pair passes create only default coefficients an
 metadata. Qualified generated local-partial bodies contain only the fixed half coefficient.
 Warmed exact callback state is outside this checked profile.
 
+## Selected exact and analytical operations
+
+The maintained Symbolica 3.0.1 analytical entry points borrow the same operation control
+used by checked construction. `analytical::derivative_with` and `series_with` propagate
+fallible control through recursive derivative, series-growth and coefficient-normalization
+work. Ordinary infallible entry points share those algorithms. Selected Padé construction
+controls its extended-Euclidean work, rejects a zero input and preserves rational-field
+normalization. Numerica's controlled PSLQ entry returns interruption separately from an
+integer-relation candidate. Consumer verification against the original exact inputs is
+still necessary; a relation discovered from rounded values is not an exact identity proof.
+
+Controlled matrix row reduction retains the actual transformations and pivot exclusions
+needed to distinguish a generic symbolic result from a singular parameter specialization.
+Selected exact diagnostics also use controlled solving, checked coefficient copying and
+the native multi-output evaluator. These additions do not make every Symbolica operation
+eligible for every arithmetic claim: source admission, operation limits and the selected
+coefficient domain remain consumer responsibilities. Atom serialization now propagates
+an export failure through the serializer rather than discarding it.
+
+Numerica's adaptive-grid clone without samples now recursively installs each cleared
+subgrid. It preserves the learned proposal while removing nested sample history. Grid
+serialization supports recording an original completed adaptation boundary; admitting,
+owning and validating that state before restoration remains the runtime's responsibility.
+
 ## Checked Symbolica C++ source production
 
 The checked binary64 exporter counts through the same streaming instruction emitter

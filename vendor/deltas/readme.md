@@ -53,8 +53,8 @@ categories describe the diff and do not assert semantic equivalence.
 | `diffsol-nl` | 1 | 0 | 0 | 0 | [diffsol-nl.patch](diffsol-nl.patch) |
 | `faer` | 3 | 0 | 0 | 0 | [faer.patch](faer.patch) |
 | `faer-traits` | 1 | 0 | 0 | 0 | [faer-traits.patch](faer-traits.patch) |
-| `symbolica` | 21 | 0 | 10 | 0 | [symbolica.patch](symbolica.patch) |
-| `numerica` | 3 | 0 | 1 | 0 | [numerica.patch](numerica.patch) |
+| `symbolica` | 28 | 0 | 11 | 0 | [symbolica.patch](symbolica.patch) |
+| `numerica` | 6 | 0 | 1 | 0 | [numerica.patch](numerica.patch) |
 
 SuiteSparse adds `.gitattributes` to retain its two published CRLF files. The SUNDIALS release
 replacement adds 138 and deletes 103 paths relative to the published wrapper, including the
@@ -164,3 +164,10 @@ Tested 2026-10-26: the reconstruction command above matched all seven trees exac
 all additions, whitespace and file modes, against the pinned archive digests. The failure
 baseline was zero; there were zero reconstruction failures. This does not establish numerical,
 transport, producer-context or assembled product qualification.
+
+Tested 2026-11-10: the selected Symbolica and Numerica refresh independently applied each
+complete delta to a second checksum-verified archive extraction. All 166 tracked Symbolica
+files and all 52 tracked Numerica files matched the maintained trees in paths, bytes and
+executable modes, with zero failures against a zero failure baseline. This verifies source
+reconstruction for these two suppliers; mathematical and native workflow acceptance has its
+own evidence in the owning plans.

@@ -1,6 +1,6 @@
 {
   "archive_sha256": "0965398bbe5063c00b3a0d078d7d3dc57b61819b97e960b73e9a7e9602662795",
-  "delta_sha256": "322951c194e7d5da444b0eed69c796127b5b97bcb95c88e3630d3155dd0a1a6f",
+  "delta_sha256": "fd943074eb6d69b39e7baedca5bd69c7a01b201d5a3f50a2718174b02ecbcad9",
   "files": {
     ".cargo_vcs_info.json": {
       "mode": "100644",
@@ -234,6 +234,10 @@
       "mode": "100644",
       "sha256": "b7e2a73c6a91f74f248d77384c1eeae10411aad8ff19414979230df8d4fa7d4d"
     },
+    "src/analytical.rs": {
+      "mode": "100644",
+      "sha256": "28eec7646bbdbf7cf2587b7aaf7464c7a599409a2a65e7ffe4d794673bd4fefe"
+    },
     "src/api.rs": {
       "mode": "100644",
       "sha256": "882db524039b3cddee91e9a80dad8babf8c18eebf4dbbcb2857f6808bfb02ea4"
@@ -276,7 +280,7 @@
     },
     "src/api/python/integer.rs": {
       "mode": "100644",
-      "sha256": "24f4080fc35b26373236074b2e05b81d059fb2f610a8a82ceedaa9f1c583a104"
+      "sha256": "519897913ef422b53fc2c674ccc6cc56cb3fe32345cce315c4950c46219e8457"
     },
     "src/api/python/integration.rs": {
       "mode": "100644",
@@ -304,7 +308,7 @@
     },
     "src/atom.rs": {
       "mode": "100644",
-      "sha256": "b29027914d8494a15c58e90b596c85a29becd19faa7e2292c88caf474e6caf19"
+      "sha256": "3abc3d071861bb6c6fdb7a788a8d4b6571c8646b95e131c261a1b6bd3d4056a3"
     },
     "src/atom/alias.rs": {
       "mode": "100644",
@@ -344,7 +348,7 @@
     },
     "src/derivative.rs": {
       "mode": "100644",
-      "sha256": "ed997817ac0bdc71e265bffe2cc0d8af95795c46cda5a4ca390c5c74567fdc60"
+      "sha256": "ee70bec62100c186533a8937a13b349d1f7e598517e30012c18020a2639755ee"
     },
     "src/domains.rs": {
       "mode": "100644",
@@ -412,7 +416,7 @@
     },
     "src/evaluate/checked_copy.rs": {
       "mode": "100644",
-      "sha256": "4f3b11582d8679ed04ad26888ccc3d98ffbd02471b006a4516e415e463aa9493"
+      "sha256": "c57ab7d69a5b5694835fe80a09e430bfc1fe5d1058485b9538bf45e6c728bd57"
     },
     "src/evaluate/checked_export.rs": {
       "mode": "100644",
@@ -428,7 +432,7 @@
     },
     "src/evaluate/domain.rs": {
       "mode": "100644",
-      "sha256": "b39b4e26c8f08ba3d7e18c9ed15e178957cb11864032c2e73416539f23c9a93c"
+      "sha256": "7b2dc04dc397dc1b91948e5767787b500b0089f925ccb3beac963e364f7ee448"
     },
     "src/evaluate/dual.rs": {
       "mode": "100644",
@@ -436,7 +440,7 @@
     },
     "src/evaluate/evaluator.rs": {
       "mode": "100644",
-      "sha256": "74dd5c27d1d5f7955d293634ba38c7e2f4e29d3cb8ace7f7dbedd5760cf9196d"
+      "sha256": "a06e99af3eabc63f1c6123419953fc71ecc450fd447c216d0f58242fc5c262e7"
     },
     "src/evaluate/export.rs": {
       "mode": "100644",
@@ -484,7 +488,7 @@
     },
     "src/lib.rs": {
       "mode": "100644",
-      "sha256": "d1b1f6a767aae19f85cf30bd95ace6620b432b6127f4372cab4f1682aa77b4dd"
+      "sha256": "04acbedb417502f6b7e9a21cc935b120f0ba3a1e6abf306bdbf77a559498c925"
     },
     "src/license.rs": {
       "mode": "100644",
@@ -520,7 +524,7 @@
     },
     "src/poly/polynomial.rs": {
       "mode": "100755",
-      "sha256": "0b027b7db5ed8de255b75a1ad7d6accb8af93c948ad7100bc46050e0596e0e74"
+      "sha256": "3197e17a2aa43e49e402ecbf76a20ff21428eba340b7d0cdc40928ffabba74be"
     },
     "src/poly/polynomial/division_tests.rs": {
       "mode": "100644",
@@ -540,7 +544,7 @@
     },
     "src/poly/series.rs": {
       "mode": "100644",
-      "sha256": "1e9b1237e32c882445a92db70beb2283333274a65399ea13bf7c29d97ad87516"
+      "sha256": "d12bfeb2566dded4f79281c6773d6c382dc5c8fd461688128978c412808ad32e"
     },
     "src/poly/univariate.rs": {
       "mode": "100644",
@@ -564,7 +568,7 @@
     },
     "src/solve.rs": {
       "mode": "100644",
-      "sha256": "40eb24bf0c9ab16df75e4d0413ab4c0f28c934195894732bd272fdfffade79c6"
+      "sha256": "fd97d8ee96fe99ef6010673227dc85fd6e562cfce3e11198930802b9003fe5e9"
     },
     "src/solve/solution_set.rs": {
       "mode": "100644",

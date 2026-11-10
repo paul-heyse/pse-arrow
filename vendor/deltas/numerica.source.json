@@ -1,6 +1,6 @@
 {
   "archive_sha256": "836accdb415b7667573bd12676e0b2eb4440e3f60b110038d96a9086f5651c15",
-  "delta_sha256": "340e2e216f9ccb85d16e4ef5833ee2fe15f7df78a6be0e8bdfcdddb9cb5b709a",
+  "delta_sha256": "624d425e9daaad1f5c84c28715907455f2769a958c091134cca986a322c3b308",
   "files": {
     ".cargo_vcs_info.json": {
       "mode": "100644",
@@ -152,7 +152,7 @@
     },
     "src/domains/integer.rs": {
       "mode": "100644",
-      "sha256": "15c3c918f13facc09d56f3118fee1eaea4c8f60d411c07e43601ef914f877966"
+      "sha256": "6716b32bca189c6db5f22019ac574f0fbfdf71e46faf1cfa74cbbe8023857a3e"
     },
     "src/domains/integer/polynomial_kernels.rs": {
       "mode": "100644",
@@ -180,7 +180,7 @@
     },
     "src/numerical_integration.rs": {
       "mode": "100644",
-      "sha256": "09e9d2751987ee1e16c7c45d75c39e6c3b04b107f5f043e48e5f6009932a35d6"
+      "sha256": "4e4768f09dc95d95c29d66b6a3d2f6efaa5b73714e6598acb3c7af8881a5af8d"
     },
     "src/printer.rs": {
       "mode": "100644",
@@ -192,7 +192,7 @@
     },
     "src/tensors/matrix.rs": {
       "mode": "100644",
-      "sha256": "dd73530736a2254981df4a8bfdb277aaf4b7bc8260385c563301205aab27b550"
+      "sha256": "3e62b1395e0c11cbe4abfba2e8980eba0b110d6ee7c7486e5dbc56a4ae78ab90"
     },
     "src/tensors/sparse.rs": {
       "mode": "100644",
