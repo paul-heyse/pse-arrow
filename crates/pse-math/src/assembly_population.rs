@@ -369,77 +369,93 @@ impl CrossCasePopulationWorker {
                 jacobian.clear();
             }
         }
-        for (index, group) in self.population.groups.iter().enumerate() {
-            self.active.clear();
-            self.packed.clear();
-            for &occurrence in &group.occurrences {
-                if self.errors[occurrence.case].is_some() {
-                    continue;
-                }
-                self.scope.check().map_err(crate::error::scope_error)?;
-                let case = &self.population.cases[occurrence.case];
-                let gather = case.bindings[occurrence.instance][EvaluationDemand::Constraints]
-                    .as_ref()
-                    .ok_or_else(|| MathError::Contract("population gather".into()))?;
-                match EvalInputs::from(&values[occurrence.case])
-                    .fill(gather, &mut self.gather[..gather.len()])
-                {
-                    Ok(()) => {
-                        self.active.push(occurrence);
-                        self.packed.extend_from_slice(&self.gather[..gather.len()]);
-                    }
-                    Err(error) => {
-                        self.errors[occurrence.case] = Some(
-                            ExecutionAttribution::from_case_instance(
-                                &case.structure.instances()[occurrence.instance],
-                            )
-                            .evaluation_error(error),
-                        )
-                    }
+        // The fitting caller originally completed every Value instance before
+        // requesting First. Preserve that scientific failure priority: an early
+        // derivative refusal cannot mask a later instance's Value guard.
+        for phase in [DerivativeOrder::Value, DerivativeOrder::First] {
+            if phase > order {
+                break;
+            }
+            self.scope.check().map_err(crate::error::scope_error)?;
+            if phase == DerivativeOrder::First {
+                // First republishes values while filling its Jacobian; all
+                // backing already belongs to these prepared Value/First workers.
+                for result in &mut self.results {
+                    result.values.fill(0.);
                 }
             }
-            if let Some(context) = pse_diagnostics::observation::current() {
-                context.count(
-                    "math.case_population_rows",
-                    "count",
-                    self.active.len() as u64,
-                );
-                if self.active.len() > 1 {
+            for (index, group) in self.population.groups.iter().enumerate() {
+                self.active.clear();
+                self.packed.clear();
+                for &occurrence in &group.occurrences {
+                    if self.errors[occurrence.case].is_some() {
+                        continue;
+                    }
+                    self.scope.check().map_err(crate::error::scope_error)?;
+                    let case = &self.population.cases[occurrence.case];
+                    let gather = case.bindings[occurrence.instance][EvaluationDemand::Constraints]
+                        .as_ref()
+                        .ok_or_else(|| MathError::Contract("population gather".into()))?;
+                    match EvalInputs::from(&values[occurrence.case])
+                        .fill(gather, &mut self.gather[..gather.len()])
+                    {
+                        Ok(()) => {
+                            self.active.push(occurrence);
+                            self.packed.extend_from_slice(&self.gather[..gather.len()]);
+                        }
+                        Err(error) => {
+                            self.errors[occurrence.case] = Some(
+                                ExecutionAttribution::from_case_instance(
+                                    &case.structure.instances()[occurrence.instance],
+                                )
+                                .evaluation_error(error),
+                            )
+                        }
+                    }
+                }
+                if let Some(context) = pse_diagnostics::observation::current() {
                     context.count(
-                        "math.case_population_shared_rows",
+                        "math.case_population_rows",
                         "count",
                         self.active.len() as u64,
                     );
-                }
-            }
-            let active = &self.active;
-            let cases = &self.population.cases;
-            let results = &mut self.results;
-            let errors = &mut self.errors;
-            self.locals[index][order_index(order)]
-                .as_mut()
-                .ok_or_else(|| MathError::Contract("population order worker".into()))?
-                .evaluate_observing(active.len(), &self.packed, |ordinal, local| {
-                    let occurrence = active[ordinal];
-                    let case = &cases[occurrence.case];
-                    let result = local.and_then(|local| {
-                        scatter_case(
-                            case,
-                            occurrence.instance,
-                            local,
-                            &mut results[occurrence.case],
-                            order,
-                        )
-                    });
-                    if let Err(error) = result {
-                        errors[occurrence.case] = Some(
-                            ExecutionAttribution::from_case_instance(
-                                &case.structure.instances()[occurrence.instance],
-                            )
-                            .evaluation_error(error),
+                    if self.active.len() > 1 {
+                        context.count(
+                            "math.case_population_shared_rows",
+                            "count",
+                            self.active.len() as u64,
                         );
                     }
-                })?;
+                }
+                let active = &self.active;
+                let cases = &self.population.cases;
+                let results = &mut self.results;
+                let errors = &mut self.errors;
+                self.locals[index][order_index(phase)]
+                    .as_mut()
+                    .ok_or_else(|| MathError::Contract("population order worker".into()))?
+                    .evaluate_observing(active.len(), &self.packed, |ordinal, local| {
+                        let occurrence = active[ordinal];
+                        let case = &cases[occurrence.case];
+                        let result = local.and_then(|local| {
+                            scatter_case(
+                                case,
+                                occurrence.instance,
+                                local,
+                                &mut results[occurrence.case],
+                                phase,
+                            )
+                        });
+                        if let Err(error) = result {
+                            errors[occurrence.case] = Some(
+                                ExecutionAttribution::from_case_instance(
+                                    &case.structure.instances()[occurrence.instance],
+                                )
+                                .evaluation_error(error),
+                            );
+                        }
+                    })?;
+            }
         }
         self.scope.check().map_err(crate::error::scope_error)?;
         for (index, complete) in self.complete.iter_mut().enumerate() {
@@ -478,6 +494,170 @@ mod tests {
     };
     fn id(n: u8) -> SemanticId {
         SemanticId::from_bytes([n; 16])
+    }
+    fn value_before_first_control(evaluator: crate::library::Evaluator) {
+        let registry = standard_registry().unwrap();
+        let quantity = ids::quantity("neutral");
+        let port = |number| pse_kernels::Port {
+            id: id(number),
+            quantity,
+            unit: registry.quantity_type(quantity).unwrap().canonical_unit,
+        };
+        let mut bodies = BTreeMap::new();
+        for (number, function) in [(80, crate::Function::Sqrt), (81, crate::Function::Log)] {
+            let mut builder = BodyBuilder::new(
+                crate::initialize().unwrap(),
+                &registry,
+                &StandardInvariantChecker,
+                1,
+                BodyLimits::default(),
+            )
+            .unwrap();
+            let input = builder
+                .input(0, quantity, IndexSet::new(), id(number))
+                .unwrap();
+            let output = builder.unary(function, input, id(number)).unwrap();
+            bodies.insert(
+                ContentHash::from_bytes([number; 32]),
+                Arc::new(builder.prepare(&[output]).unwrap()),
+            );
+        }
+        let instances = [(20, 80, 1, 10), (21, 81, 2, 11)]
+            .into_iter()
+            .map(|(instance, body, variable, row)| InstanceBinding {
+                instance: id(instance),
+                body: ContentHash::from_bytes([body; 32]),
+                checked_members: Default::default(),
+                checked_sources: Default::default(),
+                occurrences: Default::default(),
+                slots: vec![SlotBinding::new(&port(variable), &port(100), &registry).unwrap()]
+                    .into(),
+                contributions: vec![Contribution {
+                    output: 0,
+                    target: Target::Row(id(row)),
+                    scale: 1.,
+                }],
+            })
+            .collect();
+        let structure = Arc::new(
+            CaseStructure::new(
+                vec![1, 2]
+                    .into_iter()
+                    .map(|number| Variable {
+                        port: port(number),
+                        fixed: false,
+                        domain: ModelingVariableDomain::Continuous,
+                        lower: None,
+                        upper: None,
+                    })
+                    .collect(),
+                vec![],
+                instances,
+                vec![10, 11]
+                    .into_iter()
+                    .map(|number| Row {
+                        id: id(number),
+                        quantity,
+                        lower: f64::NEG_INFINITY,
+                        upper: f64::INFINITY,
+                    })
+                    .collect(),
+                None,
+                CaseLimits::default(),
+            )
+            .unwrap(),
+        );
+        let scope =
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
+        let plan = Arc::new(
+            CasePlan::prepare(
+                structure,
+                bodies,
+                &registry,
+                DerivativeOrder::First,
+                AssemblyLimits::default(),
+                scope.cancellation(),
+            )
+            .unwrap(),
+        );
+        let case = Arc::new(
+            plan.compile(
+                Optimization {
+                    evaluator,
+                    ..Default::default()
+                },
+                EvaluationLimits::default(),
+                &scope,
+            )
+            .unwrap(),
+        );
+        let mut original = case.worker(
+            pse_kernels::ProviderBindings::new(),
+            pse_diagnostics::Cancellation::default(),
+        );
+        let mut values = [(4., 1.), (0., -1.), (0., 1.), (9., 1.)]
+            .into_iter()
+            .map(|(x, y)| CaseValues {
+                scalars: BTreeMap::from([(id(1), x), (id(2), y)]),
+            })
+            .collect::<Vec<_>>();
+        fn original_failure(error: MathError, instance: u8, source: u8) {
+            assert!(
+                matches!(&error,MathError::Instance {instance:actual,..} if *actual==id(instance)),
+                "{error:?}"
+            );
+            assert!(
+                matches!(error.instance_cause(),MathError::Domain {source_id,..} if *source_id==id(source)),
+                "{error:?}"
+            );
+        }
+        // The original fitting dispatch completes constraints before First.
+        // sqrt(0) is Value-valid but First-invalid; log(-1) must win first.
+        original_failure(original.constraints(&values[1]).unwrap_err(), 21, 81);
+        let population =
+            CrossCasePopulation::new(vec![Arc::clone(&case); 4], DerivativeOrder::First).unwrap();
+        let mut worker = population.worker_scoped(scope.clone()).unwrap();
+        worker.evaluate(&values, DerivativeOrder::First).unwrap();
+        original_failure(worker.result(1).unwrap_err(), 21, 81);
+        original_failure(worker.result(2).unwrap_err(), 20, 80);
+        assert!(
+            worker.result(1).is_err(),
+            "a consumed refusal cannot reveal partial First"
+        );
+        for (index, root) in [(0, 2.), (3, 3.)] {
+            let result = worker.result(index).unwrap();
+            assert_eq!(result.values(), [root, 0.]);
+            let actual = result.jacobian().unwrap().val();
+            assert!((actual[0] - 1. / (2. * root)).abs() < 1e-15);
+            assert_eq!(actual[1], 1.);
+        }
+        values[1].scalars.insert(id(1), 4.);
+        values[1].scalars.insert(id(2), 1.);
+        values[2].scalars.insert(id(1), 9.);
+        worker.evaluate(&values, DerivativeOrder::First).unwrap();
+        for (index, root) in [(0, 2.), (1, 2.), (2, 3.), (3, 3.)] {
+            assert_eq!(worker.result(index).unwrap().values(), [root, 0.]);
+        }
+        scope.cancellation_control().cancel();
+        assert!(matches!(
+            worker.evaluate(&values, DerivativeOrder::First),
+            Err(MathError::Cancelled)
+        ));
+        assert!(
+            worker.result(0).is_err(),
+            "cancellation cannot reveal the previous trial"
+        );
+    }
+    #[test]
+    fn cross_case_population_value_guards_precede_first_with_original_sources() {
+        value_before_first_control(crate::library::Evaluator::Interpreted);
+    }
+    #[cfg(feature = "compiled-evaluator")]
+    #[test]
+    fn cross_case_population_x4_value_guards_precede_first_with_original_sources() {
+        value_before_first_control(crate::library::Evaluator::CompiledX4 {
+            module_bytes: 16 << 20,
+        });
     }
     #[test]
     fn cross_case_population_packs_exact_shared_programs_and_keeps_ordered_instance_failures() {

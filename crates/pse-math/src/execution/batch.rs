@@ -8,6 +8,9 @@ mod checked;
 #[path = "batch/packed.rs"]
 mod packed;
 pub use checked::CheckedBatchExecution;
+#[cfg(all(test, feature = "compiled-evaluator"))]
+#[path = "batch/action_tests.rs"]
+mod action_tests;
 pub(crate) use checked::numerical_batch_backing;
 
 /// Exact compiled program and output/coordinate/product qualification.
@@ -66,7 +69,14 @@ impl BatchLayout {
     }
     /// Checked owned result/witness extent, admitted before allocation by the host.
     pub fn backing_bytes(&self, points: usize) -> Result<usize, MathError> {
-        let diagnostics = self.body.template.programs[self.order]
+        let check_order = if self.body.template.direct_product.is_some() {
+            DerivativeOrder::Value
+        } else if self.body.template.reverse_product.is_some() {
+            DerivativeOrder::First
+        } else {
+            self.order
+        };
+        let diagnostics = self.body.template.programs[check_order]
             .as_ref()
             .map_or(Ok(0), |stages| checked::diagnostic_backing(stages))?;
         let per_point = self
@@ -106,6 +116,8 @@ impl PreparedBatch {
                 "pure batch cannot execute provider effects".into(),
             ));
         }
+        #[cfg(feature = "compiled-evaluator")]
+        packed::validate_profile(&body, order)?;
         let cells = if body.product_kind() == ProductKind::SelectedPartials {
             let layout = body.template.layouts[order].as_ref().ok_or_else(|| {
                 MathError::Contract("batch partial order was not compiled".into())
@@ -225,7 +237,20 @@ pub enum BatchBindings<'a> {
         directions: &'a [f64],
     },
 }
-impl BatchBindings<'_> {
+impl<'a> BatchBindings<'a> {
+    fn parts(self) -> (Option<&'a [f64]>, Option<&'a [f64]>) {
+        match self {
+            Self::SelectedPartials => (None, None),
+            Self::JacobianAction { directions } => (None, Some(directions)),
+            Self::TransposeJacobianAction { weights } | Self::WeightedHessian { weights } => {
+                (Some(weights), None)
+            }
+            Self::WeightedHessianAction {
+                weights,
+                directions,
+            } => (Some(weights), Some(directions)),
+        }
+    }
     fn kind(self) -> ProductKind {
         match self {
             Self::SelectedPartials => ProductKind::SelectedPartials,
@@ -353,16 +378,7 @@ impl BatchWorker {
         if request.inputs.len() != extent(self.layout.inputs())? {
             return Err(MathError::Contract("batch point-major input extent".into()));
         }
-        let (weights, directions) = match request.bindings {
-            BatchBindings::SelectedPartials => (None, None),
-            BatchBindings::JacobianAction { directions } => (None, Some(directions)),
-            BatchBindings::TransposeJacobianAction { weights }
-            | BatchBindings::WeightedHessian { weights } => (Some(weights), None),
-            BatchBindings::WeightedHessianAction {
-                weights,
-                directions,
-            } => (Some(weights), Some(directions)),
-        };
+        let (weights, directions) = request.bindings.parts();
         let weight_extent = extent(self.layout.outputs().len())?;
         let direction_extent = extent(self.layout.coordinates().len())?;
         if weights.is_some_and(|v| v.len() != weight_extent)
@@ -531,13 +547,13 @@ fn copy_trial(
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn source() -> SemanticId {
+    pub(super) fn source() -> SemanticId {
         SemanticId::from_bytes([17; 16])
     }
-    fn scope() -> pse_kernels::ExecutionScope {
+    pub(super) fn scope() -> pse_kernels::ExecutionScope {
         pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None)
     }
-    fn body(guard: bool) -> PreparedBody {
+    pub(super) fn body(guard: bool) -> PreparedBody {
         crate::initialize().unwrap();
         let x = library::formal(0).unwrap();
         let y = library::formal(1).unwrap();
@@ -639,6 +655,85 @@ mod tests {
                     "complete worker backing is admitted once before trials"
                 );
             }
+        }
+    }
+    #[cfg(feature = "compiled-evaluator")]
+    #[test]
+    fn ordered_x4_batch_constant_log1p_keeps_zero_input_population_and_scalar_tails() {
+        crate::initialize().unwrap();
+        // Exact 2^-60 is below the increment retained by naive log(1+x).
+        // Its log1p correction is below half an f64 ulp, so the rounded
+        // independent expected value is exactly 2^-60.
+        let argument = Atom::num((1_i64, 1_i64 << 60));
+        let expression =
+            crate::stable::call(crate::stable::Operation::Log1p, &[&argument]).unwrap();
+        let body = PreparedBody::new(
+            0,
+            1,
+            vec![0],
+            vec![Stage::Block {
+                expressions: vec![expression],
+                outputs: vec![0],
+                source: source(),
+            }],
+            DerivativeOrder::Value,
+        )
+        .unwrap();
+        let compiled = Arc::new(
+            body.compile(
+                &[0],
+                &[],
+                DerivativeOrder::Value,
+                Optimization {
+                    evaluator: library::Evaluator::CompiledX4 {
+                        module_bytes: 16 << 20,
+                    },
+                    ..Default::default()
+                },
+                EvaluationLimits::default(),
+                &scope(),
+            )
+            .unwrap(),
+        );
+        assert!(compiled.pure_branch_free(DerivativeOrder::Value));
+        let prepared = PreparedBatch::new(compiled, DerivativeOrder::Value).unwrap();
+        assert_eq!(prepared.layout().inputs(), 0);
+        let mut worker = prepared.worker();
+        assert!(worker.uses_packed());
+        let cancel = Arc::new(AtomicBool::new(false));
+        for count in [0, 1, 3, 4, 5] {
+            let ids = vec![source(); count];
+            let result = worker
+                .evaluate(
+                    BatchRequest {
+                        layout: prepared.layout(),
+                        points: &ids,
+                        inputs: &[],
+                        bindings: BatchBindings::SelectedPartials,
+                    },
+                    &cancel,
+                )
+                .unwrap();
+            assert!(!result.canceled());
+            assert_eq!(result.points().len(), count);
+            assert_eq!(
+                result
+                    .points()
+                    .iter()
+                    .map(|point| point.id)
+                    .collect::<Vec<_>>(),
+                ids
+            );
+            assert!(
+                result
+                    .points()
+                    .iter()
+                    .all(|point| matches!(point.outcome, PointOutcome::Succeeded))
+            );
+            assert_eq!(
+                result.point_major(),
+                Some(vec![2.0_f64.powi(-60); count].as_slice())
+            );
         }
     }
     #[cfg(feature = "compiled-evaluator")]
@@ -980,8 +1075,7 @@ mod tests {
         assert!(result.canceled());
         assert!(result.point_major().is_none());
     }
-    #[test]
-    fn ordered_batch_direct_weighted_action_avoids_unrequested_second_overflow() {
+    pub(super) fn cancellation_body() -> PreparedBody {
         use crate::{
             Function,
             typed::{Binary, BodyBuilder, BodyLimits},
@@ -1009,7 +1103,11 @@ mod tests {
         let output = b
             .binary(Binary::Add, square, quadratic, None, source())
             .unwrap();
-        let body = b.prepare(&[output]).unwrap();
+        b.prepare(&[output]).unwrap()
+    }
+    #[test]
+    fn ordered_batch_direct_weighted_action_avoids_unrequested_second_overflow() {
+        let body = cancellation_body();
         let cancel = Arc::new(AtomicBool::new(false));
         let support = body
             .prepare_support(&[0], &[0], DerivativeOrder::Second, &cancel)

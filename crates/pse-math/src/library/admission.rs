@@ -1,18 +1,20 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 Paul Heyse
 
-//! Construction bounds for the pinned Numerica Dualizer (Taylor orders zero to two).
-//! This counts its convolution and primitive expansion, not a differentiation engine.
+//! Checked native construction, retained exact scalar products and scientific
+//! source/final-operation limits. Supplier controls own native growth and copies.
 use super::*;
 use crate::jets::{EvaluationLimits, JetLayout};
 use hashbrown::{Equivalent, HashMap, hash_map::EntryRef};
 use std::collections::hash_map::RandomState;
 use std::hash::{Hash, Hasher};
-use std::sync::{Arc, atomic::AtomicBool};
+use std::sync::Arc;
+#[cfg(test)]
+use std::sync::atomic::AtomicBool;
 use symbolica::atom::AtomView;
 #[cfg(test)]
 use symbolica::atom::Symbol;
-use symbolica::evaluate::{Instruction, OperationCount};
+use symbolica::evaluate::OperationCount;
 
 fn add(a: usize, b: usize) -> Result<usize, MathError> {
     a.checked_add(b)
@@ -29,55 +31,6 @@ fn total(c: OperationCount) -> Result<usize, MathError> {
     )
 }
 
-/// Number of ordered Taylor convolution products, including each a_j * b_0.
-/// Orders 0/1/2 have 1, 1+2n, and 1+3n+2n² products respectively.
-fn products_for(n: usize, order: pse_kernels::DerivativeOrder) -> Result<usize, MathError> {
-    match order {
-        pse_kernels::DerivativeOrder::Value => Ok(1),
-        pse_kernels::DerivativeOrder::First => add(1, mul(2, n)?),
-        pse_kernels::DerivativeOrder::Second => add(add(1, mul(3, n)?)?, mul(2, mul(n, n)?)?),
-    }
-}
-
-/// Scalar work envelope from Dualizer::map_instruction in Symbolica 3.0.1.
-/// A multiply has W initial products and (K-W) product/add pairs. Each unary
-/// Taylor loop has depth <=2 and one convolution, rescale and addition per step.
-/// Setup/final scaling costs <=2W+2. Powf is log, multiplication, then exp.
-fn expansion_with_products(
-    c: OperationCount,
-    order: pse_kernels::DerivativeOrder,
-    w: usize,
-    products: usize,
-) -> Result<usize, MathError> {
-    let convolution = products
-        .checked_mul(2)
-        .and_then(|v| v.checked_sub(w))
-        .ok_or(MathError::Limit("Taylor convolution"))?;
-    let depth = order as usize;
-    let unary = add(
-        add(
-            mul(depth, add(add(convolution, mul(2, w)?)?, 1)?)?,
-            mul(2, w)?,
-        )?,
-        2,
-    )?;
-    let power = add(mul(2, unary)?, convolution)?;
-    add(
-        add(mul(c.additions, w)?, mul(c.multiplications, convolution)?)?,
-        add(mul(c.inversions, unary)?, mul(c.function_calls, power)?)?,
-    )
-}
-
-/// Initial source-issued reservation for known floating payload. Optimization can
-/// increase its populations; the enclosing owner reserves that positive excess
-/// before `map_coeff` allocates. Rational construction retains foreign admission.
-#[derive(Clone, Copy)]
-pub(crate) struct EvaluatorConstruction {
-    pub(crate) entries: usize,
-    pub(crate) instructions: usize,
-    /// Separate arbitrary-precision literal payload/copies, never numeric slots.
-    pub(crate) coefficient_payload: usize,
-}
 /// Distinct source populations: encoded payload bytes are not numeric slots.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 struct SourceShape {
@@ -132,119 +85,6 @@ fn source_shape<'a>(
     }
     Ok(shape)
 }
-/// Source node/operand counts bound numeric populations. Encoded bytes remain a
-/// separate payload charge; integer powers
-/// additionally contribute their explicit arithmetic expansion. The maximum of
-/// Dualizer's four operation costs allows Horner optimization to redistribute work;
-/// positive actual export excess is reserved before any floating conversion.
-pub(crate) fn evaluator_construction(
-    expressions: &[Atom],
-    parameters: usize,
-    coordinates: usize,
-    order: pse_kernels::DerivativeOrder,
-) -> Result<EvaluatorConstruction, MathError> {
-    let first = if order >= pse_kernels::DerivativeOrder::First {
-        coordinates
-    } else {
-        0
-    };
-    let second = if order >= pse_kernels::DerivativeOrder::Second {
-        mul(coordinates, add(coordinates, 1)?)? / 2
-    } else {
-        0
-    };
-    evaluator_construction_shape(
-        expressions,
-        parameters,
-        order,
-        add(add(1, first)?, second)?,
-        products_for(coordinates, order)?,
-    )
-}
-pub(crate) fn evaluator_construction_shape(
-    expressions: &[Atom],
-    parameters: usize,
-    order: pse_kernels::DerivativeOrder,
-    width: usize,
-    products: usize,
-) -> Result<EvaluatorConstruction, MathError> {
-    construction_shape(
-        source_shape(expressions)?,
-        expressions.len(),
-        parameters,
-        order,
-        width,
-        products,
-    )
-}
-fn construction_shape(
-    source: SourceShape,
-    outputs: usize,
-    parameters: usize,
-    order: pse_kernels::DerivativeOrder,
-    width: usize,
-    products: usize,
-) -> Result<EvaluatorConstruction, MathError> {
-    let mut per_operation = 0;
-    for count in [
-        OperationCount::new(1, 0, 0, 0),
-        OperationCount::new(0, 1, 0, 0),
-        OperationCount::new(0, 0, 1, 0),
-        OperationCount::new(0, 0, 0, 1),
-    ] {
-        per_operation = per_operation.max(expansion_with_products(count, order, width, products)?);
-    }
-    let operations = source.operations;
-    let expanded = mul(operations, per_operation)?;
-    let scalar_instructions = add(
-        add(add(source.nodes, source.operands)?, operations)?,
-        outputs,
-    )?;
-    let vectors = add(
-        add(mul(2, parameters)?, outputs)?,
-        add(
-            source.nodes,
-            add(mul(3, scalar_instructions)?, mul(10, operations)?)?,
-        )?,
-    )?;
-    let entries = add(expanded, mul(width, vectors)?)?;
-    // Instructions contain indices, not coefficient payloads. Numeric operation
-    // results/assignment vectors bound instruction count and operand slots. Tags
-    // and original literal payloads have the admitted source-byte population.
-    let instructions = add(
-        mul(
-            entries,
-            add(
-                size_of::<Instruction>(),
-                mul(4, size_of::<symbolica::evaluate::Slot>())?,
-            )?,
-        )?,
-        source.bytes,
-    )?;
-    Ok(EvaluatorConstruction {
-        entries,
-        instructions,
-        coefficient_payload: mul(mul(4, width)?, source.literal_bytes)?,
-    })
-}
-fn reserve_facts(facts: &EvaluatorFacts, initial: EvaluatorConstruction) -> Result<(), MathError> {
-    // Immutable evaluator and private construction/worker copy retain independent charge.
-    let extra = add(
-        mul(
-            facts
-                .storage
-                .numeric_entries
-                .saturating_sub(initial.entries),
-            2 * size_of::<f64>(),
-        )?,
-        facts
-            .storage
-            .instruction_bytes
-            .saturating_sub(initial.instructions),
-    )?;
-    crate::construction::additional(extra)
-}
-
 type ScalarProductKey = (Vec<Atom>, Vec<Atom>, Optimization, Vec<(Atom, Atom)>);
 type ScalarProductMap = HashMap<Arc<ScalarProductKey>, Arc<ScalarProduct>, RandomState>;
 
@@ -515,21 +355,25 @@ impl ScalarCache {
         );
     }
 
-    pub(crate) fn admit_prepare(
+    pub(crate) fn admit_prepare<'a>(
         &mut self,
         expressions: &[Atom],
         parameters: &[Atom],
         definitions: &[(Atom, Atom)],
         options: Optimization,
-        cancelled: &Arc<AtomicBool>,
+        stop: impl Into<ConstructionStop<'a>>,
         limits: EvaluationLimits,
     ) -> Result<(), MathError> {
+        let stop = stop.into();
+        stop.check()?;
         let product = self.prepare(
             expressions,
             parameters,
             definitions,
             options,
-            cancelled,
+            stop,
+            limits,
+            0,
             SourceOperationLimit::Scalar(limits.operations),
         )?;
         if total(product.facts.operations)? > limits.operations {
@@ -544,13 +388,13 @@ impl ScalarCache {
         parameters: &[Atom],
         definitions: &[(Atom, Atom)],
         options: Optimization,
-        cancelled: &Arc<AtomicBool>,
+        stop: ConstructionStop<'_>,
+        limits: EvaluationLimits,
+        occupied_entries: usize,
         source_limit: SourceOperationLimit,
     ) -> Result<&ScalarProduct, MathError> {
         let _phase = pse_diagnostics::observation::phase("math.scalar_prepare");
-        if cancelled.load(std::sync::atomic::Ordering::Acquire) {
-            return Err(MathError::Cancelled);
-        }
+        stop.check()?;
         // Scalar optimization does not consume the later execution selector.
         // Share exact scalar preparation across interpreted/native Value routes.
         let query = ScalarProductQuery::new(expressions, parameters, options, definitions);
@@ -581,14 +425,6 @@ impl ScalarCache {
                         add(sum, total(expression.count_operations())?)
                     })?;
                 source_limit.check(source.operations, source_atom_operations)?;
-                let initial = construction_shape(
-                    source,
-                    expressions.len(),
-                    parameters.len(),
-                    pse_kernels::DerivativeOrder::Value,
-                    1,
-                    1,
-                )?;
                 let atoms = expressions
                     .iter()
                     .chain(parameters)
@@ -604,15 +440,9 @@ impl ScalarCache {
                         size_of::<Atom>(),
                     )?,
                 )?;
-                // Rational payloads remain bytes. They do not create one numeric
-                // stack entry per encoding byte of a literal or formal symbol.
-                let constructor_bytes = add(
-                    mul(initial.entries, 2 * size_of::<Complex<Rational>>())?,
-                    add(
-                        initial.instructions,
-                        add(initial.coefficient_payload, add(atoms, key_bytes)?)?,
-                    )?,
-                )?;
+                // This owner retains the source key. Native input/alias copies and
+                // algorithmic constructor growth are admitted by the supplier.
+                let source_admission = add(atoms, key_bytes)?;
                 if let Some(context) = pse_diagnostics::observation::current() {
                     context.count("math.scalar_source_nodes", "count", source.nodes as u64);
                     context.count("math.scalar_source_bytes", "bytes", source.bytes as u64);
@@ -622,39 +452,32 @@ impl ScalarCache {
                         source.literal_bytes as u64,
                     );
                     context.count(
-                        "math.scalar_constructor_bytes",
+                        "math.scalar_source_admission_bytes",
                         "bytes",
-                        constructor_bytes as u64,
+                        source_admission as u64,
                     );
                 }
-                crate::construction::additional(constructor_bytes)?;
+                crate::construction::additional(source_admission)?;
+                let mut control = SupplierControl::new(stop, limits, occupied_entries);
                 let evaluator =
-                    exact_evaluator(expressions, parameters, definitions, options, cancelled)?;
-                let export = evaluator.export_instructions();
+                    exact_evaluator(expressions, parameters, definitions, options, &mut control)?;
+                let exact_bytes = control.output_bytes;
+                let export = evaluator
+                    .try_export_instructions_with(&mut control)
+                    .map_err(supplier_error)?;
                 let facts = EvaluatorFacts::inspect(
                     &export,
                     evaluator.count_operations(),
                     "math.rational_representation_inspections",
                 )?;
-                reserve_facts(&facts, initial)?;
                 let bytes = add(
                     size_of::<ScalarProduct>(),
-                    add(
-                        add(mul(2, source.literal_bytes)?, add(atoms, key_bytes)?)?,
-                        add(
-                            mul(
-                                facts.storage.numeric_entries,
-                                2 * size_of::<Complex<Rational>>(),
-                            )?,
-                            facts.storage.instruction_bytes,
-                        )?,
-                    )?,
+                    add(exact_bytes, add(atoms, key_bytes)?)?,
                 )?;
-                if cancelled.load(std::sync::atomic::Ordering::Acquire) {
-                    return Err(MathError::Cancelled);
-                }
+                stop.check()?;
                 let product = entry.insert_with_key(
-                    query.owned_key(),
+                    symbolica::domains::backend::integer::IntegerAllocationContext::fresh()
+                        .run(|| query.owned_key()),
                     Arc::new(ScalarProduct {
                         evaluator,
                         bytes,
@@ -678,79 +501,66 @@ impl ScalarCache {
 
 /// Scalar-only provider composition: repeated identical lifts share exact
 /// preparation, while every mutable numeric/order product remains private.
-pub(crate) fn bounded_scalar_evaluator(
+pub(crate) fn bounded_scalar_evaluator<'a>(
     expressions: &[Atom],
     parameters: &[Atom],
     options: Optimization,
-    cancelled: &Arc<AtomicBool>,
+    stop: impl Into<ConstructionStop<'a>>,
     limits: EvaluationLimits,
     scalars: &mut ScalarCache,
 ) -> Result<FloatingEvaluator, MathError> {
-    bounded_defined_scalar_evaluator(
-        expressions,
-        parameters,
-        &[],
-        options,
-        cancelled,
-        limits,
-        scalars,
-    )
+    let stop = stop.into();
+    stop.check()?;
+    bounded_defined_scalar_evaluator(expressions, parameters, &[], options, stop, limits, scalars)
 }
 
-pub(crate) fn bounded_defined_scalar_evaluator(
+pub(crate) fn bounded_defined_scalar_evaluator<'a>(
     expressions: &[Atom],
     parameters: &[Atom],
     definitions: &[(Atom, Atom)],
     options: Optimization,
-    cancelled: &Arc<AtomicBool>,
+    stop: impl Into<ConstructionStop<'a>>,
     limits: EvaluationLimits,
     scalars: &mut ScalarCache,
 ) -> Result<FloatingEvaluator, MathError> {
+    let stop = stop.into();
+    stop.check()?;
     let product = scalars.prepare(
         expressions,
         parameters,
         definitions,
         options,
-        cancelled,
+        stop,
+        limits,
+        0,
         SourceOperationLimit::Scalar(limits.operations),
-    )?;
-    let initial = construction_shape(
-        product.source,
-        expressions.len(),
-        parameters.len(),
-        pse_kernels::DerivativeOrder::Value,
-        1,
-        1,
     )?;
     if total(product.facts.operations)? > limits.operations {
         return Err(MathError::Limit("scalar evaluator operations"));
     }
     limits.allocation(product.facts.storage.numeric_entries)?;
-    reserve_facts(&product.facts, initial)?;
-    if cancelled.load(std::sync::atomic::Ordering::Acquire) {
-        return Err(MathError::Cancelled);
-    }
-    crate::construction::additional(initial.coefficient_payload)?;
-    FloatingEvaluator::new(product.evaluator.clone().map_coeff(&|c| c.re.to_f64()))
+    FloatingEvaluator::from_exact(&product.evaluator, stop, limits, 0)
 }
 
 #[allow(
     clippy::too_many_arguments,
     reason = "Distinct compilation contexts and remaining body allowances"
 )]
-pub(crate) fn bounded_evaluator(
+pub(crate) fn bounded_evaluator<'a>(
     source_id: pse_ids::SemanticId,
     expressions: &[Atom],
     parameters: &[Atom],
     layout: &JetLayout,
     zero_components: &[(usize, usize)],
     options: Optimization,
-    cancelled: &Arc<AtomicBool>,
+    stop: impl Into<ConstructionStop<'a>>,
     limits: EvaluationLimits,
     remaining: usize,
     occupied_entries: usize,
     scalars: &mut ScalarCache,
 ) -> Result<FloatingEvaluator, MathError> {
+    let stop = stop.into();
+    stop.check()?;
     if zero_components.iter().any(|&(parameter, component)| {
         parameter >= parameters.len() || component == 0 || component >= layout.width()
     }) {
@@ -758,29 +568,15 @@ pub(crate) fn bounded_evaluator(
             "invalid structural Taylor zero component".into(),
         ));
     }
-    let first = if layout.order >= pse_kernels::DerivativeOrder::First {
-        mul(2, layout.coordinates.len())?
-    } else {
-        0
-    };
-    let products = layout.pairs.iter().try_fold(add(1, first)?, |n, &(i, j)| {
-        add(n, if i == j { 3 } else { 4 })
-    })?;
     let product = scalars.prepare(
         expressions,
         parameters,
         &[],
         options,
-        cancelled,
+        stop,
+        limits,
+        occupied_entries,
         SourceOperationLimit::Taylor(remaining),
-    )?;
-    let construction = construction_shape(
-        product.source,
-        expressions.len(),
-        parameters.len(),
-        layout.order,
-        layout.width(),
-        products,
     )?;
     let evaluator = &product.evaluator;
     let scalar = product.facts.operations;
@@ -792,25 +588,25 @@ pub(crate) fn bounded_evaluator(
         product.facts.storage.numeric_entries,
     )?)?;
     if layout.width() == 1 {
-        reserve_facts(&product.facts, construction)?;
-        crate::construction::additional(construction.coefficient_payload)?;
-        return FloatingEvaluator::new(evaluator.clone().map_coeff(&|c| c.re.to_f64()));
+        return FloatingEvaluator::from_exact(evaluator, stop, limits, occupied_entries);
     }
     if !product.facts.taylor_supported {
         return Err(MathError::Contract("unsupported Taylor primitive".into()));
     }
-    let dual = symbolica::prelude::HyperDual::<Complex<Rational>>::new(layout.shape.clone());
-    let mut peak = 0;
+    let mut admission = SupplierControl::new(stop, limits, occupied_entries);
     let heads = crate::stable::known_heads()?;
     let evaluator = evaluator
-        .try_vectorize_known_with(
-            &symbolica::prelude::Dualizer::new(dual, zero_components.to_vec()),
+        .try_vectorize_shape_known_with(
+            &layout.shape,
+            zero_components,
             heads,
             &mut |extent: symbolica::evaluate::OperationExtent| {
-                if cancelled.load(std::sync::atomic::Ordering::Acquire) {
-                    return Err(MathError::Cancelled);
-                }
-                if extent.work > remaining {
+                stop.check()?;
+                // Native shape construction reports pair/coordinate scans;
+                // later stages report emitted Taylor scalar arithmetic.
+                if extent.stage != symbolica::evaluate::OperationStage::Construction
+                    && extent.work > remaining
+                {
                     return Err(MathError::WorkLimit {
                         source_id,
                         resource: "derivative expansion",
@@ -820,12 +616,7 @@ pub(crate) fn bounded_evaluator(
                     });
                 }
                 limits.allocation(add(occupied_entries, extent.output_entries)?)?;
-                let required = extent
-                    .peak_bytes()
-                    .ok_or(MathError::Limit("supplier construction extent"))?;
-                crate::construction::additional(required.saturating_sub(peak))?;
-                peak = peak.max(required);
-                Ok(())
+                admission.check_extent(extent)
             },
         )
         .map_err(|error| match error {
@@ -844,27 +635,276 @@ pub(crate) fn bounded_evaluator(
             }
             symbolica::evaluate::OperationError::Interrupted => MathError::Cancelled,
         })?;
-    // Expanded exact Taylor and floating programs are distinct representations.
-    let expanded_export = evaluator.export_instructions();
-    let facts = EvaluatorFacts::inspect(
-        &expanded_export,
-        evaluator.count_operations(),
-        "math.taylor_representation_inspections",
-    )?;
-    if total(facts.operations)? > remaining {
+    if total(evaluator.count_operations())? > remaining {
         return Err(MathError::Contract(
             "library Taylor construction exceeded admitted work".into(),
         ));
     }
-    reserve_facts(&facts, construction)?;
-    limits.allocation(add(occupied_entries, facts.storage.numeric_entries)?)?;
-    drop(expanded_export);
-    FloatingEvaluator::new(evaluator.map_coeff(&|c| c.re.to_f64()))
+    FloatingEvaluator::from_exact(&evaluator, stop, limits, occupied_entries)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn checked_floating_constant_call_payload_is_in_auxiliary_and_worker_backing() {
+        use crate::typed::{BodyBuilder, BodyLimits, TypedValue};
+        use pse_quantity::{
+            IndexSet, ResolvedPhysicalContract,
+            standard::{StandardInvariantChecker, ids, standard_registry},
+        };
+        let context = crate::initialize().unwrap();
+        let power = Rational::from(2).pow(4096);
+        let denominator = &power + &Rational::from(1);
+        let ratio = &power / &denominator;
+        let argument = Atom::num(ratio);
+        // Numerator and denominator each need at least 4096 bits. The tiny
+        // f64 result does not erase these exact retained constant-call arguments.
+        let payload_lower_bound = 2 * (4096 / 8);
+        let expression =
+            crate::stable::call(crate::stable::Operation::Log1p, &[&argument]).unwrap();
+        let scope =
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
+        let limits = EvaluationLimits::default();
+        let mut floating = bounded_scalar_evaluator(
+            &[expression],
+            &[],
+            Optimization::default(),
+            &scope,
+            limits,
+            &mut ScalarCache::default(),
+        )
+        .unwrap();
+        assert_eq!(floating.export.constant_functions.len(), 1);
+        assert!(
+            floating.facts.resettable,
+            "a closed known constant remains pure"
+        );
+        floating.export.constant_functions[0]
+            .tags
+            .push("unqualified".into());
+        assert!(
+            !instruction_description(&floating.export)
+                .unwrap()
+                .resettable
+        );
+        floating.export.constant_functions[0].tags.clear();
+        let argument_copy = floating.export.constant_functions[0]
+            .fixed_args
+            .pop()
+            .unwrap();
+        assert!(
+            !instruction_description(&floating.export)
+                .unwrap()
+                .resettable
+        );
+        floating.export.constant_functions[0]
+            .fixed_args
+            .push(argument_copy);
+        assert!(floating.facts.storage.auxiliary_bytes >= payload_lower_bound);
+        assert!(floating.facts.storage.numeric_entries < payload_lower_bound / size_of::<f64>());
+        let mut result = [0.];
+        floating.evaluator.try_evaluate(&[], &mut result).unwrap();
+        assert_eq!(result[0], std::f64::consts::LN_2);
+
+        let registry = standard_registry().unwrap();
+        let quantity =
+            ResolvedPhysicalContract::named(ids::quantity("neutral"), IndexSet::new(), &registry)
+                .unwrap();
+        let source = pse_ids::SemanticId::from_bytes([42; 16]);
+        let literal = TypedValue::symbolic_fixture(argument, quantity, source);
+        let mut builder = BodyBuilder::new(
+            context,
+            &registry,
+            &StandardInvariantChecker,
+            0,
+            BodyLimits::default(),
+        )
+        .unwrap();
+        let output = builder
+            .unary(crate::Function::Log1p, literal, source)
+            .unwrap();
+        let prepared = builder.prepare(&[output]).unwrap();
+        let compiled = prepared
+            .compile(
+                &[0],
+                &[],
+                pse_kernels::DerivativeOrder::Value,
+                Optimization::default(),
+                limits,
+                &scope,
+            )
+            .unwrap();
+        let census = compiled
+            .census()
+            .find(|census| census.order == pse_kernels::DerivativeOrder::Value)
+            .unwrap();
+        assert!(census.instruction_storage_bytes >= payload_lower_bound);
+        assert!(census.worker_bytes >= payload_lower_bound);
+        assert!(census.frame_entries < payload_lower_bound / size_of::<f64>());
+        let mut worker = compiled.worker();
+        for _ in 0..2 {
+            let result = worker
+                .evaluate(
+                    &[],
+                    pse_kernels::DerivativeOrder::Value,
+                    &mut pse_kernels::ProviderBindings::new(),
+                    scope.cancellation(),
+                )
+                .unwrap();
+            assert_eq!(result.values, [std::f64::consts::LN_2]);
+        }
+    }
+
+    #[test]
+    fn checked_taylor_metadata_work_is_distinct_from_emitted_scalar_work() {
+        crate::initialize().unwrap();
+        let limits = EvaluationLimits {
+            operations: 10_000,
+            ..Default::default()
+        };
+        let parameters = (0..64).map(formal).collect::<Result<Vec<_>, _>>().unwrap();
+        let layout = JetLayout::new(
+            (0..64).collect(),
+            pse_kernels::DerivativeOrder::First,
+            limits,
+        )
+        .unwrap();
+        let native_scan = layout.width() * layout.width() * (3 * parameters.len() + 1);
+        assert!(native_scan > limits.operations);
+        let scope =
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
+        let mut compiled = bounded_evaluator(
+            pse_ids::SemanticId::NIL,
+            &[parameters[0].clone() + 1],
+            &parameters,
+            &layout,
+            &[],
+            Optimization {
+                horner_iterations: 0,
+                ..Default::default()
+            },
+            &scope,
+            limits,
+            limits.operations,
+            0,
+            &mut ScalarCache::default(),
+        )
+        .unwrap();
+        assert!(total(compiled.facts.operations).unwrap() < limits.operations);
+        let mut input = vec![0.; parameters.len() * layout.width()];
+        input[0] = 2.;
+        input[1] = 1.;
+        let mut output = vec![0.; layout.width()];
+        compiled
+            .evaluator
+            .try_evaluate(&input, &mut output)
+            .unwrap();
+        assert_eq!(&output[..2], &[3., 1.]);
+        assert!(output[2..].iter().all(|&value| value == 0.));
+    }
+
+    #[test]
+    fn checked_scalar_constructor_uses_captured_owner_and_preserves_typed_refusal() {
+        crate::initialize().unwrap();
+        #[derive(Debug)]
+        struct Original;
+        impl crate::construction::ConstructionAdmission for Original {
+            fn try_grow(&self, _: usize) -> Result<(), MathError> {
+                Err(MathError::Limit("original supplier owner full"))
+            }
+        }
+        let current =
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
+        let mut control = crate::construction::scoped(Arc::new(Original), || {
+            SupplierControl::new((&current).into(), EvaluationLimits::default(), 0)
+        });
+        let unrelated = Arc::new(Grow(std::sync::atomic::AtomicUsize::new(0)));
+        let x = formal(0).unwrap();
+        let result = crate::construction::scoped(unrelated.clone(), || {
+            exact_evaluator(
+                &[(&x + 1).pow(12)],
+                &[x],
+                &[],
+                Optimization {
+                    cores: 2,
+                    ..Default::default()
+                },
+                &mut control,
+            )
+        });
+        assert!(matches!(
+            result,
+            Err(MathError::Limit("original supplier owner full"))
+        ));
+        assert_eq!(
+            unrelated.0.load(std::sync::atomic::Ordering::SeqCst),
+            0,
+            "the supplier operation must use its captured original owner, including native workers"
+        );
+    }
+
+    #[test]
+    fn scalar_cache_observes_current_scope_deadline_without_retaining_producer_stop() {
+        crate::initialize().unwrap();
+        let x = formal(0).unwrap();
+        let expressions = [x.clone() + Atom::num(1)];
+        let parameters = [x];
+        let producer = pse_diagnostics::Cancellation::default();
+        let scope = pse_kernels::ExecutionScope::new(producer.clone(), None);
+        let mut cache = ScalarCache::default();
+        cache
+            .admit_prepare(
+                &expressions,
+                &parameters,
+                &[],
+                Optimization::default(),
+                &scope,
+                EvaluationLimits::default(),
+            )
+            .unwrap();
+        assert_eq!(cache.builds, 1);
+        producer.cancel();
+        let receiver =
+            pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::default(), None);
+        cache
+            .admit_prepare(
+                &expressions,
+                &parameters,
+                &[],
+                Optimization::default(),
+                &receiver,
+                EvaluationLimits::default(),
+            )
+            .unwrap();
+        assert_eq!(
+            cache.builds, 1,
+            "an old producer stop cannot poison an immutable exact product"
+        );
+        let current = pse_diagnostics::Cancellation::default();
+        let expired =
+            pse_kernels::ExecutionScope::new(current.clone(), Some(std::time::Instant::now()));
+        let error = cache
+            .admit_prepare(
+                &expressions,
+                &parameters,
+                &[],
+                Optimization::default(),
+                &expired,
+                EvaluationLimits::default(),
+            )
+            .unwrap_err();
+        assert!(matches!(
+            error,
+            MathError::Scope(pse_kernels::ProviderError::Deadline)
+        ));
+        assert!(
+            !current.is_cancelled(),
+            "expiry must not mutate the original cancellation owner"
+        );
+        assert_eq!(cache.builds, 1);
+    }
 
     #[test]
     fn checked_taylor_admits_before_growth_and_preserves_original_refusal() {
@@ -876,7 +916,7 @@ mod tests {
             &[x],
             &[],
             Optimization::default(),
-            &producer,
+            &mut SupplierControl::new((&producer).into(), EvaluationLimits::default(), 0),
         )
         .unwrap();
         let dual = symbolica::prelude::HyperDual::<Complex<Rational>>::new(vec![
@@ -948,7 +988,7 @@ mod tests {
             &[x],
             &[],
             Optimization::default(),
-            &producer,
+            &mut SupplierControl::new((&producer).into(), EvaluationLimits::default(), 0),
         )
         .unwrap();
         producer.store(true, std::sync::atomic::Ordering::Release);
@@ -1013,7 +1053,11 @@ mod tests {
             &[x],
             &[],
             Optimization::default(),
-            &Arc::new(AtomicBool::new(false)),
+            &mut SupplierControl::new(
+                (&Arc::new(AtomicBool::new(false))).into(),
+                EvaluationLimits::default(),
+                0,
+            ),
         )
         .unwrap();
         let mut calls = 0;
@@ -1036,21 +1080,25 @@ mod tests {
         crate::initialize().unwrap();
         let small = formal(0).unwrap();
         let wide = formal(FORMAL_CHUNK).unwrap();
-        let small = source_shape([&small]).unwrap();
-        let wide = source_shape([&wide]).unwrap();
-        assert_eq!((small.nodes, small.operands, small.operations), (1, 0, 0));
-        assert_eq!((wide.nodes, wide.operands, wide.operations), (1, 0, 0));
-        let bound = |source| {
-            construction_shape(source, 1, 1, pse_kernels::DerivativeOrder::Value, 1, 1).unwrap()
+        let entries = |parameter: Atom| {
+            bounded_scalar_evaluator(
+                std::slice::from_ref(&parameter),
+                std::slice::from_ref(&parameter),
+                Optimization::default(),
+                &Arc::new(AtomicBool::new(false)),
+                EvaluationLimits::default(),
+                &mut ScalarCache::default(),
+            )
+            .unwrap()
+            .facts
+            .storage
+            .numeric_entries
         };
-        let a = bound(small);
-        let b = bound(wide);
         assert_eq!(
-            a.entries, b.entries,
+            entries(small),
+            entries(wide),
             "formal encoding width does not add numeric slots"
         );
-        assert_eq!(a.instructions + wide.bytes, b.instructions + small.bytes);
-
         let small = Atom::num(1);
         let large = symbolica::parse!(
             "123456789012345678901234567890123456789/100000000000000000000000000000000000003"
@@ -1059,39 +1107,8 @@ mod tests {
         let large_shape = source_shape([&large]).unwrap();
         assert!(large_shape.bytes > small_shape.bytes);
         assert!(large_shape.literal_bytes > small_shape.literal_bytes);
-        let a = bound(small_shape);
-        let b = bound(large_shape);
-        assert_eq!(
-            a.entries, b.entries,
-            "literal digits are payload bytes, not stack entries"
-        );
-        assert!(b.coefficient_payload > a.coefficient_payload);
-        let second = construction_shape(
-            large_shape,
-            1,
-            1,
-            pse_kernels::DerivativeOrder::Second,
-            3,
-            5,
-        )
-        .unwrap();
-        assert_eq!(
-            second.coefficient_payload,
-            3 * b.coefficient_payload,
-            "Taylor coefficient copies retain their width-scaled byte charge"
-        );
-
-        #[derive(Debug)]
-        struct Reports(std::sync::atomic::AtomicUsize);
-        impl crate::construction::ConstructionAdmission for Reports {
-            fn try_grow(&self, bytes: usize) -> Result<(), MathError> {
-                self.0
-                    .fetch_add(bytes, std::sync::atomic::Ordering::Relaxed);
-                Ok(())
-            }
-        }
         let prepare = |literal: Atom| {
-            let reports = Arc::new(Reports(std::sync::atomic::AtomicUsize::new(0)));
+            let reports = Arc::new(Grow(std::sync::atomic::AtomicUsize::new(0)));
             let prepared = crate::construction::scoped(reports.clone(), || {
                 bounded_scalar_evaluator(
                     &[literal],
@@ -1103,12 +1120,20 @@ mod tests {
                 )
                 .unwrap()
             });
-            assert!(prepared.facts.storage.numeric_entries > 0);
-            reports.0.load(std::sync::atomic::Ordering::Relaxed)
+            (
+                prepared.facts.storage.numeric_entries,
+                reports.0.load(std::sync::atomic::Ordering::SeqCst),
+            )
         };
+        let small = prepare(small);
+        let large = prepare(large);
+        assert_eq!(
+            small.0, large.0,
+            "literal digits are exact payload, not f64 slots"
+        );
         assert!(
-            prepare(large) > prepare(small),
-            "actual constructor admission retains the larger literal payload"
+            large.1 > small.1,
+            "actual native admission includes larger exact payload"
         );
     }
 
@@ -1562,55 +1587,58 @@ mod tests {
         }
     }
     #[test]
-    fn source_construction_counts_builtin_functions_and_checks_taylor_payload() {
+    fn builtin_source_operations_and_taylor_final_operations_remain_checked() {
         crate::initialize().unwrap();
         let x = formal(0).unwrap();
         let expression = symbolica::atom::FunctionBuilder::new(Symbol::EXP)
             .add_arg(&x)
             .finish();
-        assert_eq!(
-            source_shape(std::slice::from_ref(&expression))
-                .unwrap()
-                .operations,
-            1
-        );
-        let value = evaluator_construction(
+        assert_eq!(source_shape([&expression]).unwrap().operations, 1);
+        let limits = EvaluationLimits::default();
+        let layout = JetLayout::new(vec![0], pse_kernels::DerivativeOrder::Second, limits).unwrap();
+        let cancel = Arc::new(AtomicBool::new(false));
+        let mut compiled = bounded_evaluator(
+            pse_ids::SemanticId::NIL,
             std::slice::from_ref(&expression),
-            1,
-            1,
-            pse_kernels::DerivativeOrder::Value,
+            std::slice::from_ref(&x),
+            &layout,
+            &[],
+            Optimization::default(),
+            &cancel,
+            limits,
+            limits.operations,
+            0,
+            &mut ScalarCache::default(),
         )
         .unwrap();
-        let second = evaluator_construction(
-            std::slice::from_ref(&expression),
-            1,
-            1,
-            pse_kernels::DerivativeOrder::Second,
-        )
-        .unwrap();
-        assert!(second.entries > value.entries);
-        let layout = JetLayout::new(
-            vec![0],
-            pse_kernels::DerivativeOrder::Second,
-            EvaluationLimits::default(),
-        )
-        .unwrap();
-        let compiled = bounded_evaluator(
+        let mut output = [0.; 3];
+        compiled
+            .evaluator
+            .try_evaluate(&[0., 1., 0.], &mut output)
+            .unwrap();
+        assert_eq!(output, [1., 1., 0.5]);
+        let result = bounded_evaluator(
             pse_ids::SemanticId::NIL,
             &[expression],
             &[x],
             &layout,
             &[],
             Optimization::default(),
-            &Arc::new(AtomicBool::new(false)),
-            EvaluationLimits::default(),
-            1_000_000,
+            &cancel,
+            limits,
+            1,
             0,
-            &mut Default::default(),
-        )
-        .unwrap();
-        reserve_facts(&compiled.facts, second).unwrap();
+            &mut ScalarCache::default(),
+        );
+        assert!(matches!(
+            result,
+            Err(MathError::WorkLimit {
+                source_id: pse_ids::SemanticId::NIL,
+                ..
+            })
+        ));
     }
+
     #[derive(Debug)]
     struct Grow(std::sync::atomic::AtomicUsize);
     impl crate::construction::ConstructionAdmission for Grow {
@@ -1767,50 +1795,7 @@ mod tests {
             "cancelled cache hits do not mint another mutable product"
         );
     }
-    #[test]
-    fn floating_conversion_reserves_excess_before_allocation_and_propagates_refusal() {
-        let initial = EvaluatorConstruction {
-            entries: 4,
-            instructions: 1024,
-            coefficient_payload: 0,
-        };
-        let export = ExportedInstructions::<f64> {
-            input_count: 1,
-            output_count: 1,
-            instructions: vec![],
-            temporary_count: 4,
-            constants: vec![],
-            constant_functions: vec![],
-            sub_evaluators: vec![],
-        };
-        let owner = Arc::new(Grow(std::sync::atomic::AtomicUsize::new(0)));
-        crate::construction::scoped(owner.clone(), || {
-            reserve_facts(
-                &EvaluatorFacts::inspect(
-                    &export,
-                    OperationCount::new(0, 0, 0, 0),
-                    "math.test_representation_inspections",
-                )?,
-                initial,
-            )
-        })
-        .unwrap();
-        assert_eq!(
-            owner.0.load(std::sync::atomic::Ordering::SeqCst),
-            2 * size_of::<f64>()
-        );
-        assert!(matches!(
-            crate::construction::scoped(Arc::new(Refuse), || reserve_facts(
-                &EvaluatorFacts::inspect(
-                    &export,
-                    OperationCount::new(0, 0, 0, 0),
-                    "math.test_representation_inspections"
-                )?,
-                initial
-            )),
-            Err(MathError::Limit("test pool full"))
-        ));
-    }
+
     #[test]
     fn horner_growth_preserves_original_scientific_limits_and_eligibility() {
         crate::initialize().unwrap();
@@ -1824,40 +1809,6 @@ mod tests {
             ..Default::default()
         };
         let cancel = Arc::new(AtomicBool::new(false));
-        let exact = exact_evaluator(
-            std::slice::from_ref(&expression),
-            &parameters,
-            &[],
-            options,
-            &cancel,
-        )
-        .unwrap();
-        let export = exact.export_instructions();
-        let entries = export.input_count + export.constants.len() + export.temporary_count;
-        // Horner's multiplication-first search does not promise a monotonic total.
-        // Admit this actual optimized payload against a smaller initial reservation
-        // and verify growth succeeds instead of treating excess as a contract error.
-        let initial = EvaluatorConstruction {
-            entries: entries - 1,
-            instructions: instruction_description(&export).unwrap().bytes,
-            coefficient_payload: 0,
-        };
-        let owner = Arc::new(Grow(std::sync::atomic::AtomicUsize::new(0)));
-        crate::construction::scoped(owner.clone(), || {
-            reserve_facts(
-                &EvaluatorFacts::inspect(
-                    &export,
-                    OperationCount::new(0, 0, 0, 0),
-                    "math.test_representation_inspections",
-                )?,
-                initial,
-            )
-        })
-        .unwrap();
-        assert_eq!(
-            owner.0.load(std::sync::atomic::Ordering::SeqCst),
-            2 * size_of::<f64>()
-        );
         let limits = EvaluationLimits::default();
         let layout = JetLayout::new(vec![], pse_kernels::DerivativeOrder::Value, limits).unwrap();
         let compiled = bounded_evaluator(

@@ -589,3 +589,42 @@ the corrected Study has its own successful acceptance in 73c. These are the actu
 journeys required by B05/B06. B01/B02 and B07 remain open for the final checked alias/map
 cutover, removal of the remaining expansion mirrors and combined affected-path verification.
 H's assembled qualification remains separate.
+
+## Consumed checked construction cutover — 2026-11-10
+
+**Implemented.** Exact scalar preparation now consumes checked native alias installation and
+`try_build_known_with`; selected derivatives consume `try_vectorize_shape_known_with`, and
+floating construction consumes `try_map_f64_known_with` before one checked public export.
+The map reports actual post-Horner coefficient payload and final private floating backing.
+`Storage.auxiliary_bytes` includes fixed exact arguments, instruction/call metadata and
+capacity slack separately from logical numerical slots. Source/layout/gather/scatter bounds
+remain application-owned, while the two initial execution-demand paths no longer predict
+native instructions or expanded slots. `EvaluatorConstruction`, `construction_shape`,
+`expansion_with_products`, `products_for`, `reserve_facts`, abort binding/TLS and the native
+export predictor are absent from the application. Unrelated source and scientific limits,
+original scope/deadline, distinct direct/regional/reverse capabilities and the opaque foreign
+allowance remain. Fresh numerical-frame clone/reset prevents exact constant arguments from
+adopting unrelated cleared GMP capacity.
+
+**Tested.** The command
+`scripts/pse test pse-math --lib --features compiled-evaluator -E 'test(library::admission::tests::) | test(symbolic_composition_preserves_) | test(repeated_provider_lifts_) | test(stable_typed_) | test(stable_selected_) | test(arithmetic_constructor_demand_) | test(selected_artifact_demand_) | test(ordered_x4_batch_constant_log1p_)'`
+passed **28/28**, zero failures against baseline zero. It covers current captured-owner
+refusal, deadlines and cache nonpublication, selected Taylor/structural zeros, native fixed
+constant arguments, large rational backing, 257-axis/128-row First construction and actual
+zero-input packed populations. Metadata work and emitted scalar work retain distinct units.
+
+The command
+`scripts/pse test pse-math --lib --features compiled-evaluator -E 'test(numeric_frame_clones_and_resets_) | test(execution::transfer::tests) | test(native_compiled::tests)'`
+had **39 passed, 1 failed**, baseline zero: transfer and native export/compiler controls
+passed, including failed compiler/drain, current deadline, wide output and source overlap,
+known-head/profile refusals and private receiving workers. The new clone fixture incorrectly
+required equal spare capacity; the actual fresh clone used less backing than its source.
+It now checks the admitted upper bound, retaining the independent oversized ordinary-clone
+countercase. The affected rerun
+`scripts/pse test pse-math --lib --features compiled-evaluator -E 'test(numeric_frame_clones_and_resets_)'`
+passed **1/1**, baseline zero. No timing or allocator/RSS bound follows from these checks.
+
+The remaining B01/B02 acceptance concerns supplier stage-specific CPE/cache and alias-DAG
+geometry under a finite construction owner, followed by affected integration and complete
+source-delta reconstruction. This checkpoint removes the application mirrors; it does not
+substitute unlimited construction admission for that remaining feasibility check.

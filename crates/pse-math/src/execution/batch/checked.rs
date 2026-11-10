@@ -202,12 +202,15 @@ impl CheckedBatchExecution {
             return packed::run(
                 &mut self.frame,
                 &mut self.scratch,
-                inputs,
-                rows,
-                self.order,
+                packed::Request {
+                    inputs,
+                    rows,
+                    order: self.order,
+                    bindings: BatchBindings::SelectedPartials,
+                },
                 &cancel,
                 |index, result| match result {
-                    Ok(trial) => match trial.write_evaluation(&mut self.result) {
+                    Ok(row) => match row.trial.write_evaluation(&mut self.result) {
                         Ok(()) => receive(index, Ok(&self.result)),
                         Err(error) => receive(index, Err(error)),
                     },

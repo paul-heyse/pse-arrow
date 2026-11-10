@@ -16,7 +16,54 @@ pub(in crate::execution) struct Scratch {
     active: Vec<usize>,
     arguments: Vec<f64>,
     values: Vec<f64>,
+    products: Vec<f64>,
     pub(in crate::execution) admitted: usize,
+}
+pub(in crate::execution) struct Row<'a> {
+    pub(super) trial: &'a TrialEvaluation,
+    pub(super) product: Option<&'a [f64]>,
+}
+/// Select unsupported x4 action/control shapes before any row effect. Scalar
+/// profiles retain their existing independent realization; there is no retry.
+pub(super) fn validate_profile(
+    body: &CompiledBody,
+    order: DerivativeOrder,
+) -> Result<(), MathError> {
+    if !matches!(
+        body.optimization().evaluator,
+        library::Evaluator::CompiledX4 { .. }
+    ) {
+        return Ok(());
+    }
+    let template = &body.template;
+    if template.reverse_product.is_some() {
+        return Err(MathError::Contract(
+            "x4 batch reverse products are unsupported".into(),
+        ));
+    }
+    let actual = if let Some(direct) = &template.direct_product {
+        if direct.packed_shape().is_none() {
+            return Err(MathError::Contract(
+                "x4 batch requires a qualified direct native product".into(),
+            ));
+        }
+        DerivativeOrder::Value
+    } else {
+        if !matches!(
+            template.product,
+            ProductKind::SelectedPartials | ProductKind::JacobianAction
+        ) {
+            return Err(MathError::Contract(
+                "x4 batch product has no packed realization".into(),
+            ));
+        }
+        order
+    };
+    check_stages(
+        template.programs[actual]
+            .as_ref()
+            .ok_or_else(|| MathError::Contract("x4 batch order not compiled".into()))?,
+    )
 }
 impl Scratch {
     pub(super) fn prepaid(bytes: usize) -> Self {
@@ -32,25 +79,25 @@ pub(super) fn has_packed(stages: &[CompiledStage]) -> bool {
             evaluator: BlockEvaluator::Native(block),
             ..
         } => block.executable.is_packed(),
+        CompiledStage::Domain { stages, .. } | CompiledStage::Applicability { stages, .. } => {
+            has_packed(stages)
+        }
+        CompiledStage::Branch {
+            then, otherwise, ..
+        } => has_packed(then) || has_packed(otherwise),
         _ => false,
     })
 }
 fn check_stages(stages: &[CompiledStage]) -> Result<(), MathError> {
-    for stage in stages {
-        match stage {
-            CompiledStage::Branch { .. } | CompiledStage::Provider { .. } => {
-                return Err(MathError::Contract(
-                    "packed batch requires pure branch-free stages".into(),
-                ));
-            }
-            CompiledStage::Domain { stages, .. } | CompiledStage::Applicability { stages, .. } => {
-                check_stages(stages)?
-            }
-            _ => {}
-        }
+    if pure_branch_free_stages(stages) {
+        Ok(())
+    } else {
+        Err(MathError::Contract(
+            "packed batch requires pure branch-free stages".into(),
+        ))
     }
-    Ok(())
 }
+
 fn resize<T: Clone>(values: &mut Vec<T>, length: usize, value: T) -> Result<(), MathError> {
     if length > values.len() {
         values
@@ -62,8 +109,15 @@ fn resize<T: Clone>(values: &mut Vec<T>, length: usize, value: T) -> Result<(), 
 }
 impl BatchWorker {
     pub(super) fn uses_packed(&self) -> bool {
-        self.layout.product() == ProductKind::SelectedPartials
-            && self.worker.numeric.template.programs[self.layout.order]
+        let template = &self.worker.numeric.template;
+        template
+            .direct_product
+            .as_ref()
+            .is_some_and(|direct| direct.packed_shape().is_some())
+            || matches!(
+                self.layout.product(),
+                ProductKind::SelectedPartials | ProductKind::JacobianAction
+            ) && template.programs[self.layout.order]
                 .as_ref()
                 .is_some_and(|program| has_packed(program))
     }
@@ -77,9 +131,12 @@ impl BatchWorker {
         run(
             &mut self.worker.numeric,
             &mut self.packed,
-            request.inputs,
-            request.points.len(),
-            self.layout.order,
+            Request {
+                inputs: request.inputs,
+                rows: request.points.len(),
+                order: self.layout.order,
+                bindings: request.bindings,
+            },
             cancel,
             |index, result| {
                 let (outcome, applicability) = match result {
@@ -88,15 +145,24 @@ impl BatchWorker {
                         (PointOutcome::NotExecuted, Vec::new())
                     }
                     Err(error) => (PointOutcome::Failed(error), Vec::new()),
-                    Ok(trial) => match copy_trial(
-                        trial,
-                        &self.layout,
-                        &mut output.cells
-                            [index * self.layout.cells..(index + 1) * self.layout.cells],
-                    ) {
+                    Ok(row) => match {
+                        let target = &mut output.cells
+                            [index * self.layout.cells..(index + 1) * self.layout.cells];
+                        if let Some(product) = row.product {
+                            target.copy_from_slice(product);
+                            Ok(())
+                        } else if self.layout.product() == ProductKind::JacobianAction {
+                            for (output, value) in target.iter_mut().enumerate() {
+                                *value = row.trial.first(output, 0);
+                            }
+                            Ok(())
+                        } else {
+                            copy_trial(row.trial, &self.layout, target)
+                        }
+                    } {
                         Ok(()) => (
                             PointOutcome::Succeeded,
-                            trial
+                            row.trial
                                 .applicability
                                 .iter()
                                 .flat_map(ApplicabilityWitness::hydrate)
@@ -122,6 +188,11 @@ pub(in crate::execution) fn backing_bytes(
     rows: usize,
     order: DerivativeOrder,
 ) -> Result<usize, MathError> {
+    let order = if template.direct_product.is_some() {
+        DerivativeOrder::Value
+    } else {
+        order
+    };
     let program = template.programs[order]
         .as_ref()
         .ok_or_else(|| MathError::Contract("batch order not compiled".into()))?;
@@ -140,6 +211,20 @@ pub(in crate::execution) fn backing_bytes(
                 .ok_or(MathError::Limit("retained lane buffers"))?;
         }
     }
+    let product_cells = if let Some(direct) = &template.direct_product {
+        let (inputs, outputs, _) = direct
+            .packed_shape()
+            .ok_or_else(|| MathError::Contract("packed direct product missing".into()))?;
+        max_inputs = max_inputs.max(inputs);
+        max_outputs = max_outputs.max(outputs);
+        lane_entries = lane_entries
+            .checked_add(inputs)
+            .and_then(|n| n.checked_add(outputs))
+            .ok_or(MathError::Limit("direct lane buffers"))?;
+        template.product_len()
+    } else {
+        0
+    };
     let layout = template.layouts[order]
         .as_ref()
         .ok_or_else(|| MathError::Contract("batch layout missing".into()))?;
@@ -167,6 +252,7 @@ pub(in crate::execution) fn backing_bytes(
                 max_inputs
                     .checked_add(max_outputs)?
                     .checked_add(lane_entries)?
+                    .checked_add(product_cells)?
                     .checked_mul(size_of::<f64>())?,
             )
         })
@@ -175,27 +261,54 @@ pub(in crate::execution) fn backing_bytes(
     Ok(backing)
 }
 
+pub(in crate::execution) struct Request<'a> {
+    pub(super) inputs: &'a [f64],
+    pub(super) rows: usize,
+    pub(super) order: DerivativeOrder,
+    pub(super) bindings: BatchBindings<'a>,
+}
 pub(in crate::execution) fn run(
     numeric: &mut NumericFrame,
     scratch: &mut Scratch,
-    inputs: &[f64],
-    rows: usize,
-    order: DerivativeOrder,
+    request: Request<'_>,
     cancel: &Arc<AtomicBool>,
-    mut receive: impl FnMut(usize, Result<&TrialEvaluation, MathError>),
+    mut receive: impl FnMut(usize, Result<Row<'_>, MathError>),
 ) -> Result<(), MathError> {
+    let Request {
+        inputs,
+        rows,
+        order,
+        bindings,
+    } = request;
     let mut canceled = false;
     let template = numeric.template.clone();
+    let order = if template.direct_product.is_some() {
+        DerivativeOrder::Value
+    } else {
+        order
+    };
+    let (weights, directions) = bindings.parts();
     let program = template.programs[order]
         .as_ref()
         .ok_or_else(|| MathError::Contract("packed batch order".into()))?;
     check_stages(program)?;
-    numeric.prepare_order(order)?;
     let scope = numeric
         .scope
         .as_ref()
         .ok_or_else(|| MathError::Contract("detached packed batch".into()))?
         .clone();
+    match scope.check().map_err(crate::error::scope_error) {
+        Ok(()) => {}
+        Err(MathError::Cancelled) => canceled = true,
+        Err(error) => return Err(error),
+    }
+    if canceled || cancel.load(Ordering::Acquire) {
+        for index in 0..rows {
+            receive(index, Err(MathError::Cancelled));
+        }
+        return Ok(());
+    }
+    numeric.prepare_order(order)?;
     let layout = template.layouts[order]
         .as_ref()
         .ok_or_else(|| MathError::Contract("packed batch layout".into()))?;
@@ -204,6 +317,15 @@ pub(in crate::execution) fn run(
     let backing = backing_bytes(&template, rows, order)?;
     let lane_allowance = backing
         .checked_add(template.order_worker_bytes[order])
+        .and_then(|n| {
+            n.checked_add(
+                template
+                    .direct_product
+                    .as_ref()
+                    .and_then(|direct| direct.packed_shape())
+                    .map_or(0, |(_, _, bytes)| bytes),
+            )
+        })
         .ok_or(MathError::Limit("prepaid native lane backing"))?;
     if backing > template.limits.scratch_bytes {
         return Err(MathError::Limit("packed batch scratch bytes"));
@@ -235,6 +357,13 @@ pub(in crate::execution) fn run(
     let mut providers = ProviderBindings::new();
     for start in (0..rows).step_by(SEGMENT) {
         let count = (rows - start).min(SEGMENT);
+        if canceled || cancel.load(Ordering::Acquire) {
+            canceled = true;
+            for row in 0..count {
+                receive(start + row, Err(MathError::Cancelled));
+            }
+            continue;
+        }
         scratch.failures.clear();
         scratch.failures.resize_with(count, || None);
         for row in 0..count {
@@ -243,12 +372,32 @@ pub(in crate::execution) fn run(
             scratch.trials[row].clear();
             let inputs =
                 &inputs[(start + row) * template.inputs..(start + row + 1) * template.inputs];
+            let direction = directions.map(|values| {
+                &values[(start + row) * template.coordinate_offsets.len()
+                    ..(start + row + 1) * template.coordinate_offsets.len()]
+            });
+            let weights = weights.map(|values| {
+                &values[(start + row) * template.outputs.len()
+                    ..(start + row + 1) * template.outputs.len()]
+            });
             if inputs.iter().any(|value| !value.is_finite()) {
                 scratch.failures[row] = Some(MathError::Contract(
                     "finite ordered formal inputs required".into(),
                 ));
+            } else if direction.is_some_and(|values| values.iter().any(|value| !value.is_finite()))
+                || weights.is_some_and(|values| values.iter().any(|value| !value.is_finite()))
+            {
+                scratch.failures[row] = Some(MathError::Contract(
+                    "finite exact product binding extent/kind".into(),
+                ));
             } else {
-                seed_frame(&template, &mut scratch.frames[row], layout, inputs, None);
+                seed_frame(
+                    &template,
+                    &mut scratch.frames[row],
+                    layout,
+                    inputs,
+                    direction,
+                );
             }
         }
         let stages = &mut numeric.programs[order]
@@ -256,7 +405,14 @@ pub(in crate::execution) fn run(
             .ok_or_else(|| MathError::Contract("packed worker order".into()))?
             .stages;
         for stage in stages {
-            scope.check().map_err(crate::error::scope_error)?;
+            match scope.check().map_err(crate::error::scope_error) {
+                Ok(()) => {}
+                Err(MathError::Cancelled) => {
+                    canceled = true;
+                    break;
+                }
+                Err(error) => return Err(error),
+            }
             if cancel.load(Ordering::Acquire) {
                 canceled = true;
                 break;
@@ -300,13 +456,20 @@ pub(in crate::execution) fn run(
                         scratch.arguments[position * inputs + argument] = scratch.frames[row][slot];
                     }
                 }
-                block.executable.evaluate_batch(
+                match block.executable.evaluate_batch(
                     active,
                     &scratch.arguments,
                     &mut scratch.values,
                     &scope,
                     lane_allowance,
-                )?;
+                ) {
+                    Ok(()) => {}
+                    Err(MathError::Cancelled) => {
+                        canceled = true;
+                        break;
+                    }
+                    Err(error) => return Err(error),
+                }
                 for (position, &row) in scratch.active.iter().enumerate() {
                     if let Err(error) = publish_block(
                         &mut scratch.frames[row],
@@ -341,6 +504,97 @@ pub(in crate::execution) fn run(
                 }
             }
         }
+        if let Some(direct) = &template.direct_product
+            && !canceled
+            && !cancel.load(Ordering::Acquire)
+        {
+            scratch.active.clear();
+            for row in 0..count {
+                if scratch.failures[row].is_none() {
+                    match publish_trial(
+                        &template,
+                        &scratch.frames[row],
+                        layout,
+                        &mut scratch.trials[row],
+                    ) {
+                        Ok(()) => scratch.active.push(row),
+                        Err(error) => scratch.failures[row] = Some(error),
+                    }
+                }
+            }
+            let (arguments, results, _) = direct
+                .packed_shape()
+                .ok_or_else(|| MathError::Contract("packed direct product missing".into()))?;
+            resize(
+                &mut scratch.arguments,
+                scratch
+                    .active
+                    .len()
+                    .checked_mul(arguments)
+                    .ok_or(MathError::Limit("direct batch arguments"))?,
+                f64::NAN,
+            )?;
+            resize(
+                &mut scratch.values,
+                scratch
+                    .active
+                    .len()
+                    .checked_mul(results)
+                    .ok_or(MathError::Limit("direct batch values"))?,
+                f64::NAN,
+            )?;
+            resize(
+                &mut scratch.products,
+                count
+                    .checked_mul(template.product_len())
+                    .ok_or(MathError::Limit("direct batch products"))?,
+                f64::NAN,
+            )?;
+            for (ordinal, &row) in scratch.active.iter().enumerate() {
+                let index = start + row;
+                let weights = weights
+                    .ok_or_else(|| MathError::Contract("direct batch weights missing".into()))?;
+                direct.bind_arguments(
+                    &inputs[index * template.inputs..(index + 1) * template.inputs],
+                    &weights[index * template.outputs.len()..(index + 1) * template.outputs.len()],
+                    directions.map(|values| {
+                        &values[index * template.coordinate_offsets.len()
+                            ..(index + 1) * template.coordinate_offsets.len()]
+                    }),
+                    &template.coordinate_offsets,
+                    &mut scratch.arguments[ordinal * arguments..(ordinal + 1) * arguments],
+                )?;
+            }
+            if !canceled && !cancel.load(Ordering::Acquire) {
+                match numeric.prepare_direct_worker(direct)?.evaluate_batch(
+                    scratch.active.len(),
+                    &scratch.arguments,
+                    &mut scratch.values,
+                    &scope,
+                    lane_allowance,
+                ) {
+                    Ok(()) => {}
+                    Err(MathError::Cancelled) => canceled = true,
+                    Err(error) => return Err(error),
+                }
+                if !canceled {
+                    for (ordinal, &row) in scratch.active.iter().enumerate() {
+                        let target = &mut scratch.products
+                            [row * template.product_len()..(row + 1) * template.product_len()];
+                        direct.write_product(
+                            &scratch.values[ordinal * results..(ordinal + 1) * results],
+                            target,
+                        )?;
+                        if target.iter().any(|value| !value.is_finite()) {
+                            scratch.failures[row] = Some(MathError::Domain {
+                                source_id: SemanticId::NIL,
+                                requirement: "finite requested product",
+                            });
+                        }
+                    }
+                }
+            }
+        }
         for row in 0..count {
             let index = start + row;
             let trial = &mut scratch.trials[row];
@@ -350,8 +604,27 @@ pub(in crate::execution) fn run(
             } else if let Some(error) = scratch.failures[row].take() {
                 receive(index, Err(error));
             } else {
-                let result = publish_trial(&template, &scratch.frames[row], layout, trial);
-                receive(index, result.map(|()| &*trial));
+                if template.direct_product.is_some() {
+                    receive(
+                        index,
+                        Ok(Row {
+                            trial,
+                            product: Some(
+                                &scratch.products[row * template.product_len()
+                                    ..(row + 1) * template.product_len()],
+                            ),
+                        }),
+                    );
+                } else {
+                    let result = publish_trial(&template, &scratch.frames[row], layout, trial);
+                    receive(
+                        index,
+                        result.map(|()| Row {
+                            trial: &*trial,
+                            product: None,
+                        }),
+                    );
+                }
             }
             trial.clear();
             scratch.frames[row].fill(f64::NAN);

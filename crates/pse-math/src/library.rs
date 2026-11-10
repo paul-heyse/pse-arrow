@@ -261,56 +261,115 @@ impl Default for Optimization {
         }
     }
 }
-// The exact builder still uses the supplier's retained optimizer callback. Detach
-// its producer before retention; checked transformations borrow fresh per-call
-// control and clear inherited optimizer settings.
-struct AbortBinding {
-    producer: std::sync::Mutex<Option<Arc<std::sync::atomic::AtomicBool>>>,
-    observed: std::sync::atomic::AtomicBool,
+/// Borrow the actual stop contract of one constructor. Runtime/compiled-body
+/// callers carry their full scope; the public compiler accelerator boundary has
+/// only its original flag and deliberately makes no deadline claim.
+#[derive(Clone, Copy)]
+pub(crate) enum ConstructionStop<'a> {
+    Scope(&'a pse_kernels::ExecutionScope),
+    Flag(&'a Arc<std::sync::atomic::AtomicBool>),
 }
-impl AbortBinding {
-    fn new(producer: Arc<std::sync::atomic::AtomicBool>) -> Self {
-        Self {
-            producer: std::sync::Mutex::new(Some(producer)),
-            observed: std::sync::atomic::AtomicBool::new(false),
-        }
+impl<'a> From<&'a pse_kernels::ExecutionScope> for ConstructionStop<'a> {
+    fn from(scope: &'a pse_kernels::ExecutionScope) -> Self {
+        Self::Scope(scope)
     }
-    fn finish<T>(
-        &self,
-        result: T,
-        producer: &std::sync::atomic::AtomicBool,
-    ) -> Result<T, MathError> {
-        if self.observed.load(std::sync::atomic::Ordering::Acquire)
-            || producer.load(std::sync::atomic::Ordering::Acquire)
-        {
-            return Err(MathError::Cancelled);
-        }
-        Ok(result)
+}
+impl<'a> From<&'a Arc<std::sync::atomic::AtomicBool>> for ConstructionStop<'a> {
+    fn from(flag: &'a Arc<std::sync::atomic::AtomicBool>) -> Self {
+        Self::Flag(flag)
     }
-    fn cancelled(&self) -> bool {
-        let producer = self
-            .producer
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .clone();
-        producer.is_some_and(|flag| {
-            let cancelled = flag.load(std::sync::atomic::Ordering::Acquire);
-            if cancelled {
-                self.observed
-                    .store(true, std::sync::atomic::Ordering::Release);
+}
+impl<'a> From<&'a pse_diagnostics::Cancellation> for ConstructionStop<'a> {
+    fn from(control: &'a pse_diagnostics::Cancellation) -> Self {
+        Self::Flag(control)
+    }
+}
+impl<'a> ConstructionStop<'a> {
+    pub(crate) fn check(self) -> Result<(), MathError> {
+        match self {
+            Self::Scope(scope) => scope.check().map_err(crate::error::scope_error),
+            Self::Flag(flag) if flag.load(std::sync::atomic::Ordering::Acquire) => {
+                Err(MathError::Cancelled)
             }
-            cancelled
-        })
+            Self::Flag(_) => Ok(()),
+        }
     }
 }
-struct DetachAbort(Arc<AbortBinding>);
-impl Drop for DetachAbort {
-    fn drop(&mut self) {
-        self.0
-            .producer
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .take();
+/// One borrowed supplier operation. Capture the original allocation owner before
+/// supplier workers run; their thread-local construction owner is not authority.
+struct SupplierControl<'a> {
+    stop: ConstructionStop<'a>,
+    owner: Option<Arc<dyn crate::construction::ConstructionAdmission>>,
+    limits: crate::jets::EvaluationLimits,
+    occupied_entries: usize,
+    peak: usize,
+    output_bytes: usize,
+}
+impl<'a> SupplierControl<'a> {
+    fn new(
+        stop: ConstructionStop<'a>,
+        limits: crate::jets::EvaluationLimits,
+        occupied_entries: usize,
+    ) -> Self {
+        Self {
+            stop,
+            owner: crate::construction::current(),
+            limits,
+            occupied_entries,
+            peak: 0,
+            output_bytes: 0,
+        }
+    }
+    fn check_extent(
+        &mut self,
+        extent: symbolica::evaluate::OperationExtent,
+    ) -> Result<(), MathError> {
+        self.stop.check()?;
+        // Constructor envelopes describe allocation, not an observed final
+        // mathematical slot population. Export/finalization report actual slots.
+        if matches!(
+            extent.stage,
+            symbolica::evaluate::OperationStage::Export
+                | symbolica::evaluate::OperationStage::Finalization
+        ) {
+            self.limits.allocation(
+                self.occupied_entries
+                    .checked_add(extent.output_entries)
+                    .ok_or(MathError::Limit("supplier numeric entries"))?,
+            )?;
+        }
+        let required = extent
+            .peak_bytes()
+            .ok_or(MathError::Limit("supplier construction extent"))?;
+        if required > self.peak {
+            if let Some(owner) = &self.owner {
+                owner.try_grow(required - self.peak)?;
+            }
+            self.peak = required;
+        }
+        if extent.stage == symbolica::evaluate::OperationStage::Finalization {
+            self.output_bytes = extent.output_bytes;
+        }
+        Ok(())
+    }
+}
+impl symbolica::evaluate::OperationControl for SupplierControl<'_> {
+    type Error = MathError;
+    fn check(&mut self, extent: symbolica::evaluate::OperationExtent) -> Result<(), MathError> {
+        self.check_extent(extent)
+    }
+}
+fn supplier_error(error: symbolica::evaluate::OperationError<MathError>) -> MathError {
+    use symbolica::evaluate::OperationError;
+    match error {
+        OperationError::Control(error) => error,
+        OperationError::Overflow => MathError::Limit("supplier construction extent"),
+        OperationError::Allocation => MathError::Limit("supplier construction allocation"),
+        OperationError::Unsupported(profile) => {
+            MathError::Contract(format!("unsupported checked evaluator profile: {profile}"))
+        }
+        OperationError::InvalidProgram(message) => MathError::Library(message),
+        OperationError::Interrupted => MathError::Cancelled,
     }
 }
 fn exact_evaluator(
@@ -318,25 +377,17 @@ fn exact_evaluator(
     parameters: &[Atom],
     definitions: &[(Atom, Atom)],
     options: Optimization,
-    cancelled: &Arc<std::sync::atomic::AtomicBool>,
+    control: &mut SupplierControl<'_>,
 ) -> Result<ExpressionEvaluator<Complex<Rational>>, MathError> {
-    if cancelled.load(std::sync::atomic::Ordering::Acquire) {
-        return Err(MathError::Cancelled);
-    }
+    control.stop.check()?;
     options.validate()?;
     crate::context()?;
-    let abort = Arc::new(AbortBinding::new(cancelled.clone()));
-    let detach = DetachAbort(abort.clone());
-    let mut functions = symbolica::evaluate::FunctionMap::new();
-    functions
-        .add_aliases(definitions.iter().cloned())
-        .map_err(|error| MathError::Library(error.to_string()))?;
-    let ev = Atom::evaluator_multiple(expressions, parameters)
-        .function_map(functions)
-        // The direct translator resolves aliases as a shared instruction DAG;
-        // the tree translator would recursively expand each output expression.
+    let heads = crate::stable::known_heads()?;
+    let evaluator = symbolica::evaluate::EvaluatorBuilder::try_new_aliases_with(
+        expressions, parameters, definitions, control,
+    ).map_err(supplier_error)?
+        // Keep the shared alias DAG and the original selected optimization policy.
         .direct_translation(true)
-        .abort_check(Some(Box::new(move || abort.cancelled())))
         .cores(options.cores)
         .horner_iterations(options.horner_iterations)
         .cpe_iterations(Some(options.cpe_iterations))
@@ -344,32 +395,21 @@ fn exact_evaluator(
         .max_common_pair_distance(256)
         .max_horner_scheme_variables(HORNER_SCHEME_VARIABLES)
         .verbose(false)
-        .build()
-        .map_err(|e| {
-            if detach.0.observed.load(std::sync::atomic::Ordering::Acquire)
-                || cancelled.load(std::sync::atomic::Ordering::Relaxed) {
-                MathError::Cancelled
-            } else {
-                MathError::Library(e.to_string())
-            }
-        })?;
-    // Symbolica may return a successfully built, truncated optimizer result after
-    // its abort callback fired. It must never reach export, ScalarCache or retention.
-    let ev = detach.0.finish(ev, cancelled)?;
-    drop(detach);
-    if !ev.is_real() {
+        .try_build_known_with(heads,control)
+        .map_err(supplier_error)?;
+    control.stop.check()?;
+    if !evaluator.is_real() {
         return Err(MathError::Contract(
             "complex arithmetic is outside this profile".into(),
         ));
     }
-    Ok(ev)
+    Ok(evaluator)
 }
 
 mod admission;
 pub use admission::ScalarProducts;
 pub(crate) use admission::{
     ScalarCache, bounded_defined_scalar_evaluator, bounded_evaluator, bounded_scalar_evaluator,
-    evaluator_construction, evaluator_construction_shape,
 };
 
 /// Reusable function symbols for Symbolica-generated provider lifts, one per formal slot.
@@ -381,15 +421,16 @@ pub(crate) fn function(slot: usize, arguments: &[Atom]) -> Result<Atom, MathErro
         .finish())
 }
 
-/// What one immutable evaluator retains, measured from the library's exported
-/// representation.
+/// Private evaluator backing reported by the supplier, with its separately
+/// consumed public instruction description as a lower bound.
 #[derive(Clone, Copy)]
 pub(crate) struct Storage {
     /// Owned scalar stack slots: inputs, constants and temporaries.
     pub(crate) numeric_entries: usize,
-    /// Instruction stream, argument lists, output indices and sub-evaluators, in bytes. The
-    /// exported instructions are at least as wide as the library's own, so this bounds them.
-    pub(crate) instruction_bytes: usize,
+    /// Backing beyond the scientific scalar slots: instruction operands, call
+    /// metadata, exact fixed arguments, names and native capacity slack. The
+    /// public description also bounds the separately consumed instruction view.
+    pub(crate) auxiliary_bytes: usize,
     /// Exported instruction population, including exported sub-evaluator occurrences.
     pub(crate) instruction_count: usize,
 }
@@ -420,7 +461,7 @@ impl EvaluatorFacts {
                     .checked_add(export.constants.len())
                     .and_then(|n| n.checked_add(export.temporary_count))
                     .ok_or(MathError::Limit("evaluator stack extent"))?,
-                instruction_bytes: description.bytes,
+                auxiliary_bytes: description.bytes,
                 instruction_count: description.count,
             },
             operations,
@@ -437,13 +478,36 @@ pub(crate) struct FloatingEvaluator {
     pub(crate) export: ExportedInstructions<f64>,
 }
 impl FloatingEvaluator {
-    fn new(evaluator: ExpressionEvaluator<f64>) -> Result<Self, MathError> {
-        let export = evaluator.export_instructions();
-        let facts = EvaluatorFacts::inspect(
+    fn from_exact(
+        exact: &ExpressionEvaluator<Complex<Rational>>,
+        stop: ConstructionStop<'_>,
+        limits: crate::jets::EvaluationLimits,
+        occupied_entries: usize,
+    ) -> Result<Self, MathError> {
+        let mut control = SupplierControl::new(stop, limits, occupied_entries);
+        let evaluator = exact
+            .try_map_f64_known_with(crate::stable::transfer_heads()?, &mut control)
+            .map_err(supplier_error)?;
+        // Save the actual private heap before public export reports its distinct
+        // returned representation. No exact payload becomes scientific f64 slots.
+        let retained_bytes = control.output_bytes;
+        let export = evaluator
+            .try_export_instructions_with(&mut control)
+            .map_err(supplier_error)?;
+        let mut facts = EvaluatorFacts::inspect(
             &export,
             evaluator.count_operations(),
             "math.floating_representation_inspections",
         )?;
+        let numeric_bytes = facts
+            .storage
+            .numeric_entries
+            .checked_mul(size_of::<f64>())
+            .ok_or(MathError::Limit("evaluator scalar stack extent"))?;
+        let auxiliary = retained_bytes.checked_sub(numeric_bytes).ok_or_else(|| {
+            MathError::Contract("native evaluator heap is smaller than its scalar stack".into())
+        })?;
+        facts.storage.auxiliary_bytes = facts.storage.auxiliary_bytes.max(auxiliary);
         Ok(Self {
             evaluator,
             facts,
@@ -457,14 +521,36 @@ struct InstructionDescription {
     taylor_supported: bool,
     resettable: bool,
 }
+fn pure_scalar_head(symbol: Symbol, arity: usize) -> bool {
+    crate::stable::identify(symbol).is_some_and(|operation| arity == operation.arity())
+        || (arity == 1
+            && [
+                Symbol::SQRT,
+                Symbol::EXP,
+                Symbol::LOG,
+                Symbol::SIN,
+                Symbol::COS,
+                Symbol::ABS,
+                Symbol::CONJ,
+            ]
+            .contains(&symbol))
+}
+
 /// One recursive census supplies storage and eligibility for this export.
 fn instruction_description<T>(export: &ExportedInstructions<T>) -> Option<InstructionDescription> {
+    let pure_constants = export.constant_functions.iter().all(|constant| {
+        constant.tags.is_empty()
+            && constant.fixed_args.iter().all(|value| value.im.is_zero())
+            && (pure_scalar_head(constant.symbol, constant.fixed_args.len())
+                || (constant.fixed_args.is_empty()
+                    && [Symbol::PI, Symbol::E].contains(&constant.symbol)))
+    });
     let mut result = InstructionDescription {
         bytes: size_of_val(export.instructions.as_slice())
             .checked_add(export.output_count.checked_mul(size_of::<usize>())?)?,
         count: export.instructions.len(),
-        taylor_supported: export.sub_evaluators.is_empty(),
-        resettable: export.constant_functions.is_empty() && export.sub_evaluators.is_empty(),
+        taylor_supported: pure_constants && export.sub_evaluators.is_empty(),
+        resettable: pure_constants && export.sub_evaluators.is_empty(),
     };
     for instruction in &export.instructions {
         let bytes = match instruction {
@@ -473,23 +559,9 @@ fn instruction_description<T>(export: &ExportedInstructions<T>) -> Option<Instru
             }
             Instruction::Fun(_, call, _) => {
                 let (symbol, tags, arguments) = call.as_ref();
-                let known = crate::stable::identify(*symbol).is_some_and(|operation| {
-                    tags.is_empty() && arguments.len() == operation.arity()
-                });
-                let pure_builtin = tags.is_empty()
-                    && arguments.len() == 1
-                    && [
-                        Symbol::SQRT,
-                        Symbol::EXP,
-                        Symbol::LOG,
-                        Symbol::SIN,
-                        Symbol::COS,
-                        Symbol::ABS,
-                        Symbol::CONJ,
-                    ]
-                    .contains(symbol);
-                result.resettable &= known || pure_builtin;
-                result.taylor_supported &= known || pure_builtin;
+                let pure = tags.is_empty() && pure_scalar_head(*symbol, arguments.len());
+                result.resettable &= pure;
+                result.taylor_supported &= pure;
                 size_of_val(call.as_ref())
                     + size_of_val(tags.as_slice())
                     + tags.iter().map(String::len).sum::<usize>()
@@ -514,41 +586,4 @@ fn instruction_description<T>(export: &ExportedInstructions<T>) -> Option<Instru
         result.count = result.count.checked_add(nested.count)?;
     }
     Some(result)
-}
-
-#[cfg(test)]
-mod abort_binding_tests {
-    use super::*;
-    #[test]
-    fn observed_constructor_abort_refuses_a_successful_truncated_result() {
-        let producer = Arc::new(std::sync::atomic::AtomicBool::new(true));
-        let binding = AbortBinding::new(producer.clone());
-        assert!(binding.cancelled());
-        // Even a subsequently cleared caller flag cannot rehabilitate an optimizer
-        // result whose construction already observed an abort.
-        producer.store(false, std::sync::atomic::Ordering::Release);
-        assert!(matches!(
-            binding.finish("successful truncated result", &producer),
-            Err(MathError::Cancelled)
-        ));
-        let fresh = AbortBinding::new(producer.clone());
-        assert_eq!(
-            fresh.finish("complete result", &producer).unwrap(),
-            "complete result"
-        );
-    }
-    #[test]
-    fn constructor_abort_binding_detaches_the_producer_before_retention() {
-        let producer = Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let binding = Arc::new(AbortBinding::new(producer.clone()));
-        let detach = DetachAbort(binding.clone());
-        producer.store(true, std::sync::atomic::Ordering::Release);
-        assert!(
-            binding.cancelled(),
-            "initial optimizer threads read the producer flag"
-        );
-        drop(detach);
-        assert_eq!(Arc::strong_count(&producer), 1);
-        assert!(!binding.cancelled());
-    }
 }

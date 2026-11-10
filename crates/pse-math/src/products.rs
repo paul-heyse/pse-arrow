@@ -9,6 +9,8 @@ mod product_guard_tests;
 #[derive(Clone)]
 pub(super) struct DirectProduct {
     evaluator: BlockEvaluator,
+    #[cfg(feature = "compiled-evaluator")]
+    resettable: bool,
     pub(super) order: DerivativeOrder,
     pairs: Arc<Vec<(usize, usize)>>,
     inputs: usize,
@@ -24,7 +26,113 @@ pub(super) struct DirectWorker {
     arguments: Vec<f64>,
     values: Vec<f64>,
 }
+impl DirectProduct {
+    /// Shared scalar/Taylor parameter layout; runtime weights remain ordinary
+    /// inputs and never become per-lane compiled constants.
+    pub(super) fn bind_arguments(
+        &self,
+        inputs: &[f64],
+        weights: &[f64],
+        direction: Option<&[f64]>,
+        coordinates: &[usize],
+        arguments: &mut [f64],
+    ) -> Result<(), MathError> {
+        if inputs.len() != self.inputs
+            || weights.len() != self.outputs
+            || arguments.len() != self.arguments
+        {
+            return Err(MathError::Contract(
+                "direct product parameter extent".into(),
+            ));
+        }
+        if self.directional_gradient {
+            let direction =
+                direction.ok_or_else(|| MathError::Contract("direction missing".into()))?;
+            if direction.len() != coordinates.len() {
+                return Err(MathError::Contract(
+                    "direct product direction extent".into(),
+                ));
+            }
+            for (index, &value) in inputs.iter().chain(weights).enumerate() {
+                arguments[2 * index] = value;
+                arguments[2 * index + 1] = 0.;
+            }
+            for (&coordinate, &seed) in coordinates.iter().zip(direction) {
+                arguments[2 * coordinate + 1] = seed;
+            }
+        } else {
+            arguments[..self.inputs].copy_from_slice(inputs);
+            arguments[self.inputs..self.inputs + self.outputs].copy_from_slice(weights);
+            if let Some(direction) = direction {
+                arguments[self.inputs + self.outputs..].copy_from_slice(direction);
+            }
+        }
+        Ok(())
+    }
+    /// Project only the requested direct entries. A directional weighted
+    /// gradient reads its tangent, never an unrequested dense Second product.
+    pub(super) fn write_product(
+        &self,
+        values: &[f64],
+        output: &mut [f64],
+    ) -> Result<(), MathError> {
+        if values.len() != self.results
+            || output
+                .len()
+                .checked_mul(if self.directional_gradient { 2 } else { 1 })
+                .is_none_or(|extent| extent > values.len())
+        {
+            return Err(MathError::Contract("direct product result extent".into()));
+        }
+        if self.directional_gradient {
+            for (index, value) in output.iter_mut().enumerate() {
+                *value = values[2 * index + 1];
+            }
+        } else {
+            output.copy_from_slice(&values[..output.len()]);
+        }
+        Ok(())
+    }
+    #[cfg(feature = "compiled-evaluator")]
+    pub(super) fn packed_shape(&self) -> Option<(usize, usize, usize)> {
+        match &self.evaluator {
+            BlockEvaluator::Native(block) if self.resettable && block.executable.is_packed() => {
+                Some((self.arguments, self.results, self.scratch_bytes))
+            }
+            _ => None,
+        }
+    }
+}
 impl DirectWorker {
+    #[cfg(feature = "compiled-evaluator")]
+    pub(super) fn evaluate_batch(
+        &mut self,
+        rows: usize,
+        arguments: &[f64],
+        values: &mut [f64],
+        scope: &pse_kernels::ExecutionScope,
+        allowance: usize,
+    ) -> Result<(), MathError> {
+        match &mut self.evaluator {
+            BlockEvaluator::Native(block) => {
+                let packed = block.executable.is_packed();
+                block
+                    .executable
+                    .evaluate_batch(rows, arguments, values, scope, allowance)?;
+                if packed && let Some(context) = pse_diagnostics::observation::current() {
+                    context.count(
+                        "math.native_x4_direct_action_rows",
+                        "count",
+                        (rows / 4 * 4) as u64,
+                    );
+                }
+                Ok(())
+            }
+            _ => Err(MathError::Contract(
+                "direct packed product requires a qualified native evaluator".into(),
+            )),
+        }
+    }
     pub(super) fn reset(mut self) -> Result<Self, MathError> {
         self.evaluator = self.evaluator.reset()?;
         self.arguments.fill(f64::NAN);
@@ -187,7 +295,6 @@ impl PreparedSupport {
         retained: Option<&library::ScalarProducts>,
     ) -> Result<CompiledBody, MathError> {
         scope.check().map_err(crate::error::scope_error)?;
-        let cancel = scope.cancellation();
         let body = self.body();
         let selected = (0..self.outputs().len()).collect::<Vec<_>>();
         let coordinates = self.dense_coordinates()?;
@@ -352,7 +459,7 @@ impl PreparedSupport {
                 &layout,
                 &zeros,
                 options,
-                cancel,
+                scope,
                 limits,
                 limits.operations,
                 0,
@@ -363,7 +470,7 @@ impl PreparedSupport {
                 &expressions,
                 &parameters,
                 options,
-                cancel,
+                scope,
                 limits,
                 &mut scalars,
             )?
@@ -390,8 +497,8 @@ impl PreparedSupport {
                     )?;
                     let shell = size_of::<ExpressionEvaluator<f64>>() + 2 * size_of::<usize>();
                     crate::construction::additional(shell)?;
-                    storage.instruction_bytes = storage
-                        .instruction_bytes
+                    storage.auxiliary_bytes = storage
+                        .auxiliary_bytes
                         .checked_add(shell)
                         .ok_or(MathError::Limit("native product canonical owner"))?;
                     BlockEvaluator::Native(NativeBlock {
@@ -427,7 +534,7 @@ impl PreparedSupport {
         limits.allocation(numeric)?;
         let scratch_bytes = numeric
             .checked_mul(size_of::<f64>())
-            .and_then(|n| n.checked_add(storage.instruction_bytes))
+            .and_then(|n| n.checked_add(storage.auxiliary_bytes))
             .ok_or(MathError::Limit("weighted product scratch"))?;
         let retained_bytes = scratch_bytes
             .checked_add(modules)
@@ -443,6 +550,8 @@ impl PreparedSupport {
             .ok_or(MathError::Limit("weighted product retained storage"))?;
         let direct = DirectProduct {
             evaluator,
+            #[cfg(feature = "compiled-evaluator")]
+            resettable: inspected.facts.resettable,
             order,
             pairs: Arc::new(pairs),
             inputs: body.inputs,
@@ -495,7 +604,7 @@ impl PreparedSupport {
             control_stages: 0,
             library_operations: operations,
             library_instructions: storage.instruction_count,
-            instruction_storage_bytes: storage.instruction_bytes,
+            instruction_storage_bytes: storage.auxiliary_bytes,
             frame_entries: 0,
             derivative_components: if directional_gradient { 2 } else { 1 },
             second_pairs: direct.pairs.len(),
@@ -598,6 +707,32 @@ impl ExecutionTemplate {
     }
 }
 impl NumericFrame {
+    /// Materialize the existing direct product exactly once in private scratch.
+    pub(super) fn prepare_direct_worker(
+        &mut self,
+        template: &DirectProduct,
+    ) -> Result<&mut DirectWorker, MathError> {
+        if self.direct_product.is_none() {
+            let used = self
+                .used_bytes
+                .checked_add(template.scratch_bytes)
+                .ok_or(MathError::Limit("weighted product worker charge"))?;
+            if used > self.prepaid_bytes {
+                return Err(MathError::Limit("weighted product worker charge"));
+            }
+            let mut evaluator = template.evaluator.clone();
+            evaluator.instantiate()?;
+            self.direct_product = Some(DirectWorker {
+                evaluator,
+                arguments: vec![f64::NAN; template.arguments],
+                values: vec![f64::NAN; template.results],
+            });
+            self.used_bytes = used;
+        }
+        self.direct_product
+            .as_mut()
+            .ok_or_else(|| MathError::Contract("weighted product worker missing".into()))
+    }
     /// Evaluate into private storage, then publish a complete finite requested product.
     pub(crate) fn evaluate_product_into(
         &mut self,
@@ -672,50 +807,17 @@ impl NumericFrame {
                     trial,
                     None,
                 )?;
-                if self.direct_product.is_none() {
-                    let used = self
-                        .used_bytes
-                        .checked_add(template.scratch_bytes)
-                        .ok_or(MathError::Limit("weighted product worker charge"))?;
-                    if used > self.prepaid_bytes {
-                        return Err(MathError::Limit("weighted product worker charge"));
-                    }
-                    let mut evaluator = template.evaluator.clone();
-                    evaluator.instantiate()?;
-                    self.direct_product = Some(DirectWorker {
-                        evaluator,
-                        arguments: vec![f64::NAN; template.arguments],
-                        values: vec![f64::NAN; template.results],
-                    });
-                    self.used_bytes = used;
-                }
-                let worker = self
-                    .direct_product
-                    .as_mut()
-                    .ok_or_else(|| MathError::Contract("weighted product worker missing".into()))?;
+                let coordinates = Arc::clone(&self.template.coordinate_offsets);
+                let worker = self.prepare_direct_worker(&template)?;
                 let weights = weights
                     .ok_or_else(|| MathError::Contract("weighted coefficients missing".into()))?;
-                if template.directional_gradient {
-                    for (i, &value) in inputs.iter().chain(weights).enumerate() {
-                        worker.arguments[2 * i] = value;
-                        worker.arguments[2 * i + 1] = 0.0;
-                    }
-                    let direction =
-                        direction.ok_or_else(|| MathError::Contract("direction missing".into()))?;
-                    for (&coordinate, &seed) in
-                        self.template.coordinate_offsets.iter().zip(direction)
-                    {
-                        worker.arguments[2 * coordinate + 1] = seed;
-                    }
-                } else {
-                    worker.arguments[..template.inputs].copy_from_slice(inputs);
-                    worker.arguments[template.inputs..template.inputs + template.outputs]
-                        .copy_from_slice(weights);
-                    if let Some(direction) = direction {
-                        worker.arguments[template.inputs + template.outputs..]
-                            .copy_from_slice(direction);
-                    }
-                }
+                template.bind_arguments(
+                    inputs,
+                    weights,
+                    direction,
+                    &coordinates,
+                    &mut worker.arguments,
+                )?;
                 worker.values.fill(f64::NAN);
                 worker
                     .evaluator
@@ -725,14 +827,7 @@ impl NumericFrame {
                         order: DerivativeOrder::Second,
                         detail,
                     })?;
-                let count = scratch.len();
-                if template.directional_gradient {
-                    for (i, value) in scratch.iter_mut().enumerate() {
-                        *value = worker.values[2 * i + 1];
-                    }
-                } else {
-                    scratch.copy_from_slice(&worker.values[..count]);
-                }
+                template.write_product(&worker.values, &mut scratch)?;
             } else {
                 if self.template.product == ProductKind::JacobianAction {
                     self.evaluate_directional_trial_into(

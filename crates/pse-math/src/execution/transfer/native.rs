@@ -89,7 +89,7 @@ fn compile_stages(
                 let extent = supplier.extents();
                 let storage = library::Storage {
                     numeric_entries: extent.stack,
-                    instruction_bytes: plus(
+                    auxiliary_bytes: plus(
                         plus(extent.instruction_bytes, extent.result_bytes)?,
                         extent.external_bytes,
                     )?,

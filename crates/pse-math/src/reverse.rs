@@ -315,7 +315,7 @@ fn compile_pullbacks(
                             &local,
                             &[],
                             options,
-                            scope.cancellation(),
+                            scope,
                             limits,
                             remaining,
                             cost.bytes / size_of::<f64>(),
@@ -326,7 +326,7 @@ fn compile_pullbacks(
                             &gradients,
                             &parameters,
                             options,
-                            scope.cancellation(),
+                            scope,
                             EvaluationLimits {
                                 operations: remaining,
                                 ..limits
@@ -340,7 +340,7 @@ fn compile_pullbacks(
                         .checked_add(operation_count(inspected.facts.operations))
                         .ok_or(MathError::Limit("local pullback operations"))?;
                     cost.instructions += storage.instruction_count;
-                    cost.instruction_bytes += storage.instruction_bytes;
+                    cost.instruction_bytes += storage.auxiliary_bytes;
                     cost.blocks += 1;
                     let arguments = parameters
                         .len()
@@ -362,7 +362,7 @@ fn compile_pullbacks(
                             )
                         })
                         .and_then(|n| n.checked_mul(size_of::<f64>()))
-                        .and_then(|n| n.checked_add(storage.instruction_bytes))
+                        .and_then(|n| n.checked_add(storage.auxiliary_bytes))
                         .and_then(|n| {
                             n.checked_add(
                                 (region.inputs.len() + outputs.len()) * size_of::<usize>(),

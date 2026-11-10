@@ -7,7 +7,9 @@ use crate::{
     library::{self, Optimization},
 };
 use pse_kernels::DerivativeOrder;
-use std::sync::{Arc, atomic::AtomicBool};
+use std::sync::Arc;
+#[cfg(test)]
+use std::sync::atomic::AtomicBool;
 use symbolica::{
     atom::{Atom, AtomCore, Indeterminate},
     evaluate::ExpressionEvaluator,
@@ -650,15 +652,14 @@ pub(crate) struct SymbolicComposition {
     pub(crate) inputs: Vec<LiftInput>,
 }
 impl SymbolicComposition {
-    pub(crate) fn new(
+    pub(crate) fn new<'a>(
         arity: usize,
         layout: &JetLayout,
         limits: EvaluationLimits,
-        cancelled: &Arc<AtomicBool>,
+        stop: impl Into<library::ConstructionStop<'a>>,
     ) -> Result<Self, MathError> {
-        if cancelled.load(std::sync::atomic::Ordering::Acquire) {
-            return Err(MathError::Cancelled);
-        }
+        let stop = stop.into();
+        stop.check()?;
         let n = layout.coordinates.len();
         let estimate = arity
             .checked_mul(layout.width())
@@ -697,9 +698,7 @@ impl SymbolicComposition {
         let mut inputs = vec![LiftInput::Value];
         if layout.order >= DerivativeOrder::First {
             for i in 0..arity {
-                if cancelled.load(std::sync::atomic::Ordering::Acquire) {
-                    return Err(MathError::Cancelled);
-                }
+                stop.check()?;
                 let d = generic.derivative(
                     Indeterminate::try_from(local[i].clone())
                         .map_err(|e| MathError::Library(e.clone()))?,
@@ -708,6 +707,7 @@ impl SymbolicComposition {
                 inputs.push(LiftInput::First(i));
                 if layout.order >= DerivativeOrder::Second {
                     for (j, atom) in local.iter().enumerate().skip(i) {
+                        stop.check()?;
                         parameters.push(substitute(
                             d.derivative(
                                 Indeterminate::try_from(atom.clone())
@@ -720,6 +720,7 @@ impl SymbolicComposition {
             }
             for (i, argument) in arguments.iter().enumerate() {
                 for component in 1..layout.width() {
+                    stop.check()?;
                     parameters.push(layout.differentiate(argument, &variables, component)?);
                     inputs.push(LiftInput::Argument(i, component));
                 }
@@ -727,13 +728,12 @@ impl SymbolicComposition {
         }
         let expressions = (0..layout.width())
             .map(|component| {
+                stop.check()?;
                 Ok(layout.differentiate(&composed, &variables, component)?
                     / Atom::num(layout.raw_factor(component)))
             })
             .collect::<Result<Vec<_>, MathError>>()?;
-        if cancelled.load(std::sync::atomic::Ordering::Acquire) {
-            return Err(MathError::Cancelled);
-        }
+        stop.check()?;
         Ok(Self {
             expressions,
             parameters,
@@ -743,26 +743,28 @@ impl SymbolicComposition {
 }
 impl ProviderLift {
     /// Symbolica differentiates an abstract composition `f(a_0(z)`, ..., `a_n(z)`).
-    pub(crate) fn compile(
+    pub(crate) fn compile<'a>(
         arity: usize,
         layout: &JetLayout,
         options: Optimization,
         limits: EvaluationLimits,
-        cancelled: &Arc<AtomicBool>,
+        stop: impl Into<library::ConstructionStop<'a>>,
         scalars: &mut library::ScalarCache,
     ) -> Result<Self, MathError> {
+        let stop = stop.into();
+        stop.check()?;
         let SymbolicComposition {
             expressions,
             parameters,
             inputs,
-        } = SymbolicComposition::new(arity, layout, limits, cancelled)?;
+        } = SymbolicComposition::new(arity, layout, limits, stop)?;
         let library::FloatingEvaluator {
             evaluator, facts, ..
         } = library::bounded_scalar_evaluator(
             &expressions,
             &parameters,
             options,
-            cancelled,
+            stop,
             limits,
             scalars,
         )?;

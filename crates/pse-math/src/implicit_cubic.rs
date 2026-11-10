@@ -74,7 +74,7 @@ impl CubicRoots {
         let bytes = storage
             .numeric_entries
             .checked_mul(size_of::<f64>())
-            .and_then(|bytes| bytes.checked_add(storage.instruction_bytes))
+            .and_then(|bytes| bytes.checked_add(storage.auxiliary_bytes))
             .and_then(|bytes| bytes.checked_add(size_of::<CubicWorker>()))
             .ok_or(MathError::Limit("cubic coefficient storage extent"))?;
         let count = inspected.facts.operations;

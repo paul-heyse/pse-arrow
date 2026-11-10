@@ -755,7 +755,6 @@ impl PreparedSupport {
         // The compact slot population and global selected axes upper-bound every
         // block-local selection without allocating those selections in preflight.
         let mut numeric_bytes = 0usize;
-        let mut instructions = 0usize;
         let mut descriptors = 0usize;
         for order in [
             DerivativeOrder::Value,
@@ -800,12 +799,7 @@ impl PreparedSupport {
             // pair vectors, plus a construction copy, retain separate headroom.
             descriptors = add(descriptors, construction_layout_shape_bytes(axes, width)?)?;
             for stage in &body.stages {
-                let Stage::Block {
-                    expressions,
-                    outputs,
-                    ..
-                } = stage
-                else {
+                let Stage::Block { outputs, .. } = stage else {
                     descriptors = add(descriptors, 2 * size_of::<CompiledStage>())?;
                     continue;
                 };
@@ -815,33 +809,10 @@ impl PreparedSupport {
                     0
                 };
                 let local_width = width;
-                let products = add(
-                    add(
-                        1,
-                        if order >= DerivativeOrder::First {
-                            mul(2, axes)?
-                        } else {
-                            0
-                        },
-                    )?,
-                    mul(4, pair_count)?,
-                )?;
-                let block = library::evaluator_construction_shape(
-                    expressions,
-                    body.slots,
-                    order,
-                    local_width,
-                    products,
-                )?;
-                entries = add(
-                    entries,
-                    add(
-                        block.entries,
-                        mul(add(body.slots, outputs.len())?, local_width)?,
-                    )?,
-                )?;
+                // App-owned gather/output buffers. Native programme and dualizer
+                // growth is admitted by their actual supplier callbacks.
+                entries = add(entries, mul(add(body.slots, outputs.len())?, local_width)?)?;
                 entries = add(entries, local_width)?;
-                instructions = add(instructions, block.instructions)?;
                 // A block's local layout/zero-component list exists only while it
                 // compiles; summing them also covers their temporary coexistence
                 // with every prior retained stage and the full outer layout.
@@ -867,15 +838,15 @@ impl PreparedSupport {
             }
             numeric_bytes = add(numeric_bytes, mul(entries, size_of::<f64>())?)?;
         }
-        // The scientific scratch guard limits the combined known numeric programs,
-        // frames and output buffers. Instructions and descriptors are independent.
+        // The scientific guard independently limits numeric frames and buffers.
+        // Native programme backing is admitted at its actual supplier boundary.
         numeric_bytes = numeric_bytes.min(limits.scratch_bytes);
         let metadata = add(
             mul(add(body.inputs, coordinates)?, 4 * size_of::<usize>())?,
             mul(mul(body.slots, add(axes, 3)?)?, size_of::<usize>())?,
         )?;
         let bytes = add(
-            add(add(mul(numeric_bytes, 2)?, instructions)?, descriptors)?,
+            add(mul(numeric_bytes, 2)?, descriptors)?,
             add(add(metadata, mul(self.retained_bytes(), 4)?)?, 4096)?,
         )?;
         Ok(Some(bytes))
@@ -948,7 +919,7 @@ impl PreparedSupport {
                         &region.parameters,
                         &region.definitions,
                         options,
-                        scope.cancellation(),
+                        scope,
                         limits,
                     )?;
                 }
@@ -1908,8 +1879,9 @@ impl PreparedBody {
         self.arithmetic_compilation_bound(requested, limits, self.inputs, self.outputs.len())
     }
     /// Source-issued initial reservation for selected derivative axes and outputs.
-    /// Conservative scalar/source populations remain borrowed; unselected input values
-    /// never become derivative axes. No support map or numerical program is constructed.
+    /// App-owned source/layout populations remain borrowed; unselected input values
+    /// never become derivative axes. Native growth uses the same adaptive owner at
+    /// its actual checked boundary. No numerical program is constructed here.
     pub fn arithmetic_selected_compilation_allocation_bound(
         &self,
         outputs: &[usize],
@@ -1952,7 +1924,6 @@ impl PreparedBody {
             0
         };
         let mut numeric = 0usize;
-        let mut instructions = 0usize;
         let mut descriptors = 0usize;
         for order in [
             DerivativeOrder::Value,
@@ -1993,26 +1964,18 @@ impl PreparedBody {
             )?;
             descriptors = add(descriptors, layout)?;
             for stage in &self.stages {
-                let Stage::Block {
-                    expressions,
-                    outputs,
-                    ..
-                } = stage
-                else {
+                let Stage::Block { outputs, .. } = stage else {
                     // Require compiles one descriptor for an existing slot; no numeric
                     // evaluator or Taylor expansion is constructed at this stage.
                     descriptors = add(descriptors, size_of::<CompiledStage>())?;
                     continue;
                 };
-                let block = library::evaluator_construction(expressions, self.slots, n, order)?;
+                // App-owned input/output/seed buffers. Native programmes use
+                // checked supplier admission, including exact coefficient copies.
                 entries = add(
                     entries,
-                    add(
-                        block.entries,
-                        mul(add(add(self.slots, outputs.len())?, 1)?, width)?,
-                    )?,
+                    mul(add(add(self.slots, outputs.len())?, 1)?, width)?,
                 )?;
-                instructions = add(instructions, block.instructions)?;
                 descriptors = add(
                     descriptors,
                     add(
@@ -2023,9 +1986,8 @@ impl PreparedBody {
             }
             numeric = add(numeric, mul(entries, size_of::<f64>())?)?;
         }
-        // The existing scratch guard independently bounds retained numeric programs
-        // and worker/output buffers. Use it only as a checked upper alternative to
-        // the source population, never as the initial construction demand.
+        // The scientific guard independently bounds numeric frames and buffers;
+        // supplier callbacks admit native programmes and their actual capacities.
         numeric = numeric.min(limits.scratch_bytes);
         let second = if requested >= DerivativeOrder::Second {
             mul(n, n)?
@@ -2042,10 +2004,11 @@ impl PreparedBody {
         )?;
         let support = mul(support_population.min(self.remaining_occurrences), 256)?;
         let source = mul(self.retained_bytes(), 4)?;
-        // Two numeric populations cover retained programs plus construction/cache
-        // copies; source container copies and known instruction indices are separate.
+        // Initial app-owned numeric/source/support populations. Native retained
+        // programmes, optimizer temporaries and coefficient copies grow the same
+        // admission through supplier callbacks before their actual allocations.
         let bytes = add(
-            add(add(mul(numeric, 2)?, instructions)?, descriptors)?,
+            add(mul(numeric, 2)?, descriptors)?,
             add(add(source, support)?, 4096)?,
         )?;
         Ok(Some(bytes))
@@ -2832,7 +2795,6 @@ impl PreparedBody {
     }
 }
 
-#[derive(Clone)]
 #[allow(
     clippy::large_enum_variant,
     reason = "Keep the existing interpreter inline rather than allocating every block"
@@ -2841,6 +2803,21 @@ enum BlockEvaluator {
     Interpreted(ExpressionEvaluator<f64>),
     #[cfg(feature = "compiled-evaluator")]
     Native(NativeBlock),
+}
+impl Clone for BlockEvaluator {
+    fn clone(&self) -> Self {
+        match self {
+            // Numeric stacks are f64, but resolved constant-head metadata can
+            // still own exact arguments. Prepaid frame clones must copy those
+            // through fresh storage rather than adopt an unrelated GMP cache.
+            Self::Interpreted(evaluator) => Self::Interpreted(
+                symbolica::domains::backend::integer::IntegerAllocationContext::fresh()
+                    .run(|| evaluator.clone()),
+            ),
+            #[cfg(feature = "compiled-evaluator")]
+            Self::Native(evaluator) => Self::Native(evaluator.clone()),
+        }
+    }
 }
 /// Native code realizes the same immutable portable numerical instructions.
 /// Retain those instructions for qualified capture and receiver-local compilation;
@@ -2876,15 +2853,21 @@ impl BlockEvaluator {
                     .checked_add(evaluator.get_constants().len())
                     .ok_or(MathError::Limit("evaluator reset constants"))?;
                 let index = std::cell::Cell::new(0usize);
-                Ok(Self::Interpreted(evaluator.map_coeff(&|value| {
-                    let slot = index.get();
-                    index.set(slot + 1);
-                    if (first..end).contains(&slot) {
-                        *value
-                    } else {
-                        f64::NAN
-                    }
-                })))
+                Ok(Self::Interpreted(
+                    symbolica::domains::backend::integer::IntegerAllocationContext::fresh().run(
+                        || {
+                            evaluator.map_coeff(&|value| {
+                                let slot = index.get();
+                                index.set(slot + 1);
+                                if (first..end).contains(&slot) {
+                                    *value
+                                } else {
+                                    f64::NAN
+                                }
+                            })
+                        },
+                    ),
+                ))
             }
             #[cfg(feature = "compiled-evaluator")]
             Self::Native(mut evaluator) => {
@@ -3052,7 +3035,8 @@ pub struct CompiledOrderCensus {
     pub library_operations: usize,
     /// Actual exported instruction population, including exported sub-evaluator occurrences.
     pub library_instructions: usize,
-    /// Conservative retained instruction storage, separate from instruction count.
+    /// Retained instruction backing and call metadata/payload, including exact
+    /// fixed arguments and capacity slack; separate from scalar slots and count.
     pub instruction_storage_bytes: usize,
     /// Admitted main numeric frame capacity in scalar entries.
     pub frame_entries: usize,
@@ -3178,28 +3162,36 @@ impl std::fmt::Debug for CompiledBody {
             .finish()
     }
 }
+fn pure_branch_free_stages(program: &[CompiledStage]) -> bool {
+    fn admitted(program: &[CompiledStage], scalar_predicate: bool) -> bool {
+        program.iter().all(|stage| match stage {
+            CompiledStage::Block { resettable, .. } => *resettable,
+            CompiledStage::Require { .. } => true,
+            // Scientific envelopes publish only effect tokens. Their original
+            // lazy predicates execute scalar per row before pure lane grouping.
+            CompiledStage::Domain { stages, .. } | CompiledStage::Applicability { stages, .. } => {
+                admitted(stages, true)
+            }
+            CompiledStage::Branch {
+                then, otherwise, ..
+            } => scalar_predicate && admitted(then, true) && admitted(otherwise, true),
+            CompiledStage::Provider { .. } => false,
+        })
+    }
+    admitted(program, false)
+}
+
 impl CompiledBody {
     /// Eligible immutable numerical vocabulary for a grouped pure population.
     /// Ordered scientific guards remain per point; opaque calls, providers and
     /// host branches require their existing distinct execution capability.
     pub(crate) fn pure_branch_free(&self, order: DerivativeOrder) -> bool {
-        fn stages(program: &[CompiledStage]) -> bool {
-            program.iter().all(|stage| match stage {
-                CompiledStage::Block { resettable, .. } => *resettable,
-                CompiledStage::Require { .. } => true,
-                CompiledStage::Domain {
-                    stages: program, ..
-                }
-                | CompiledStage::Applicability {
-                    stages: program, ..
-                } => stages(program),
-                CompiledStage::Branch { .. } | CompiledStage::Provider { .. } => false,
-            })
-        }
         self.template.product == ProductKind::SelectedPartials
             && !self.template.directional
             && self.template.required_provider_keys.is_empty()
-            && self.template.programs[order].as_deref().is_some_and(stages)
+            && self.template.programs[order]
+                .as_deref()
+                .is_some_and(pure_branch_free_stages)
     }
 
     /// Original preparation policy for additional demands from this same source.
@@ -5573,8 +5565,7 @@ impl SymbolicRegion {
             .enumerate()
         {
             scope.check().map_err(crate::error::scope_error)?;
-            let composition =
-                SymbolicComposition::new(inputs.len(), local, limits, scope.cancellation())?;
+            let composition = SymbolicComposition::new(inputs.len(), local, limits, scope)?;
             let mut bindings = Vec::new();
             for (formal, binding) in composition.parameters.iter().zip(&composition.inputs) {
                 scope.check().map_err(crate::error::scope_error)?;
@@ -6237,7 +6228,6 @@ fn compile_stages(
     #[cfg(feature = "compiled-evaluator")] native_modules: &mut crate::native_compiled::Batch,
 ) -> Result<Vec<CompiledStage>, MathError> {
     execution_scope.check().map_err(crate::error::scope_error)?;
-    let cancelled = execution_scope.cancellation();
     let program = if layout.order == DerivativeOrder::Value || allowance.symbolic_regions {
         program.values.as_deref().unwrap_or(program)
     } else {
@@ -6383,7 +6373,7 @@ fn compile_stages(
                         &symbolic.parameters,
                         &symbolic.definitions,
                         options,
-                        cancelled,
+                        execution_scope,
                         EvaluationLimits {
                             operations: allowance.operations,
                             ..limits
@@ -6401,7 +6391,7 @@ fn compile_stages(
                         params,
                         &region.definitions,
                         options,
-                        cancelled,
+                        execution_scope,
                         EvaluationLimits {
                             operations: allowance.operations,
                             ..limits
@@ -6413,7 +6403,7 @@ fn compile_stages(
                         &selected.expressions,
                         params,
                         options,
-                        cancelled,
+                        execution_scope,
                         EvaluationLimits {
                             operations: allowance.operations,
                             ..limits
@@ -6428,7 +6418,7 @@ fn compile_stages(
                         &local,
                         &zero_components,
                         options,
-                        cancelled,
+                        execution_scope,
                         limits,
                         allowance.operations,
                         allowance.entries,
@@ -6476,7 +6466,7 @@ fn compile_stages(
                 limits.allocation(allowance.entries)?;
                 allowance.instructions = allowance
                     .instructions
-                    .checked_add(storage.instruction_bytes)
+                    .checked_add(storage.auxiliary_bytes)
                     .ok_or(MathError::Limit("evaluator instruction storage"))?;
                 allowance.instruction_count = allowance
                     .instruction_count
@@ -6755,7 +6745,7 @@ fn compile_stages(
                             operations: allowance.operations,
                             ..limits
                         },
-                        cancelled,
+                        execution_scope,
                         scalars,
                     )?)
                 } else {
@@ -6769,7 +6759,7 @@ fn compile_stages(
                         .ok_or(MathError::Limit("provider lift instruction population"))?;
                     allowance.instructions = allowance
                         .instructions
-                        .checked_add(storage.instruction_bytes)
+                        .checked_add(storage.auxiliary_bytes)
                         .ok_or(MathError::Limit("provider lift instruction storage"))?;
                 }
                 if let Some(lift) = &lift {
@@ -8184,6 +8174,79 @@ mod sealed_restore_tests;
 mod compact_tests {
     use super::*;
 
+    #[test]
+    fn numeric_frame_clones_and_resets_do_not_adopt_cached_exact_argument_capacity() {
+        use std::convert::Infallible;
+        use symbolica::domains::backend::integer::IntegerAllocationContext;
+        use symbolica::domains::integer::MultiPrecisionInteger;
+
+        crate::initialize().unwrap();
+        let head = crate::stable::known_heads()
+            .unwrap()
+            .iter()
+            .find(|head| {
+                crate::stable::identify(head.symbol) == Some(crate::stable::Operation::Log1p)
+            })
+            .unwrap()
+            .symbol;
+        let source = IntegerAllocationContext::fresh().run(|| {
+            symbolica::atom::FunctionBuilder::new(head)
+                .add_arg(Atom::num(2).pow(256))
+                .finish()
+                .evaluator::<Atom>(&[])
+                .build()
+                .unwrap()
+                .map_coeff(&|value| value.re.to_f64())
+        });
+        let private_input = |evaluator: &ExpressionEvaluator<f64>| {
+            let mut input = 0;
+            let export = evaluator
+                .try_export_instructions_with(
+                    &mut |extent: symbolica::evaluate::OperationExtent| {
+                        input = input.max(extent.input_bytes);
+                        Ok::<_, Infallible>(())
+                    },
+                )
+                .unwrap();
+            assert_eq!(
+                export.constant_functions.len(),
+                1,
+                "fixture retains exact constant-head arguments"
+            );
+            input
+        };
+        let warm = || {
+            assert!(!IntegerAllocationContext::capture().is_fresh());
+            let value = MultiPrecisionInteger::from(1_u64) << 900_000_u32;
+            assert!(value.as_raw().capacity() >= 900_000);
+            drop(value);
+        };
+        let baseline = private_input(&source);
+        warm();
+        let ordinary = source.clone();
+        assert!(
+            private_input(&ordinary) > baseline + 100_000,
+            "ordinary native Clone demonstrates the hidden cached-capacity countercase"
+        );
+        let template = BlockEvaluator::Interpreted(source);
+        let private_block = |block: &BlockEvaluator| match block {
+            BlockEvaluator::Interpreted(evaluator) => private_input(evaluator),
+            #[cfg(feature = "compiled-evaluator")]
+            BlockEvaluator::Native(_) => panic!("interpreted fixture"),
+        };
+        warm();
+        let cloned = template.clone();
+        // Native Vec cloning may discard capacity slack. The prepaid source
+        // extent must cover the clone; it need not preserve spare capacity.
+        assert!(private_block(&cloned) <= baseline);
+        warm();
+        let mut reset = cloned.reset().unwrap();
+        assert!(private_block(&reset) <= baseline);
+        let mut result = [0.];
+        reset.evaluate(&[], &mut result).unwrap();
+        assert_eq!(result[0], 2_f64.powi(256).ln_1p());
+    }
+
     const X: usize = 31;
     const Y: usize = 127;
     const GUARD: usize = 255;
@@ -8492,8 +8555,8 @@ mod compact_tests {
             value < first && first < second,
             "value {value}, first {first}, second {second}"
         );
-        assert!(first < 8usize << 30, "first {first}");
-        assert!(second > 8usize << 30, "second {second}");
+        // These initial demands cover app-owned metadata. Native optimizer and
+        // coefficient growth is admitted dynamically, rather than predicted here.
         // First-order preparation remains first order and evaluates every residual
         // and requested derivative; the smaller reservation removes no science.
         let program = body

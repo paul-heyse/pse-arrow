@@ -968,7 +968,7 @@ fn evaluator_storage_counts_its_instruction_stream() {
     let export = evaluator.export;
     let storage = evaluator.facts.storage;
     assert!(!export.instructions.is_empty());
-    assert!(storage.instruction_bytes > size_of_val(export.instructions.as_slice()));
+    assert!(storage.auxiliary_bytes > size_of_val(export.instructions.as_slice()));
     assert_eq!(
         storage.numeric_entries,
         export.input_count + export.constants.len() + export.temporary_count
