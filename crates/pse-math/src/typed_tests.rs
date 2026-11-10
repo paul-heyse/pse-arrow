@@ -1904,3 +1904,223 @@ fn admitted_scalar_reduction_consumes_exact_contract_without_registry_lookup() {
     assert_eq!(result.values, vec![6.0]);
     assert_eq!(result.jacobian, vec![2.0]);
 }
+
+#[test]
+fn stable_typed_primitives_preserve_physical_admission_and_original_guards() {
+    use pse_quantity::PhysicalName;
+    let registry = standard_registry().unwrap();
+    let named = |name| match registry.physical_name(name).unwrap() {
+        PhysicalName::QuantityType(id) => id,
+        _ => panic!("quantity"),
+    };
+    let cancel = Arc::new(AtomicBool::new(false));
+    let control = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None);
+    let mut b = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        1,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let x = b
+        .input(0, named("Scalar"), IndexSet::new(), source())
+        .unwrap();
+    let f = b.unary(Function::Log1p, x, source()).unwrap();
+    let body = b.prepare(&[f]).unwrap();
+    let mut worker = body
+        .compile(
+            &[0],
+            &[],
+            DerivativeOrder::Value,
+            Optimization::default(),
+            crate::jets::EvaluationLimits::default(),
+            &control,
+        )
+        .unwrap()
+        .worker();
+    for x in [1e-30, -1e-30, 0.0, -0.0, -1.0 + f64::EPSILON / 2.0] {
+        let r = worker
+            .evaluate(
+                &[x],
+                DerivativeOrder::Value,
+                &mut pse_kernels::ProviderBindings::new(),
+                &cancel,
+            )
+            .unwrap();
+        assert_eq!(r.values[0].to_bits(), x.ln_1p().to_bits());
+    }
+    for x in [-1.0, -2.0] {
+        assert!(
+            worker
+                .evaluate(
+                    &[x],
+                    DerivativeOrder::Value,
+                    &mut pse_kernels::ProviderBindings::new(),
+                    &cancel
+                )
+                .is_err()
+        );
+    }
+    let mut b = BodyBuilder::new(
+        crate::context().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        3,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let x = b
+        .input(0, named("Length"), IndexSet::new(), source())
+        .unwrap();
+    let y = b
+        .input(1, named("Length"), IndexSet::new(), source())
+        .unwrap();
+    let t = b
+        .input(2, named("Temperature"), IndexSet::new(), source())
+        .unwrap();
+    assert!(b.unary(Function::Log1p, x.clone(), source()).is_err());
+    assert!(b.magnitude(x.clone(), t.clone(), source()).is_err());
+    assert!(b.magnitude(t.clone(), t, source()).is_err());
+    let h = b.magnitude(x, y, source()).unwrap();
+    assert_eq!(h.quantity().unwrap(), named("Length"));
+    let body = b.prepare(&[h]).unwrap();
+    let mut worker = body
+        .compile(
+            &[0],
+            &[],
+            DerivativeOrder::Value,
+            Optimization::default(),
+            crate::jets::EvaluationLimits::default(),
+            &control,
+        )
+        .unwrap()
+        .worker();
+    for (x, y, expected) in [(3.0, 4.0, 5.0), (0.0, 0.0, 0.0), (3e200, 4e200, 5e200)] {
+        let result = worker
+            .evaluate(
+                &[x, y],
+                DerivativeOrder::Value,
+                &mut pse_kernels::ProviderBindings::new(),
+                &cancel,
+            )
+            .unwrap();
+        assert!((result.values[0] / expected - 1.0).abs() < 2e-16 || result.values[0] == expected);
+    }
+}
+
+#[test]
+fn stable_selected_magnitude_partial_avoids_unrequested_value_overflow() {
+    let registry = standard_registry().unwrap();
+    let mut b = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        2,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let x = b
+        .input(0, ids::quantity("neutral"), IndexSet::new(), source())
+        .unwrap();
+    let y = b
+        .input(1, ids::quantity("neutral"), IndexSet::new(), source())
+        .unwrap();
+    let scope = b.function_scope();
+    let h = b.magnitude(x.clone(), y, source()).unwrap();
+    let dx = b
+        .partial(scope, h, std::slice::from_ref(&x), source())
+        .unwrap();
+    let body = b.prepare(&[dx]).unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let compiled = body
+        .compile(
+            &[0],
+            &[],
+            DerivativeOrder::Value,
+            Optimization::default(),
+            crate::jets::EvaluationLimits::default(),
+            &pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None),
+        )
+        .unwrap();
+    let mut worker = compiled.worker();
+    let result = worker
+        .evaluate(
+            &[f64::MAX, f64::MAX],
+            DerivativeOrder::Value,
+            &mut pse_kernels::ProviderBindings::new(),
+            &cancel,
+        )
+        .unwrap();
+    assert!((result.values[0] - std::f64::consts::FRAC_1_SQRT_2).abs() < 2e-16);
+    assert!(
+        matches!(worker.evaluate(&[0.,0.],DerivativeOrder::Value,&mut pse_kernels::ProviderBindings::new(),&cancel),Err(crate::MathError::Domain {source_id,requirement:"positive"}) if source_id==source())
+    );
+}
+
+#[test]
+fn stable_typed_log_ratio_preserves_named_temperature_contract_and_both_source_guards() {
+    use pse_quantity::PhysicalName;
+    let registry = standard_registry().unwrap();
+    let temperature = match registry.physical_name("Temperature").unwrap() {
+        PhysicalName::QuantityType(id) => id,
+        _ => panic!("quantity"),
+    };
+    let mut builder = BodyBuilder::new(
+        crate::initialize().unwrap(),
+        &registry,
+        &StandardInvariantChecker,
+        2,
+        BodyLimits::default(),
+    )
+    .unwrap();
+    let x = builder
+        .input(0, temperature, IndexSet::new(), source())
+        .unwrap();
+    let reference = builder
+        .input(1, temperature, IndexSet::new(), source())
+        .unwrap();
+    let value = builder.log_ratio(x, reference, source()).unwrap();
+    let body = builder.prepare(&[value]).unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let scope = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(false), None);
+    let compiled = body
+        .compile(
+            &[0],
+            &[1, 0],
+            DerivativeOrder::Second,
+            Optimization::default(),
+            crate::jets::EvaluationLimits::default(),
+            &scope,
+        )
+        .unwrap();
+    let mut worker = compiled.worker();
+    for order in [
+        DerivativeOrder::Value,
+        DerivativeOrder::First,
+        DerivativeOrder::Second,
+    ] {
+        let result = worker
+            .evaluate(
+                &[1.0, 1e20],
+                order,
+                &mut pse_kernels::ProviderBindings::new(),
+                &cancel,
+            )
+            .unwrap();
+        assert!((result.values[0] + 46.051_701_859_880_914).abs() < 1e-14);
+        if order >= DerivativeOrder::First {
+            assert_eq!(result.jacobian, vec![-1e-20, 1.0]);
+        }
+        if order >= DerivativeOrder::Second {
+            for (actual, expected) in result.hessians.into_iter().zip([1e-40, 0.0, 0.0, -1.0]) {
+                assert!(actual == expected || (actual / expected - 1.0).abs() < 3e-16);
+            }
+        }
+        for input in [[0.0, 300.0], [-1.0, 300.0], [300.0, 0.0], [300.0, -1.0]] {
+            assert!(
+                matches!(worker.evaluate(&input,order,&mut pse_kernels::ProviderBindings::new(),&cancel),Err(crate::MathError::Domain{source_id,requirement:"positive"}) if source_id==source())
+            );
+        }
+    }
+}

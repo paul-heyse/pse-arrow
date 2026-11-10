@@ -28,8 +28,10 @@ pub enum MetadataResponse {
     JoinedBlockPage,
     /// A 64-row scalar/dense output page, including encoded registry keys.
     OutputPage,
-    /// A compact byte-bound study outcome or immutable cohort page, without descriptors.
+    /// A compact byte-bound study workbench or immutable cohort page, without descriptors.
     StudyPage,
+    /// A byte-bound settled outcome page with typed attempt and diagnostic history.
+    StudyOutcomePage,
     /// One capture locator page: at most 64 sources and, cumulatively, 64 blocks
     /// with their original batch descriptors and optional dense output indexes.
     CaptureLocators,
@@ -69,13 +71,24 @@ impl MetadataResponse {
                 blob_length: wire::RESULT_INLINE_BYTES,
             };
         }
-        if matches!(self, Self::StudyPage) {
+        if matches!(self, Self::StudyPage | Self::StudyOutcomePage) {
             let bound = pse_schema::catalog::study_workbench::STUDY_PAGE_BYTES;
             let rows = pse_schema::catalog::study_workbench::STUDY_CAPTURE_PAGE_ROWS;
             return crate::transport::client::ResponseLimits {
                 wire_bytes: bound + rows * 32 * 128,
                 nodes: 512 + rows * 32 * 2,
-                depth: 16,
+                // QueryResponse/Batch/ValueBatch/page Value/Array/row
+                // Value/Object/KeyValue puts the outcome Value at depth eight.
+                // Each further logical native Value adds at most three message
+                // levels; a terminal None/Decimal adds one. The native bound
+                // includes the outcome root: 8 + 3*(maximum-1) + 1.
+                // This preflight allowance does not widen the supplier decoder's
+                // independent recursion limit or the native typed decoder.
+                depth: if matches!(self, Self::StudyOutcomePage) {
+                    6 + 3 * pse_study_module::generated::NATIVE_VALUE_MAX_DEPTH
+                } else {
+                    16
+                },
                 container_items: rows,
                 string_bytes: bound,
                 string_length: wire::METADATA_ID_BYTES,
@@ -129,7 +142,11 @@ impl MetadataResponse {
             Self::Page => crate::canonical_results::PAGE,
             Self::JoinedBlockPage => 2 * crate::canonical_results::PAGE,
             Self::OutputPage => 3 * crate::canonical_results::PAGE,
-            Self::DiagnosticPlan | Self::StudyPage | Self::CaptureLocators | Self::Bootstrap => 0,
+            Self::DiagnosticPlan
+            | Self::StudyPage
+            | Self::StudyOutcomePage
+            | Self::CaptureLocators
+            | Self::Bootstrap => 0,
         };
         let nodes = 512 + rows * 32 * 2;
         let strings =
@@ -140,6 +157,7 @@ impl MetadataResponse {
             | Self::DiagnosticPlan
             | Self::InlinePayload
             | Self::StudyPage
+            | Self::StudyOutcomePage
             | Self::CaptureLocators => 0,
             Self::Bootstrap => 0,
             Self::JoinedBlockPage => {
@@ -284,5 +302,26 @@ mod tests {
                 "{name}: native id plus actual declared fields must fit the locator allowance"
             );
         }
+    }
+    #[test]
+    fn study_outcome_depth_keeps_the_original_population_and_allocation_bounds() {
+        let shallow = MetadataResponse::StudyPage.limits();
+        let outcome = MetadataResponse::StudyOutcomePage.limits();
+        assert_eq!(
+            outcome.depth,
+            6 + 3 * pse_study_module::generated::NATIVE_VALUE_MAX_DEPTH
+        );
+        assert_eq!(shallow.depth, 16);
+        assert_eq!(outcome.wire_bytes, shallow.wire_bytes);
+        assert_eq!(outcome.nodes, shallow.nodes);
+        assert_eq!(outcome.container_items, shallow.container_items);
+        assert_eq!(outcome.string_bytes, shallow.string_bytes);
+        assert_eq!(outcome.string_length, shallow.string_length);
+        assert_eq!(outcome.blob_bytes, shallow.blob_bytes);
+        assert_eq!(outcome.blob_length, shallow.blob_length);
+        assert_eq!(
+            MetadataResponse::StudyOutcomePage.allocation_bytes(),
+            MetadataResponse::StudyPage.allocation_bytes()
+        );
     }
 }

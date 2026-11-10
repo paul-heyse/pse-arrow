@@ -374,4 +374,114 @@ mod tests {
             "duplicate protobuf object key"
         );
     }
+
+    #[test]
+    fn study_outcome_profile_admits_typed_history_and_refuses_one_extra_wire_level() {
+        use crate::canonical::MetadataResponse;
+        use pse_model::study::{
+            EffectState, OccurrenceKey, PointAttemptOutcome, PointOutcome, ScientificFacts,
+            StartProvenance,
+        };
+        use surrealdb_protocol::proto::{rpc::v1 as rpc, v1 as proto};
+        use surrealdb_types::{Object, Value, prost::Message};
+
+        fn frame(value: proto::Value) -> rpc::QueryResponse {
+            rpc::QueryResponse {
+                frame: Some(rpc::query_response::Frame::Batch(rpc::QueryBatchFrame {
+                    payload: Some(rpc::query_batch_frame::Payload::Values(rpc::ValueBatch {
+                        values: vec![value],
+                    })),
+                    ..Default::default()
+                })),
+            }
+        }
+        fn array(value: proto::Value) -> proto::Value {
+            proto::Value {
+                value: Some(proto::value::Value::Array(proto::Array {
+                    values: vec![value],
+                })),
+            }
+        }
+        let leaf = pse_model::diagnostic::BoundaryDiagnostic::new(
+            pse_model::diagnostic::BoundaryClass::Conflict,
+            pse_diagnostics::DiagnosticStage::StudyPolicy,
+            [],
+            pse_diagnostics::DiagnosticRule::StudyDependencyUnusable,
+        );
+        let mut diagnostic = leaf.clone();
+        for _ in 0..3 {
+            let mut parent = leaf.clone();
+            parent.causes.push(diagnostic);
+            diagnostic = parent;
+        }
+        let outcome = PointOutcome {
+            key: OccurrenceKey(7),
+            lifecycle: pse_model::generated::enums::StudyPointState::Failed,
+            scientific: ScientificFacts::default(),
+            diagnostic: None,
+            start: Some(StartProvenance::Fresh),
+            effect: EffectState::Absent,
+            attempts: vec![PointAttemptOutcome {
+                attempt_id: None,
+                lifecycle: None,
+                diagnostic: Some(diagnostic),
+                scientific: ScientificFacts::default(),
+                start: Some(StartProvenance::Fresh),
+                effect: EffectState::Absent,
+            }],
+        };
+        let mut row = Object::default();
+        row.insert("ordinal", Value::Number(surrealdb_types::Number::Int(3)));
+        row.insert("occurrence", Value::Number(surrealdb_types::Number::Int(7)));
+        row.insert("projection", Value::None);
+        row.insert("settled", Value::Bool(true));
+        row.insert(
+            "outcome",
+            pse_study_module::generated::encode_study_point_outcome(outcome).unwrap(),
+        );
+        let page = Value::Array(vec![Value::Object(row)].into());
+        let encoded = frame(proto::Value::try_from(page).unwrap()).encode_to_vec();
+        let profile = MetadataResponse::StudyOutcomePage.limits();
+        assert!(
+            Counts::default()
+                .check(&encoded, Some("QueryResponse"), profile)
+                .is_ok()
+        );
+        assert_eq!(
+            Counts::default().check(
+                &encoded,
+                Some("QueryResponse"),
+                MetadataResponse::StudyPage.limits()
+            ),
+            Err("gRPC response exceeds depth envelope")
+        );
+
+        // QueryResponse/Batch/ValueBatch places the root Value at depth three.
+        // Every Array/Value adds two; None's message adds one final level.
+        let wrappers = (profile.depth - 4) / 2;
+        assert_eq!(3 + 2 * wrappers + 1, profile.depth);
+        let mut exact = proto::Value::none();
+        let mut deeper = array(proto::Value::bool(true));
+        for _ in 0..wrappers {
+            exact = array(exact);
+            deeper = array(deeper);
+        }
+        assert!(
+            Counts::default()
+                .check(
+                    &frame(exact).encode_to_vec(),
+                    Some("QueryResponse"),
+                    profile
+                )
+                .is_ok()
+        );
+        assert_eq!(
+            Counts::default().check(
+                &frame(deeper).encode_to_vec(),
+                Some("QueryResponse"),
+                profile
+            ),
+            Err("gRPC response exceeds depth envelope")
+        );
+    }
 }

@@ -379,7 +379,6 @@ fn compile_pullbacks(
                                 BlockEvaluator::Native(native_modules.push(
                                     &inspected.evaluator,
                                     &storage,
-                                    &inspected.export,
                                     module_bytes,
                                     scope,
                                 )?)

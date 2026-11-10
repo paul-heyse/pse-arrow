@@ -1570,6 +1570,9 @@ impl Producer<'_> {
                             UnaryFunction::Log => {
                                 OpRequest::Transcendental(pse_quantity::Opcode::Log)
                             }
+                            UnaryFunction::Log1p => {
+                                OpRequest::Transcendental(pse_quantity::Opcode::Log1p)
+                            }
                             UnaryFunction::Sqrt => OpRequest::Sqrt,
                             UnaryFunction::Abs => OpRequest::Abs,
                             UnaryFunction::Sin => {
@@ -1580,6 +1583,16 @@ impl Producer<'_> {
                             }
                         };
                         self.operation(request, &[value], at)
+                    }
+                    Implementation::LogRatio if args.len() == 2 => {
+                        let left = self.expression(args[0], None)?;
+                        let right = self.expression(args[1], None)?;
+                        self.operation(OpRequest::LogRatio, &[left, right], at)
+                    }
+                    Implementation::Magnitude if args.len() == 2 => {
+                        let left = self.expression(args[0], None)?;
+                        let right = self.expression(args[1], None)?;
+                        self.operation(OpRequest::Magnitude, &[left, right], at)
                     }
                     Implementation::Extremum { .. } if args.len() == 2 => {
                         let left = self.expression(args[0], None)?;

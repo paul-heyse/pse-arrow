@@ -1191,6 +1191,7 @@ impl<'a> BodyBuilder<'a> {
             Unary::Abs => OpRequest::Abs,
             Unary::Exp => OpRequest::Transcendental(Opcode::Exp),
             Unary::Log => OpRequest::Transcendental(Opcode::Log),
+            Unary::Log1p => OpRequest::Transcendental(Opcode::Log1p),
             Unary::Sin => OpRequest::Transcendental(Opcode::Sin),
             Unary::Cos => OpRequest::Transcendental(Opcode::Cos),
         };
@@ -1244,6 +1245,17 @@ impl<'a> BodyBuilder<'a> {
                 value.atom = self.atom_with(|| library::formal(slot))?;
                 value.shape = plan::Shape::Formal;
             }
+            Unary::Log1p => {
+                let mut domain = value.clone();
+                domain.atom = self.atom_with(|| Ok(value.atom()?.clone() + Atom::num(1)))?;
+                self.require(
+                    &mut domain,
+                    Condition::Positive,
+                    DerivativeOrder::Value,
+                    source,
+                )?;
+                value.effects.extend(domain.effects);
+            }
             Unary::Log => self.require(
                 &mut value,
                 Condition::Positive,
@@ -1289,6 +1301,7 @@ impl<'a> BodyBuilder<'a> {
             Ok(match function {
                 Unary::Exp => atom.exp(),
                 Unary::Log => atom.log(),
+                Unary::Log1p => crate::stable::call(crate::stable::Operation::Log1p, &[atom])?,
                 Unary::Sqrt => atom.sqrt(),
                 Unary::Abs => {
                     return Err(MathError::Contract(
@@ -1305,6 +1318,144 @@ impl<'a> BodyBuilder<'a> {
             shape: plan::Shape::Unknown,
             quantity,
             indices,
+            source,
+        };
+        result.scale(admission.result_scale);
+        Ok(result)
+    }
+    /// Stable logarithmic ratio retaining the original positive argument guards.
+    pub fn log_ratio(
+        &mut self,
+        left: TypedValue,
+        right: TypedValue,
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
+        let admission = self.admit(OpRequest::LogRatio, &[&left, &right])?;
+        self.log_ratio_checked(left, right, admission, source)
+    }
+    /// Consume the exact checked physical logarithmic ratio operation.
+    pub fn log_ratio_admitted(
+        &mut self,
+        left: TypedValue,
+        right: TypedValue,
+        admission: ResolvedInference,
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
+        let admission = self.consume_admission(admission, &[&left, &right])?;
+        self.log_ratio_checked(left, right, admission, source)
+    }
+    fn log_ratio_checked(
+        &mut self,
+        mut left: TypedValue,
+        mut right: TypedValue,
+        admission: ResolvedInference,
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
+        left.scale(admission.operand_scales[0]);
+        right.scale(admission.operand_scales[1]);
+        if !self.physical_only {
+            self.require(
+                &mut left,
+                Condition::Positive,
+                DerivativeOrder::Value,
+                source,
+            )?;
+            self.require(
+                &mut right,
+                Condition::Positive,
+                DerivativeOrder::Value,
+                source,
+            )?;
+        }
+        let effects = left.effects.union(&right.effects).copied().collect();
+        let atom = self.atom_with(|| {
+            if self.physical_only {
+                Ok(Atom::num(0))
+            } else {
+                crate::stable::call(
+                    crate::stable::Operation::LogRatio,
+                    &[left.atom()?, right.atom()?],
+                )
+            }
+        })?;
+        let mut result = TypedValue {
+            effects,
+            atom,
+            shape: plan::Shape::Unknown,
+            indices: admission.result.indices().clone(),
+            quantity: admission.result,
+            source,
+        };
+        result.scale(admission.result_scale);
+        Ok(result)
+    }
+    /// Stable Euclidean magnitude after complete physical component admission.
+    pub fn magnitude(
+        &mut self,
+        left: TypedValue,
+        right: TypedValue,
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
+        let admission = self.admit(OpRequest::Magnitude, &[&left, &right])?;
+        self.magnitude_checked(left, right, admission, source)
+    }
+    /// Consume the original retained physical magnitude operation.
+    pub fn magnitude_admitted(
+        &mut self,
+        left: TypedValue,
+        right: TypedValue,
+        admission: ResolvedInference,
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
+        let admission = self.consume_admission(admission, &[&left, &right])?;
+        self.magnitude_checked(left, right, admission, source)
+    }
+    fn magnitude_checked(
+        &mut self,
+        mut left: TypedValue,
+        mut right: TypedValue,
+        admission: ResolvedInference,
+        source: SemanticId,
+    ) -> Result<TypedValue, MathError> {
+        left.scale(admission.operand_scales[0]);
+        right.scale(admission.operand_scales[1]);
+        let mut effects = left.effects.clone();
+        effects.extend(right.effects.iter().copied());
+        if !self.physical_only {
+            // A bounded guard value avoids materializing a potentially overflowing
+            // magnitude when the request only needs finite derivative components.
+            let mut domain = left.clone();
+            domain.effects = effects.clone();
+            domain.atom = self.atom_with(|| {
+                crate::stable::call(
+                    crate::stable::Operation::MagnitudeDomain,
+                    &[left.atom()?, right.atom()?],
+                )
+            })?;
+            self.require(
+                &mut domain,
+                Condition::Positive,
+                DerivativeOrder::First,
+                source,
+            )?;
+            effects.extend(domain.effects);
+        }
+        let atom = self.atom_with(|| {
+            if self.physical_only {
+                Ok(Atom::num(0))
+            } else {
+                crate::stable::call(
+                    crate::stable::Operation::Magnitude,
+                    &[left.atom()?, right.atom()?],
+                )
+            }
+        })?;
+        let mut result = TypedValue {
+            effects,
+            atom,
+            shape: plan::Shape::Unknown,
+            indices: admission.result.indices().clone(),
+            quantity: admission.result,
             source,
         };
         result.scale(admission.result_scale);

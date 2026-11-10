@@ -401,6 +401,9 @@ pub fn infer(
                 "abs" => OpRequest::Abs,
                 "exp" => OpRequest::Transcendental(pse_quantity::Opcode::Exp),
                 "log" => OpRequest::Transcendental(pse_quantity::Opcode::Log),
+                "log1p" => OpRequest::Transcendental(pse_quantity::Opcode::Log1p),
+                "magnitude" => OpRequest::Magnitude,
+                "log_ratio" => OpRequest::LogRatio,
                 "sin" => OpRequest::Transcendental(pse_quantity::Opcode::Sin),
                 "cos" => OpRequest::Transcendental(pse_quantity::Opcode::Cos),
                 _ => {
@@ -410,7 +413,13 @@ pub fn infer(
                     ));
                 }
             };
-            if values.len() != 1 {
+            if values.len()
+                != if matches!(request, OpRequest::Magnitude | OpRequest::LogRatio) {
+                    2
+                } else {
+                    1
+                }
+            {
                 return Err(invalid(at, "primitive function arity"));
             }
             let refinement =

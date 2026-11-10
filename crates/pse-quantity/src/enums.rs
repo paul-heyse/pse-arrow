@@ -221,6 +221,12 @@ crate::closed_enum! {
         Exp => "Exp",
         /// The natural logarithm; the argument must be positive.
         Log => "Log",
+        /// Stable natural logarithm of one plus a dimensionless increment.
+        Log1p => "Log1p",
+        /// Stable logarithm of a ratio of positive compatible quantities.
+        LogRatio => "LogRatio",
+        /// Euclidean magnitude of compatible linear or difference quantities.
+        Magnitude => "Magnitude",
         /// The base-10 logarithm; the argument must be positive.
         Log10 => "Log10",
         /// The square root; the argument must be nonnegative, and it is nonsmooth at zero.

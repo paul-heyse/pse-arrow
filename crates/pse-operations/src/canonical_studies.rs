@@ -1818,7 +1818,7 @@ impl CanonicalStore {
                             Ok(self
                                 .db
                                 .metadata_query(
-                                    crate::canonical::MetadataResponse::StudyPage,
+                                    crate::canonical::MetadataResponse::StudyOutcomePage,
                                     crate::canonical_history::study_query(&sql, "study"),
                                 )
                                 .bind(("study", study.to_owned()))

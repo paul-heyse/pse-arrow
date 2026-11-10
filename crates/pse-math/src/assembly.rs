@@ -12,6 +12,9 @@ use crate::{
     library::Optimization,
     sparse::AssemblyMatrix,
 };
+#[path = "assembly_batch.rs"]
+mod batch;
+pub use batch::{CaseBatchOutcome, CaseBatchPoint, CaseBatchWorker};
 #[path = "assembly_entries.rs"]
 mod entries;
 #[path = "assembly_projection.rs"]

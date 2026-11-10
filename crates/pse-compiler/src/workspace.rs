@@ -473,6 +473,10 @@ fn analyze_partition(
     Ok(Arc::new(graph.analyze(cancel)?))
 }
 /// Compiler-issued artifact specification. Its private fields prevent independent runtime keys.
+/// The scalar family retains exact ordered mathematics and named local partials;
+/// product kind/order/layout additionally select its numerical realization. Physical
+/// instance attribution stays on the enclosing admitted case. Trial values, directions
+/// and cotangents are runtime bindings and cannot alter either preparation identity.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ArtifactRequest {
     key: ContentHash,
@@ -711,6 +715,13 @@ impl PreparedFunctions {
             .map_or(ContentHash::from_bytes([0; 32]), |request| {
                 request.environment
             });
+        Self::selected_plan(plan, profile, environment)
+    }
+    fn selected_plan(
+        plan: Arc<CasePlan>,
+        profile: Profile,
+        environment: ContentHash,
+    ) -> Result<Self> {
         let descriptors = plan
             .demands()
             .iter()
@@ -1217,7 +1228,28 @@ impl PreparedCase {
     /// Prepare first directional actions only after the consuming route requests them.
     /// Normal artifact keys and ordinals remain unchanged in the appended demand list.
     pub fn prepare_directional_actions(&self, cancel: &Arc<AtomicBool>) -> Result<Self> {
-        let plan = Arc::new(self.plan.with_directional_actions(cancel)?);
+        Ok(self.with_product_plan(self.plan.with_directional_actions(cancel)?))
+    }
+    /// Prepare a constraint cotangent action under this case's admitted First demand.
+    pub fn prepare_transpose_actions(&self, cancel: &Arc<AtomicBool>) -> Result<Self> {
+        Ok(self.with_product_plan(self.plan.with_transpose_actions(cancel)?))
+    }
+    /// Prepare weighted Hessian actions under an explicitly admitted Second demand.
+    pub fn prepare_hessian_actions(&self, cancel: &Arc<AtomicBool>) -> Result<Self> {
+        Ok(self.with_product_plan(self.plan.with_hessian_actions(cancel)?))
+    }
+    /// Select exact First entries as an existing function view, preserving the
+    /// case's class facts and full numerical demand on their original owner.
+    pub fn prepare_jacobian_entries(
+        &self,
+        pairs: &[(SemanticId, SemanticId)],
+        cancel: &Arc<AtomicBool>,
+    ) -> Result<PreparedFunctions> {
+        let plan = Arc::new(self.plan.with_jacobian_entries(pairs, cancel)?);
+        let (profile, environment) = self.product_context();
+        PreparedFunctions::selected_plan(plan, profile, environment)
+    }
+    fn product_context(&self) -> (Profile, ContentHash) {
         let profile = self.artifacts.first().map_or(
             Profile {
                 assembly: self.plan.limits(),
@@ -1237,10 +1269,15 @@ impl PreparedCase {
             .map_or(ContentHash::from_bytes([0; 32]), |request| {
                 request.environment
             });
+        (profile, environment)
+    }
+    fn with_product_plan(&self, plan: CasePlan) -> Self {
+        let plan = Arc::new(plan);
+        let (profile, environment) = self.product_context();
         let mut result = self.clone();
         result.artifacts = artifact_requests(&plan, profile, &environment).into();
         result.plan = plan;
-        Ok(result)
+        result
     }
     /// Prepare a stronger immutable kernel demand after contextual route selection.
     /// Scientific/value facts and original structural witnesses retain their owners.
@@ -1248,33 +1285,8 @@ impl PreparedCase {
         if order <= self.plan.order() {
             return Ok(self.clone());
         }
-        let plan = Arc::new(self.plan.prepare_order(order, cancel)?);
-        let profile = self.artifacts.first().map_or(
-            Profile {
-                assembly: self.plan.limits(),
-                class_proof_work: self.class_proof_work,
-                ..Profile::default()
-            },
-            |request| Profile {
-                optimization: request.optimization,
-                evaluation: request.evaluation,
-                assembly: self.plan.limits(),
-                class_proof_work: self.class_proof_work,
-            },
-        );
-        // Existing artifact keys contain the physical environment consumed by admission.
-        // Preserve it directly instead of reconstructing it from a public receipt.
-        let environment = self
-            .artifacts
-            .first()
-            .map_or(ContentHash::from_bytes([0; 32]), |request| {
-                request.environment
-            });
-        let artifacts = artifact_requests(&plan, profile, &environment);
-        let mut result = self.clone();
+        let mut result = self.with_product_plan(self.plan.prepare_order(order, cancel)?);
         result.facts.prepared_derivatives = order;
-        result.plan = plan;
-        result.artifacts = artifacts.into();
         Ok(result)
     }
     /// Known escaping payload, excluding opaque library/container overhead. This

@@ -1602,6 +1602,90 @@ impl NativeInto<
             }
             Err(value) => value,
         };
+        layout(
+            <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                11,
+            >>::VERSION,
+            <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                11,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+            11,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::AuthoredBuiltinFunction {
+                    kind: Some(
+                        crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::oneof::authored_builtin_function::Kind::Log1p(
+                            Box::new(crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::authored_builtin_function::Alternative11 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                12,
+            >>::VERSION,
+            <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                12,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+            12,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::AuthoredBuiltinFunction {
+                    kind: Some(
+                        crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::oneof::authored_builtin_function::Kind::Magnitude(
+                            Box::new(crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::authored_builtin_function::Alternative12 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                13,
+            >>::VERSION,
+            <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                13,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+            13,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::AuthoredBuiltinFunction {
+                    kind: Some(
+                        crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::oneof::authored_builtin_function::Kind::LogRatio(
+                            Box::new(crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::authored_builtin_function::Alternative13 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
         let _ = value;
         Err(
             refused(
@@ -1875,6 +1959,81 @@ impl NativeFrom<
                 Ok(
                     <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
                         10,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::oneof::authored_builtin_function::Kind::Log1p(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Log1p");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                        11,
+                    >>::VERSION,
+                    <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                        11,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                        11,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::oneof::authored_builtin_function::Kind::Magnitude(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Magnitude");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                        12,
+                    >>::VERSION,
+                    <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                        12,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                        12,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::oneof::authored_builtin_function::Kind::LogRatio(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "LogRatio");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                        13,
+                    >>::VERSION,
+                    <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                        13,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                        13,
                     >>::from_projection_alternative(fields),
                 )
             }
@@ -10333,6 +10492,62 @@ impl NativeInto<
             }
             Err(value) => value,
         };
+        layout(
+            <pse_modeling::expression::admission::PhysicalRequest as pse_contract::boundary_projection::ProjectionAlternative<
+                13,
+            >>::VERSION,
+            <pse_modeling::expression::admission::PhysicalRequest as pse_contract::boundary_projection::ProjectionAlternative<
+                13,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <pse_modeling::expression::admission::PhysicalRequest as pse_contract::boundary_projection::ProjectionAlternative<
+            13,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::ModelingPhysicalRequestFacts {
+                    kind: Some(
+                        crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::oneof::modeling_physical_request_facts::Kind::Magnitude(
+                            Box::new(crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::modeling_physical_request_facts::Alternative13 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
+        layout(
+            <pse_modeling::expression::admission::PhysicalRequest as pse_contract::boundary_projection::ProjectionAlternative<
+                14,
+            >>::VERSION,
+            <pse_modeling::expression::admission::PhysicalRequest as pse_contract::boundary_projection::ProjectionAlternative<
+                14,
+            >>::FIELD_LAYOUT,
+            1,
+            &[],
+            path,
+        )?;
+        let value = match <pse_modeling::expression::admission::PhysicalRequest as pse_contract::boundary_projection::ProjectionAlternative<
+            14,
+        >>::into_projection_alternative(value) {
+            Ok(()) => {
+                return Ok(crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::ModelingPhysicalRequestFacts {
+                    kind: Some(
+                        crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::oneof::modeling_physical_request_facts::Kind::LogRatio(
+                            Box::new(crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::modeling_physical_request_facts::Alternative14 {
+                                ..Default::default()
+                            }),
+                        ),
+                    ),
+                    ..Default::default()
+                });
+            }
+            Err(value) => value,
+        };
         let _ = value;
         Err(
             refused(
@@ -10711,6 +10926,56 @@ impl NativeFrom<
                 Ok(
                     <pse_modeling::expression::admission::PhysicalRequest as pse_contract::boundary_projection::ProjectionAlternative<
                         12,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::oneof::modeling_physical_request_facts::Kind::Magnitude(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Magnitude");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_modeling::expression::admission::PhysicalRequest as pse_contract::boundary_projection::ProjectionAlternative<
+                        13,
+                    >>::VERSION,
+                    <pse_modeling::expression::admission::PhysicalRequest as pse_contract::boundary_projection::ProjectionAlternative<
+                        13,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_modeling::expression::admission::PhysicalRequest as pse_contract::boundary_projection::ProjectionAlternative<
+                        13,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::oneof::modeling_physical_request_facts::Kind::LogRatio(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "LogRatio");
+                let path = alternative_path.as_str();
+                let wire = *wire;
+                unknown_fields(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_modeling::expression::admission::PhysicalRequest as pse_contract::boundary_projection::ProjectionAlternative<
+                        14,
+                    >>::VERSION,
+                    <pse_modeling::expression::admission::PhysicalRequest as pse_contract::boundary_projection::ProjectionAlternative<
+                        14,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_modeling::expression::admission::PhysicalRequest as pse_contract::boundary_projection::ProjectionAlternative<
+                        14,
                     >>::from_projection_alternative(fields),
                 )
             }

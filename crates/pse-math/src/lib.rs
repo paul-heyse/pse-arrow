@@ -17,11 +17,11 @@ pub mod diagnostics;
 pub mod engineering_accuracy;
 mod error;
 mod execution;
-pub use execution::transfer;
 pub use execution::{
     AttributionExtents, AttributionTransferError, ExecutionAttribution,
     ExecutionAttributionSnapshot, SourceBindings, SourceBody,
 };
+pub use execution::{batch, transfer};
 pub mod factorable;
 pub mod facts;
 mod functions;
@@ -38,6 +38,7 @@ pub mod numerics;
 pub mod presolve;
 mod rational_binary64;
 pub mod sparse;
+mod stable;
 pub mod typed;
 pub use error::MathError;
 pub use functions::{Function, Implementation, UnaryFunction};

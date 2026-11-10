@@ -3201,6 +3201,53 @@
       "precondition_invariant_ids": []
     },
     {
+      "operation_id": "a8f747b2bd024bc4bfa8503ab7aad919",
+      "opcode": "Log1p",
+      "input_kind_ids": [
+        "244ab9399bc477e20aa4d0780b5b0d43"
+      ],
+      "result_kind_id": "244ab9399bc477e20aa4d0780b5b0d43",
+      "basis_rule": "require_equal",
+      "reference_rule": "require_equal",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "require_equal",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": []
+    },
+    {
+      "operation_id": "927335a53c69498f9cc031b4f87192ae",
+      "opcode": "LogRatio",
+      "input_kind_ids": [
+        "244ab9399bc477e20aa4d0780b5b0d43",
+        "244ab9399bc477e20aa4d0780b5b0d43"
+      ],
+      "result_kind_id": "244ab9399bc477e20aa4d0780b5b0d43",
+      "basis_rule": "require_equal",
+      "reference_rule": "require_equal",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "require_equal",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": []
+    },
+    {
       "operation_id": "cf4e66fbde924f9291cbe8bb915b5f54",
       "opcode": "Pow",
       "input_kind_ids": [
@@ -5067,6 +5114,32 @@
       ]
     },
     {
+      "operation_id": "ef4e68dc10e947cb8bdbb99319dcf86e",
+      "opcode": "LogRatio",
+      "input_kind_ids": [
+        "57a7ab92753b012231a543d3850b926c",
+        "57a7ab92753b012231a543d3850b926c"
+      ],
+      "result_kind_id": "01a0ee03d43674589ac9f749f527cd8c",
+      "basis_rule": "require_equal",
+      "reference_rule": "declared_result",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "declared_result",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": [
+        "01a0ee03d43674589ac9f74c240ac0d3"
+      ]
+    },
+    {
       "operation_id": "01a0ee03d43674589ac9f7503651682b",
       "opcode": "Div",
       "input_kind_ids": [
@@ -5096,6 +5169,29 @@
     {
       "operation_id": "01a0ee03d43674589ac9f7519f08bc4d",
       "opcode": "Log",
+      "input_kind_ids": [
+        "01a0ee03d43674589ac9f7486163e121"
+      ],
+      "result_kind_id": "01a0ee03d43674589ac9f749f527cd8c",
+      "basis_rule": "require_equal",
+      "reference_rule": "require_equal",
+      "scale_rule": "point",
+      "shape_rule": "same_indices",
+      "basis_source": null,
+      "reference_source": null,
+      "scale_source": null,
+      "shape_source": null,
+      "subject_rule": "require_equal",
+      "subject_source": null,
+      "result_subject_kind": null,
+      "result_basis_id": null,
+      "result_reference_state_id": null,
+      "input_conversions": [],
+      "precondition_invariant_ids": []
+    },
+    {
+      "operation_id": "3c485a68ed6547b9953509d744877d52",
+      "opcode": "Log1p",
       "input_kind_ids": [
         "01a0ee03d43674589ac9f7486163e121"
       ],

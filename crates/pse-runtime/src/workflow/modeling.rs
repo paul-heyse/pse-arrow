@@ -148,6 +148,7 @@ pub use providers::{
     ProviderInspectionEntry, ProviderInspectionOutput, ProviderInspectionPage,
     ProviderInspectionRequest,
 };
+mod observation_batch;
 pub(super) mod results;
 mod views;
 use super::{

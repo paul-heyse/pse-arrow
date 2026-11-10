@@ -141,6 +141,7 @@ impl Symbols {
 pub(crate) fn register_symbols() -> Result<crate::SymbolicContext, String> {
     // Symbolica registers built-ins as part of its global State initialization; the
     // first chunk follows in a fixed order, independent of model arrival order.
+    crate::stable::initialize()?;
     Ok(crate::SymbolicContext {
         pool: Pool::new()?,
         environment: crate::linked_environment()?,
@@ -242,26 +243,9 @@ impl Default for Optimization {
         }
     }
 }
-// Symbolica 3.0.1 stores the builder's abort callback in its evaluator settings.
-// Its public API has no settings setter. Detach the producer flag before retaining
-// an exact evaluator; later serial vectorization reads only its constructor scope.
-thread_local! {
-    static CURRENT_ABORT: std::cell::RefCell<Option<Arc<std::sync::atomic::AtomicBool>>> = const { std::cell::RefCell::new(None) };
-}
-struct RestoreAbort(Option<Arc<std::sync::atomic::AtomicBool>>);
-impl Drop for RestoreAbort {
-    fn drop(&mut self) {
-        CURRENT_ABORT.with(|current| {
-            current.replace(self.0.take());
-        });
-    }
-}
-fn scoped_abort<T>(flag: &Arc<std::sync::atomic::AtomicBool>, work: impl FnOnce() -> T) -> T {
-    let restore = RestoreAbort(CURRENT_ABORT.with(|current| current.replace(Some(flag.clone()))));
-    let result = work();
-    drop(restore);
-    result
-}
+// The exact builder still uses the supplier's retained optimizer callback. Detach
+// its producer before retention; checked transformations borrow fresh per-call
+// control and clear inherited optimizer settings.
 struct AbortBinding {
     producer: std::sync::Mutex<Option<Arc<std::sync::atomic::AtomicBool>>>,
     observed: std::sync::atomic::AtomicBool,
@@ -291,24 +275,14 @@ impl AbortBinding {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .clone();
-        producer.map_or_else(
-            || {
-                CURRENT_ABORT.with(|current| {
-                    current
-                        .borrow()
-                        .as_ref()
-                        .is_some_and(|flag| flag.load(std::sync::atomic::Ordering::Acquire))
-                })
-            },
-            |flag| {
-                let cancelled = flag.load(std::sync::atomic::Ordering::Acquire);
-                if cancelled {
-                    self.observed
-                        .store(true, std::sync::atomic::Ordering::Release);
-                }
-                cancelled
-            },
-        )
+        producer.is_some_and(|flag| {
+            let cancelled = flag.load(std::sync::atomic::Ordering::Acquire);
+            if cancelled {
+                self.observed
+                    .store(true, std::sync::atomic::Ordering::Release);
+            }
+            cancelled
+        })
     }
 }
 struct DetachAbort(Arc<AbortBinding>);
@@ -407,8 +381,6 @@ pub(crate) struct Storage {
 pub(crate) struct EvaluatorFacts {
     pub(crate) storage: Storage,
     pub(crate) operations: symbolica::evaluate::OperationCount,
-    pub(crate) constants: usize,
-    pub(crate) instructions: usize,
     pub(crate) taylor_supported: bool,
     pub(crate) resettable: bool,
 }
@@ -434,8 +406,6 @@ impl EvaluatorFacts {
                 instruction_count: description.count,
             },
             operations,
-            constants: export.constants.len(),
-            instructions: export.instructions.len(),
             taylor_supported: description.taylor_supported,
             resettable: description.resettable,
         })
@@ -485,17 +455,21 @@ fn instruction_description<T>(export: &ExportedInstructions<T>) -> Option<Instru
             }
             Instruction::Fun(_, call, _) => {
                 let (symbol, tags, arguments) = call.as_ref();
-                result.resettable = false;
-                result.taylor_supported &= [
-                    Symbol::SQRT,
-                    Symbol::EXP,
-                    Symbol::LOG,
-                    Symbol::SIN,
-                    Symbol::COS,
-                    Symbol::ABS,
-                    Symbol::CONJ,
-                ]
-                .contains(symbol);
+                let known = crate::stable::identify(*symbol).is_some_and(|operation| {
+                    tags.is_empty() && arguments.len() == operation.arity()
+                });
+                result.resettable &= known;
+                result.taylor_supported &= known
+                    || [
+                        Symbol::SQRT,
+                        Symbol::EXP,
+                        Symbol::LOG,
+                        Symbol::SIN,
+                        Symbol::COS,
+                        Symbol::ABS,
+                        Symbol::CONJ,
+                    ]
+                    .contains(symbol);
                 size_of_val(call.as_ref())
                     + size_of_val(tags.as_slice())
                     + tags.iter().map(String::len).sum::<usize>()
@@ -544,7 +518,7 @@ mod abort_binding_tests {
         );
     }
     #[test]
-    fn constructor_abort_binding_is_fresh_nested_and_restored_after_unwind() {
+    fn constructor_abort_binding_detaches_the_producer_before_retention() {
         let producer = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let binding = Arc::new(AbortBinding::new(producer.clone()));
         let detach = DetachAbort(binding.clone());
@@ -556,20 +530,5 @@ mod abort_binding_tests {
         drop(detach);
         assert_eq!(Arc::strong_count(&producer), 1);
         assert!(!binding.cancelled());
-        let current = Arc::new(std::sync::atomic::AtomicBool::new(true));
-        scoped_abort(&current, || {
-            assert!(binding.cancelled());
-            let nested = Arc::new(std::sync::atomic::AtomicBool::new(false));
-            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                scoped_abort(&nested, || {
-                    assert!(!binding.cancelled());
-                    panic!("test nested unwind");
-                })
-            }));
-            assert!(binding.cancelled());
-            assert_eq!(Arc::strong_count(&nested), 1);
-        });
-        assert!(!binding.cancelled());
-        assert_eq!(Arc::strong_count(&current), 1);
     }
 }

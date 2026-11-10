@@ -92,6 +92,30 @@ impl BodyBuilder<'_> {
             let variable =
                 Indeterminate::try_from(argument.atom()?.clone()).map_err(MathError::Library)?;
             let stages = self.stages[scope.0..].to_vec();
+            // Guard-only blocks are evaluated by the original source schedule,
+            // but are not mathematical dependencies of this selected partial.
+            // Determine the value DAG before asking Symbolica to differentiate;
+            // otherwise an opaque predicate acquires an unrequested derivative.
+            let mut needed = value.get_all_symbols(false);
+            let mut selected = BTreeSet::new();
+            for stage in stages.iter().rev() {
+                if let Stage::Block {
+                    expressions,
+                    outputs,
+                    ..
+                } = stage
+                {
+                    for (expression, &slot) in expressions.iter().zip(outputs) {
+                        let formal = library::formal(slot)?
+                            .get_symbol()
+                            .ok_or_else(|| MathError::Contract("shared partial formal".into()))?;
+                        if needed.remove(&formal) {
+                            selected.insert(slot);
+                            needed.extend(expression.get_all_symbols(false));
+                        }
+                    }
+                }
+            }
             let mut bindings = Bindings::default();
             for stage in stages {
                 match stage {
@@ -103,6 +127,9 @@ impl BodyBuilder<'_> {
                         // A block's outputs become visible together, after its inputs.
                         let mut next = Vec::new();
                         for (expression, slot) in expressions.iter().zip(outputs) {
+                            if !selected.contains(&slot) {
+                                continue;
+                            }
                             let atom = bindings.derivative(expression, &variable, argument.atom()?);
                             let derivative = self.partial_binding(atom, source, &mut work)?;
                             let call =

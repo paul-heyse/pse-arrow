@@ -43,17 +43,6 @@ fn products_for(n: usize, order: pse_kernels::DerivativeOrder) -> Result<usize, 
 /// A multiply has W initial products and (K-W) product/add pairs. Each unary
 /// Taylor loop has depth <=2 and one convolution, rescale and addition per step.
 /// Setup/final scaling costs <=2W+2. Powf is log, multiplication, then exp.
-fn expansion(c: OperationCount, layout: &JetLayout) -> Result<usize, MathError> {
-    let first = if layout.order >= pse_kernels::DerivativeOrder::First {
-        mul(2, layout.coordinates.len())?
-    } else {
-        0
-    };
-    let products = layout.pairs.iter().try_fold(add(1, first)?, |n, &(i, j)| {
-        add(n, if i == j { 3 } else { 4 })
-    })?;
-    expansion_with_products(c, layout.order, layout.width(), products)
-}
 fn expansion_with_products(
     c: OperationCount,
     order: pse_kernels::DerivativeOrder,
@@ -328,6 +317,7 @@ impl Equivalent<Arc<ScalarProductKey>> for ScalarProductQuery<'_> {
 #[derive(Clone, Default)]
 pub struct ScalarProducts {
     evaluators: Arc<ScalarProductMap>,
+    partials: Arc<HashMap<Arc<crate::execution::LocalPartialsKey>, Arc<PartialProduct>>>,
     owner: Option<Arc<dyn crate::AllocationOwner>>,
     foreign_bytes: usize,
 }
@@ -339,6 +329,11 @@ struct ScalarProduct {
     source_atom_operations: usize,
     owner: std::sync::OnceLock<Arc<dyn crate::AllocationOwner>>,
 }
+struct PartialProduct {
+    partials: Arc<crate::execution::LocalPartials>,
+    bytes: usize,
+    owner: std::sync::OnceLock<Arc<dyn crate::AllocationOwner>>,
+}
 impl std::fmt::Debug for ScalarProducts {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ScalarProducts")
@@ -347,18 +342,36 @@ impl std::fmt::Debug for ScalarProducts {
     }
 }
 impl ScalarProducts {
-    /// Number of exact preparations, excluding derivative conversions and workers.
+    /// Number of exact scalar evaluators, excluding named derivatives and workers.
     pub fn len(&self) -> usize {
         self.evaluators.len()
     }
-    /// Whether this bundle contains no scalar preparation.
+    /// Whether this bundle contains no exact evaluator or named derivative preparation.
     pub fn is_empty(&self) -> bool {
-        self.evaluators.is_empty()
+        self.evaluators.is_empty() && self.partials.is_empty()
+    }
+    /// Retained exact named derivative preparations, excluding numerical workers.
+    pub fn derivative_preparations(&self) -> usize {
+        self.partials.len()
+    }
+    /// Whether this bundle retains every named derivative allocation of a nonempty
+    /// seed. Additional preparations are allowed. This observes shared backing,
+    /// not mathematical or scientific equivalence.
+    pub fn contains_same_derivative_preparations(&self, seed: &Self) -> bool {
+        !seed.partials.is_empty()
+            && seed.partials.iter().all(|(key, product)| {
+                self.partials
+                    .get(key)
+                    .is_some_and(|other| Arc::ptr_eq(&product.partials, &other.partials))
+            })
     }
     /// Complete reachable scalar storage, including exact keys and descriptors.
     pub fn retained_bytes(&self) -> usize {
-        self.evaluators.values().fold(
-            self.descriptor_bytes().saturating_add(self.foreign_bytes),
+        self.partials.values().fold(
+            self.evaluators.values().fold(
+                self.descriptor_bytes().saturating_add(self.foreign_bytes),
+                |bytes, product| bytes.saturating_add(product.bytes),
+            ),
             |bytes, product| bytes.saturating_add(product.bytes),
         )
     }
@@ -366,18 +379,32 @@ impl ScalarProducts {
         size_of::<Self>()
             + self.evaluators.capacity()
                 * (size_of::<Arc<ScalarProductKey>>() + size_of::<Arc<ScalarProduct>>() + 1)
+            + self.partials.capacity()
+                * (size_of::<Arc<crate::execution::LocalPartialsKey>>()
+                    + size_of::<Arc<PartialProduct>>()
+                    + 1)
     }
     pub(crate) fn unowned_bytes(&self) -> usize {
-        self.evaluators
+        self.partials
             .values()
             .filter(|product| product.owner.get().is_none())
-            .fold(0usize, |bytes, product| bytes.saturating_add(product.bytes))
+            .fold(
+                self.evaluators
+                    .values()
+                    .filter(|product| product.owner.get().is_none())
+                    .fold(0usize, |bytes, product| bytes.saturating_add(product.bytes)),
+                |bytes, product| bytes.saturating_add(product.bytes),
+            )
     }
     /// Whether this bundle contains newly constructed entries needing an owner.
     pub fn has_unowned(&self) -> bool {
         self.evaluators
             .values()
             .any(|product| product.owner.get().is_none())
+            || self
+                .partials
+                .values()
+                .any(|product| product.owner.get().is_none())
     }
     /// Conservative foreign capacity retained from the original constructing jobs,
     /// counted once per constructor, not once per exact entry or borrower.
@@ -397,6 +424,9 @@ impl ScalarProducts {
     ) -> Self {
         let mut attached = false;
         for product in self.evaluators.values() {
+            attached |= product.owner.set(owner.clone()).is_ok();
+        }
+        for product in self.partials.values() {
             attached |= product.owner.set(owner.clone()).is_ok();
         }
         if attached {
@@ -432,6 +462,7 @@ impl SourceOperationLimit {
 #[derive(Default)]
 pub(crate) struct ScalarCache {
     evaluators: ScalarProductMap,
+    partials: HashMap<Arc<crate::execution::LocalPartialsKey>, Arc<PartialProduct>>,
     builds: usize,
     foreign_bytes: usize,
 }
@@ -439,6 +470,7 @@ impl ScalarCache {
     pub(crate) fn from_products(products: &ScalarProducts) -> Self {
         Self {
             evaluators: products.evaluators.as_ref().clone(),
+            partials: products.partials.as_ref().clone(),
             builds: 0,
             foreign_bytes: products.foreign_bytes,
         }
@@ -446,6 +478,7 @@ impl ScalarCache {
     pub(crate) fn freeze(self) -> ScalarProducts {
         ScalarProducts {
             evaluators: Arc::new(self.evaluators),
+            partials: Arc::new(self.partials),
             owner: None,
             foreign_bytes: self.foreign_bytes,
         }
@@ -457,6 +490,29 @@ impl ScalarCache {
     #[cfg(test)]
     pub(crate) fn builds(&self) -> usize {
         self.builds
+    }
+    pub(crate) fn local_partials(
+        &self,
+        key: &crate::execution::LocalPartialsKey,
+    ) -> Option<Arc<crate::execution::LocalPartials>> {
+        self.partials
+            .get(key)
+            .map(|product| Arc::clone(&product.partials))
+    }
+    pub(crate) fn retain_local_partials(
+        &mut self,
+        key: crate::execution::LocalPartialsKey,
+        partials: Arc<crate::execution::LocalPartials>,
+        bytes: usize,
+    ) {
+        self.partials.insert(
+            Arc::new(key),
+            Arc::new(PartialProduct {
+                partials,
+                bytes,
+                owner: Default::default(),
+            }),
+        );
     }
 
     pub(crate) fn admit_prepare(
@@ -743,54 +799,51 @@ pub(crate) fn bounded_evaluator(
     if !product.facts.taylor_supported {
         return Err(MathError::Contract("unsupported Taylor primitive".into()));
     }
-    let bound = expansion(scalar, layout)?;
-    if bound > remaining {
-        return Err(MathError::WorkLimit {
-            source_id,
-            resource: "derivative expansion",
-            required: bound,
-            available: remaining,
-            components: layout.width(),
-        });
-    }
-    // Numeric slots: original parameters/constants, external input/output buffers,
-    // one slot per arithmetic operation, <=3 assignment vectors per instruction
-    // (Powf's log result, adjacent multiplication, exp result), and <=7 new constant
-    // vectors per function (log+exp); inversions introduce <=3 constant vectors.
-    let vectors = add(
-        add(mul(2, parameters.len())?, expressions.len())?,
-        add(
-            product.facts.constants,
-            add(
-                mul(3, product.facts.instructions)?,
-                add(mul(7, scalar.function_calls)?, mul(3, scalar.inversions)?)?,
-            )?,
-        )?,
-    )?;
-    limits.allocation(add(
-        occupied_entries,
-        add(bound, mul(layout.width(), vectors)?)?,
-    )?)?;
-    crate::construction::additional(construction.coefficient_payload)?;
     let dual = symbolica::prelude::HyperDual::<Complex<Rational>>::new(layout.shape.clone());
-    let evaluator = scoped_abort(cancelled, || {
-        evaluator
-            .clone()
-            .vectorize(&symbolica::prelude::Dualizer::new(
-                dual,
-                zero_components.to_vec(),
-            ))
-    })
-    .map_err(|error| {
-        if cancelled.load(std::sync::atomic::Ordering::Acquire) {
-            MathError::Cancelled
-        } else {
-            MathError::Library(error)
-        }
-    })?;
-    if cancelled.load(std::sync::atomic::Ordering::Acquire) {
-        return Err(MathError::Cancelled);
-    }
+    let mut peak = 0;
+    let heads = crate::stable::known_heads()?;
+    let evaluator = evaluator
+        .try_vectorize_known_with(
+            &symbolica::prelude::Dualizer::new(dual, zero_components.to_vec()),
+            heads,
+            &mut |extent: symbolica::evaluate::OperationExtent| {
+                if cancelled.load(std::sync::atomic::Ordering::Acquire) {
+                    return Err(MathError::Cancelled);
+                }
+                if extent.work > remaining {
+                    return Err(MathError::WorkLimit {
+                        source_id,
+                        resource: "derivative expansion",
+                        required: extent.work,
+                        available: remaining,
+                        components: layout.width(),
+                    });
+                }
+                limits.allocation(add(occupied_entries, extent.output_entries)?)?;
+                let required = extent
+                    .peak_bytes()
+                    .ok_or(MathError::Limit("supplier construction extent"))?;
+                crate::construction::additional(required.saturating_sub(peak))?;
+                peak = peak.max(required);
+                Ok(())
+            },
+        )
+        .map_err(|error| match error {
+            symbolica::evaluate::OperationError::Control(error) => error,
+            symbolica::evaluate::OperationError::Overflow => {
+                MathError::Limit("supplier construction extent")
+            }
+            symbolica::evaluate::OperationError::Allocation => {
+                MathError::Limit("supplier construction allocation")
+            }
+            symbolica::evaluate::OperationError::Unsupported(profile) => {
+                MathError::Contract(format!("unsupported checked Taylor profile: {profile}"))
+            }
+            symbolica::evaluate::OperationError::InvalidProgram(message) => {
+                MathError::Library(message)
+            }
+            symbolica::evaluate::OperationError::Interrupted => MathError::Cancelled,
+        })?;
     // Expanded exact Taylor and floating programs are distinct representations.
     let expanded_export = evaluator.export_instructions();
     let facts = EvaluatorFacts::inspect(
@@ -798,9 +851,9 @@ pub(crate) fn bounded_evaluator(
         evaluator.count_operations(),
         "math.taylor_representation_inspections",
     )?;
-    if total(facts.operations)? > bound {
+    if total(facts.operations)? > remaining {
         return Err(MathError::Contract(
-            "library Taylor expansion exceeded admitted bound".into(),
+            "library Taylor construction exceeded admitted work".into(),
         ));
     }
     reserve_facts(&facts, construction)?;
@@ -812,6 +865,171 @@ pub(crate) fn bounded_evaluator(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn checked_taylor_admits_before_growth_and_preserves_original_refusal() {
+        crate::initialize().unwrap();
+        let x = formal(0).unwrap();
+        let producer = Arc::new(AtomicBool::new(false));
+        let source = exact_evaluator(
+            &[x.clone().pow(2) + 1],
+            &[x],
+            &[],
+            Optimization::default(),
+            &producer,
+        )
+        .unwrap();
+        let dual = symbolica::prelude::HyperDual::<Complex<Rational>>::new(vec![
+            vec![0],
+            vec![1],
+            vec![2],
+        ]);
+        let dualizer = symbolica::prelude::Dualizer::new(dual, vec![]);
+        let mut admitted = 0;
+        let mut required = 0;
+        let complete = source
+            .try_vectorize_with(
+                &dualizer,
+                &mut |extent: symbolica::evaluate::OperationExtent| {
+                    required = required.max(extent.peak_bytes().unwrap());
+                    admitted += extent.work;
+                    Ok::<_, MathError>(())
+                },
+            )
+            .unwrap();
+        assert!(admitted > 0);
+        assert!(required > 0);
+        assert!(total(complete.count_operations()).unwrap() <= admitted);
+        let mut attempts = 0;
+        let error = source.try_vectorize_with(
+            &dualizer,
+            &mut |extent: symbolica::evaluate::OperationExtent| {
+                attempts += usize::from(extent.peak_bytes().unwrap() > 0);
+                if extent.peak_bytes().unwrap() > required - 1 {
+                    Err(MathError::Limit("original supplier admission"))
+                } else {
+                    Ok(())
+                }
+            },
+        );
+        assert!(matches!(
+            error,
+            Err(symbolica::evaluate::OperationError::Control(
+                MathError::Limit("original supplier admission")
+            ))
+        ));
+        assert_eq!(
+            attempts, 1,
+            "refusal precedes cloning and every expansion stage"
+        );
+        let complete = source
+            .try_vectorize_with(
+                &dualizer,
+                &mut |extent: symbolica::evaluate::OperationExtent| {
+                    assert!(extent.peak_bytes().unwrap() <= required);
+                    Ok::<_, MathError>(())
+                },
+            )
+            .unwrap();
+        let mut evaluator = complete.map_coeff(&|c| c.re.to_f64());
+        let mut output = [0.; 3];
+        evaluator.try_evaluate(&[3., 1., 0.], &mut output).unwrap();
+        assert_eq!(output, [10., 6., 1.]);
+    }
+
+    #[test]
+    fn checked_taylor_stop_between_stages_and_nested_controls_are_private() {
+        use symbolica::evaluate::{OperationError, OperationExtent, OperationStage};
+        crate::initialize().unwrap();
+        let x = formal(0).unwrap();
+        let producer = Arc::new(AtomicBool::new(false));
+        let source = exact_evaluator(
+            &[x.clone().pow(2)],
+            &[x],
+            &[],
+            Optimization::default(),
+            &producer,
+        )
+        .unwrap();
+        producer.store(true, std::sync::atomic::Ordering::Release);
+        let dual = symbolica::prelude::HyperDual::<Complex<Rational>>::new(vec![
+            vec![0],
+            vec![1],
+            vec![2],
+        ]);
+        let dualizer = symbolica::prelude::Dualizer::new(dual, vec![(0, 2)]);
+        let mut nested = false;
+        let result = source.try_vectorize_with(&dualizer, &mut |extent: OperationExtent| {
+            if !nested {
+                nested = true;
+                let child = source.try_vectorize_with(&dualizer, &mut |_| Err("child stop"));
+                assert!(matches!(child, Err(OperationError::Control("child stop"))));
+            }
+            if extent.stage == OperationStage::Optimization {
+                Err("current stop")
+            } else {
+                Ok(())
+            }
+        });
+        assert!(matches!(
+            result,
+            Err(OperationError::Control("current stop"))
+        ));
+        let complete = source
+            .try_vectorize_with(&dualizer, &mut |_| Ok::<_, &'static str>(()))
+            .unwrap();
+        let mut evaluator = complete.map_coeff(&|c| c.re.to_f64());
+        let mut output = [0.; 3];
+        evaluator.try_evaluate(&[4., 1., 0.], &mut output).unwrap();
+        assert_eq!(output, [16., 8., 1.]);
+        assert_eq!(
+            Arc::strong_count(&producer),
+            1,
+            "retained source and transformed products do not retain producer scope"
+        );
+    }
+
+    #[test]
+    fn checked_taylor_extent_overflow_refuses_before_control_or_growth() {
+        struct Overflow;
+        impl symbolica::domains::dual::DualNumberStructure for Overflow {
+            fn get_len(&self) -> usize {
+                usize::MAX
+            }
+            fn get_shape(&self) -> Vec<&[usize]> {
+                vec![]
+            }
+            fn get_multiplication_table(&self) -> &[(usize, usize, usize)] {
+                &[]
+            }
+            fn get_max_depth(&self) -> usize {
+                2
+            }
+        }
+        crate::initialize().unwrap();
+        let x = formal(0).unwrap();
+        let source = exact_evaluator(
+            &[x.clone().pow(2)],
+            &[x],
+            &[],
+            Optimization::default(),
+            &Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+        let mut calls = 0;
+        let result = source.try_vectorize_with(
+            &symbolica::prelude::Dualizer::new(Overflow, vec![]),
+            &mut |_| {
+                calls += 1;
+                Ok::<_, MathError>(())
+            },
+        );
+        assert!(matches!(
+            result,
+            Err(symbolica::evaluate::OperationError::Overflow)
+        ));
+        assert_eq!(calls, 1, "only the allocation-free initial stop check ran");
+    }
 
     #[test]
     fn source_encoding_and_literal_payload_do_not_become_numeric_slot_populations() {

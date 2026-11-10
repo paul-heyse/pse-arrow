@@ -236,6 +236,10 @@ pub enum PhysicalRequest {
         bound: pse_quantity::BoundIndexRef => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };] => 11;
     /// Original conditional obligation.
     Conditional => 12;
+    /// Original compatible vector magnitude obligation.
+    Magnitude => 13;
+    /// Original positive logarithmic ratio obligation.
+    LogRatio => 14;
 }
 }
 impl PhysicalRequest {
@@ -245,6 +249,8 @@ impl PhysicalRequest {
             Self::Sub => OpRequest::Sub,
             Self::Neg => OpRequest::Neg,
             Self::Abs => OpRequest::Abs,
+            Self::Magnitude => OpRequest::Magnitude,
+            Self::LogRatio => OpRequest::LogRatio,
             Self::Mul => OpRequest::Mul,
             Self::Div => OpRequest::Div,
             Self::Pow(exponent) => OpRequest::Pow {
@@ -362,6 +368,12 @@ impl PhysicalAdmission {
             R::Abs => {
                 hash.str("abs");
             }
+            R::Magnitude => {
+                hash.str("magnitude");
+            }
+            R::LogRatio => {
+                hash.str("log-ratio");
+            }
             R::Mul => {
                 hash.str("mul");
             }
@@ -477,6 +489,8 @@ impl PhysicalAdmission {
             OpRequest::Sub => PhysicalRequest::Sub,
             OpRequest::Neg => PhysicalRequest::Neg,
             OpRequest::Abs => PhysicalRequest::Abs,
+            OpRequest::Magnitude => PhysicalRequest::Magnitude,
+            OpRequest::LogRatio => PhysicalRequest::LogRatio,
             OpRequest::Mul => PhysicalRequest::Mul,
             OpRequest::Div => PhysicalRequest::Div,
             OpRequest::Pow { exponent } => PhysicalRequest::Pow(match exponent {

@@ -203,7 +203,7 @@ pub struct JetLayoutSnapshot {
     pub coordinates: Vec<usize> => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Complete canonical coefficient multi-indices, in supplier output order.
     pub shape: Vec<Vec<usize>> => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
-    /// Ordered symmetric second pairs; empty for the fixed Value/First transfer profile.
+    /// Ordered symmetric second pairs; empty below Second.
     pub pairs: Vec<(usize, usize)> => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
     /// Existing mathematical layout order.
     pub order: DerivativeOrder => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
@@ -283,7 +283,7 @@ impl JetLayoutSnapshot {
     }
 }
 impl JetLayoutView<'_> {
-    /// Fixed Value/First profile. Canonical shape and sparse slot coverage are checked
+    /// Canonical Value/First/Second shape and sparse slot coverage are checked
     /// without allocation; coordinate uniqueness uses admitted scratch on restoration.
     pub(crate) fn validate(
         &self,
@@ -293,13 +293,15 @@ impl JetLayoutView<'_> {
     ) -> Result<usize, LayoutSnapshotError> {
         limits.check()?;
         let fail = || LayoutSnapshotError::Invalid("coefficient shape or sparse slot coverage");
-        if self.order > DerivativeOrder::First {
-            return Err(LayoutSnapshotError::Unsupported("derivative order"));
-        }
-        if !self.pairs.is_empty() || self.coordinates.iter().any(|&c| c >= inputs) {
+        let n = self.coordinates.len();
+        if (self.order < DerivativeOrder::Second && !self.pairs.is_empty())
+            || self.pairs.iter().any(|&(i, j)| i > j || j >= n)
+            || self.pairs.windows(2).any(|pair| pair[0] >= pair[1])
+            || self.coordinates.iter().any(|&c| c >= inputs)
+        {
             return Err(fail());
         }
-        let width = if self.order == DerivativeOrder::First {
+        let first_width = if self.order >= DerivativeOrder::First {
             self.coordinates
                 .len()
                 .checked_add(1)
@@ -307,6 +309,9 @@ impl JetLayoutView<'_> {
         } else {
             1
         };
+        let width = first_width
+            .checked_add(self.pairs.len())
+            .ok_or(MathError::Limit("layout width"))?;
         if width > limits.derivative_components {
             return Err(MathError::Limit("derivative components").into());
         }
@@ -320,10 +325,15 @@ impl JetLayoutView<'_> {
         )?;
         for (component, powers) in self.shape.iter().enumerate() {
             if powers.len() != self.coordinates.len()
-                || powers
-                    .iter()
-                    .enumerate()
-                    .any(|(axis, &power)| power != usize::from(component == axis + 1))
+                || powers.iter().enumerate().any(|(axis, &power)| {
+                    let expected = if component < first_width {
+                        usize::from(component == axis + 1)
+                    } else {
+                        let (i, j) = self.pairs[component - first_width];
+                        usize::from(axis == i) + usize::from(axis == j)
+                    };
+                    power != expected
+                })
             {
                 return Err(fail());
             }
@@ -349,6 +359,14 @@ impl JetLayoutView<'_> {
                         || slice.windows(2).any(|p| p[0] >= p[1])
                     {
                         return Err(fail());
+                    }
+                    for &component in slice.iter().filter(|&&c| c >= first_width) {
+                        let (i, j) = self.pairs[component - first_width];
+                        if slice.binary_search(&(i + 1)).is_err()
+                            || slice.binary_search(&(j + 1)).is_err()
+                        {
+                            return Err(fail());
+                        }
                     }
                 }
                 components.len()

@@ -53,12 +53,12 @@ Definition-led mappings are selected first. For independently authored equivalen
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| [A01](#A01) | in-progress | Coordinator scope and current source | Product/demand/binding contract and actual remaining consumer migrations/deletions identified; function/profile/receiving implications reconciled with B/C/D/E. |
-| [A02](#A02) | in-progress | A01 and working B controls where construction changes | Named definitions and selected products reach fitting/solver/exact consumers; replaced repeated construction removed. |
+| [A01](#A01) | complete | Coordinator scope and current source | Product/demand/binding contract and actual remaining consumer migrations/deletions identified; function/profile/receiving implications reconciled with B/C/D/E. |
+| [A02](#A02) | complete | A01 and working B controls where construction changes | Named definitions and selected products reach fitting/solver/exact consumers; replaced repeated construction removed. |
 | [A03](#A03) | complete | A01/A02 binding/product contract | Definition-led repeated physical instances share preparation with complete axis/output transport and distinct original results. |
-| [A04](#A04) | in-progress | A01 module scenario and B04 compatibility outcome | Joint/host/composed route selected and implemented in actual independent consumers, with replaced preparation removed. |
-| [A05](#A05) | in-progress | A03 and current structural/physical interpretation | Independent-motif graph matching decision closed and selected result integrated; no unused canonical-cache framework. |
-| [A06](#A06) | in-progress | A02–A05 and relevant numerical/exact consumers | Actual consumers and retirement reconciled; independent actions, invalidation and interruption journeys ready for H. |
+| [A04](#A04) | complete | A01 module scenario and B04 compatibility outcome | Joint/host/composed route selected and implemented in actual independent consumers, with replaced preparation removed. |
+| [A05](#A05) | complete | A03 and current structural/physical interpretation | Independent-motif graph matching decision closed and selected result integrated; no unused canonical-cache framework. |
+| [A06](#A06) | complete | A02–A05 and relevant numerical/exact consumers | Actual consumers and retirement reconciled; independent actions, invalidation and interruption journeys ready for H. |
 
 ## Implementation scope and package detail
 
@@ -166,3 +166,54 @@ The bounded Direct route remains required for finite weighted results with overf
 unrequested intermediates. A04/A05 are comparing actual caloric and independently authored
 heater consumers against existing joint aliases and canonical physical/formal correspondence;
 no composer or graph cache has been adopted.
+
+
+## Integrated shared-preparation checkpoint — 2026-11-10
+
+**Implemented.** A01/A02 retain named `LocalPartials` in the existing `ScalarProducts`
+family. Exact definition/parameter/dependency/formal/order meaning selects the retained
+preparation; mutable workers and caller cancellation do not. Compiler requests now expose
+transpose, weighted-Hessian action and selected-entry demands through the existing product
+boundary. Runtime artifact completion publishes the newly demanded named partials back into
+the existing scalar entry with its original allocation lease. The obsolete per-compilation
+pointer cache is removed. Direct, Reverse and Regional remain distinct: Direct preserves the
+finite weighted square-root countercase where unused local Second entries would overflow.
+
+**Implemented.** A06 uses those same compiler requests and runtime flights for the assembly
+that feeds fitting and solver oracles. A03 already removed repeated scale/destination
+interpretation. No alternate derivative cache, dense transport matrix, compatibility shim or
+result deduplication was introduced. Runtime cache eviction retires residency while live
+workers retain the first allocation owner; interrupted construction cannot publish success.
+
+**Tested.** `scripts/pse test pse-runtime --lib -E
+ 'test(artifact_products_retain_named_diamond_partials_across_runtime_actions_and_eviction)'`
+passed 1/1, zero failures against baseline zero, in the default Nextest profile. The actual
+artifact owner supplies analytic selected entries, Jv, transpose-Jacobian and weighted-Hessian
+actions for a shared diamond, changed runtime weights, live-worker eviction, preparation
+identity reuse and canceled nonpublication. This is the shared runtime/assembly acceptance;
+H retains assembled scientific fitting/solver-population qualification.
+
+**Implemented — bounded decisions.** A04/B04 retain joint aliases through
+`FunctionMap::add_aliases` and the existing direct-translation evaluator. The actual
+`caloric_dh`/`caloric_ds` module and heater energy response already lower through that shared
+owner. No separately retained native module is repeatedly reconstructed in the selected
+consumer; adding `EvaluatorComposer` would add wiring, derivative, invalidation and module
+lifetime machinery without deleting that work. No composer backport or dependency move is
+selected. Reopen when an independently retained native module feeds a later demand and
+repeats symbolic/Horner construction under compatible guard/profile/invalidation premises.
+
+A05's renamed and reordered independently authored heaters already have equal canonical body
+keys. Changed original guards and repeated-term multiplicity remain different; parallel
+physical connection occurrences and isolated units remain distinct. No graph matcher or
+canonicalization cache is selected. Reopen if useful repeated preparation remains after the
+existing body/scalar reuse and exact physical/guard/multiplicity correspondence can establish
+its transport.
+
+**Tested.** `scripts/pse test pse-compiler --lib -E
+ 'test(actual_caloric_module_and_energy_response_keep_joint_aliases_and_independent_invalidation)'`
+passed 1/1, zero failures against baseline zero, in the default Nextest profile. Independently
+expected caloric Value/First, coefficient-edit invalidation, surviving old products, physical
+input refusal and cancellation exercise the real compiler consumer. The companion authored
+heater/correspondence controls passed in the same scoped compiler investigation. These
+bounded choices complete A04/A05; they do not imply a general absence of composition or graph
+opportunities elsewhere in Plan73.

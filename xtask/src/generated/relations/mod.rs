@@ -17,9 +17,9 @@ pub mod enums;
 pub mod canonical;
 /// Registry identity; validity is established by admission.
 pub const REGISTRY_FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    40u8, 123u8, 206u8, 20u8, 207u8, 112u8, 170u8, 179u8, 124u8, 239u8, 222u8, 62u8,
-    188u8, 74u8, 46u8, 93u8, 164u8, 10u8, 77u8, 178u8, 119u8, 99u8, 12u8, 32u8, 97u8,
-    105u8, 5u8, 51u8, 112u8, 134u8, 35u8, 93u8,
+    173u8, 253u8, 118u8, 3u8, 44u8, 234u8, 24u8, 133u8, 197u8, 232u8, 245u8, 233u8,
+    131u8, 254u8, 94u8, 42u8, 38u8, 11u8, 224u8, 84u8, 153u8, 172u8, 222u8, 206u8, 221u8,
+    200u8, 87u8, 60u8, 37u8, 159u8, 17u8, 239u8,
 ]);
 /// Resolves an exact declaration from the current registry.
 /// # Errors

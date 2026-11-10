@@ -3,6 +3,8 @@
 //! Shared pure function projections and the existing compiler-issued artifact service.
 use super::{ExecutableCase, MathRuntimeError, MathService};
 use std::sync::Arc;
+#[path = "functions_batch.rs"]
+mod batch;
 impl MathService {
     pub(super) async fn assemble_functions(
         self: &Arc<Self>,

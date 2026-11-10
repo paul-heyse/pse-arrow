@@ -727,6 +727,12 @@ fn request_key(
         OpRequest::Abs => {
             h.str("abs");
         }
+        OpRequest::Magnitude => {
+            h.str("magnitude");
+        }
+        OpRequest::LogRatio => {
+            h.str("log-ratio");
+        }
         OpRequest::Mul => {
             h.str("mul");
         }

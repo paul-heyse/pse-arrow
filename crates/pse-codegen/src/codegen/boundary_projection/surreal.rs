@@ -15,7 +15,7 @@ pub fn native_value_adapters(
 ) -> Result<String, ProjectionCodegenError> {
     syn::parse_str::<syn::Path>(support).map_err(|e| error(e.to_string()))?;
     let mut source = format!(
-        "use {support}::{{NativeValue, NativeError, required, exact_object}};\nuse surrealdb_types::{{Value,Object}};\n"
+        "use {support}::{{NativeValue, NativeError, required, exact_object}};\nuse surrealdb_types::{{Value,Object}};\n/// Maximum logical Value depth admitted by these direct native projections.\npub const NATIVE_VALUE_MAX_DEPTH:usize=128;\n"
     );
     for owner in graph.definitions().values() {
         if owner.construction != ConstructionRole::Data {
@@ -121,7 +121,7 @@ pub fn native_value_adapters(
         let method = snake_case(&owner.name);
         let _ = writeln!(
             source,
-            "/// Encode the source-owned value without a document intermediate.\npub fn encode_{method}(value:{native})->Result<Value,NativeError> {{ pse_contract::boundary_projection::ValidateProjection::validate_projection(&value).map_err(|_|NativeError)?; value.into_native() }}\n/// Decode the exact declared native product.\npub fn decode_{method}(value:Value)->Result<{native},NativeError> {{ {support}::admit(&value,1024*1024,128)?; NativeValue::from_native(value) }}"
+            "/// Encode the source-owned value without a document intermediate.\npub fn encode_{method}(value:{native})->Result<Value,NativeError> {{ pse_contract::boundary_projection::ValidateProjection::validate_projection(&value).map_err(|_|NativeError)?; value.into_native() }}\n/// Decode the exact declared native product.\npub fn decode_{method}(value:Value)->Result<{native},NativeError> {{ {support}::admit(&value,1024*1024,NATIVE_VALUE_MAX_DEPTH)?; NativeValue::from_native(value) }}"
         );
     }
     let parsed = syn::parse_file(&source).map_err(|e| error(e.to_string()))?;

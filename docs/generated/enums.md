@@ -2398,6 +2398,9 @@ IDAES compatibility source: `idaes.core.scaling.custom_scaler_base`.
 | `Abs` | `` | false |
 | `Exp` | `` | false |
 | `Log` | `` | false |
+| `Log1p` | `` | false |
+| `LogRatio` | `` | false |
+| `Magnitude` | `` | false |
 | `Log10` | `` | false |
 | `Sqrt` | `` | false |
 | `Sin` | `` | false |

@@ -1409,7 +1409,7 @@ fn resolved_product_27() -> Result<RelationSpec, crate::SchemaError> {
             vec![],
             "Exact structural dispatch domain for a registered reduction; physical precondition failure never permits a fallback.",
             pse_ids::ContentHash::from_bytes(
-                *b"]\xE4\xFF\x18*k\xAAW\x02\xDB'\x1F@\xA4\xEA\r\xD0SsQ\xB22\x01\xC4\x9B\x8E^k;DV/",
+                *b"\xD4\xB9\xC0\xA5\x1C\t'1\x96\xAD7'\xB0M\x08\x8B\x9A\n.\x1B\xA8]\x85\xEC|\xA7z\xDEh\x1E\x97\x95",
             ),
         ),
     )
@@ -1475,7 +1475,7 @@ fn resolved_product_28() -> Result<RelationSpec, crate::SchemaError> {
             vec![],
             "blueprint §6.2 physical type: quantity_operations.",
             pse_ids::ContentHash::from_bytes(
-                *b"\xE5\x89rQ\x99\xC3\x16cug\x12\xBBq\x06\xFD\xADo\xC7\x0C\xD6Z@\x9Cs\xC1\x04T\xCCJ=\x1F\x94",
+                *b"-\x94\r\xD5\x14\x04?\xB8\"RL\x92\x7F\xBD\x16n\x1E\xC1\xF4\xB8N\x15\x8A\xE4\x1C\x83\x86S\xD5j\xFD\xCB",
             ),
         ),
     )
@@ -22433,6 +22433,24 @@ fn resolved_product_399() -> Result<EnumSpec, crate::SchemaError> {
                 idaes_name: None,
                 deprecated: false,
                 doc: "Log",
+            },
+            EnumMember {
+                name: "Log1p",
+                idaes_name: None,
+                deprecated: false,
+                doc: "Log1p",
+            },
+            EnumMember {
+                name: "LogRatio",
+                idaes_name: None,
+                deprecated: false,
+                doc: "LogRatio",
+            },
+            EnumMember {
+                name: "Magnitude",
+                idaes_name: None,
+                deprecated: false,
+                doc: "Magnitude",
             },
             EnumMember {
                 name: "Log10",
@@ -73392,6 +73410,24 @@ fn resolved_product_2144() -> Result<EnumSpec, crate::SchemaError> {
                 doc: "",
             },
             EnumMember {
+                name: "Log1p",
+                idaes_name: None,
+                deprecated: false,
+                doc: "",
+            },
+            EnumMember {
+                name: "LogRatio",
+                idaes_name: None,
+                deprecated: false,
+                doc: "",
+            },
+            EnumMember {
+                name: "Magnitude",
+                idaes_name: None,
+                deprecated: false,
+                doc: "",
+            },
+            EnumMember {
                 name: "Log10",
                 idaes_name: None,
                 deprecated: false,
@@ -79322,7 +79358,7 @@ fn resolved_product_2222() -> Result<
             ],
         ),
         pse_ids::ContentHash::from_bytes(
-            *b"\x06S\x042r3\xF3}Ju\xCBI\xAC\xE9F\x99\n\x13H\x8E\x9A\xC3(_\x94\x16\x1A\xBF\xF4\xB4\x11\xCC",
+            *b"T&\xC9\x81\xDCWX\xCA\xBC*\xDC\x84\xAC\x8C\x99\x84\xD0\x1E\xF74.\x1Am\x1D\xEBv\xA7~\x10u\x13\xFA",
         ),
     ))
 }
@@ -79618,7 +79654,7 @@ fn resolved_product_2224() -> Result<
             ],
         ),
         pse_ids::ContentHash::from_bytes(
-            *b"\xAB*x\xB3\xA0t:\xC3*\xAD\x8D\xC5\x9Br\xBA\x94\xDC\x1E\x10_p+%\xA4\xA2\xE4\xAB$)\xE3\x10\xA6",
+            *b"\x8C:\x18^.;\x89\x8B\xBA\xB9\xDD\x95\x86bim:g\x07\x18W\x1B\x80J\xBC\x9E1D\xA8\xFE+\xC6",
         ),
     ))
 }
@@ -82167,7 +82203,7 @@ fn resolved_product_2297() -> Result<
             ],
         ),
         pse_ids::ContentHash::from_bytes(
-            *b"]\xE4\xFF\x18*k\xAAW\x02\xDB'\x1F@\xA4\xEA\r\xD0SsQ\xB22\x01\xC4\x9B\x8E^k;DV/",
+            *b"\xD4\xB9\xC0\xA5\x1C\t'1\x96\xAD7'\xB0M\x08\x8B\x9A\n.\x1B\xA8]\x85\xEC|\xA7z\xDEh\x1E\x97\x95",
         ),
     ))
 }
@@ -84771,7 +84807,7 @@ fn resolved_product_2384() -> Result<
             ],
         ),
         pse_ids::ContentHash::from_bytes(
-            *b"\xE5\x89rQ\x99\xC3\x16cug\x12\xBBq\x06\xFD\xADo\xC7\x0C\xD6Z@\x9Cs\xC1\x04T\xCCJ=\x1F\x94",
+            *b"-\x94\r\xD5\x14\x04?\xB8\"RL\x92\x7F\xBD\x16n\x1E\xC1\xF4\xB8N\x15\x8A\xE4\x1C\x83\x86S\xD5j\xFD\xCB",
         ),
     ))
 }
@@ -94085,7 +94121,7 @@ fn resolved_product_2451() -> Result<
                         version: 1u32,
                         semantic_version: 2u32,
                         semantics: pse_ids::ContentHash::from_bytes(
-                            *b"]\xE4\xFF\x18*k\xAAW\x02\xDB'\x1F@\xA4\xEA\r\xD0SsQ\xB22\x01\xC4\x9B\x8E^k;DV/",
+                            *b"\xD4\xB9\xC0\xA5\x1C\t'1\x96\xAD7'\xB0M\x08\x8B\x9A\n.\x1B\xA8]\x85\xEC|\xA7z\xDEh\x1E\x97\x95",
                         ),
                         encoding: pse_ids::ContentHash::from_bytes(
                             *b"\x9F=tf\xD2\xF5W\xC4;\xD6i\xEA\x85\xA2\x83e\xDAv\x97\xDE\xA2D3\xA3\xB5\x8DqI\xA8\x85*\xED",
@@ -95719,7 +95755,7 @@ fn resolved_product_2451() -> Result<
                         version: 1u32,
                         semantic_version: 2u32,
                         semantics: pse_ids::ContentHash::from_bytes(
-                            *b"\xE5\x89rQ\x99\xC3\x16cug\x12\xBBq\x06\xFD\xADo\xC7\x0C\xD6Z@\x9Cs\xC1\x04T\xCCJ=\x1F\x94",
+                            *b"-\x94\r\xD5\x14\x04?\xB8\"RL\x92\x7F\xBD\x16n\x1E\xC1\xF4\xB8N\x15\x8A\xE4\x1C\x83\x86S\xD5j\xFD\xCB",
                         ),
                         encoding: pse_ids::ContentHash::from_bytes(
                             *b"\xB1e\xC9\xBE\x19\x87\xEF\x8C\xFA!\xB2S\x0F\xA7E B\xD3I2\x81\xA1\x07\x1B\x9E\rs\xEC\x04\xF6\xC7\xEF",
@@ -97782,355 +97818,355 @@ fn resolved_product_2453() -> Result<
                     pse_ids::SemanticId::from_bytes(
                         *b"\xBB(\x86\x7F\xC5\x07\x7F\xFF\xFF0\xD1\x9B\n1\xED\x11",
                     ),
-                    native(20065730usize, 20074286usize)?,
+                    native(20065730usize, 20074335usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xBB\xDC2\x90\xB6\x01\x03gT9\x04E\xA8F\xE8\xF7",
                     ),
-                    native(20074287usize, 20076588usize)?,
+                    native(20074336usize, 20076637usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xBD@ \x9C\xAA\x10\"\xBA\xEB\xD2\xBD F\x13kK",
                     ),
-                    native(20076589usize, 20078355usize)?,
+                    native(20076638usize, 20078404usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xBE2\xEC\xA8{\xBE\x16cG\xF0\x82\xB0\xB6E>\xE2",
                     ),
-                    native(20078356usize, 20084472usize)?,
+                    native(20078405usize, 20084521usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xBE\xD6%Yz\xF3w\xAC\x84\x8E\xA34;\x1C\xAF ",
                     ),
-                    native(20084473usize, 20085637usize)?,
+                    native(20084522usize, 20085686usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xC0D&\x07\xA9\x91\x92h\x0BX\x87\xB0\xDA\xE0\x90\xFB",
                     ),
-                    native(20085638usize, 20088062usize)?,
+                    native(20085687usize, 20088111usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xC15'#Q\xCC\x1A%f\xF9\xC5y\x9F\xEB\xD5\x08",
                     ),
-                    native(20088063usize, 20100141usize)?,
+                    native(20088112usize, 20100190usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xC4\x89}\xA8`\xEB0\x10\xF1\xE5\x90\x0F\xB7\xCC\xCF)",
                     ),
-                    native(20100142usize, 20101281usize)?,
+                    native(20100191usize, 20101330usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xC8HDZ\xC1V\xF7\xCF\xB2b(\x8A\x8B]\xD59",
                     ),
-                    native(20101282usize, 20102050usize)?,
+                    native(20101331usize, 20102099usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xC8U\xA2\xAA\x9A\xEB\xBC\x91\x07\x1E'C\xAE\xEF\xF4U",
                     ),
-                    native(20102051usize, 20103758usize)?,
+                    native(20102100usize, 20103807usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xC9\xC1T0+\xFC\xE2\x9AmHI\x91\x14\xC3\xBA\xE8",
                     ),
-                    native(20103759usize, 20104772usize)?,
+                    native(20103808usize, 20104821usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xCB\x0B|(\xBA\xDD\xED\x88k\xFE\x02\xD8\xE0\xD3\xB7q",
                     ),
-                    native(20104773usize, 20109789usize)?,
+                    native(20104822usize, 20109838usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xCCY\x19e\x1B\xBF\xCF\xF3E\xF0@=\xBD\x91K\xF6",
                     ),
-                    native(20109790usize, 20112442usize)?,
+                    native(20109839usize, 20112491usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xD5\xB4\xBF\x80\xFFf\xAE\xE3\x07\x84\xBBp\xF8\xE6.\xF4",
                     ),
-                    native(20112443usize, 20113224usize)?,
+                    native(20112492usize, 20113273usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xD5\xB6:Z\x1B\x11\x1B5\x88;\xD7\xE9\x19\xA2\x1DS",
                     ),
-                    native(20113225usize, 20115891usize)?,
+                    native(20113274usize, 20115940usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xD7i\xF6r\xE6\x12'\xE9n3!\xD9\xA7\xEC\x99\xCF",
                     ),
-                    native(20115892usize, 20117598usize)?,
+                    native(20115941usize, 20117647usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xD8<&\x10\x8E\x19q\xF3\x14@\x0C\x9C\xCA]\x1B\x8E",
                     ),
-                    native(20117599usize, 20119310usize)?,
+                    native(20117648usize, 20119359usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xDA\x1E\xF8\xFA\x90e9\x8D\xAEs\xFF\xD8\x83\x94\n\x93",
                     ),
-                    native(20119311usize, 20124584usize)?,
+                    native(20119360usize, 20124633usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xDB\x1B\xD5\xBD\xCC\xED\xB6\\\xE9\xC0B_\xE8f\xD8\x19",
                     ),
-                    native(20124585usize, 20127347usize)?,
+                    native(20124634usize, 20127396usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xDBf\xD2\xD5\xF0\xBF\xC0\xE3\xEE\x87g\xDB\x11\xC1R\xDD",
                     ),
-                    native(20127348usize, 20129871usize)?,
+                    native(20127397usize, 20129920usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xDB\xD5\xE4\x04\xB29\xBA\xFAG\xDD\xA5u\x92(\xCB\xF4",
                     ),
-                    native(20129872usize, 20131969usize)?,
+                    native(20129921usize, 20132018usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xDDW\xBD\\U\xAE \x8EZ\x0F\xE8\xB6Wd \x9C",
                     ),
-                    native(20131970usize, 20135548usize)?,
+                    native(20132019usize, 20135597usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xDE\xB2\x11\xB0\x8E\x07\x8B\x07}\x80\xF6\xFAd\x0C!Y",
                     ),
-                    native(20135549usize, 20138063usize)?,
+                    native(20135598usize, 20138112usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xDFD\x9C\xF47\x12\xC3\xC2}[\xA87\xDA\xD4\xFB\xEC",
                     ),
-                    native(20138064usize, 20139091usize)?,
+                    native(20138113usize, 20139140usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xDF\xAF%\x91\x9B\x93\x12\xE5=Q\xE8*4Z4.",
                     ),
-                    native(20139092usize, 20441448usize)?,
+                    native(20139141usize, 20441497usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xDF\xF2\xD2\x966j\xC4\x13Z\xD5^P\x91,\xCD\xE4",
                     ),
-                    native(20441449usize, 20443422usize)?,
+                    native(20441498usize, 20443471usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xE1\x8A\xE9\xEC\xAB\x1Ah\xAC\xF0\xC6#\x1CN*\xAC3",
                     ),
-                    native(20443423usize, 20447127usize)?,
+                    native(20443472usize, 20447176usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xE2\xD0\xC6\xDBo\xED\x95[\xE3\xDEpb8\x15`<",
                     ),
-                    native(20447128usize, 20448793usize)?,
+                    native(20447177usize, 20448842usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xE3o1\x12y\xB8j\x06\xB3\xC0fN\x1F\xFFE\xF6",
                     ),
-                    native(20448794usize, 20450972usize)?,
+                    native(20448843usize, 20451021usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xE4[\"%?>\x10\n/L\xFE\x82\xB5\xF8\xA4\xAC",
                     ),
-                    native(20450973usize, 20454983usize)?,
+                    native(20451022usize, 20455032usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xE4|\x98\xBF\x7F\x07\xEC\x0E\xCE@\x94\x8Eps\x18\xFA",
                     ),
-                    native(20454984usize, 20461058usize)?,
+                    native(20455033usize, 20461107usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xE5\x9Eq\xE6\xF4#{\x07\xB0_\xFC\xA8]\x82\xECA",
                     ),
-                    native(20461059usize, 20472181usize)?,
+                    native(20461108usize, 20472230usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xE7\xF6\xA1,K\xE2Xo\x08\xCE\xE3Q\xACQ4\xBB",
                     ),
-                    native(20472182usize, 20474367usize)?,
+                    native(20472231usize, 20474416usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xE8\x13\xF6t.\x15\x84\x9E\x99\x13i\xAB\xAEq\x8A\xF9",
                     ),
-                    native(20474368usize, 20477396usize)?,
+                    native(20474417usize, 20477445usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xE8m\\\xE6\xEA\\\x16,\xD6G\x1F\x973G/0",
                     ),
-                    native(20477397usize, 20478152usize)?,
+                    native(20477446usize, 20478201usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xE9\n\xBA\x97\x88\xD2\x0F\x9C\xB0\xBB7\x95\xBApA-",
                     ),
-                    native(20478153usize, 20479304usize)?,
+                    native(20478202usize, 20479353usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xECGT\xEA\x1B\x0C\x8A\x98\xA7\x11\rnH\x13\xCC\xB1",
                     ),
-                    native(20479305usize, 20480718usize)?,
+                    native(20479354usize, 20480767usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xED\xB7\xFD\x11\x1F$\x92(\x95\xBE\x7F\xBD{V\xE7\x05",
                     ),
-                    native(20480719usize, 20483695usize)?,
+                    native(20480768usize, 20483744usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xF0\x9C\xE9\xB9!\xCD\xE2(\xAF\xBF\xB6\x95\xA6\x98H3",
                     ),
-                    native(20483696usize, 20486630usize)?,
+                    native(20483745usize, 20486679usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xF1\x1F\xFC\xC8Y\xC0}\xC2h\x80D\xC7\x12\xAF8\xD8",
                     ),
-                    native(20486631usize, 20488281usize)?,
+                    native(20486680usize, 20488330usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xF2\xC1\xA1\xEE0'\xD6y\xB8\xFC\x1D\xA8\xEC\xABi\xA3",
                     ),
-                    native(20488282usize, 20489638usize)?,
+                    native(20488331usize, 20489687usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xF3\x1A\xEF\xFFY\xFB\xAC\x1D\xA7\xCF>\\i\xF2\xD6q",
                     ),
-                    native(20489639usize, 20492466usize)?,
+                    native(20489688usize, 20492515usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xF30\x9E\x8C\x8C\x87YGj[\x93\x03\xED\x1EiD",
                     ),
-                    native(20492467usize, 20503173usize)?,
+                    native(20492516usize, 20503222usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xF3\xCF\xC9\0\xEEuRUv\xF0\x08\x8DH\xE2C\x0F",
                     ),
-                    native(20503174usize, 20506203usize)?,
+                    native(20503223usize, 20506252usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xF4\x01\xB3\xD3\x85\x9D\x98\xE9[\xA0S\x8E%)B\xB9",
                     ),
-                    native(20506204usize, 20508210usize)?,
+                    native(20506253usize, 20508259usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xF6\xAE\xD2\x0E\x0C$=(\x04\xE9\xB9\x93\x8A\xCF\x8F\xA8",
                     ),
-                    native(20508211usize, 20508965usize)?,
+                    native(20508260usize, 20509014usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xF7\xF9a\xAEI\xE0\x8D\x07\x8A#R,\x85\xFDb\xE4",
                     ),
-                    native(20508966usize, 20513686usize)?,
+                    native(20509015usize, 20513735usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xFA\x0FY\x81\xBAX-#\0K\xDC\x9F<\x94\"\xC9",
                     ),
-                    native(20513687usize, 20515252usize)?,
+                    native(20513736usize, 20515301usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xFA@z\xDB+O\xDC\x92K\xBB\xE9\xF4W\xEF\x9A\x85",
                     ),
-                    native(20515253usize, 20520089usize)?,
+                    native(20515302usize, 20520138usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(*b"\xFA\xAD9,\x04B}rH}_\xC7@(|j"),
-                    native(20520090usize, 20535171usize)?,
+                    native(20520139usize, 20535220usize)?,
                 ));
             values
                 .push((
                     pse_ids::SemanticId::from_bytes(
                         *b"\xFF\0\xA2\xF6_J \x08\xF5\xBD\xAE\x0Cp.\x0C\xF5",
                     ),
-                    native(20535172usize, 20542726usize)?,
+                    native(20535221usize, 20542775usize)?,
                 ));
             values
         })
@@ -98825,7 +98861,7 @@ pub(crate) fn hydrate() -> Result<crate::Registry, crate::SchemaError> {
             *b"\xA4\t\xAAk\xE2\x95\xE9\xF3t\xCFK\x82\x9F\x19?I",
         ),
         fingerprint: pse_ids::ContentHash::from_bytes(
-            *b"\xE2*\xB6\x8F\xD1\x8D\xF6)c\xC6\n2\xCB~\x1E\xBF\xD3\x0F\x0C\x9C\xF4\xF7\x19\xE5\xC7\xB3xN%\xF3\xA4\xC6",
+            *b"\xA1\xA6\xDD\xCE\xF0D\x99\xF2Y\xF0\xAF\x11\x1A\xF4\x04\xE7V\x0F\xC0iB\xD0rd\x0F\\\x82Ofa\x8D\x85",
         ),
         relations: resolved_product_2435()?,
         obligations: resolved_product_2436()?,

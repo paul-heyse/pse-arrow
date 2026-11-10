@@ -39,6 +39,12 @@ pub enum Function {
     Convert => 9;
     /// Source inspection and lexical index binding; not executable arithmetic.
     Broadcast => 10;
+    /// Stable natural logarithm of one plus a dimensionless increment.
+    Log1p => 11;
+    /// Euclidean magnitude of two compatible linear or difference quantities.
+    Magnitude => 12;
+    /// Stable natural logarithm of a positive ratio, retaining both arguments.
+    LogRatio => 13;
 }
 }
 impl Function {
@@ -63,6 +69,8 @@ pub enum UnaryFunction {
     Exp,
     /// Natural logarithm.
     Log,
+    /// Stable natural logarithm of one plus the argument.
+    Log1p,
     /// Real square root.
     Sqrt,
     /// Value-only absolute value.
@@ -84,6 +92,10 @@ pub enum Implementation {
     },
     /// Authored vocabulary outside the selected execution profile.
     Unavailable,
+    /// Stable two-component Euclidean magnitude.
+    Magnitude,
+    /// Stable positive ratio with original argument guards.
+    LogRatio,
 }
 impl Implementation {
     /// Stable capability spelling.
@@ -92,6 +104,7 @@ impl Implementation {
             Self::Unary(_) => "guarded_library_scalar",
             Self::Extremum { .. } => "guarded_extremum",
             Self::Unavailable => "unavailable",
+            Self::Magnitude | Self::LogRatio => "guarded_library_scalar",
         }
     }
 }
@@ -101,6 +114,9 @@ impl Function {
         match self {
             Self::Exp => Implementation::Unary(UnaryFunction::Exp),
             Self::Log => Implementation::Unary(UnaryFunction::Log),
+            Self::Log1p => Implementation::Unary(UnaryFunction::Log1p),
+            Self::Magnitude => Implementation::Magnitude,
+            Self::LogRatio => Implementation::LogRatio,
             Self::Sqrt => Implementation::Unary(UnaryFunction::Sqrt),
             Self::Abs => Implementation::Unary(UnaryFunction::Abs),
             Self::Sin => Implementation::Unary(UnaryFunction::Sin),

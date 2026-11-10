@@ -35,11 +35,11 @@ macro_rules! passive_record {
     }
 }
 passive_record! {
-    /// Fixed nondirectional SelectedPartials Value+First numerical snapshot.
+    /// Nondirectional SelectedPartials Value+First and optional Second snapshot.
     /// Every field is passive data; no serialized capacity or permission is accepted.
     ExecutionSnapshot, "MathExecutionSnapshot", {
         /// Fixed numerical execution profile; this is not a wire allowance.
-        version: u32 => 1 { pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 1, max: 1 } },
+        version: u32 => 1 { pse_contract::boundary_projection::LocalRule::UnsignedRange { min: 2, max: 2 } },
         /// Compact input population, separate from authored formal IDs.
         inputs: usize => 2,
         /// Authored formal input IDs in their compact numerical order.
@@ -63,7 +63,18 @@ passive_record! {
         /// Original Value stages; an empty program is valid for initial-input outputs.
         value: Vec<StageSnapshot> => 12,
         /// Original First stages; an empty program retains its layout and seed contract.
-        first: Vec<StageSnapshot> => 13
+        first: Vec<StageSnapshot> => 13,
+        /// Complete Second layout and stages, present together when demanded.
+        second: Option<SecondSnapshot> => 14
+    }
+}
+passive_record! {
+    /// Original selected symmetric pair meaning and numerical Second program.
+    SecondSnapshot, "MathSecondSnapshot", {
+        /// Original coefficient shape, pair order and sparse slot population.
+        layout: JetLayoutSnapshot => 1 { pse_contract::boundary_projection::LocalRule::Required },
+        /// Complete control schedule and arithmetic through Second.
+        stages: Vec<StageSnapshot> => 2
     }
 }
 passive_record! {
@@ -510,11 +521,11 @@ impl Arithmetic<'_> {
     fn facts(self) -> Result<(F64ProgramExtents, usize)> {
         let (extents, count) = match self {
             Self::Native(e) => {
-                let p = e.f64_transfer()?;
+                let p = e.f64_transfer_with_heads(crate::stable::transfer_heads()?)?;
                 (p.extents(), p.operation_count()?)
             }
             Self::Passive(b) => {
-                let p = F64ProgramView::inspect(b)?;
+                let p = F64ProgramView::inspect_with_heads(b, crate::stable::transfer_heads()?)?;
                 (p.extents(), p.operation_count()?)
             }
         };
@@ -627,9 +638,9 @@ pub struct TransferExtents {
 #[derive(Default)]
 struct Counts {
     facts: TransferExtents,
-    order_bytes: [usize; 2],
-    frame_entries: [usize; 2],
-    order_counts: [OrderCounts; 2],
+    order_bytes: [usize; 3],
+    frame_entries: [usize; 3],
+    order_counts: [OrderCounts; 3],
     index_scratch: usize,
     identity_scratch: usize,
     evidence_bytes: usize,
@@ -1081,7 +1092,8 @@ fn capture_program(program: Program<'_>) -> Result<Vec<StageSnapshot>> {
                         "capture requires original native program",
                     ));
                 };
-                let supplier = evaluator.f64_transfer()?;
+                let supplier =
+                    evaluator.f64_transfer_with_heads(crate::stable::transfer_heads()?)?;
                 let mut program = reserve(supplier.encoded_len())?;
                 program.resize(supplier.encoded_len(), 0);
                 supplier.write_into(&mut program)?;
@@ -1228,7 +1240,7 @@ pub(crate) fn capture_frame<E: std::fmt::Debug + std::fmt::Display>(
             first_rows.push(root.rows.at(i));
         }
         Ok(ExecutionSnapshot {
-            version: 1,
+            version: 2,
             inputs: root.inputs,
             input_formals: copied(root.formals)?,
             coordinate_offsets: copied(root.coordinates)?,
@@ -1241,6 +1253,16 @@ pub(crate) fn capture_frame<E: std::fmt::Debug + std::fmt::Display>(
             first_axes: copied(root.axes)?,
             value: capture_program(root.programs[0])?,
             first: capture_program(root.programs[1])?,
+            second: root
+                .second
+                .as_ref()
+                .map(|(layout, program)| {
+                    Ok::<_, TransferError<Infallible>>(SecondSnapshot {
+                        layout: capture_layout(layout)?,
+                        stages: capture_program(*program)?,
+                    })
+                })
+                .transpose()?,
         })
     })()
     .map_err(widen::<E>)?;
@@ -1263,13 +1285,16 @@ fn restore_program(
     for stage in stages {
         result.push(match stage {
             StageSnapshot::Block(b) => {
-                let evaluator = F64ProgramView::inspect(&b.program)?
-                    .restore_with(|_| Ok::<_, Infallible>(()))
-                    .map_err(|error| match error {
-                        F64RestoreError::Program(e) => TransferError::Supplier(e),
-                        F64RestoreError::Allocation(e) => TransferError::Allocation(e),
-                        F64RestoreError::Admission(e) => match e {},
-                    })?;
+                let evaluator = F64ProgramView::inspect_with_heads(
+                    &b.program,
+                    crate::stable::transfer_heads()?,
+                )?
+                .restore_with(|_| Ok::<_, Infallible>(()))
+                .map_err(|error| match error {
+                    F64RestoreError::Program(e) => TransferError::Supplier(e),
+                    F64RestoreError::Allocation(e) => TransferError::Allocation(e),
+                    F64RestoreError::Admission(e) => match e {},
+                })?;
                 let mut arguments = fresh(b.arguments, 0.0)?;
                 for &(argument, _) in &b.gather {
                     arguments[argument] = f64::NAN;
@@ -1429,6 +1454,7 @@ struct RootView<'a> {
     rows: Rows<'a>,
     axes: &'a [usize],
     programs: [Program<'a>; 2],
+    second: Option<(JetLayoutView<'a>, Program<'a>)>,
 }
 impl<'a> RootView<'a> {
     fn native(frame: &'a NumericFrame) -> Result<Self> {
@@ -1439,11 +1465,9 @@ impl<'a> RootView<'a> {
             || t.reverse_product.is_some()
             || !t.required_provider_keys.is_empty()
             || t.provider_visit_capacity != 0
-            || t.programs[DerivativeOrder::Second].is_some()
-            || t.layouts[DerivativeOrder::Second].is_some()
         {
             return Err(TransferError::Unsupported(
-                "requires nondirectional interpreted Value+First selected partials",
+                "requires nondirectional interpreted selected partials",
             ));
         }
         let value = t.layouts[DerivativeOrder::Value]
@@ -1452,6 +1476,14 @@ impl<'a> RootView<'a> {
         let first = t.layouts[DerivativeOrder::First]
             .as_ref()
             .ok_or(TransferError::Unsupported("missing First layout"))?;
+        let second = match (
+            &t.layouts[DerivativeOrder::Second],
+            &t.programs[DerivativeOrder::Second],
+        ) {
+            (Some(layout), Some(stages)) => Some((layout.transfer_view(), Program::Native(stages))),
+            (None, None) => None,
+            _ => return Err(TransferError::Invalid("incomplete Second profile")),
+        };
         Ok(Self {
             inputs: t.inputs,
             formals: &t.input_formals,
@@ -1474,10 +1506,11 @@ impl<'a> RootView<'a> {
                         .ok_or(TransferError::Unsupported("missing First program"))?,
                 ),
             ],
+            second,
         })
     }
     fn passive(snapshot: &'a ExecutionSnapshot) -> Result<Self> {
-        if snapshot.version != 1 {
+        if snapshot.version != 2 {
             return Err(TransferError::Unsupported("snapshot version"));
         }
         Ok(Self {
@@ -1494,6 +1527,10 @@ impl<'a> RootView<'a> {
                 Program::Passive(&snapshot.value),
                 Program::Passive(&snapshot.first),
             ],
+            second: snapshot
+                .second
+                .as_ref()
+                .map(|second| (second.layout.view(), Program::Passive(&second.stages))),
         })
     }
     fn inspect(&self) -> Result<Counts> {
@@ -1543,18 +1580,21 @@ impl<'a> RootView<'a> {
         shells = plus(shells, arc_bytes::<FirstLayout>()?)?;
         shells = plus(
             shells,
-            arc_bytes::<(
-                Arc<dyn AllocationOwner>,
-                Arc<dyn AllocationOwner>,
-                Arc<dyn ConstructionAdmission>,
-            )>()?,
+            arc_bytes::<(Arc<dyn AllocationOwner>, Arc<dyn AllocationOwner>)>()?,
         )?;
         counts.facts.template_bytes = plus(signature, shells)?;
-        for (i, order) in [DerivativeOrder::Value, DerivativeOrder::First]
-            .into_iter()
-            .enumerate()
-        {
-            let layout = &self.layouts[i];
+        let orders = [
+            (DerivativeOrder::Value, &self.layouts[0], self.programs[0]),
+            (DerivativeOrder::First, &self.layouts[1], self.programs[1]),
+        ]
+        .into_iter()
+        .chain(
+            self.second
+                .as_ref()
+                .map(|(layout, program)| (DerivativeOrder::Second, layout, *program)),
+        );
+        for (order, layout, program) in orders {
+            let i = order as usize;
             if layout.order != order || layout.coordinates != self.coordinates {
                 return Err(TransferError::Invalid("signature/layout coordinate order"));
             }
@@ -1567,7 +1607,7 @@ impl<'a> RootView<'a> {
             )?;
             let mut left = usize::MAX;
             counts.program(
-                self.programs[i],
+                program,
                 layout,
                 ProgramContext {
                     slots: self.slots,
@@ -1583,7 +1623,10 @@ impl<'a> RootView<'a> {
         }
         let worker = plus(
             bytes::<f64>(*counts.frame_entries.iter().max().unwrap_or(&0))?,
-            plus(counts.order_bytes[0], counts.order_bytes[1])?,
+            plus(
+                plus(counts.order_bytes[0], counts.order_bytes[1])?,
+                counts.order_bytes[2],
+            )?,
         )?;
         counts.facts.worker_bytes = plus(worker, counts.evidence_bytes)?;
         if plus(
@@ -1603,7 +1646,13 @@ impl<'a> RootView<'a> {
                 bytes::<SemanticId>(counts.identity_scratch)?,
             )?,
         )?;
-        let results = plus(self.outputs.len(), self.axes.len())?;
+        let seconds = self.second.as_ref().map_or(Ok(0), |(layout, _)| {
+            self.outputs
+                .len()
+                .checked_mul(layout.pairs.len())
+                .ok_or(TransferError::Overflow("Second result population"))
+        })?;
+        let results = plus(plus(self.outputs.len(), self.axes.len())?, seconds)?;
         counts.facts.evaluation_bytes = plus(
             plus(
                 bytes::<f64>(
@@ -1770,10 +1819,19 @@ impl ExecutionSnapshot {
             layout_excess(&self.value_layout)?,
             layout_excess(&self.first_layout)?,
         )?;
-        let retained = plus(
+        let mut retained = plus(
             plus(signature, layouts)?,
             plus(retained_excess(&self.value)?, retained_excess(&self.first)?)?,
         )?;
+        if let Some(second) = &self.second {
+            retained = plus(
+                retained,
+                plus(
+                    layout_excess(&second.layout)?,
+                    retained_excess(&second.stages)?,
+                )?,
+            )?;
+        }
         counts.facts.template_bytes = plus(counts.facts.template_bytes, retained)?;
         counts.facts.input_bytes = self.owned_bytes()?;
         counts.facts.restore_peak_bytes = plus(
@@ -1793,7 +1851,7 @@ impl ExecutionSnapshot {
             )?)?,
             bytes::<(usize, usize)>(self.first_rows.capacity())?,
         )?;
-        plus(
+        let base = plus(
             plus(size_of::<Self>(), signature)?,
             plus(
                 plus(
@@ -1802,7 +1860,16 @@ impl ExecutionSnapshot {
                 )?,
                 plus(owned_program(&self.value)?, owned_program(&self.first)?)?,
             )?,
-        )
+        )?;
+        self.second.as_ref().map_or(Ok(base), |second| {
+            plus(
+                base,
+                plus(
+                    owned_layout(&second.layout)?,
+                    owned_program(&second.stages)?,
+                )?,
+            )
+        })
     }
 }
 
@@ -1821,6 +1888,34 @@ impl std::fmt::Debug for CheckedExecution {
     }
 }
 impl CheckedExecution {
+    /// Retain only immutable instructions and their allocation anchors. The old
+    /// operation scope, instantiated evaluators and trial values are dropped.
+    /// This grants numerical execution capability, never symbolic/source authority.
+    pub fn into_template(self) -> RestoredExecutionTemplate {
+        RestoredExecutionTemplate {
+            template: self.frame.template,
+            facts: self.facts,
+            owner: self.frame._owner,
+        }
+    }
+
+    /// Evaluate this provider-free restored profile under its admitted scope.
+    pub fn evaluate(
+        &mut self,
+        inputs: &[f64],
+        order: DerivativeOrder,
+    ) -> std::result::Result<Evaluation, MathError> {
+        let cancelled = self
+            .frame
+            .scope
+            .as_ref()
+            .ok_or_else(|| MathError::Contract("detached checked execution".into()))?
+            .cancellation()
+            .clone();
+        self.frame
+            .evaluate(inputs, order, &mut ProviderBindings::new(), &cancelled)
+    }
+
     /// Original checked requested populations, never a wire allocation grant.
     pub fn extents(&self) -> &TransferExtents {
         &self.facts
@@ -1857,9 +1952,13 @@ impl CheckedExecution {
     pub fn slots(&self) -> usize {
         self.frame.template.slots
     }
-    /// Ceiling guaranteed by this fixed Value+First profile.
+    /// Maximum order present in the checked numerical product.
     pub fn order(&self) -> DerivativeOrder {
-        DerivativeOrder::First
+        if self.frame.template.layouts[DerivativeOrder::Second].is_some() {
+            DerivativeOrder::Second
+        } else {
+            DerivativeOrder::First
+        }
     }
     /// Mathematical product guaranteed by this fixed profile.
     pub fn product(&self) -> ProductKind {
@@ -1873,7 +1972,7 @@ impl CheckedExecution {
             .entries(row)
             .map(|(axis, _)| axis)
     }
-    /// Checked immutable coefficient layout; Second is absent in this profile.
+    /// Checked immutable coefficient layout for an included order.
     pub fn layout(&self, order: DerivativeOrder) -> Option<&JetLayout> {
         self.frame.template.layouts[order].as_ref()
     }
@@ -1884,6 +1983,76 @@ impl CheckedExecution {
     /// Derived complete lazy frame/clone backing already covered by the actual owner.
     pub fn worker_bytes(&self) -> usize {
         self.frame.template.worker_bytes
+    }
+}
+
+/// Checked immutable numerical instructions shared by independently admitted
+/// workers. Contains no operation scope, warmed evaluator or mutable scratch.
+/// Original allocation anchors remain live until the template and its workers
+/// drain; each new worker additionally owns its own full backing admission.
+#[derive(Clone)]
+pub struct RestoredExecutionTemplate {
+    template: Arc<ExecutionTemplate>,
+    facts: TransferExtents,
+    owner: Option<Arc<dyn AllocationOwner>>,
+}
+
+impl std::fmt::Debug for RestoredExecutionTemplate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RestoredExecutionTemplate")
+            .field("inputs", &self.template.inputs)
+            .field("outputs", &self.template.outputs.len())
+            .finish_non_exhaustive()
+    }
+}
+
+impl RestoredExecutionTemplate {
+    /// Original checked populations, not a reusable allocation grant.
+    pub fn extents(&self) -> &TransferExtents {
+        &self.facts
+    }
+
+    /// Original authored input IDs in compact numerical order.
+    pub fn input_formals(&self) -> &[usize] {
+        &self.template.input_formals
+    }
+
+    /// Compact input offsets in the original requested derivative-axis order.
+    pub fn coordinate_offsets(&self) -> &[usize] {
+        &self.template.coordinate_offsets
+    }
+
+    /// Original selected output population, including repeated outputs.
+    pub fn output_count(&self) -> usize {
+        self.template.outputs.len()
+    }
+
+    /// Checked immutable coefficient layout; absent orders cannot be executed.
+    pub fn layout(&self, order: DerivativeOrder) -> Option<&JetLayout> {
+        self.template.layouts[order].as_ref()
+    }
+
+    /// Full backing required independently by every new worker.
+    pub fn worker_bytes(&self) -> usize {
+        self.template.worker_bytes
+    }
+
+    /// Bind a fresh operation and backing owner before any worker materializes.
+    /// Admission receives the complete requested lazy-worker backing. A failed
+    /// or cancelled admission publishes no worker and leaves the template intact.
+    pub fn worker_scoped<E: std::fmt::Debug + std::fmt::Display>(
+        &self,
+        scope: pse_kernels::ExecutionScope,
+        admit: impl FnOnce(usize) -> std::result::Result<Arc<dyn AllocationOwner>, E>,
+    ) -> std::result::Result<CheckedExecution, TransferError<E>> {
+        scope.check().map_err(crate::error::scope_error)?;
+        let allocation = admit(self.template.worker_bytes).map_err(TransferError::Admission)?;
+        scope.check().map_err(crate::error::scope_error)?;
+        let owner = crate::retain_allocation_owner(self.owner.clone(), allocation);
+        Ok(CheckedExecution {
+            frame: self.template.frame(Some(scope), Some(owner)),
+            facts: self.facts.clone(),
+        })
     }
 }
 
@@ -1993,6 +2162,7 @@ pub fn restore<E: std::fmt::Debug + std::fmt::Display>(
             first_axes,
             value,
             first,
+            second,
             ..
         } = snapshot;
         let mut layouts = EnumMap::default();
@@ -2013,6 +2183,20 @@ pub fn restore<E: std::fmt::Debug + std::fmt::Display>(
             &mut index_scratch,
             &mut identity_scratch,
         )?);
+        if let Some(second) = second {
+            layouts[DerivativeOrder::Second] = Some(second.layout.restore(
+                slots,
+                inputs,
+                limits,
+                &mut index_scratch,
+            )?);
+            programs[DerivativeOrder::Second] = Some(restore_program(
+                second.stages,
+                limits,
+                &mut index_scratch,
+                &mut identity_scratch,
+            )?);
+        }
         let first_layout = FirstLayout::checked_restore(
             first_rows,
             first_axes,
@@ -2021,10 +2205,18 @@ pub fn restore<E: std::fmt::Debug + std::fmt::Display>(
         )?;
         let mut order_worker_bytes = EnumMap::default();
         let mut census = EnumMap::default();
-        for (i, order) in [DerivativeOrder::Value, DerivativeOrder::First]
-            .into_iter()
-            .enumerate()
+        for (i, order) in [
+            DerivativeOrder::Value,
+            DerivativeOrder::First,
+            DerivativeOrder::Second,
+        ]
+        .into_iter()
+        .enumerate()
         {
+            let Some(layout) = &layouts[order] else {
+                continue;
+            };
+            let pairs = layout.pairs.len();
             order_worker_bytes[order] = counts.order_bytes[i];
             let c = counts.order_counts[i];
             census[order] = Some(CompiledOrderCensus {
@@ -2043,11 +2235,17 @@ pub fn restore<E: std::fmt::Debug + std::fmt::Display>(
                 library_instructions: c.instructions,
                 instruction_storage_bytes: c.instruction_bytes,
                 frame_entries: counts.frame_entries[i],
-                derivative_components: layouts[order].as_ref().map_or(0, JetLayout::width),
-                second_pairs: 0,
+                derivative_components: layout.width(),
+                second_pairs: pairs,
                 result_entries: plus(
-                    outputs.len(),
-                    if i == 1 { first_layout.axes.len() } else { 0 },
+                    plus(
+                        outputs.len(),
+                        if i >= 1 { first_layout.axes.len() } else { 0 },
+                    )?,
+                    outputs
+                        .len()
+                        .checked_mul(pairs)
+                        .ok_or(TransferError::Overflow("Second result population"))?,
                 )?,
                 worker_bytes: counts.order_bytes[i],
             });
@@ -2076,8 +2274,10 @@ pub fn restore<E: std::fmt::Debug + std::fmt::Display>(
         });
         drop(index_scratch);
         drop(identity_scratch);
-        let owner: Arc<dyn AllocationOwner> = Arc::new((input_owner, allocation, construction));
-        Ok(template.frame(Some(scope), Some(owner)))
+        let owner: Arc<dyn AllocationOwner> = Arc::new((input_owner, allocation));
+        let mut frame = template.frame(Some(scope), Some(owner));
+        frame.construction_owner = Some(construction);
+        Ok(frame)
     })()
     .map_err(widen::<E>)?;
     frame.check_scope()?;

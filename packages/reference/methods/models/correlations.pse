@@ -16,7 +16,9 @@
 // Mathematical polynomial integrals take coefficients, not scientific records.
 // The consuming correlation retains its own source applicability contract.
 @id("db3d88c1114d4e48917fe6e0e714cfcc") fn dippr100_dh_value(T0:Temperature,T:Temperature,c1:MolarCp,c2:MolarCp/Temperature,c3:MolarCp/Temperature^2,c4:MolarCp/Temperature^3,c5:MolarCp/Temperature^4)->DeltaH valid(T0>0{K} and T>0{K}) = c1*(T-T0) + c2*T^2/2 - c2*T0^2/2 + c3*T^3/3 - c3*T0^3/3 + c4*T^4/4 - c4*T0^4/4 + c5*T^5/5 - c5*T0^5/5;
-@id("da740711232f4efdaec92047a55244b8") fn dippr100_ds_value(T0:Temperature,T:Temperature,c1:MolarCp,c2:MolarCp/Temperature,c3:MolarCp/Temperature^2,c4:MolarCp/Temperature^3,c5:MolarCp/Temperature^4)->DeltaS valid(T0>0{K} and T>0{K}) = c1*log(T/T0) + (c2*T + c3*T*T/2 + c3*T*T0/2 + c4*T*T*T/3 + c4*T*T*T0/3 + c4*T*T0*T0/3 + c5*T*T*T*T/4 + c5*T*T*T*T0/4 + c5*T*T*T0*T0/4 + c5*T*T0*T0*T0/4)*r where r=(T-T0)/T;
+@id("da740711232f4efdaec92047a55244b8") fn dippr100_ds_value(T0:Temperature,T:Temperature,c1:MolarCp,c2:MolarCp/Temperature,c3:MolarCp/Temperature^2,c4:MolarCp/Temperature^3,c5:MolarCp/Temperature^4)->DeltaS valid(T0>0{K} and T>0{K}) = c1*log_ratio(T,T0) + (c2*T + c3*T*T/2 + c3*T*T0/2 + c4*T*T*T/3 + c4*T*T*T0/3 + c4*T*T0*T0/3 + c5*T*T*T*T/4 + c5*T*T*T*T0/4 + c5*T*T*T0*T0/4 + c5*T*T0*T0*T0/4)*r where r=(T-T0)/T;
+// Orthogonal displacement components form a length-valued constitutive measure.
+@id("79d4cb526ccc4c9eb6ba9593b4f54dd1") fn planar_displacement_length(x:Length,y:Length)->Length = magnitude(x,y);
 @id("01a0f138a8b070c4903dab5bb381b195") fn dippr100_dh(T0: Temperature, T: Temperature, s: dippr100) -> DeltaH applicability(applicability_interval(s.applicability(T0,s),s.applicability(T,s))) = dippr100_dh_value(T0,T,s.c1,s.c2,s.c3,s.c4,s.c5);
 @id("01a0f138a8b070c4903dab5c0ed9bc3b") fn dippr100_ds(T0: Temperature, T: Temperature, s: dippr100) -> DeltaS applicability(applicability_interval(s.applicability(T0,s),s.applicability(T,s))) = dippr100_ds_value(T0,T,s.c1,s.c2,s.c3,s.c4,s.c5);
 @id("01a0f138a8b070c4903dab5de8b413a7") entity kind rpp4_cp extends properties.caloric_set {

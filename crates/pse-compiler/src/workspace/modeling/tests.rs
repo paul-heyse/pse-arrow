@@ -65,6 +65,312 @@ fn admit(workspace: &mut CompilerWorkspace, root: DeclarationId) -> Arc<Admitted
 }
 
 #[test]
+fn independently_authored_heater_energy_regions_use_existing_role_transport() {
+    let sources = [
+        "package p {def Root {var flow:Flow;var inlet:MolarEnthalpy;var outlet:MolarEnthalpy;var duty:EnergyTransferRate;eq energy:flow*(outlet-inlet)==duty;}}",
+        "package p {def Root {var heat:EnergyTransferRate;var hot:MolarEnthalpy;var unused:Temperature;var rate:Flow;var cold:MolarEnthalpy;eq balance:rate*(hot-cold)==heat;}}",
+    ];
+    let models = sources.map(|source| {
+        let (mut workspace, _, _, root) = setup(source);
+        admit(&mut workspace, root)
+    });
+    assert_eq!(
+        models[0].bodies.keys().collect::<Vec<_>>(),
+        models[1].bodies.keys().collect::<Vec<_>>(),
+        "original IDs and local declaration order need no additional graph correspondence"
+    );
+    let repeated = sources[0].replace(
+        "flow*(outlet-inlet)",
+        "flow*(outlet-inlet)+flow*(outlet-inlet)",
+    );
+    let (mut workspace, _, _, root) = setup(&repeated);
+    let repeated = admit(&mut workspace, root);
+    assert_ne!(
+        models[0].bodies.keys().collect::<Vec<_>>(),
+        repeated.bodies.keys().collect::<Vec<_>>(),
+        "parallel contribution multiplicity is mathematical authority"
+    );
+    let guarded = sources[1]
+        .replace(
+            "def Root {",
+            "fn positive(q:Flow)->Flow valid(q>0{mol/s})=q;def Root {",
+        )
+        .replace("eq balance:rate*", "eq balance:positive(rate)*");
+    let (mut workspace, _, _, root) = setup(&guarded);
+    let guarded = admit(&mut workspace, root);
+    assert_ne!(
+        models[1].bodies.keys().collect::<Vec<_>>(),
+        guarded.bodies.keys().collect::<Vec<_>>(),
+        "an original guard cannot be erased by matching arithmetic incidence"
+    );
+}
+
+#[test]
+fn heater_transport_keeps_parallel_connections_and_isolated_instances() {
+    use pse_structural::flowsheet::{Decision, Policy};
+    let (mut workspace, _, _, root) = setup(
+        "package p {def Unit {var flow:Flow;var inlet_h:MolarEnthalpy;var outlet_h:MolarEnthalpy;var inlet_aux:MolarEnthalpy;var outlet_aux:MolarEnthalpy;var duty:EnergyTransferRate;port inlet:MolarEnthalpy=inlet_h;port outlet:MolarEnthalpy=outlet_h;port second_inlet:MolarEnthalpy=inlet_aux;port second_outlet:MolarEnthalpy=outlet_aux;annotation connectivity inlet(1,0);annotation connectivity outlet(0,1);annotation connectivity second_inlet(1,0);annotation connectivity second_outlet(0,1);eq energy:flow*(outlet_h-inlet_h)==duty;}def Root {child a=Unit();child b=Unit();child isolated=Unit();connect first:a.outlet -> b.inlet;connect second:a.second_outlet -> b.second_inlet;}}",
+    );
+    let prepared = workspace
+        .prepare_semantic_modeling_cancellable(
+            root,
+            InstanceId::from_id(SemanticId::NIL),
+            Bindings::default(),
+            Limits::default(),
+            Arc::new(AtomicBool::new(false)),
+        )
+        .unwrap();
+    let selection = ModelingFlowSelection {
+        nodes: prepared
+            .model
+            .ports
+            .values()
+            .map(|port| port.lineage.instance)
+            .collect(),
+        connections: prepared
+            .model
+            .connections
+            .keys()
+            .map(|&id| {
+                (
+                    id,
+                    Decision {
+                        id,
+                        cost: 1.,
+                        policy: Policy::Free,
+                    },
+                )
+            })
+            .collect(),
+    };
+    let graph = prepared
+        .flow_graph(&selection, &workspace.inputs.quantities)
+        .unwrap();
+    assert_eq!(graph.declaration().nodes.len(), 3);
+    assert_eq!(graph.declaration().connections.len(), 2);
+    let mut incomplete = selection;
+    incomplete.connections.pop_first();
+    assert!(
+        prepared
+            .flow_graph(&incomplete, &workspace.inputs.quantities)
+            .is_err(),
+        "parallel physical connections retain distinct original occurrence authority"
+    );
+}
+
+#[test]
+fn actual_caloric_module_and_energy_response_keep_joint_aliases_and_independent_invalidation() {
+    let text = format!(
+        "{}\n{}",
+        crate::authored_transfer_tests::reference_sources(),
+        r#"
+        package caloric_module_comparison {
+            use properties @"1.0.0"; use correlations @"1.0.0";
+            use transfer_parameters @"1.0.0"; use chem @"1.0.0";
+            use compatibility @"1.0.0"; use references @"1.0.0";
+            test Root {
+                var T:Temperature;
+                param T0:Temperature=300{K};
+                param flow:Flow=2{mol/s};
+                let dh:DeltaH=properties.caloric_dh(correlations.dippr100[chem.benzene,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.idaes_bt_ideal_liquid_fit],T0,T);
+                let ds:DeltaS=properties.caloric_ds(correlations.dippr100[chem.benzene,properties.heat_capacity,compatibility.PhaseType.liquidPhase,references.idaes_bt_ideal_liquid_fit],T0,T);
+                let response:EnergyTransferRate=flow*dh;
+            }
+        }
+    "#
+    );
+    let mut declarations = crate::authored_transfer_tests::rows(&text);
+    // The selected actual DIPPR100 source uses an independently chosen constant
+    // polynomial for transparent module/response expectations.
+    declarations
+        .iter_mut()
+        .find(|row| row.name == "liquid_cp")
+        .unwrap()
+        .value
+        .dataset
+        .as_mut()
+        .unwrap()
+        .rows[0]
+        .values[2] = pse_authoring::language::parse_cell("75.3{J/(mol*K)}").unwrap();
+    let root =
+        crate::authored_transfer_tests::root(&declarations, "caloric_module_comparison", "Root");
+    let mut workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    workspace
+        .publish_modeling(declarations.clone(), PhysicalScope::default())
+        .unwrap();
+    let cancel = Cancellation::default();
+    let prepare = |workspace: &mut CompilerWorkspace| {
+        let model = workspace
+            .prepare_modeling_cancellable(
+                root,
+                root_instance(root),
+                Bindings {
+                    demand: vec!["dh".into(), "ds".into(), "response".into()],
+                    ..Default::default()
+                },
+                Limits::default(),
+                cancel.flag(),
+            )
+            .unwrap();
+        let dh = ModelingOutput::Member(model.model.paths["dh"]).row_id();
+        let response = ModelingOutput::Member(model.model.paths["response"]).row_id();
+        let ds = ModelingOutput::Member(model.model.paths["ds"]).row_id();
+        let values = CaseValues {
+            scalars: model
+                .admitted
+                .inputs
+                .iter()
+                .map(|&id| {
+                    let path = &model.model.symbols[&id].lineage.path;
+                    let value = if path.ends_with(".T") {
+                        320.
+                    } else if path.ends_with(".T0") {
+                        300.
+                    } else if path.ends_with(".flow") {
+                        2.
+                    } else {
+                        panic!("unexpected caloric input {path}")
+                    };
+                    (id, value)
+                })
+                .collect(),
+        };
+        let standalone = workspace
+            .prepare_modeling_observations(
+                &model,
+                model.observation_structure(&BTreeSet::from([dh])).unwrap(),
+                Profile::default(),
+                &cancel,
+            )
+            .unwrap();
+        let joint = workspace
+            .prepare_modeling_observations(
+                &model,
+                model
+                    .observation_structure(&BTreeSet::from([dh, response, ds]))
+                    .unwrap(),
+                Profile::default(),
+                &cancel,
+            )
+            .unwrap();
+        (standalone, joint, values, dh, response, ds)
+    };
+    let (standalone, joint, values, dh, response, ds) = prepare(&mut workspace);
+    let evaluate = |functions: &PreparedFunctions, values: &CaseValues| {
+        let plan = Arc::new(
+            functions
+                .plan
+                .prepare_order(DerivativeOrder::First, &cancel.flag())
+                .unwrap(),
+        );
+        let assembly = Arc::new(
+            plan.compile(
+                Profile::default().optimization,
+                Profile::default().evaluation,
+                &pse_kernels::ExecutionScope::new(cancel.clone(), None),
+            )
+            .unwrap(),
+        );
+        let mut worker = assembly.worker(Default::default(), cancel.clone());
+        let values_out = worker.constraints(values).unwrap().to_vec();
+        let first = worker.jacobian(values).unwrap().to_dense();
+        (
+            assembly
+                .structure()
+                .rows()
+                .iter()
+                .map(|row| row.id)
+                .zip(values_out)
+                .collect::<BTreeMap<_, _>>(),
+            first,
+        )
+    };
+    let (single, _) = evaluate(&standalone, &values);
+    let (combined, derivatives) = evaluate(&joint, &values);
+    assert!((single[&dh] - 1506.).abs() < 1e-10);
+    assert_eq!(single[&dh], combined[&dh]);
+    assert!((combined[&response] - 3012.).abs() < 1e-10);
+    assert!((combined[&ds] - 75.3 * (20_f64 / 300.).ln_1p()).abs() < 1e-12);
+    for (row, declaration) in joint.plan.structure().rows().iter().enumerate() {
+        let expected = if declaration.id == dh {
+            75.3
+        } else if declaration.id == response {
+            150.6
+        } else {
+            75.3 / 320.
+        };
+        assert!((derivatives[(row, 0)] - expected).abs() < 1e-12);
+    }
+    // Edit the independently authored correlation record. Each current consumer
+    // invalidates, while an already admitted joint/standalone owner remains usable.
+    declarations
+        .iter_mut()
+        .find(|row| row.name == "liquid_cp")
+        .unwrap()
+        .value
+        .dataset
+        .as_mut()
+        .unwrap()
+        .rows[0]
+        .values[2] = pse_authoring::language::parse_cell("80{J/(mol*K)}").unwrap();
+    workspace
+        .publish_modeling(declarations, PhysicalScope::default())
+        .unwrap();
+    let (changed_single, changed_joint, changed_values, changed_dh, changed_response, changed_ds) =
+        prepare(&mut workspace);
+    let (changed, _) = evaluate(&changed_joint, &changed_values);
+    assert!((changed[&changed_dh] - 1600.).abs() < 1e-10);
+    assert!((changed[&changed_response] - 3200.).abs() < 1e-10);
+    assert!((changed[&changed_ds] - 80. * (20_f64 / 300.).ln_1p()).abs() < 1e-12);
+    assert_ne!(
+        standalone.artifacts[0].scalar_key(),
+        changed_single.artifacts[0].scalar_key()
+    );
+    assert_eq!(evaluate(&joint, &values).0, combined);
+    let invalid = crate::authored_transfer_tests::rows(&text.replace(",T0,T);", ",flow,T);"));
+    let mut invalid_workspace = CompilerWorkspace::new(
+        crate::authored_transfer_tests::context(),
+        WorkspaceLimits::default(),
+    )
+    .unwrap();
+    let invalid = invalid_workspace
+        .publish_modeling(invalid, PhysicalScope::default())
+        .and_then(|_| {
+            invalid_workspace
+                .prepare_modeling_cancellable(
+                    root,
+                    root_instance(root),
+                    Bindings {
+                        demand: vec!["dh".into()],
+                        ..Default::default()
+                    },
+                    Limits::default(),
+                    cancel.flag(),
+                )
+                .map(|_| ())
+        });
+    assert!(
+        invalid.is_err(),
+        "the compiler-owned module signature refuses a flow in a temperature position"
+    );
+    cancel.cancel();
+    assert!(
+        joint
+            .plan
+            .compile(
+                Profile::default().optimization,
+                Profile::default().evaluation,
+                &pse_kernels::ExecutionScope::new(cancel, None)
+            )
+            .is_err()
+    );
+}
+
+#[test]
 fn authored_accuracy_and_engineering_expressions_enter_the_typed_modeling_program() {
     let (mut workspace, _, _, root) = setup(
         r#"package p {

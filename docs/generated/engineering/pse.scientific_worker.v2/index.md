@@ -692,7 +692,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
 
-Allowed canonical members: `["Const", "SymbolRef", "Add", "Sub", "Affine", "WeightedMean", "Mul", "Div", "Pow", "Neg", "Abs", "Exp", "Log", "Log10", "Sqrt", "Sin", "Cos", "Tan", "Asin", "Acos", "Atan", "Sinh", "Cosh", "Tanh", "Erf", "SmoothMax", "SmoothMin", "SmoothAbs", "SafeSqrt", "SafeLog", "Conditional", "SumOver", "ProdOver", "MinOver", "MaxOver", "Gather", "Broadcast", "Derivative", "Integral", "KernelCall", "ImplicitRef", "UnitConvert", "PiecewiseLinear"]`.
+Allowed canonical members: `["Const", "SymbolRef", "Add", "Sub", "Affine", "WeightedMean", "Mul", "Div", "Pow", "Neg", "Abs", "Exp", "Log", "Log1p", "LogRatio", "Magnitude", "Log10", "Sqrt", "Sin", "Cos", "Tan", "Asin", "Acos", "Atan", "Sinh", "Cosh", "Tanh", "Erf", "SmoothMax", "SmoothMin", "SmoothAbs", "SafeSqrt", "SafeLog", "Conditional", "SumOver", "ProdOver", "MinOver", "MaxOver", "Gather", "Broadcast", "Derivative", "Integral", "KernelCall", "ImplicitRef", "UnitConvert", "PiecewiseLinear"]`.
 
 ## `OperationId`
 

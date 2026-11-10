@@ -989,6 +989,78 @@ impl<
                     >>::from_projection_alternative(fields),
                 )
             }
+            crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::oneof::authored_builtin_function::Kind::Log1p(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Log1p");
+                let path = alternative_path.as_str();
+                unknown_fields_view(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                        11,
+                    >>::VERSION,
+                    <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                        11,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                        11,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::oneof::authored_builtin_function::Kind::Magnitude(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Magnitude");
+                let path = alternative_path.as_str();
+                unknown_fields_view(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                        12,
+                    >>::VERSION,
+                    <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                        12,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                        12,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::oneof::authored_builtin_function::Kind::LogRatio(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "LogRatio");
+                let path = alternative_path.as_str();
+                unknown_fields_view(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                        13,
+                    >>::VERSION,
+                    <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                        13,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_quantity::functions::Function as pse_contract::boundary_projection::ProjectionAlternative<
+                        13,
+                    >>::from_projection_alternative(fields),
+                )
+            }
         }
     }
 }
@@ -5717,6 +5789,54 @@ impl<
                 Ok(
                     <pse_modeling::expression::admission::PhysicalRequest as pse_contract::boundary_projection::ProjectionAlternative<
                         12,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::oneof::modeling_physical_request_facts::Kind::Magnitude(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "Magnitude");
+                let path = alternative_path.as_str();
+                unknown_fields_view(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_modeling::expression::admission::PhysicalRequest as pse_contract::boundary_projection::ProjectionAlternative<
+                        13,
+                    >>::VERSION,
+                    <pse_modeling::expression::admission::PhysicalRequest as pse_contract::boundary_projection::ProjectionAlternative<
+                        13,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_modeling::expression::admission::PhysicalRequest as pse_contract::boundary_projection::ProjectionAlternative<
+                        13,
+                    >>::from_projection_alternative(fields),
+                )
+            }
+            crate::typed_math::portable::generated::pb::pse::scientific_recipe::v4::__buffa::view::oneof::modeling_physical_request_facts::Kind::LogRatio(
+                wire,
+            ) => {
+                let alternative_path = child_path(path, "LogRatio");
+                let path = alternative_path.as_str();
+                unknown_fields_view(&wire.__buffa_unknown_fields, path)?;
+                layout(
+                    <pse_modeling::expression::admission::PhysicalRequest as pse_contract::boundary_projection::ProjectionAlternative<
+                        14,
+                    >>::VERSION,
+                    <pse_modeling::expression::admission::PhysicalRequest as pse_contract::boundary_projection::ProjectionAlternative<
+                        14,
+                    >>::FIELD_LAYOUT,
+                    1,
+                    &[],
+                    path,
+                )?;
+                let fields = ();
+                Ok(
+                    <pse_modeling::expression::admission::PhysicalRequest as pse_contract::boundary_projection::ProjectionAlternative<
+                        14,
                     >>::from_projection_alternative(fields),
                 )
             }

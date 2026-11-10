@@ -684,3 +684,200 @@ fn portable_direct_round_trip_preserves_specification_guards_and_exact_value() {
         .is_err()
     );
 }
+
+#[test]
+fn authored_stable_primitives_preserve_values_physical_contracts_and_sources() {
+    let cancel = Arc::new(AtomicBool::new(false));
+    let owner = scalar("log1p(x)").unwrap();
+    let admitted = owner.admit(&cancel).unwrap();
+    let artifact = owner
+        .compile(&admitted, DerivativeOrder::Value, Optimization::default())
+        .unwrap();
+    let mut worker = artifact.worker();
+    for x in [1e-30_f64, -1e-30, -1.0 + f64::EPSILON / 2.0] {
+        let jet = worker
+            .evaluate(
+                &[x],
+                DerivativeOrder::Value,
+                &mut pse_kernels::ProviderBindings::new(),
+                &cancel,
+            )
+            .unwrap();
+        assert_eq!(jet.values[0].to_bits(), x.ln_1p().to_bits());
+    }
+    let error = worker
+        .evaluate(
+            &[-1.0],
+            DerivativeOrder::Value,
+            &mut pse_kernels::ProviderBindings::new(),
+            &cancel,
+        )
+        .unwrap_err();
+    assert!(
+        matches!(error, MathError::Domain { source_id, .. } if owner.region.occurrences.contains_key(&source_id))
+    );
+    for text in [
+        "package direct {def Root {var x:Temperature;let out:Temperature=magnitude(x,x);}}",
+        "package direct {def Root {var x:Length;var y:Time;let out:Length=magnitude(x,y);}}",
+    ] {
+        assert!(fixture(crate::authored_transfer_tests::context(), text, &["out"]).is_err());
+    }
+    // Cross the actual authored correlation and ordinary selected function path.
+    let text = format!(
+        "{}\npackage direct {{use correlations @\"1.0.0\"; def Root {{var x:Length;var y:Length;let out:Length=correlations.planar_displacement_length(x,y);}} }}",
+        crate::authored_transfer_tests::reference_sources()
+    );
+    let owner = fixture(crate::authored_transfer_tests::context(), &text, &["out"]).unwrap();
+    let admitted = owner.admit(&cancel).unwrap();
+    let artifact = owner
+        .compile(&admitted, DerivativeOrder::Value, Optimization::default())
+        .unwrap();
+    let jet = artifact
+        .worker()
+        .evaluate(
+            &[3e200, 4e200],
+            DerivativeOrder::Value,
+            &mut pse_kernels::ProviderBindings::new(),
+            &cancel,
+        )
+        .unwrap();
+    assert!((jet.values[0] / 5e200 - 1.0).abs() < 2e-16);
+}
+
+#[test]
+fn authored_caloric_entropy_preserves_near_reference_far_range_and_original_domain() {
+    let text = format!(
+        r#"{}
+package direct {{ use correlations @"1.0.0";
+def Root {{ var t:Temperature; var reference:Temperature;
+let out:DeltaS=correlations.dippr100_ds_value(reference,t,1{{J/(mol*K)}},0{{J/(mol*K^2)}},0{{J/(mol*K^3)}},0{{J/(mol*K^4)}},0{{J/(mol*K^5)}});
+}} }}"#,
+        crate::authored_transfer_tests::reference_sources()
+    );
+    let owner = fixture(crate::authored_transfer_tests::context(), &text, &["out"]).unwrap();
+    let cancel = Arc::new(AtomicBool::new(false));
+    let admitted = owner.admit(&cancel).unwrap();
+    let artifact = owner
+        .compile(&admitted, DerivativeOrder::Second, Optimization::default())
+        .unwrap();
+    let input_names = owner
+        .region
+        .inputs
+        .iter()
+        .map(|input| {
+            let binding = owner
+                .region
+                .bindings
+                .iter()
+                .find(|binding| binding.local == *input)
+                .unwrap();
+            owner.model.symbols[&binding.actual].lineage.path.clone()
+        })
+        .collect::<Vec<_>>();
+    let mut worker = artifact.worker();
+    // Decimal(100), exact binary floating-point arguments, then rounded to f64.
+    for (t, reference, expected) in [
+        (
+            f64::from_bits(300.0_f64.to_bits() + 1),
+            300.0,
+            1.894_780_628_693_600_3e-16,
+        ),
+        (
+            f64::from_bits(300.0_f64.to_bits() - 1),
+            300.0,
+            -1.894_780_628_693_600_8e-16,
+        ),
+        (1.0, 1e20, -46.051_701_859_880_914),
+        (1e20, 1.0, 46.051_701_859_880_914),
+        (300.0, 300.0, 0.0),
+    ] {
+        let inputs = input_names
+            .iter()
+            .map(|name| {
+                if name.ends_with(".reference") {
+                    reference
+                } else {
+                    assert!(name.ends_with(".t"));
+                    t
+                }
+            })
+            .collect::<Vec<_>>();
+        for order in [
+            DerivativeOrder::Value,
+            DerivativeOrder::First,
+            DerivativeOrder::Second,
+        ] {
+            let jet = worker
+                .evaluate(
+                    &inputs,
+                    order,
+                    &mut pse_kernels::ProviderBindings::new(),
+                    &cancel,
+                )
+                .unwrap();
+            assert!(
+                (jet.values[0] - expected).abs() <= expected.abs() * 4e-16,
+                "{} != {expected}",
+                jet.values[0]
+            );
+            if order >= DerivativeOrder::First {
+                for (name, actual) in input_names.iter().zip(&jet.jacobian) {
+                    let expected = if name.ends_with(".reference") {
+                        -1.0 / reference
+                    } else {
+                        1.0 / t
+                    };
+                    assert!(
+                        (actual / expected - 1.0).abs() < 5e-16,
+                        "{actual} != {expected}"
+                    );
+                }
+            }
+            if order >= DerivativeOrder::Second {
+                for (i, left) in input_names.iter().enumerate() {
+                    for (j, right) in input_names.iter().enumerate() {
+                        let expected = if left != right {
+                            0.0
+                        } else if left.ends_with(".reference") {
+                            (1.0 / reference) / reference
+                        } else {
+                            -(1.0 / t) / t
+                        };
+                        let actual = jet.hessians[i * input_names.len() + j];
+                        assert!(
+                            actual == expected || (actual / expected - 1.0).abs() < 8e-16,
+                            "{actual} != {expected}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+    for (t, reference) in [(0.0, 300.0), (-1.0, 300.0), (300.0, 0.0), (300.0, -1.0)] {
+        let inputs = input_names
+            .iter()
+            .map(|name| {
+                if name.ends_with(".reference") {
+                    reference
+                } else {
+                    t
+                }
+            })
+            .collect::<Vec<_>>();
+        let error = worker
+            .evaluate(
+                &inputs,
+                DerivativeOrder::Value,
+                &mut pse_kernels::ProviderBindings::new(),
+                &cancel,
+            )
+            .unwrap_err();
+        assert!(
+            matches!(&error,MathError::Validity(lineage)
+            if lineage.layer==pse_model::generated::enums::ModelingValidityLayer::Form
+            && lineage.source.to_string()=="da740711232f4efdaec92047a55244b8"
+            && lineage.form==Some(lineage.source)),
+            "{error}"
+        );
+    }
+}

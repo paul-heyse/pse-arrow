@@ -206,6 +206,267 @@ fn real_sparse_asymmetric_root_and_nested_both_arms_value_first_roundtrip() {
         );
     }
 }
+
+#[test]
+fn immutable_template_drops_old_scope_and_admits_independent_cold_workers() {
+    let old_cancel = pse_diagnostics::Cancellation::new(false);
+    let old_scope = pse_kernels::ExecutionScope::new(old_cancel.clone(), None);
+    let mut original = restore(
+        snapshot(&fixture(false)),
+        old_scope,
+        Arc::new(Construction),
+        |_| Ok::<_, Infallible>(Arc::new(())),
+    )
+    .unwrap();
+    assert_eq!(
+        original
+            .evaluate(&[2., 3., 1.], DerivativeOrder::First)
+            .unwrap()
+            .values,
+        [9., 10.]
+    );
+    let template = original.into_template();
+    old_cancel.cancel();
+    let first_cancel = pse_diagnostics::Cancellation::new(false);
+    let first_scope = pse_kernels::ExecutionScope::new(first_cancel.clone(), None);
+    let admissions = Cell::new(0);
+    let admit = |bytes| -> std::result::Result<Arc<dyn AllocationOwner>, Infallible> {
+        assert_eq!(bytes, template.extents().worker_bytes);
+        admissions.set(admissions.get() + 1);
+        Ok(Arc::new(()))
+    };
+    let mut first = template.worker_scoped(first_scope, admit).unwrap();
+    let mut second = template.worker_scoped(scope(), admit).unwrap();
+    assert_eq!(admissions.get(), 2);
+    assert!(Arc::ptr_eq(&first.frame.template, &second.frame.template));
+    assert!(first.frame.frame.is_empty() && second.frame.frame.is_empty());
+    assert!(first.frame.programs.values().all(Option::is_none));
+    let one = first
+        .evaluate(&[4., 5., 1.], DerivativeOrder::First)
+        .unwrap();
+    assert_eq!(one.values, [25., 36.]);
+    assert_eq!(one.jacobian, [0., 10., 13., 4.]);
+    assert!(second.frame.programs.values().all(Option::is_none));
+    let two = second
+        .evaluate(&[2., 3., 1.], DerivativeOrder::First)
+        .unwrap();
+    assert_eq!(two.values, [9., 10.]);
+    assert_eq!(two.jacobian, [0., 6., 7., 2.]);
+    first_cancel.cancel();
+    assert!(matches!(
+        first.evaluate(&[4., 5., 1.], DerivativeOrder::First),
+        Err(MathError::Cancelled)
+    ));
+    assert_eq!(
+        second
+            .evaluate(&[2., 3., 1.], DerivativeOrder::First)
+            .unwrap(),
+        two
+    );
+    let refused = template.worker_scoped(scope(), |_| Err("worker admission"));
+    assert!(matches!(
+        refused,
+        Err(TransferError::Admission("worker admission"))
+    ));
+    let stopped = pse_kernels::ExecutionScope::new(pse_diagnostics::Cancellation::new(true), None);
+    assert!(matches!(
+        template.worker_scoped(
+            stopped,
+            |_| -> std::result::Result<Arc<dyn AllocationOwner>, Infallible> {
+                panic!("stopped worker must not request backing")
+            }
+        ),
+        Err(TransferError::Math(MathError::Cancelled))
+    ));
+}
+
+#[test]
+fn immutable_template_and_each_worker_retain_allocation_owners_until_drain() {
+    #[derive(Debug)]
+    struct Owner;
+    let restored_owner = Arc::new(Owner);
+    let restored_weak = Arc::downgrade(&restored_owner);
+    let checked = restore(
+        snapshot(&fixture(false)),
+        scope(),
+        Arc::new(Construction),
+        |_| Ok::<Arc<dyn AllocationOwner>, Infallible>(restored_owner.clone()),
+    )
+    .unwrap();
+    drop(restored_owner);
+    let template = checked.into_template();
+    let worker_owner = Arc::new(Owner);
+    let worker_weak = Arc::downgrade(&worker_owner);
+    let worker = template
+        .worker_scoped(scope(), |_| {
+            Ok::<Arc<dyn AllocationOwner>, Infallible>(worker_owner.clone())
+        })
+        .unwrap();
+    drop(worker_owner);
+    drop(template);
+    assert!(restored_weak.upgrade().is_some());
+    assert!(worker_weak.upgrade().is_some());
+    drop(worker);
+    assert!(restored_weak.upgrade().is_none());
+    assert!(worker_weak.upgrade().is_none());
+}
+
+#[test]
+fn immutable_template_releases_restoration_construction_and_cancellation_controls() {
+    #[derive(Debug)]
+    struct ControlledConstruction(pse_diagnostics::Cancellation);
+    impl ConstructionAdmission for ControlledConstruction {
+        fn try_grow(&self, _: usize) -> std::result::Result<(), MathError> {
+            if self.0.is_cancelled() {
+                Err(MathError::Cancelled)
+            } else {
+                Ok(())
+            }
+        }
+    }
+    let stopped = pse_diagnostics::Cancellation::new(false);
+    let weak_control = Arc::downgrade(&stopped.flag());
+    let checked = restore(
+        snapshot(&fixture(false)),
+        pse_kernels::ExecutionScope::new(stopped.clone(), None),
+        Arc::new(ControlledConstruction(stopped.clone())),
+        |_| Ok::<_, Infallible>(Arc::new(())),
+    )
+    .unwrap();
+    drop(stopped);
+    assert!(weak_control.upgrade().is_some());
+    let template = checked.into_template();
+    assert!(
+        weak_control.upgrade().is_none(),
+        "immutable publication must drop restoration control anchors"
+    );
+    let mut worker = template
+        .worker_scoped(scope(), |_| Ok::<_, Infallible>(Arc::new(())))
+        .unwrap();
+    assert_eq!(
+        worker
+            .evaluate(&[2., 3., 1.], DerivativeOrder::First)
+            .unwrap()
+            .values,
+        [9., 10.]
+    );
+}
+
+#[test]
+fn selected_second_transfer_preserves_reordered_axes_outputs_and_pair_semantics() {
+    crate::initialize().unwrap();
+    let x = library::formal(7).unwrap();
+    let y = library::formal(31).unwrap();
+    let body = PreparedBody::new(
+        32,
+        1026,
+        vec![1024, 1025, 1025],
+        vec![
+            block(&x * &x * &x * &y + &x, 1024, 61),
+            block(&y * &y, 1025, 62),
+        ],
+        DerivativeOrder::Second,
+    )
+    .unwrap()
+    .compile(
+        &[1, 0, 2],
+        &[31, 7],
+        DerivativeOrder::Second,
+        Optimization::default(),
+        EvaluationLimits::default(),
+        &scope(),
+    )
+    .unwrap();
+    let passive = snapshot(&body);
+    assert!(passive.second.is_some());
+    assert_eq!(passive.coordinate_offsets, [1, 0]);
+    let mut received = restored(passive.clone())
+        .into_template()
+        .worker_scoped(scope(), |_| Ok::<_, Infallible>(Arc::new(())))
+        .unwrap();
+    let result = received
+        .evaluate(&[2., 3.], DerivativeOrder::Second)
+        .unwrap();
+    assert_eq!(result.values, [9., 26., 9.]);
+    assert_eq!(result.jacobian, [6., 0., 8., 37., 6., 0.]);
+    assert_eq!(
+        result.hessians,
+        [2., 0., 0., 0., 0., 12., 12., 36., 2., 0., 0., 0.]
+    );
+    for mutation in [0, 1, 2] {
+        let mut corrupt = passive.clone();
+        let second = corrupt.second.as_mut().unwrap();
+        match mutation {
+            0 => second.layout.pairs.swap(0, 1),
+            1 => second.layout.shape.last_mut().unwrap()[0] = 9,
+            _ => second.layout.order = DerivativeOrder::First,
+        }
+        assert!(
+            restore(
+                corrupt,
+                scope(),
+                Arc::new(Construction),
+                |_| -> std::result::Result<Arc<dyn AllocationOwner>, Infallible> {
+                    panic!("malformed Second layout must refuse before native admission")
+                }
+            )
+            .is_err()
+        );
+    }
+}
+
+#[test]
+fn stable_second_transfer_executes_closed_heads_after_producer_retirement() {
+    use crate::stable::{self, Operation};
+    crate::initialize().unwrap();
+    let x = library::formal(0).unwrap();
+    let y = library::formal(1).unwrap();
+    let log = stable::call(Operation::Log1p, &[&x]).unwrap();
+    let magnitude = stable::call(Operation::Magnitude, &[&x, &y]).unwrap();
+    let source = PreparedBody::new(
+        2,
+        4,
+        vec![2, 3],
+        vec![block(log, 2, 81), block(magnitude, 3, 82)],
+        DerivativeOrder::Second,
+    )
+    .unwrap()
+    .compile(
+        &[1, 0],
+        &[1, 0],
+        DerivativeOrder::Second,
+        Optimization::default(),
+        EvaluationLimits::default(),
+        &scope(),
+    )
+    .unwrap();
+    let passive = snapshot(&source);
+    drop(source);
+    let template = restored(passive).into_template();
+    let mut worker = template
+        .worker_scoped(scope(), |_| Ok::<_, Infallible>(Arc::new(())))
+        .unwrap();
+    let point = worker.evaluate(&[3., 4.], DerivativeOrder::Second).unwrap();
+    assert_eq!(point.values[0], 5.);
+    assert!((point.values[1] - 4_f64.ln()).abs() < 1e-15);
+    let close = |actual: &[f64], expected: &[f64]| {
+        assert_eq!(actual.len(), expected.len());
+        for (&actual, &expected) in actual.iter().zip(expected) {
+            assert!((actual - expected).abs() < 2e-15, "{actual} != {expected}");
+        }
+    };
+    close(&point.jacobian, &[0.8, 0.6, 0., 0.25]);
+    close(
+        &point.hessians,
+        &[0.072, -0.096, -0.096, 0.128, 0., 0., 0., -0.0625],
+    );
+    let tiny = worker
+        .evaluate(&[1e-20, 1.], DerivativeOrder::Value)
+        .unwrap();
+    assert_eq!(tiny.values[1].to_bits(), 1e-20_f64.ln_1p().to_bits());
+    assert_ne!(tiny.values[1], (1.0 + 1e-20_f64).ln());
+}
+
 #[test]
 fn input_constant_outputs_allow_empty_arithmetic_programs() {
     crate::initialize().unwrap();
@@ -380,7 +641,7 @@ fn malformed_signature_layout_and_every_block_index_refuse_before_native_admissi
     let original = snapshot(&fixture(false));
     type Mutation = (&'static str, fn(&mut ExecutionSnapshot));
     let mutations: &[Mutation] = &[
-        ("version", |s| s.version = 2),
+        ("old version", |s| s.version = 1),
         ("input count", |s| s.inputs = usize::MAX),
         ("coordinate offset", |s| {
             s.coordinate_offsets[0] = usize::MAX
@@ -725,7 +986,15 @@ fn actual_provider_directional_and_unavailable_order_profiles_refuse_before_capt
             &scope(),
         )
         .unwrap();
-    for body in [&provider, &second, &directional, &value] {
+    let mut received_second = restored(snapshot(&second));
+    assert_eq!(received_second.order(), DerivativeOrder::Second);
+    let result = received_second
+        .evaluate(&[3.], DerivativeOrder::Second)
+        .unwrap();
+    assert_eq!(result.values, [3.]);
+    assert_eq!(result.jacobian, [1.]);
+    assert_eq!(result.hessians, [0.]);
+    for body in [&provider, &directional, &value] {
         ALLOCATIONS.with(|n| n.set(0));
         let called = Cell::new(false);
         assert!(matches!(
@@ -977,7 +1246,7 @@ fn passive_projection_and_json_do_not_construct_execution_or_duplicate_existing_
     };
     assert_eq!(
         fields.iter().find(|f| f.name == "version").unwrap().rules,
-        [LocalRule::UnsignedRange { min: 1, max: 1 }]
+        [LocalRule::UnsignedRange { min: 2, max: 2 }]
     );
     for name in ["limits", "value_layout", "first_layout"] {
         assert_eq!(

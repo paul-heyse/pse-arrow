@@ -545,6 +545,16 @@ impl<'a> Lower<'a> {
                     let value = self.node(args[0], builder)?;
                     builder.unary_admitted(function, value, operation()?, source)
                 }
+                pse_math::Implementation::LogRatio if args.len() == 2 => {
+                    let left = self.node(args[0], builder)?;
+                    let right = self.node(args[1], builder)?;
+                    builder.log_ratio_admitted(left, right, operation()?, source)
+                }
+                pse_math::Implementation::Magnitude if args.len() == 2 => {
+                    let left = self.node(args[0], builder)?;
+                    let right = self.node(args[1], builder)?;
+                    builder.magnitude_admitted(left, right, operation()?, source)
+                }
                 pse_math::Implementation::Extremum { minimum } if args.len() == 2 => {
                     let left = self.node(args[0], builder)?;
                     let right = self.node(args[1], builder)?;

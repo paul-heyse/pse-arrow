@@ -50,6 +50,10 @@ pub enum OpRequest<'a> {
     Neg,
     /// Absolute value.
     Abs,
+    /// Euclidean magnitude preserving identical complete vector contracts.
+    Magnitude,
+    /// Registered positive ratio logarithm, retaining both original operands.
+    LogRatio,
     /// Product.
     Mul,
     /// Quotient.
@@ -163,6 +167,8 @@ crate::closed_enum! {
         Addition => "addition",
         /// Preserve a unary operand contract.
         Unary => "unary",
+        /// Compatible linear or difference component magnitude.
+        Magnitude => "magnitude",
         /// Explicitly designated neutral scalar scaling.
         NeutralScaling => "neutral_scaling",
         /// Scaling by a declared count or indicator, a dimensionless pure number (ADR-0103).
@@ -394,6 +400,30 @@ pub(crate) fn infer_named(
         OpRequest::Add | OpRequest::Sub => {
             additive(matches!(request, OpRequest::Sub), operands, registry)
         }
+        OpRequest::Magnitude => {
+            count(operands, 2)?;
+            same(operands, registry)?;
+            if registry
+                .quantity_type(operands[0].quantity_type)?
+                .key
+                .scale_kind
+                == ScaleKind::Point
+                && registry
+                    .kind(registry.quantity_type(operands[0].quantity_type)?.key.kind)?
+                    .addition_kind
+                    == QuantityAdditionKind::OriginSensitive
+            {
+                return Err(invariant(
+                    "magnitude.scale",
+                    "affine points are not vector components",
+                ));
+            }
+            Ok(built(
+                operands[0].quantity_type,
+                operands[0].indices.clone(),
+                BuiltInRule::Magnitude,
+            ))
+        }
         OpRequest::Neg | OpRequest::Abs => {
             count(operands, 1)?;
             Ok(built(
@@ -551,6 +581,7 @@ pub(crate) fn infer_named(
         }
         OpRequest::Pow { .. }
         | OpRequest::Sqrt
+        | OpRequest::LogRatio
         | OpRequest::Transcendental(_)
         | OpRequest::Derivative { .. }
         | OpRequest::Integral { .. } => registered(request, operands, registry, checker),
@@ -809,6 +840,8 @@ fn request_opcode(request: &OpRequest<'_>) -> Opcode {
         OpRequest::Sub => Opcode::Sub,
         OpRequest::Neg => Opcode::Neg,
         OpRequest::Abs => Opcode::Abs,
+        OpRequest::Magnitude => Opcode::Magnitude,
+        OpRequest::LogRatio => Opcode::LogRatio,
         OpRequest::Mul => Opcode::Mul,
         OpRequest::Div => Opcode::Div,
         OpRequest::Pow { .. } => Opcode::Pow,
@@ -1249,6 +1282,7 @@ fn dimension_for(
         .collect::<Result<Vec<_>, _>>()?;
     match (request, dimensions.as_slice()) {
         (OpRequest::Add | OpRequest::Sub, [a, b]) if a == b => Ok(*a),
+        (OpRequest::LogRatio, [a, b]) if a == b => Ok(DimensionVector::DIMENSIONLESS),
         (OpRequest::Mul, [a, b]) => Ok(a.mul(b)?),
         (OpRequest::Div, [a, b]) => Ok(a.div(b)?),
         (

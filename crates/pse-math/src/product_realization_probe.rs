@@ -57,13 +57,7 @@ fn polynomial_coefficients_compare_interpreted_packed_scalar_reload_and_scalar_j
         .iter()
         .map(|product| {
             batch
-                .push(
-                    &product.evaluator,
-                    &product.facts.storage,
-                    &product.export,
-                    32 << 20,
-                    &scope,
-                )
+                .push(&product.evaluator, &product.facts.storage, 32 << 20, &scope)
                 .unwrap()
         })
         .collect::<Vec<_>>();

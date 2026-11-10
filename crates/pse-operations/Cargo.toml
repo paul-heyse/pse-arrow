@@ -86,6 +86,7 @@ tonic.workspace = true
 surrealdb-protocol = { workspace = true, features = ["rpc"] }
 
 [dev-dependencies]
+surrealdb-expr.workspace = true
 reqwest.workspace = true
 tracing-subscriber.workspace = true
 pse-engine.workspace = true

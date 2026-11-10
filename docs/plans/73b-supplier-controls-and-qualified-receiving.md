@@ -68,7 +68,7 @@ Preserve [maintained bounded roots](../../vendor/symbolica-bounded-roots.md), pa
 | [B01](#B01) | in-progress | A01/C01 design slices and existing callers | Checked operation extents, overflow/refusal, temporary overlap, safe points and per-call control settled through applicable decisions. |
 | [B02](#B02) | in-progress | B01 implemented control interface | Checked construction/vectorization/optimization consumed; corresponding expansion mirrors/rebinding removed. |
 | [B03](#B03) | in-progress | B01 interface; C01 supported-head descriptors | Checked scalar/x4 C++ export and native caller migration cover stable heads/source overlap; replaced exporter predictors removed. |
-| [B04](#B04) | open | A01 module scenario; B01 preservation contract | Composer backport/rebase versus no-adoption decision implemented with A04, preserving maintained source contracts/provenance. |
+| [B04](#B04) | complete | A01 module scenario; B01 preservation contract | Composer backport/rebase versus no-adoption decision implemented with A04, preserving maintained source contracts/provenance. |
 | [B05](#B05) | in-progress | A01 binding/custody slice; working C02 interpreted products; C01 identities | Numerical-only production receiver includes stable Value/First/Second cold after producer retirement; replaced consumer encoding/replay retired. |
 | [B06](#B06) | open | A01 source/guard contract; B05 early custody conventions | Guarded symbolic production continuation or justified single typed-replay branch delivered with actual later-symbolic consumer and retired replaced path. |
 | [B07](#B07) | open | B02–B06 actual caller deliveries | Adversarial receiving/control integration and source-level retirement complete; evidence handed to H. |
@@ -452,3 +452,35 @@ invalid repeated demand ordinal. Closed stable-head transfer is being integrated
 These are math-owned prerequisites only. B05 remains open for its durable interpretation,
 compiler-sealed request/custody, actual publication/acquisition and observation caller cutover;
 no source-independent production receiving claim follows from the transfer tests alone.
+
+
+## Checked export and numerical prerequisite checkpoint — 2026-11-10
+
+**Implemented.** Supplier commit `74d9d011c` adds streamed checked C++ export: allocation-free
+counting precedes admitted source allocation/emission, preserving actual integer-power
+semantics and rejecting unsupported opaque/packed control profiles. The application native
+batch caller now consumes that operation; its separate `export_bound` and eight-population
+export mirror are removed. Copied GMP coefficients use fresh backend storage under the
+checked copy extent. Known-head generated names are preflighted without allocating or
+registering them; selected Taylor construction eliminates unrequested singular partials
+rather than computing `infinity * 0`.
+
+**Tested.** The focused compiled-evaluator native selection passed 17/17, and selected Taylor
+plus checked-control selection passed 5/5, zero failures against baseline zero. The
+compiled-evaluator all-targets math check passed. Independent full supplier reconstruction
+reproduced 162 files byte-for-byte and mode-for-mode from the pinned archive and committed
+delta. B01/B02 remain open for exact builder/Horner/constant-folding growth and the original
+scope deadline. B03 remains open for its required x4 profile.
+
+**Tested.** `scripts/pse test pse-math --lib -E 'test(execution::transfer::tests)'` passed
+21/21, zero failures against baseline zero, in the default Nextest profile. Selected Second,
+fixed stable operation identities, malformed shapes, current-scope workers, released producer
+controls and moved-frame allocation custody are covered. The maintained supplier F64 transfer
+unit selection passed 14/14 using its standalone locked no-default-feature GMP/MPFR/native-code
+configuration. These remain numerical prerequisites; B05 still requires its compiler-sealed
+early request, durable publication/acquisition and actual cold observation binding.
+
+B04 is complete with A04's documented joint-alias decision. No unused composer adapter or
+supplier upgrade is retained. ADR-0264 records the new numerical interpretation and early
+source seal before production code; normalized body keys and process-local artifact keys are
+not durable source authority.

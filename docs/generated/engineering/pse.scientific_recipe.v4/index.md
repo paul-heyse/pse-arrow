@@ -118,6 +118,9 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `Max` | 8 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
 | `Convert` | 9 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
 | `Broadcast` | 10 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Log1p` | 11 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Magnitude` | 12 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `LogRatio` | 13 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
 
 ## `AuthoredComparisonOperator`
 
@@ -732,6 +735,8 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | `Reduce (alternative tag 11).kind` | 1 | `Named("ReductionKind")` | `Both` | `[]` | `{}` |
 | `Reduce (alternative tag 11).bound` | 2 | `Named("BoundIndexReference")` | `Both` | `[]` | `{}` |
 | `Conditional` | 12 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `Magnitude` | 13 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
+| `LogRatio` | 14 | `Named("unit alternative")` | `Both` | `[Required]` | `{}` |
 
 ## `ModelingProviderSelection`
 
@@ -1411,7 +1416,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
 
-Allowed canonical members: `["Const", "SymbolRef", "Add", "Sub", "Affine", "WeightedMean", "Mul", "Div", "Pow", "Neg", "Abs", "Exp", "Log", "Log10", "Sqrt", "Sin", "Cos", "Tan", "Asin", "Acos", "Atan", "Sinh", "Cosh", "Tanh", "Erf", "SmoothMax", "SmoothMin", "SmoothAbs", "SafeSqrt", "SafeLog", "Conditional", "SumOver", "ProdOver", "MinOver", "MaxOver", "Gather", "Broadcast", "Derivative", "Integral", "KernelCall", "ImplicitRef", "UnitConvert", "PiecewiseLinear"]`.
+Allowed canonical members: `["Const", "SymbolRef", "Add", "Sub", "Affine", "WeightedMean", "Mul", "Div", "Pow", "Neg", "Abs", "Exp", "Log", "Log1p", "LogRatio", "Magnitude", "Log10", "Sqrt", "Sin", "Cos", "Tan", "Asin", "Acos", "Atan", "Sinh", "Cosh", "Tanh", "Erf", "SmoothMax", "SmoothMin", "SmoothAbs", "SafeSqrt", "SafeLog", "Conditional", "SumOver", "ProdOver", "MinOver", "MaxOver", "Gather", "Broadcast", "Derivative", "Integral", "KernelCall", "ImplicitRef", "UnitConvert", "PiecewiseLinear"]`.
 
 ## `OperationId`
 
@@ -1433,7 +1438,7 @@ Reserved numbers: `[]`. Reserved names: `[]`.
 | --- | --- | --- | --- | --- | --- |
 | `value` | 1 | `Scalar(String)` | `Both` | `[]` | `{}` |
 
-Allowed canonical members: `["literal", "addition", "unary", "neutral_scaling", "discrete_scaling", "affine", "smooth", "gather", "weighted_mean", "reduction", "broadcast", "conditional", "unit_convert", "binding", "chain", "physical_formula", "partial"]`.
+Allowed canonical members: `["literal", "addition", "unary", "magnitude", "neutral_scaling", "discrete_scaling", "affine", "smooth", "gather", "weighted_mean", "reduction", "broadcast", "conditional", "unit_convert", "binding", "chain", "physical_formula", "partial"]`.
 
 ## `PhysicalCanonicalConversionRecord`
 

@@ -40,6 +40,8 @@ use symbolica::{
     id::Replacement,
 };
 
+#[path = "execution/batch.rs"]
+pub mod batch;
 #[path = "products.rs"]
 mod products;
 #[path = "reverse.rs"]
@@ -2518,7 +2520,6 @@ impl PreparedBody {
         }
         #[cfg(feature = "compiled-evaluator")]
         let mut native_modules = crate::native_compiled::Batch::default();
-        let mut shared_partials = BTreeMap::new();
         for (requested, layout, profile, regions) in planned {
             let _order_phase = pse_diagnostics::observation::current().map(|context| {
                 context.count("math.compiled_order_constructions", "count", 1);
@@ -2552,7 +2553,6 @@ impl PreparedBody {
                     .map(|&slot| parameters[slot].clone())
                     .collect(),
                 regions,
-                partials: std::mem::take(&mut shared_partials),
                 partial_order: order,
                 selected_partial_calls: limits.operations,
                 symbolic_regions: profile.symbolic_regions,
@@ -2589,7 +2589,6 @@ impl PreparedBody {
                     "unconsumed regional construction preflight".into(),
                 ));
             }
-            shared_partials = std::mem::take(&mut allowance.partials);
             retained_modules = retained_modules
                 .checked_add(allowance.modules)
                 .ok_or(MathError::Limit("compiled module storage"))?;
@@ -3851,6 +3850,9 @@ pub(crate) struct NumericFrame {
     // Execution allocation admission survives a source-free frame. This anchor
     // supplies no PreparedBody, support or source-correspondence witness.
     _owner: Option<Arc<dyn crate::AllocationOwner>>,
+    // Restoration construction admission can contain cancellation. It belongs
+    // to the mutable operation, never to the immutable instruction/allocation owner.
+    construction_owner: Option<Arc<dyn crate::construction::ConstructionAdmission>>,
     scope: Option<pse_kernels::ExecutionScope>,
 }
 impl ExecutionTemplate {
@@ -3871,6 +3873,7 @@ impl ExecutionTemplate {
             used_bytes: 0,
             template: self.clone(),
             _owner: owner,
+            construction_owner: None,
             scope,
         }
     }
@@ -4086,6 +4089,7 @@ impl NumericFrame {
     }
     pub(crate) fn detach_controls(&mut self) {
         self.scope = None;
+        self.construction_owner = None;
     }
     /// Caller reserves the complete old/new stack overlap before this operation.
     pub(crate) fn reset_scratch(&mut self) -> Result<(), MathError> {
@@ -4962,7 +4966,6 @@ struct BuildAllowance {
     direct_action: bool,
     first_variables: Vec<Atom>,
     regions: VecDeque<RegionConstruction>,
-    partials: BTreeMap<usize, Arc<LocalPartials>>,
     partial_order: DerivativeOrder,
     selected_partial_calls: usize,
     symbolic_regions: bool,
@@ -5306,12 +5309,56 @@ struct DefinitionPartials {
     first: Vec<Atom>,
     second: BTreeMap<(usize, usize), Atom>,
 }
-struct LocalPartials {
+/// Exact named derivative family, including coefficients present in definitions.
+/// Runtime values and physical/source attribution stay with enclosing owners.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct LocalPartialsKey {
+    definitions: Vec<(Atom, Atom)>,
+    parameters: Vec<(usize, Atom)>,
+    dependencies: Vec<Vec<usize>>,
+    formal_start: usize,
+    order: u8,
+}
+pub(crate) struct LocalPartials {
     definitions: Vec<(Atom, Atom)>,
     derivatives: Vec<DefinitionPartials>,
     formal_end: usize,
 }
 impl LocalPartials {
+    fn retained_bytes(&self) -> Result<usize, MathError> {
+        self.definitions
+            .iter()
+            .try_fold(
+                size_of::<Self>()
+                    + self.definitions.capacity() * size_of::<(Atom, Atom)>()
+                    + self.derivatives.capacity() * size_of::<DefinitionPartials>(),
+                |bytes, (lhs, rhs)| {
+                    bytes
+                        .checked_add(lhs.as_view().get_byte_size())?
+                        .checked_add(rhs.as_view().get_byte_size())
+                },
+            )
+            .and_then(|bytes| {
+                self.derivatives
+                    .iter()
+                    .try_fold(bytes, |bytes, derivative| {
+                        derivative
+                            .first
+                            .iter()
+                            .chain(derivative.second.values())
+                            .try_fold(
+                                bytes
+                                    .checked_add(derivative.first.capacity() * size_of::<Atom>())?
+                                    .checked_add(
+                                        derivative.second.len()
+                                            * (size_of::<((usize, usize), Atom)>() + 96),
+                                    )?,
+                                |bytes, atom| bytes.checked_add(atom.as_view().get_byte_size()),
+                            )
+                    })
+            })
+            .ok_or(MathError::Limit("retained named partial extent"))
+    }
     fn new(
         region: &PreparedArithmeticRegion,
         plan: &SymbolicRegionPlan,
@@ -5396,24 +5443,65 @@ impl SymbolicRegion {
         limits: EvaluationLimits,
         plan: &SymbolicRegionPlan,
         allowance: &mut BuildAllowance,
+        scalars: &mut library::ScalarCache,
     ) -> Result<Self, MathError> {
         let RegionFrame {
             layout,
             local,
             components,
         } = frame;
-        let key = std::ptr::from_ref(region) as usize;
-        let partials = if let Some(partials) = allowance.partials.get(&key) {
-            partials.clone()
+        allowance.selected_partial_calls = allowance
+            .selected_partial_calls
+            .checked_sub(plan.calls)
+            .ok_or(MathError::Contract(
+                "regional preflight partial allowance".into(),
+            ))?;
+        crate::construction::additional(plan.bytes)?;
+        let identity = LocalPartialsKey {
+            definitions: region.definitions.clone(),
+            parameters: plan
+                .dependencies
+                .iter()
+                .flatten()
+                .copied()
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .map(|input| (input, allowance.region_parameters[input].clone()))
+                .collect(),
+            dependencies: plan.dependencies.clone(),
+            formal_start: allowance.region_formal_end,
+            order: allowance.partial_order as u8,
+        };
+        let partials = if let Some(partials) = scalars.local_partials(&identity) {
+            if let Some(context) = pse_diagnostics::observation::current() {
+                context.count("math.regional_local_partial_reuses", "count", 1);
+            }
+            partials
         } else {
-            allowance.selected_partial_calls = allowance
-                .selected_partial_calls
-                .checked_sub(plan.calls)
-                .ok_or(MathError::Contract(
-                    "regional preflight partial allowance".into(),
-                ))?;
             let partials = Arc::new(LocalPartials::new(region, plan, allowance, scope)?);
-            allowance.partials.insert(key, partials.clone());
+            scope.check().map_err(crate::error::scope_error)?;
+            let key_bytes = identity
+                .definitions
+                .iter()
+                .flat_map(|(lhs, rhs)| [lhs, rhs])
+                .chain(identity.parameters.iter().map(|(_, atom)| atom))
+                .try_fold(
+                    size_of::<LocalPartialsKey>()
+                        + identity.definitions.capacity() * size_of::<(Atom, Atom)>()
+                        + identity.parameters.capacity() * size_of::<(usize, Atom)>()
+                        + identity.dependencies.capacity() * size_of::<Vec<usize>>()
+                        + identity
+                            .dependencies
+                            .iter()
+                            .map(|d| d.capacity() * size_of::<usize>())
+                            .sum::<usize>(),
+                    |bytes, atom| bytes.checked_add(atom.as_view().get_byte_size()),
+                )
+                .ok_or(MathError::Limit("retained named partial identity extent"))?;
+            let bytes = key_bytes
+                .checked_add(partials.retained_bytes()?)
+                .ok_or(MathError::Limit("retained named partial extent"))?;
+            scalars.retain_local_partials(identity, Arc::clone(&partials), bytes);
             partials
         };
         crate::construction::additional(plan.bytes)?;
@@ -6243,6 +6331,7 @@ fn compile_stages(
                         limits,
                         plan,
                         allowance,
+                        scalars,
                     )?)
                 } else {
                     None
@@ -6382,7 +6471,6 @@ fn compile_stages(
                                 BlockEvaluator::Native(native_modules.push(
                                     &evaluator,
                                     &storage,
-                                    &_export,
                                     module_bytes,
                                     execution_scope,
                                 )?)
@@ -11520,6 +11608,48 @@ mod compact_tests {
             "the three definitions require 2+9+5 local First/Second calls once across both requested order builds"
         );
         drop(entered);
+        assert_eq!(compiled.scalar_products().derivative_preparations(), 1);
+        let reuse_operation = hub.start("retained regional named partials");
+        let reuse_context = reuse_operation.context();
+        let reuse_entered = reuse_context.enter();
+        let reused = support
+            .compile_reusing(
+                Optimization::default(),
+                EvaluationLimits::default(),
+                &scope,
+                compiled.scalar_products(),
+            )
+            .unwrap();
+        let reuse_snapshot = reuse_context
+            .reader()
+            .snapshot(std::time::Duration::from_secs(60));
+        assert!(
+            !reuse_snapshot
+                .metrics
+                .iter()
+                .any(|metric| metric.name == "math.regional_local_partial_constructions")
+        );
+        assert!(
+            reuse_snapshot
+                .metrics
+                .iter()
+                .any(|metric| metric.name == "math.regional_local_partial_reuses")
+        );
+        drop(reuse_entered);
+        assert_eq!(
+            eval(
+                &mut reused.worker(),
+                &[2., 3., 17.],
+                DerivativeOrder::Second
+            )
+            .unwrap(),
+            eval(
+                &mut compiled.worker(),
+                &[2., 3., 17.],
+                DerivativeOrder::Second
+            )
+            .unwrap()
+        );
         assert_eq!(
             compiled.template.census[DerivativeOrder::First]
                 .unwrap()

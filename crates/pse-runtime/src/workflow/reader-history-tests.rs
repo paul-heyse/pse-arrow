@@ -313,11 +313,7 @@ async fn product_retained_study_and_attempt_pages_preserve_original_history_and_
         lifecycle: facts.lifecycle,
         scientific: facts.scientific.clone(),
         diagnostic: None,
-        start: claim
-            .point
-            .start
-            .as_ref()
-            .map(|bytes| serde_json::from_slice(bytes.as_slice()).unwrap()),
+        start: claim.point.start.clone(),
         effect: facts.effect,
         attempts: vec![],
     };

@@ -1255,7 +1255,10 @@ async fn canonical_study_expired_claim_recovers_without_scientific_rerun() {
         assert_eq!(unchanged.revision, after.revision);
         assert_eq!(unchanged.attempt, after.attempt);
         assert_eq!(unchanged.facts, after.facts);
-        assert_eq!(unchanged.outcome, after.outcome);
+        assert_eq!(
+            serde_json::to_value(&unchanged.outcome).unwrap(),
+            serde_json::to_value(&after.outcome).unwrap()
+        );
         assert_eq!(unchanged.assigned, after.assigned);
         assert_eq!(unchanged.settled, after.settled);
     }
@@ -2257,7 +2260,53 @@ async fn canonical_study_summary_live_owner_and_expired_writer_rebuild_without_s
         .unwrap()
         .unwrap();
     assert_eq!(
-        before, after,
+        (
+            &before.key,
+            &before.study,
+            &before.admission_run,
+            &before.variant_problem,
+            &before.variant_operation,
+            before.ordinal,
+            before.occurrence,
+            &before.seed_solution,
+            &before.run,
+            before.revision,
+            before.assigned,
+            before.settled
+        ),
+        (
+            &after.key,
+            &after.study,
+            &after.admission_run,
+            &after.variant_problem,
+            &after.variant_operation,
+            after.ordinal,
+            after.occurrence,
+            &after.seed_solution,
+            &after.run,
+            after.revision,
+            after.assigned,
+            after.settled
+        ),
+        "summary rebuild must retain point identity and settlement"
+    );
+    assert_eq!(
+        (
+            &before.attempt,
+            &before.start,
+            &before.descriptor,
+            &before.admission
+        ),
+        (
+            &after.attempt,
+            &after.start,
+            &after.descriptor,
+            &after.admission
+        )
+    );
+    assert_eq!(
+        serde_json::to_value((&before.policy, &before.facts, &before.outcome)).unwrap(),
+        serde_json::to_value((&after.policy, &after.facts, &after.outcome)).unwrap(),
         "summary rebuild must not execute or revise any scientific occurrence"
     );
     let status = handle.status().await.unwrap();

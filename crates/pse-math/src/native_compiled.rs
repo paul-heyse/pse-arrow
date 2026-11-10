@@ -7,13 +7,7 @@ use std::{
     process::{Command, Stdio},
     sync::{Arc, Mutex, OnceLock},
 };
-use symbolica::{
-    atom::Symbol,
-    evaluate::{
-        CompiledRealEvaluator, ExportSettings, ExportedInstructions, ExpressionEvaluator,
-        InlineASM, Instruction,
-    },
-};
+use symbolica::evaluate::{CompiledRealEvaluator, ExportSettings, ExpressionEvaluator, InlineASM};
 
 mod cache;
 #[cfg(test)]
@@ -105,79 +99,6 @@ impl Evaluator {
     }
 }
 
-// These are source bounds for Symbolica 3.0.1 export.rs, not compiler RSS
-// estimates. Generic scalar export spells usize/i64 indices in <=20 digits,
-// finite f64 constants as scientific notation, and the fixed wrappers below.
-// Registered constants/subevaluators and opaque function/control channels refuse.
-// This is not a validator for arbitrary Symbolica evaluators: its sole production
-// caller receives bounded library products. library::exact_evaluator registers only
-// argument-free aliases and selects direct translation, which fully inlines them;
-// it admits no opaque callbacks or retained non-inline function bodies. ScalarProducts
-// has no public insertion route. This producer boundary excludes unused external
-// bodies, which export_cpp emits but export_instructions omits.
-fn export_bound(export: &ExportedInstructions<f64>) -> Result<usize, MathError> {
-    if !export.constant_functions.is_empty()
-        || !export.sub_evaluators.is_empty()
-        || export.constants.iter().any(|value| !value.is_finite())
-    {
-        return Err(MathError::Contract(
-            "compiled scalar export requires finite provider-free constants".into(),
-        ));
-    }
-    let mut bytes = 4096usize
-        .checked_add(
-            export
-                .output_count
-                .checked_mul(128)
-                .ok_or(MathError::Limit("compiled output export extent"))?,
-        )
-        .ok_or(MathError::Limit("compiled output export extent"))?;
-    for instruction in &export.instructions {
-        let operands = match instruction {
-            Instruction::Add(_, arguments, _) | Instruction::Mul(_, arguments, _) => {
-                arguments.len()
-            }
-            Instruction::Pow(..) | Instruction::Assign(..) => 1,
-            Instruction::Powf(..) => 2,
-            Instruction::Fun(_, call, _) => {
-                let (symbol, tags, arguments) = call.as_ref();
-                if !tags.is_empty()
-                    || arguments.len() != 1
-                    || ![
-                        Symbol::EXP,
-                        Symbol::LOG,
-                        Symbol::SIN,
-                        Symbol::COS,
-                        Symbol::SQRT,
-                        Symbol::ABS,
-                        Symbol::CONJ,
-                    ]
-                    .contains(symbol)
-                {
-                    return Err(MathError::Contract(
-                        "compiled scalar export refuses opaque function channels".into(),
-                    ));
-                }
-                1
-            }
-            _ => {
-                return Err(MathError::Contract(
-                    "compiled scalar export refuses opaque instruction channels".into(),
-                ));
-            }
-        };
-        bytes = bytes
-            .checked_add(
-                operands
-                    .checked_mul(64)
-                    .and_then(|n| n.checked_add(256))
-                    .ok_or(MathError::Limit("compiled instruction export extent"))?,
-            )
-            .ok_or(MathError::Limit("compiled instruction export extent"))?;
-    }
-    Ok(bytes)
-}
-
 const CAPTURE: usize = 4096;
 const READER_STACK: usize = 64 << 10;
 
@@ -230,11 +151,10 @@ fn compiler_command(path: &str, limit: usize, directory: &std::path::Path) -> Co
 pub(crate) fn compile(
     evaluator: &ExpressionEvaluator<f64>,
     storage: &library::Storage,
-    export: &ExportedInstructions<f64>,
     module_bytes: usize,
     scope: &pse_kernels::ExecutionScope,
 ) -> Result<Evaluator, MathError> {
-    compile_prepared_with(evaluator, storage, export, module_bytes, scope, COMPILER)
+    compile_prepared_with(evaluator, storage, module_bytes, scope, COMPILER)
 }
 /// Packing is a physical preparation bound, not an evaluation or arithmetic fusion.
 /// Every member retains its individual preflight allowance and private worker scratch.
@@ -322,7 +242,6 @@ impl Batch {
         &mut self,
         evaluator: &ExpressionEvaluator<f64>,
         storage: &library::Storage,
-        export: &ExportedInstructions<f64>,
         module_bytes: usize,
         scope: &pse_kernels::ExecutionScope,
     ) -> Result<Evaluator, MathError> {
@@ -339,41 +258,55 @@ impl Batch {
             .numeric_entries
             .checked_mul(size_of::<f64>())
             .ok_or(MathError::Limit("compiled template scratch"))?;
-        let source_bound = export_bound(export)?;
-        // export.rs builds argument String vectors, joined expressions and formatted
-        // assignments while the growing result String remains live. Eight complete
-        // source populations cover these capacities/temporaries for the admitted
-        // fixed-width channels, plus the separately counted instruction view.
-        let export_peak = source_bound
-            .checked_mul(8)
-            .and_then(|n| n.checked_add(storage.instruction_bytes))
-            .ok_or(MathError::Limit("compiled export construction extent"))?;
         let fixed = scratch
             .checked_add(size_of::<Template>() + size_of::<Evaluator>() + (64 << 10))
             .and_then(|n| n.checked_add(READER_STACK + 16 * CAPTURE))
             .ok_or(MathError::Limit("compiled module metadata extent"))?;
-        let output_capacity = module_bytes
-            .checked_sub(export_peak)
-            .and_then(|n| n.checked_sub(fixed))
-            .and_then(|n| n.checked_sub(source_bound))
-            .filter(|n| *n >= 4)
-            .ok_or(MathError::Limit(
-                "compiled source/output preflight allowance",
-            ))?;
         let function = FUNCTIONS[self.pending.len()];
+        let mut output_capacity = 0;
+        // The enclosing construction owner already holds this module_bytes lease.
+        // The supplier's exact count now admits source allocation and all overlap
+        // inside that original allowance, before its fallible destination reserve.
         let source = evaluator
-            .export_cpp_str::<f64>(
+            .try_export_cpp_with(
                 function,
                 ExportSettings::new()
                     .inline_asm(InlineASM::None)
                     .include_header(self.pending.is_empty()),
+                symbolica::evaluate::CppProfile::ScalarF64,
+                crate::stable::cpp_heads()?,
+                &mut |extent: symbolica::evaluate::OperationExtent| {
+                    scope.check().map_err(crate::error::scope_error)?;
+                    let peak = extent
+                        .peak_bytes()
+                        .ok_or(MathError::Limit("compiled source extent"))?;
+                    output_capacity = module_bytes
+                        .checked_sub(fixed)
+                        .and_then(|n| n.checked_sub(peak))
+                        .filter(|n| *n >= 4)
+                        .ok_or(MathError::Limit(
+                            "compiled source/output preflight allowance",
+                        ))?;
+                    Ok(())
+                },
             )
-            .map_err(MathError::Library)?;
-        if source.len() > source_bound || source.capacity() > source_bound.saturating_mul(2) {
-            return Err(MathError::Contract(
-                "compiled export exceeded its source-qualified bound".into(),
-            ));
-        }
+            .map_err(|error| match error {
+                symbolica::evaluate::OperationError::Control(error) => error,
+                symbolica::evaluate::OperationError::Overflow => {
+                    MathError::Limit("compiled source extent")
+                }
+                symbolica::evaluate::OperationError::Allocation => {
+                    MathError::Limit("compiled source allocation")
+                }
+                symbolica::evaluate::OperationError::Unsupported(profile) => {
+                    MathError::Contract(format!("unsupported checked C++ profile: {profile}"))
+                }
+                symbolica::evaluate::OperationError::InvalidProgram(message) => {
+                    MathError::Library(message)
+                }
+                symbolica::evaluate::OperationError::Interrupted => MathError::Cancelled,
+            })?
+            .source;
         self.pending.push(Pending {
             source,
             function,
@@ -597,13 +530,12 @@ impl Batch {
 fn compile_prepared_with(
     evaluator: &ExpressionEvaluator<f64>,
     storage: &library::Storage,
-    export: &ExportedInstructions<f64>,
     module_bytes: usize,
     scope: &pse_kernels::ExecutionScope,
     compiler_path: &str,
 ) -> Result<Evaluator, MathError> {
     let mut batch = Batch::default();
-    let evaluator = batch.push(evaluator, storage, export, module_bytes, scope)?;
+    let evaluator = batch.push(evaluator, storage, module_bytes, scope)?;
     batch.finish_with(scope, compiler_path)?;
     Ok(evaluator)
 }
@@ -632,7 +564,7 @@ mod tests {
             "math.test_representation_inspections",
         )?
         .storage;
-        compile_prepared_with(evaluator, &storage, &export, module_bytes, scope, compiler)
+        compile_prepared_with(evaluator, &storage, module_bytes, scope, compiler)
     }
     fn compile(
         evaluator: &ExpressionEvaluator<f64>,
@@ -640,6 +572,18 @@ mod tests {
         scope: &pse_kernels::ExecutionScope,
     ) -> Result<Evaluator, MathError> {
         compile_with(evaluator, module_bytes, scope, COMPILER)
+    }
+
+    fn checked_source(evaluator: &ExpressionEvaluator<f64>) -> symbolica::evaluate::CheckedCpp {
+        evaluator
+            .try_export_cpp_with(
+                FUNCTION,
+                ExportSettings::new().inline_asm(InlineASM::None),
+                symbolica::evaluate::CppProfile::ScalarF64,
+                crate::stable::cpp_heads().unwrap(),
+                &mut |_| Ok::<_, MathError>(()),
+            )
+            .unwrap()
     }
 
     fn arithmetic() -> ExpressionEvaluator<f64> {
@@ -751,11 +695,7 @@ mod tests {
             )
             .unwrap()
             .storage;
-            functions.push(
-                batch
-                    .push(&selected, &storage, &export, 1 << 20, &scope)
-                    .unwrap(),
-            );
+            functions.push(batch.push(&selected, &storage, 1 << 20, &scope).unwrap());
         }
         assert!(Arc::ptr_eq(&functions[0].template, &functions[1].template));
         assert!(!Arc::ptr_eq(
@@ -834,12 +774,8 @@ mod tests {
         let cancel = pse_diagnostics::Cancellation::default();
         let scope = pse_kernels::ExecutionScope::new(cancel.clone(), None);
         let mut batch = Batch::default();
-        let mut first = batch
-            .push(&evaluator, &storage, &export, 1 << 20, &scope)
-            .unwrap();
-        let mut second = batch
-            .push(&evaluator, &storage, &export, 1 << 20, &scope)
-            .unwrap();
+        let mut first = batch.push(&evaluator, &storage, 1 << 20, &scope).unwrap();
+        let mut second = batch.push(&evaluator, &storage, 1 << 20, &scope).unwrap();
         assert!(batch.finish_with(&scope, "/bin/false").is_err());
         assert!(first.instantiate().is_err());
         assert!(second.instantiate().is_err());
@@ -926,7 +862,7 @@ mod tests {
     }
 
     #[test]
-    fn native_scalar_export_bound_covers_supported_scalar_channels_and_refuses_unknowns() {
+    fn checked_native_scalar_export_covers_supported_scalar_channels() {
         crate::initialize().unwrap();
         let x = parse!("pse_native_bound::x");
         let y = parse!("pse_native_bound::y");
@@ -950,12 +886,8 @@ mod tests {
             .build()
             .unwrap()
             .map_coeff(&|coefficient| coefficient.to_real().unwrap().to_f64());
-        let export = evaluator.export_instructions();
-        let bound = export_bound(&export).unwrap();
-        let source = evaluator
-            .export_cpp_str::<f64>(FUNCTION, ExportSettings::new().inline_asm(InlineASM::None))
-            .unwrap();
-        assert!(source.len() <= bound && source.capacity() <= 2 * bound);
+        let source = checked_source(&evaluator);
+        assert_eq!(source.source.len(), source.extent.output_bytes);
         let mut compiled = compile(
             &evaluator,
             1 << 20,
@@ -986,34 +918,279 @@ mod tests {
                 "compiled builtin {actual} differs from independent scalar {expected}"
             );
         }
-        for value in [
+    }
+
+    #[test]
+    fn checked_native_constants_and_repeated_outputs_keep_binary64_bits() {
+        crate::initialize().unwrap();
+        let ordinals = [1_i64, 2, 3, 4, 5, 1, 3, 5];
+        let expressions = ordinals.map(Atom::num);
+        let parameters: [Atom; 0] = [];
+        let evaluator = Atom::evaluator_multiple(&expressions, &parameters)
+            .horner_iterations(0)
+            .build()
+            .unwrap()
+            .map_coeff(&|coefficient| {
+                let value = coefficient.to_real().unwrap().to_f64();
+                if value == 1. {
+                    f64::MAX
+                } else if value == 2. {
+                    -f64::MAX
+                } else if value == 3. {
+                    f64::from_bits(1)
+                } else if value == 4. {
+                    f64::MIN_POSITIVE
+                } else if value == 5. {
+                    -0.0
+                } else {
+                    0.0
+                }
+            });
+        let scope = pse_kernels::ExecutionScope::new(Default::default(), None);
+        let mut compiled = compile(&evaluator, 1 << 20, &scope).unwrap();
+        compiled.instantiate().unwrap();
+        let mut actual = [f64::NAN; 8];
+        compiled.evaluate(&[], &mut actual).unwrap();
+        let expected = [
             f64::MAX,
-            f64::MIN,
-            f64::MIN_POSITIVE,
+            -f64::MAX,
             f64::from_bits(1),
-            -0.,
-        ] {
-            assert!(format!("{value:e}").len() + 3 <= 64);
+            f64::MIN_POSITIVE,
+            -0.0,
+            f64::MAX,
+            f64::from_bits(1),
+            -0.0,
+        ];
+        for (actual, expected) in actual.into_iter().zip(expected) {
+            assert_eq!(actual.to_bits(), expected.to_bits());
         }
-        let mut tagged = evaluator.export_instructions();
-        let Some(Instruction::Fun(_, call, _)) = tagged
-            .instructions
-            .iter_mut()
-            .find(|instruction| matches!(instruction, Instruction::Fun(..)))
-        else {
-            panic!("builtin function export");
+    }
+
+    #[test]
+    fn checked_cpp_refusal_stop_and_unknown_head_leave_no_source_product() {
+        use symbolica::evaluate::{CppProfile, OperationError, OperationExtent};
+        let evaluator = arithmetic();
+        let complete = checked_source(&evaluator);
+        let required = complete.extent.peak_bytes().unwrap();
+        let settings = || ExportSettings::new().inline_asm(InlineASM::None);
+        let mut growth = 0;
+        let result = evaluator.try_export_cpp_with(
+            FUNCTION,
+            settings(),
+            CppProfile::ScalarF64,
+            &[],
+            &mut |extent: OperationExtent| {
+                if extent.output_bytes > 0 {
+                    growth += 1;
+                }
+                if extent.peak_bytes().unwrap() > required - 1 {
+                    Err("original source refusal")
+                } else {
+                    Ok(())
+                }
+            },
+        );
+        assert!(matches!(
+            result,
+            Err(OperationError::Control("original source refusal"))
+        ));
+        assert_eq!(growth, 1, "refusal precedes source destination allocation");
+        let mut stages = 0;
+        let result = evaluator.try_export_cpp_with(
+            FUNCTION,
+            settings(),
+            CppProfile::ScalarF64,
+            &[],
+            &mut |extent: OperationExtent| {
+                if extent.output_bytes > 0 {
+                    stages += 1;
+                    if stages == 2 {
+                        return Err("current emission stop");
+                    }
+                }
+                Ok(())
+            },
+        );
+        assert!(matches!(
+            result,
+            Err(OperationError::Control("current emission stop"))
+        ));
+        assert!(
+            evaluator
+                .try_export_cpp_with(
+                    FUNCTION,
+                    settings(),
+                    CppProfile::ScalarF64,
+                    &[],
+                    &mut |_| Ok::<_, &'static str>(())
+                )
+                .is_ok()
+        );
+        let x = library::formal(0).unwrap();
+        let known = crate::stable::call(crate::stable::Operation::Log1p, &[&x]).unwrap();
+        let known = Atom::evaluator_multiple(&[known], &[x])
+            .direct_translation(true)
+            .horner_iterations(0)
+            .build()
+            .unwrap()
+            .map_coeff(&|value| value.re.to_f64());
+        assert!(matches!(
+            known.try_export_cpp_with(
+                FUNCTION,
+                settings(),
+                CppProfile::ScalarF64,
+                &[],
+                &mut |_| Ok::<_, &'static str>(())
+            ),
+            Err(OperationError::Unsupported(_))
+        ));
+    }
+
+    #[test]
+    fn checked_native_integer_power_keeps_parity_signed_zero_and_subnormal_order() {
+        let source = checked_source(&arithmetic());
+        // This independent executable harness calls the integer kernel actually
+        // emitted by the checked producer, including its signed inversion order.
+        let mut source = source.source;
+        source.push_str(
+            r#"
+extern "C" unsigned long pse_integer_probe_realf64_get_buffer_len() { return 0; }
+extern "C" std::size_t pse_integer_probe_realf64_get_input_len() { return 1; }
+extern "C" std::size_t pse_integer_probe_realf64_get_output_len() { return 6; }
+extern "C" void pse_integer_probe_realf64(double* p, double*, double* out) {
+    out[0] = pse_value_realf64_heads::pse_integer_power(p[0],0u);
+    out[1] = pse_value_realf64_heads::pse_integer_power(p[0],1u);
+    out[2] = pse_value_realf64_heads::pse_integer_power(p[0],2u);
+    out[3] = pse_value_realf64_heads::pse_integer_power(p[0],3u);
+    out[4] = 1.0/pse_value_realf64_heads::pse_integer_power(p[0],3u);
+    out[5] = pse_value_realf64_heads::pse_integer_power(p[0],2147483647u);
+}
+"#,
+        );
+        let scope = pse_kernels::ExecutionScope::new(Default::default(), None);
+        let mut batch = Batch::default();
+        batch.pending.push(Pending {
+            source,
+            function: "pse_integer_probe",
+            inputs: 1,
+            outputs: 6,
+            output_capacity: 1 << 20,
+        });
+        let mut evaluator = Evaluator {
+            worker: None,
+            template: batch.template.clone(),
+            function: "pse_integer_probe",
         };
-        call.1.push("opaque".into());
-        assert!(export_bound(&tagged).is_err());
-        let mut control = evaluator.export_instructions();
-        control.instructions.push(Instruction::Goto(0));
-        assert!(export_bound(&control).is_err());
-        let mut nonfinite = evaluator.export_instructions();
-        nonfinite.constants.push(f64::INFINITY);
-        assert!(export_bound(&nonfinite).is_err());
-        let mut overflow = evaluator.export_instructions();
-        overflow.output_count = usize::MAX;
-        assert!(matches!(export_bound(&overflow), Err(MathError::Limit(_))));
+        batch.finish(&scope).unwrap();
+        evaluator.instantiate().unwrap();
+        for base in [
+            -0.0_f64,
+            0.0,
+            -1.0,
+            -2.0,
+            2.0_f64.powi(-350),
+            f64::from_bits(1),
+        ] {
+            let expected = [
+                base.powi(0),
+                base.powi(1),
+                base.powi(2),
+                base.powi(3),
+                base.powi(3).recip(),
+                base.powi(i32::MAX),
+            ];
+            let mut actual = [f64::NAN; 6];
+            evaluator.evaluate(&[base], &mut actual).unwrap();
+            for (actual, expected) in actual.into_iter().zip(expected) {
+                assert_eq!(
+                    actual.to_bits(),
+                    expected.to_bits(),
+                    "integer power of {base}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn checked_native_stable_second_and_repeated_modules_match_original_coordinate_controls() {
+        crate::initialize().unwrap();
+        let x = library::formal(0).unwrap();
+        let y = library::formal(1).unwrap();
+        let log = crate::stable::call(crate::stable::Operation::Log1p, &[&x]).unwrap();
+        let magnitude =
+            crate::stable::call(crate::stable::Operation::Magnitude, &[&x, &y]).unwrap();
+        let limits = crate::jets::EvaluationLimits::default();
+        let layout =
+            crate::jets::JetLayout::new(vec![0, 1], pse_kernels::DerivativeOrder::Second, limits)
+                .unwrap();
+        let floating = library::bounded_evaluator(
+            pse_ids::SemanticId::NIL,
+            &[log, magnitude],
+            &[x, y],
+            &layout,
+            &[],
+            library::Optimization::default(),
+            &Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            limits,
+            limits.operations,
+            0,
+            &mut library::ScalarCache::default(),
+        )
+        .unwrap();
+        let scope = pse_kernels::ExecutionScope::new(Default::default(), None);
+        let mut batch = Batch::default();
+        let mut first = batch
+            .push(
+                &floating.evaluator,
+                &floating.facts.storage,
+                1 << 20,
+                &scope,
+            )
+            .unwrap();
+        let mut second = batch
+            .push(
+                &floating.evaluator,
+                &floating.facts.storage,
+                1 << 20,
+                &scope,
+            )
+            .unwrap();
+        batch.finish(&scope).unwrap();
+        first.instantiate().unwrap();
+        second.instantiate().unwrap();
+        for (x, y) in [(1e-20_f64, 3e-20_f64), (3e200, 4e200), (3e-200, 4e-200)] {
+            let h = x.hypot(y);
+            let a = x / h;
+            let b = y / h;
+            let expected = [
+                x.ln_1p(),
+                1. / (1. + x),
+                0.,
+                -0.5 / (1. + x).powi(2),
+                0.,
+                0.,
+                h,
+                a,
+                b,
+                0.5 * b * b / h,
+                -a * b / h,
+                0.5 * a * a / h,
+            ];
+            for worker in [&mut first, &mut second] {
+                let mut output = [0.; 12];
+                worker
+                    .evaluate(&[x, 1., 0., 0., 0., 0., y, 0., 1., 0., 0., 0.], &mut output)
+                    .unwrap();
+                for (actual, expected) in output.into_iter().zip(expected) {
+                    assert!(actual.is_finite());
+                    assert!(
+                        (actual - expected).abs()
+                            <= 512. * f64::EPSILON * expected.abs().max(1e-300),
+                        "stable compiled Second {actual} != independent {expected}"
+                    );
+                }
+            }
+        }
     }
 
     #[test]
@@ -1034,11 +1211,9 @@ mod tests {
             .build()
             .unwrap()
             .map_coeff(&|coefficient| coefficient.to_real().unwrap().to_f64());
-        let bound = export_bound(&evaluator.export_instructions()).unwrap();
-        let source = evaluator
-            .export_cpp_str::<f64>(FUNCTION, ExportSettings::new().inline_asm(InlineASM::None))
-            .unwrap();
-        assert!(source.len() <= bound && source.capacity() <= 2 * bound);
+        let source = checked_source(&evaluator);
+        assert_eq!(source.source.len(), source.extent.output_bytes);
+        let bound = source.extent.peak_bytes().unwrap();
         // A too-small module refuses before invoking even a deliberately invalid
         // compiler path; the effect boundary is behind export/output preflight.
         assert!(matches!(

@@ -1163,6 +1163,17 @@ pub(super) fn component_fixture_source(
     pse_math::binding::CaseValues,
     pse_ids::SemanticId,
 ) {
+    component_fixture_source_case(service, source, &Default::default())
+}
+pub(super) fn component_fixture_source_case(
+    service: &MathService,
+    source: &str,
+    case: &pse_compiler::workspace::ModelingCaseBindings,
+) -> (
+    Preparation,
+    pse_math::binding::CaseValues,
+    pse_ids::SemanticId,
+) {
     pse_math::initialize().unwrap();
     let rows = pse_authoring::language::parse(
         source,
@@ -1196,7 +1207,7 @@ pub(super) fn component_fixture_source(
             pse_modeling::specialize::root_instance(root),
             Default::default(),
             Default::default(),
-            &Default::default(),
+            case,
             pse_kernels::DerivativeOrder::First,
             pse_compiler::workspace::Profile {
                 evaluation: pse_math::jets::EvaluationLimits {

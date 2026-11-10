@@ -382,7 +382,6 @@ impl PreparedSupport {
                     BlockEvaluator::Native(crate::native_compiled::compile(
                         &evaluator,
                         &storage,
-                        &export,
                         module_bytes,
                         scope,
                     )?)

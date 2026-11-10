@@ -427,9 +427,7 @@ mod tests {
                 cache: Some(Cache::at(std::env::var_os(ROOT).unwrap().into())),
                 ..Batch::default()
             };
-            let mut current = batch
-                .push(&evaluator, &storage, &export, 1 << 20, &scope())
-                .unwrap();
+            let mut current = batch.push(&evaluator, &storage, 1 << 20, &scope()).unwrap();
             if mode == "invalid" {
                 let bad =
                     PathBuf::from(std::env::var_os(ROOT).unwrap()).with_extension("not-a-module");

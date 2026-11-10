@@ -364,8 +364,9 @@ impl MathService {
                                     ),
                                     lease,
                                 });
-                                // Keep order-specific provider-lift scalars as seeds for later
-                                // upgrades too; every borrowed entry retains its first lease.
+                                // Publish newly demanded exact scalars and named regional
+                                // partials together for later product/order requests. Every
+                                // borrowed preparation retains its first allocation lease.
                                 service.pressure.publish_artifact(
                                     epoch,
                                     &scalar_key,
@@ -739,6 +740,253 @@ mod tests {
         );
         drop(worker);
         assert_eq!(service.live.load(Ordering::Acquire), 0);
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn artifact_products_retain_named_diamond_partials_across_runtime_actions_and_eviction() {
+        let service = super::super::tests::service();
+        let (preparation, values, _) = super::super::tests::component_fixture_source_case(
+            &service,
+            "package p {def Root {param p:Scalar=1;var x:Scalar;var y:Scalar;let u:Scalar=x*y*p;eq a:u+x==0;eq b:u*u==0;annotation start x(2);annotation start y(3);}}",
+            &pse_compiler::workspace::ModelingCaseBindings {
+                values: [("x".into(), 2.), ("y".into(), 3.)].into(),
+                ..Default::default()
+            },
+        );
+        let caller = crate::CancelSource::new();
+        let control = pse_diagnostics::Cancellation::default();
+        let ordinary = service
+            .prepare_artifacts(preparation.compiled().artifacts.iter(), &caller)
+            .await
+            .unwrap();
+        assert!(
+            ordinary.iter().any(|artifact| artifact
+                .program
+                .scalar_products()
+                .derivative_preparations()
+                > 0)
+        );
+        assert!(
+            ordinary.iter().all(|artifact| artifact
+                .program
+                .census()
+                .all(|order| order.order != pse_kernels::DerivativeOrder::Second)),
+            "a First-only request constructs no Second program"
+        );
+        let directional = preparation
+            .compiled()
+            .prepare_directional_actions(&control.flag())
+            .unwrap();
+        let artifacts = service
+            .prepare_artifacts(directional.artifacts.iter(), &caller)
+            .await
+            .unwrap();
+        assert!(
+            artifacts.len() > ordinary.len(),
+            "a distinct action artifact was requested"
+        );
+        for action in &artifacts[ordinary.len()..] {
+            assert!(
+                ordinary.iter().any(|seed| action
+                    .program
+                    .scalar_products()
+                    .contains_same_derivative_preparations(seed.program.scalar_products())),
+                "the actual runtime artifact retains the exact original named derivative allocations"
+            );
+        }
+        let assembly = Arc::new(
+            directional
+                .plan
+                .assemble(
+                    artifacts
+                        .iter()
+                        .map(|artifact| Arc::clone(&artifact.program))
+                        .collect(),
+                )
+                .unwrap(),
+        );
+        let mut worker = assembly.worker(Default::default(), control.clone());
+        let residuals = worker.constraints(&values).unwrap().to_vec();
+        let direction = assembly
+            .columns()
+            .iter()
+            .map(|column| match values.scalars[column] {
+                2. => 5.,
+                3. => 7.,
+                _ => panic!("authored x/y coordinate"),
+            })
+            .collect::<Vec<_>>();
+        let mut product = vec![0.; residuals.len()];
+        worker
+            .jacobian_product(&values, &direction, &mut product)
+            .unwrap();
+        for (&value, actual) in residuals.iter().zip(product) {
+            assert_eq!(
+                actual,
+                if value == 8. {
+                    34.
+                } else {
+                    assert_eq!(value, 36.);
+                    348.
+                }
+            );
+        }
+        {
+            let pairs = assembly
+                .structure()
+                .rows()
+                .iter()
+                .rev()
+                .flat_map(|row| {
+                    assembly
+                        .columns()
+                        .iter()
+                        .rev()
+                        .map(move |&column| (row.id, column))
+                })
+                .collect::<Vec<_>>();
+            let exact = directional
+                .prepare_jacobian_entries(&pairs, &control.flag())
+                .unwrap();
+            let exact_artifacts = service
+                .prepare_artifacts(exact.artifacts.iter(), &caller)
+                .await
+                .unwrap();
+            let exact_assembly = Arc::new(
+                exact
+                    .plan
+                    .assemble(
+                        exact_artifacts
+                            .iter()
+                            .map(|artifact| Arc::clone(&artifact.program))
+                            .collect(),
+                    )
+                    .unwrap(),
+            );
+            let mut entries = vec![0.; pairs.len()];
+            exact_assembly
+                .worker(Default::default(), control.clone())
+                .jacobian_entries(&values, &mut entries)
+                .unwrap();
+            for ((row, column), entry) in pairs.iter().zip(entries) {
+                let row = assembly
+                    .structure()
+                    .rows()
+                    .iter()
+                    .position(|candidate| candidate.id == *row)
+                    .unwrap();
+                let expected = if residuals[row] == 8. {
+                    if values.scalars[column] == 2. { 4. } else { 2. }
+                } else if values.scalars[column] == 2. {
+                    36.
+                } else {
+                    24.
+                };
+                assert_eq!(entry, expected);
+            }
+            assert!(
+                directional
+                    .prepare_hessian_actions(&control.flag())
+                    .is_err(),
+                "First-only admission cannot silently request Second"
+            );
+            let stronger = directional
+                .prepare_transpose_actions(&control.flag())
+                .unwrap()
+                .prepare_order(pse_kernels::DerivativeOrder::Second, &control.flag())
+                .unwrap()
+                .prepare_hessian_actions(&control.flag())
+                .unwrap();
+            let stronger_artifacts = service
+                .prepare_artifacts(stronger.artifacts.iter(), &caller)
+                .await
+                .unwrap();
+            let stronger_assembly = Arc::new(
+                stronger
+                    .plan
+                    .assemble(
+                        stronger_artifacts
+                            .iter()
+                            .map(|artifact| Arc::clone(&artifact.program))
+                            .collect(),
+                    )
+                    .unwrap(),
+            );
+            let mut stronger_worker = stronger_assembly.worker(Default::default(), control.clone());
+            let weights = residuals
+                .iter()
+                .map(|&value| if value == 8. { 2. } else { 3. })
+                .collect::<Vec<_>>();
+            let mut transpose = vec![0.; direction.len()];
+            stronger_worker
+                .jacobian_transpose_product(&values, &weights, &mut transpose)
+                .unwrap();
+            let mut hessian = vec![0.; direction.len()];
+            stronger_worker
+                .hessian_product(&values, 0., &weights, &direction, &mut hessian)
+                .unwrap();
+            for (column, (&transpose, &hessian)) in assembly
+                .columns()
+                .iter()
+                .zip(transpose.iter().zip(&hessian))
+            {
+                let expected = if values.scalars[column] == 2. {
+                    (116., 788.)
+                } else {
+                    (76., 538.)
+                };
+                assert_eq!((transpose, hessian), expected);
+            }
+            let changed_weights = residuals
+                .iter()
+                .map(|&value| if value == 8. { -1. } else { 0.5 })
+                .collect::<Vec<_>>();
+            stronger_worker
+                .hessian_product(&values, 0., &changed_weights, &direction, &mut hessian)
+                .unwrap();
+            for (column, &hessian) in assembly.columns().iter().zip(&hessian) {
+                assert_eq!(
+                    hessian,
+                    if values.scalars[column] == 2. {
+                        122.
+                    } else {
+                        83.
+                    }
+                );
+            }
+        }
+        drop(assembly);
+        service.clear_program_cache();
+        assert_eq!(service.entries.len(), 0);
+        drop(ordinary);
+        drop(artifacts);
+        // A live worker retains both original and newly requested exact backing.
+        assert!(service.live.load(Ordering::Acquire) > 0);
+        worker
+            .jacobian_product(&values, &direction, &mut vec![0.; residuals.len()])
+            .unwrap();
+        let cancelled = crate::CancelSource::new();
+        cancelled.cancel();
+        assert!(
+            service
+                .prepare_artifacts(
+                    std::iter::once(directional.artifacts.last().unwrap()),
+                    &cancelled
+                )
+                .await
+                .is_err()
+        );
+        assert_eq!(
+            service.entries.len(),
+            0,
+            "a cancelled construction publishes no success"
+        );
+        let retained_by_worker = service.live.load(Ordering::Acquire);
+        drop(worker);
+        assert!(
+            service.live.load(Ordering::Acquire) < retained_by_worker,
+            "the last escaped worker releases retained scalar and derivative allocations"
+        );
     }
 }
 

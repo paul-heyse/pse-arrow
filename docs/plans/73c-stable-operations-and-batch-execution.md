@@ -140,12 +140,25 @@ Taylor components; divide/multiply by the proper factorial conventions at the ex
 boundary, not by a second AD engine. B02's working known-head checked-vectorization slice is
 needed for this path; B02's full caller retirement need not finish first.
 
+Execution exposed a necessary extension, recorded before implementation in proposed ADR-0263
+and blueprint §7.2.1: positive `log_ratio(x, reference)` retains both original arguments.
+Near reference it evaluates `log1p((x-reference)/reference)`; elsewhere it uses a qualified
+positive logarithmic ratio, including a log difference when forming the quotient would
+overflow or underflow. Its local first partials are `1/x` and `-1/reference`; diagonal Second
+partials are `-1/x²` and `1/reference²`, with zero mixed partial. Fixed local heads preserve
+the exponent-scaled realization through Symbolica composition. Both original arguments have
+source-attributed positive guards. The actual temperature/temperature operation returns the
+existing logarithmic temperature-ratio physical kind rather than coercing it to a generic scalar.
+
 Use [authored caloric correlations](../../packages/reference/methods/models/correlations.pse)
 as the actual scientific consumer. Migrate the selected entropy log-ratio term to the explicit
-admitted `log1p` expression in a near-reference formulation, preserving positive absolute
+admitted `log_ratio(T,T0)` operation with a stable near-reference realization, preserving positive absolute
 temperatures, ratio dimension, datum and applicability interval. Do not assume a subtraction
 of already rounded temperatures recovers information never supplied; the improvement preserves
-the admitted increment passed to `log1p`. Keep the original algebraic law and physical
+the admitted increment passed to `log1p`. A global relative-increment rewrite is insufficient:
+far below reference it can round to -1 while the original ratio is still positive. Verify
+near and far original temperatures independently, including finite extreme log ratios.
+Keep the original algebraic law and physical
 interpretation, and include the [caloric facade](../../packages/reference/methods/models/caloric.pse)
 and ordinary property selection. Add an authored small dimensioned constitutive magnitude
 consumer with compatible component quantities so magnitude tests cross physical inference and
@@ -420,3 +433,42 @@ for assembled qualification after functional implementation.
 ## Execution checkpoint — 2026-11-10
 
 Execution of the integrated A/B/C scope began at `d2302f32a` with a clean checkout. The selected first assignments are shared transport consolidation, checked supplier construction and stable primitives. A01/B01/C01 are coordinated prerequisite contracts; A03 proceeds within existing binding semantics. Required new kernel/primitive decisions precede dependent implementation. All other scope remains open until its actual production cutover and targeted evidence; broader Plan73/Plan66 completion is not claimed.
+
+
+## Scalar and ordered-population checkpoint — 2026-11-10
+
+**Implemented.** C02 now has fixed stable `log1p`, magnitude and positive-argument `log_ratio`
+heads with exact selected first/second channels. Source quantity admission, original guard
+order and occurrence attribution remain authoritative. The actual authored DIPPR100 entropy
+consumer uses `log_ratio(T,T_reference)`: near-reference increments use `ln1p`, while far
+positive temperatures retain the original positive-ratio/log-difference semantics. A global
+`ln1p((T-T_reference)/T_reference)` replacement was rejected because it loses valid far-range
+inputs. ADR-0263 records this correction. Registration is atomic across the fixed head group;
+foreign preclaims cannot leave a partially registered operation vocabulary.
+
+**Tested.** The scoped compiled-evaluator stable/batch/shared-function selection passed 18/18;
+the two excluded selected-Taylor controls passed with the supplier's 5/5 selection. Actual
+authored stable/caloric compiler controls passed 2/2, typed temperature-log-ratio admission
+passed 1/1 and isolated registration-preclaim controls passed 2/2. All results have zero
+failures against baseline zero. Independent analytic/high-precision expectations cover tiny
+increments, extreme/reversed ratios, mixed Second axes and original physical validity.
+
+**Implemented.** C04 supplies a sealed ordered batch layout, private reusable numeric scratch,
+point-major admitted results and separate success/failure/canceled/not-executed outcomes.
+Actual `ModelingPackage::observe_batch` uses the compiler observation program and runtime
+job owner, including multiple physical instances and complete original input validation.
+Repeated point IDs remain repeated outcomes; failed cells are inaccessible. The focused
+runtime property-population tests passed 2/2, zero failures against baseline zero, in the
+default Nextest profile. Required x4 integration remains open under C05/C06.
+
+**Implemented, Tested — adjacent C06 correction.** Study outcome pages now derive a dedicated
+wire-depth allowance from the generated native-value depth contract and fixed endpoint
+wrappers. Ordinary StudyPage/capture-locator profiles retain their distinct bounds; row,
+byte, node, string and blob population limits are unchanged. Four targeted operations
+response/bootstrap controls passed 4/4 with zero failures against baseline zero, in the
+default Nextest profile. Full `just codegen` publishes the declaration and generated users.
+The native Ipopt Study-summary retry remains to be run after host preparation.
+
+C01/C03/C05 remain open for complete compiled/receiving/x4 profile delivery. C06 requires its
+remaining actual fitting/study integrations; C07's bounded additional-backend decisions remain
+open. This checkpoint does not close the integrated A/B/C scope or H qualification.

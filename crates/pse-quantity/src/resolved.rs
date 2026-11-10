@@ -623,6 +623,32 @@ fn infer_unrecorded(
             operand_scales: vec![1.0; values.len()],
             result_scale: 1.0,
         }
+    } else if matches!(request, OpRequest::Magnitude) {
+        if values.len() != 2 || !values[0].same_meaning(&values[1]) {
+            return Err(refusal(
+                "physical.magnitude",
+                "magnitude needs identical complete linear or difference contracts",
+            ));
+        }
+        for factor in &values[0].qualified {
+            if factor.key.scale_kind == ScaleKind::Point
+                && registry.kind(factor.key.kind)?.addition_kind
+                    == crate::QuantityAdditionKind::OriginSensitive
+            {
+                return Err(refusal(
+                    "physical.magnitude",
+                    "affine points are not vector components",
+                ));
+            }
+        }
+        ResolvedInference {
+            operands: values.to_vec(),
+            result: values[0].clone(),
+            selected: OperationSelection::BuiltIn(BuiltInRule::Magnitude),
+            conversions: vec![],
+            operand_scales: vec![1.0; 2],
+            result_scale: 1.0,
+        }
     } else if let Some(operands) = named {
         let admitted = crate::infer::infer_named(request, &operands, registry, checker)?;
         ResolvedInference {
@@ -712,6 +738,7 @@ fn infer_unrecorded(
             | OpRequest::Conditional
             | OpRequest::Neg
             | OpRequest::Abs
+            | OpRequest::Magnitude
             | OpRequest::Reduce { .. }
             | OpRequest::FiniteReduce { .. }
             | OpRequest::Broadcast { .. }
