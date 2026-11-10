@@ -6468,7 +6468,7 @@ prints diagnostics;it is not an enforcing physical validity guard. Separate
 ASU scales13078tonO2/day atUSD2017;no air-separation thermodynamic model
 is constructed by that cost test.
 
-Recursive input closure is the frozen BB,genericCCS andsCO2 coefficient
+Recursive input closure is the frozen BB,genericCCS and sCO2 coefficient
 files already identified,inline custom accounts/physical capacities,
 currency/index definitions andthe selected old/new calculation owner.
 No commodity-price feed,process dataset,trainer orsaved state is read.
@@ -6508,7 +6508,7 @@ wrong-dimension controls. These are analytic data,not process experiments.
 | Kriging | Squared-exponential exponent2,regularizationTrue(default)/False andnumerical_gradientsTrue(default)/False. True compares boundedTNC andL-BFGS-B objectives andselects the better;False uses250-iteration basin hopping. Logtheta bounds−3..3;regularization1e-6.. .1 when enabled,**1e-10 fixed** when disabled. The main training comparison uses the first3 quadratic regression rows andresets NumPy seed0 before both fits;it recomputes expected statistics through the same implementation,not an independent statistical oracle. Other prediction/expression/serialization controls use the25-row population. |
 | Trained wrappers | Shared linear synthetic five-rowx1=1..5/x2=5..9/z1=10..50;polynomialdegree1+multinomials,linearRBF andnumerical-gradient kriging. Trainer-construction fixtures use first4 rows,boundsx1[0,5]/x2[0,10]. One/two-output fit/evaluate/embed/save/load cases separately preserve output order,scaling,domain andrequired expression products. JSON strings in the tests are inline fitted-artifact oracles,not newly reproduced training. |
 | Richer wrapper bases | Six-row polynomial fixture adds(3.4,1.1) withz1−84.53625/z2−.230209269 to the five-row linear data;degree1,multinomials and3CV. Separate six-rowx1=1..6/x2=5..10 uses linear combinations plus sin(x1)+cos(x2),or exp(x1/x2),degree1,no multinomials,MLE,10CV. Ratiox1/x2 is another extra-feature role;its zero-denominator domain must remain explicit. One-input cubicRBF/kriging usesx1=1..5,z1=10..50. Gaussian two-output RBF disablesregularization;two-output kriging usespermutedx2=(7,6,9,5,8),regularization/numerical gradientsTrue,seed0. |
-| Confidence products | Six-row/two-output polynomial fixture compares90%/99% coefficient confidence intervals witht multipliers1.8331129326536335/3.2498355440153697. Low-level confidence andresidual-covariance controls remain distinct from prediction intervals,parameter identifiability andprocess-output uncertainty. The validation fixtures largely reuse first4 training rows;they are not independent holdout evidence. |
+| Confidence products | Six-row/two-output polynomial fixture compares90%/99% coefficient confidence intervals with t multipliers1.8331129326536335/3.2498355440153697. Low-level confidence andresidual-covariance controls remain distinct from prediction intervals,parameter identifiability andprocess-output uncertainty. The validation fixtures largely reuse first4 training rows;they are not independent holdout evidence. |
 
 The common end-to-end analytic fixture is ten inline(x1,x2,z1) rows
 within[−1.5,1.5]²,shared exactly by polynomial,RBF,kriging andALAMO

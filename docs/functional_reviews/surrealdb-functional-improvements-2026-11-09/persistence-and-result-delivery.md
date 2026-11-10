@@ -105,7 +105,7 @@ Compare native buckets with the current sealed-file implementation and direct em
 all bytes in records. Buckets can remove custom routing/transfer plumbing and support
 independent consumers; record blobs can amplify transaction, wire and historical retention
 cost. The current files remain preferable if bucket operations only provide whole-object
-materialization, overwriteable keys or insufficiently observable cleanup. No evidence here
+materialization, overwritable keys or insufficiently observable cleanup. No evidence here
 establishes catalog/object atomicity, no-clobber semantics or range support for every backend.
 Those are the bounded premises for choosing the native replacement, not guaranteed behavior.
 

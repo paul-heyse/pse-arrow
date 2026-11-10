@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+// Copyright (c) 2026 Paul Heyse
 use pse_contract::boundary_projection::*;
 #[cfg(test)]
 use pse_contract::{projection_enum, projection_struct};

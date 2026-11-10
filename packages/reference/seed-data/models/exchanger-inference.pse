@@ -10,7 +10,7 @@
 // Therefore Q=Ch*Cc/(Ch+Cc)*(Thi-Tci)*(1-exp(-UA*(1/Ch+1/Cc))).
 // The numbers below are independent evaluations of this ODE solution. They do
 // not use the native logarithmic-mean-temperature-difference evaluator.
-@id("64102000000040008000000000000007") entity provenance.source analytic_exchanger {title="Synthetic co-current constant-Cp exchanger: equimolar Cp=30 J/(mol K), A=2 m2, U=10 W/(m2 K); experiments (Fh,Fc,Thi,Tci)=(2,1,400,300) and (3,1.5,370,310). Outlet readings are noiseless design means with independent known sigma=0.1 K; no empirical confidence or statistical coverage claim."}
+@id("64102000000040008000000000000007") entity provenance.source analytic_exchanger {title="Synthetic co-current constant-Cp exchanger: equimolar Cp=30 J/(mol K), A=2 m2, U=10 W/(m2 K); experiments (Fh,Fc,T_hot_in,T_cold_in)=(2,1,400,300) and (3,1.5,370,310). Outlet readings are noiseless design means with independent known sigma=0.1 K; no empirical confidence or statistical coverage claim."}
 @id("64102000000040008000000000000008") entity kind temperature_reading {
 @id("64102000000040008000000000000009") attribute value:Temperature;
 @id("6410200000004000800000000000000a") attribute sigma:DeltaTemperature;

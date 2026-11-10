@@ -7875,7 +7875,12 @@ status_column = 1
 path = "docs/plans/73-symbolica-ecosystem-improvements.md"
 name = "opportunity-dispositions"
 heading = "Opportunity dispositions"
-headers = ["Opportunity", "Disposition", "Work owner", "Evidence or revisit trigger"]
+headers = [
+  "Opportunity",
+  "Disposition",
+  "Work owner",
+  "Evidence or revisit trigger",
+]
 kind = "finding"
 id_column = 0
 id_pattern = '^(O[0-9]+)\b'

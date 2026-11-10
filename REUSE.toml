@@ -166,6 +166,7 @@ path = [
   "python/pse/generated/**",
   "crates/*/src/generated/**",
   "xtask/src/generated/**",
+  "xtask/src/codegen/source_change/fixtures/recorded-result-field-rename.patch",
   "crates/pse-operations-queries/**",
   "crates/pse-ipopt-sys/src/bindings.rs",
 ]
@@ -214,6 +215,59 @@ SPDX-License-Identifier = "MIT OR Apache-2.0"
 # Imported native suppliers: these entries come after the repository defaults so
 # imported documentation, metadata and sources retain upstream terms. The sys
 # wrapper license does not relicense the native sources it packages.
+
+# Both 0.9.2 published manifests declare Apache-2.0; their retained LICENSE
+# files name Anthropic, PBC. Maintained allocation-accounting changes are
+# described in the adjacent pse-patch.md files.
+[[annotations]]
+path = ["vendor/buffa/**", "vendor/buffa-codegen/**"]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "2026 Anthropic, PBC",
+  "2026 Paul Heyse (allocation accounting and source-name integration)",
+]
+SPDX-License-Identifier = "Apache-2.0"
+
+# coolprop-sys 8.0.0 declares MIT and retains the wrapper's upstream author.
+# Exact upstream notice: rfluids revision 30801b93f8a27dfa7f93537151bc5d39630d3f24/LICENSE.
+[[annotations]]
+path = ["vendor/coolprop-sys/**", "vendor/deltas/coolprop-sys.patch"]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "2025 Vladimir Portyanikhin",
+  "2026 Paul Heyse (explicit native-provider integration)",
+]
+SPDX-License-Identifier = "MIT"
+
+# These native declarations and their generated ABI retain the CoolProp notice,
+# also applying to the maintained native export patch. Exact upstream notice:
+# CoolProp revision ae81610e7d23efc57f9d051c8e70a4d66e87537f/LICENSE.
+[[annotations]]
+path = [
+  "vendor/coolprop-sys/CoolPropLib.h",
+  "vendor/coolprop-sys/src/bindings_generated.rs",
+  "vendor/patches/coolprop-saturation-second.patch",
+]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "2012-2018 Ian H. Bell and other CoolProp developers",
+  "2026 Paul Heyse (second saturation derivative integration)",
+]
+SPDX-License-Identifier = "MIT"
+
+# SurrealKit beta.6's retained LICENSE and workspace manifest declare Apache-2.0.
+[[annotations]]
+path = [
+  "scripts/surrealkit-source/grpc-lock.patch",
+  "scripts/surrealkit-source/native-kinds.patch",
+]
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "SurrealDB Ltd",
+  "2026 Paul Heyse (gRPC and native-kind integration)",
+]
+SPDX-License-Identifier = "Apache-2.0"
+
 [[annotations]]
 path = [
   "vendor/faer-traits/**",
