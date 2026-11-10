@@ -18,9 +18,9 @@ pub const NAMESPACE: pse_schema::model::Namespace = pse_schema::model::Namespace
 pub const VERSION: u32 = 1u32;
 /// Generated interchange fingerprint, not proof of semantic equivalence or row validity.
 pub const FINGERPRINT: pse_ids::ContentHash = pse_ids::ContentHash::from_bytes([
-    151u8, 113u8, 186u8, 127u8, 31u8, 150u8, 156u8, 216u8, 58u8, 204u8, 205u8, 212u8,
-    120u8, 57u8, 8u8, 36u8, 246u8, 137u8, 191u8, 13u8, 58u8, 41u8, 170u8, 228u8, 1u8,
-    147u8, 178u8, 130u8, 105u8, 220u8, 147u8, 65u8,
+    236u8, 14u8, 57u8, 155u8, 210u8, 75u8, 177u8, 23u8, 141u8, 136u8, 83u8, 232u8, 136u8,
+    246u8, 116u8, 210u8, 170u8, 106u8, 232u8, 34u8, 224u8, 171u8, 237u8, 173u8, 23u8,
+    237u8, 127u8, 96u8, 206u8, 121u8, 88u8, 219u8,
 ]);
 impl pse_relations::columnar::ArrowValue for RuntimeKnowledgeStateRow {
     fn append(
@@ -36,8 +36,12 @@ impl pse_relations::columnar::ArrowValue for RuntimeKnowledgeStateRow {
             children[0usize].as_mut(),
         )?;
         pse_relations::columnar::ArrowValue::append(
-            &self.r#active_generation,
+            &self.r#ranking_epoch,
             children[1usize].as_mut(),
+        )?;
+        pse_relations::columnar::ArrowValue::append(
+            &self.r#active_generation,
+            children[2usize].as_mut(),
         )?;
         output.append(true);
         Ok(())
@@ -52,10 +56,13 @@ impl pse_relations::columnar::ArrowValue for RuntimeKnowledgeStateRow {
         <String as pse_relations::columnar::ArrowValue>::append_null(
             children[0usize].as_mut(),
         )?;
+        <u64 as pse_relations::columnar::ArrowValue>::append_null(
+            children[1usize].as_mut(),
+        )?;
         <Option<
             String,
         > as pse_relations::columnar::ArrowValue>::append_null(
-            children[1usize].as_mut(),
+            children[2usize].as_mut(),
         )?;
         output.append(false);
         Ok(())
@@ -71,10 +78,14 @@ impl pse_relations::columnar::ArrowValue for RuntimeKnowledgeStateRow {
                 input.column(0usize).as_ref(),
                 index,
             )?,
+            r#ranking_epoch: <u64 as pse_relations::columnar::ArrowValue>::read(
+                input.column(1usize).as_ref(),
+                index,
+            )?,
             r#active_generation: <Option<
                 String,
             > as pse_relations::columnar::ArrowValue>::read(
-                input.column(1usize).as_ref(),
+                input.column(2usize).as_ref(),
                 index,
             )?,
         })
@@ -139,8 +150,12 @@ impl pse_relations::columnar::RelationRow for RuntimeKnowledgeStateRow {
             columns[0usize].as_mut(),
         )?;
         pse_relations::columnar::ArrowValue::append(
-            &self.r#active_generation,
+            &self.r#ranking_epoch,
             columns[1usize].as_mut(),
+        )?;
+        pse_relations::columnar::ArrowValue::append(
+            &self.r#active_generation,
+            columns[2usize].as_mut(),
         )?;
         Ok(())
     }
@@ -183,16 +198,20 @@ impl pse_relations::columnar::RelationRow for RuntimeKnowledgeStateRow {
         positions.iter().map(|&position| view.row(position)).collect()
     }
     fn builder_allocation_size() -> usize {
-        4_096_usize + size_of::<Self::Builder>()
+        6_144_usize + size_of::<Self::Builder>()
     }
     fn minimum_row_allocation_size() -> usize {
-        32usize
+        48usize
     }
     fn allocation_size(&self) -> Result<usize, pse_relations::RelationError> {
         let mut bytes = 0usize;
         bytes = pse_relations::columnar::allocation_add(
             bytes,
             pse_relations::columnar::allocation_add(8, (self.r#key).len())?,
+        )?;
+        bytes = pse_relations::columnar::allocation_add(
+            bytes,
+            Ok::<usize, pse_relations::RelationError>(8usize)?,
         )?;
         bytes = pse_relations::columnar::allocation_add(
             bytes,
@@ -215,7 +234,7 @@ pub const RELATION_KEY: pse_schema::model::RelationKey = pse_schema::model::Rela
     version: VERSION,
 };
 /// Stable field references projected from the declared column order.
-pub const COLUMNS: [pse_relations::columnar::ColumnReference; 2usize] = [
+pub const COLUMNS: [pse_relations::columnar::ColumnReference; 3usize] = [
     pse_relations::columnar::ColumnReference {
         relation_id: RELATION_ID,
         name: "key",
@@ -223,16 +242,23 @@ pub const COLUMNS: [pse_relations::columnar::ColumnReference; 2usize] = [
     },
     pse_relations::columnar::ColumnReference {
         relation_id: RELATION_ID,
-        name: "active_generation",
+        name: "ranking_epoch",
         position: 1usize,
+    },
+    pse_relations::columnar::ColumnReference {
+        relation_id: RELATION_ID,
+        name: "active_generation",
+        position: 2usize,
     },
 ];
 /// Named native column references derived from the declared field inventory.
 pub mod columns {
     ///key
     pub const KEY: pse_relations::columnar::ColumnReference = super::COLUMNS[0usize];
+    ///ranking_epoch
+    pub const RANKING_EPOCH: pse_relations::columnar::ColumnReference = super::COLUMNS[1usize];
     ///active_generation
-    pub const ACTIVE_GENERATION: pse_relations::columnar::ColumnReference = super::COLUMNS[1usize];
+    pub const ACTIVE_GENERATION: pse_relations::columnar::ColumnReference = super::COLUMNS[2usize];
 }
 /// Borrowed Arrow columns with checked layout and local values.
 /// Keys, references and domain completeness require relational admission.
@@ -241,6 +267,7 @@ pub struct RuntimeKnowledgeStateView<'a> {
     batch: &'a pse_relations::RecordBatch,
     checked: Option<&'a pse_relations::columnar::FieldCheckedBatch>,
     key_column: &'a arrow_array::StringArray,
+    ranking_epoch_column: &'a arrow_array::UInt64Array,
     active_generation_column: &'a arrow_array::StringArray,
 }
 impl<'a> RuntimeKnowledgeStateView<'a> {
@@ -302,9 +329,12 @@ impl<'a> RuntimeKnowledgeStateView<'a> {
             key_column: pse_relations::columnar::array::<
                 arrow_array::StringArray,
             >(batch.column(0usize).as_ref())?,
+            ranking_epoch_column: pse_relations::columnar::array::<
+                arrow_array::UInt64Array,
+            >(batch.column(1usize).as_ref())?,
             active_generation_column: pse_relations::columnar::array::<
                 arrow_array::StringArray,
-            >(batch.column(1usize).as_ref())?,
+            >(batch.column(2usize).as_ref())?,
         })
     }
     /// The immutable batch, preserving its buffer owners and reservations.
@@ -333,6 +363,18 @@ impl<'a> RuntimeKnowledgeStateView<'a> {
     }
     #[doc = concat!(
         "Borrows the actual Arrow column `",
+        "ranking_epoch",
+        "`, including its offsets and validity bitmap.",
+    )]
+    pub const fn ranking_epoch_column(&self) -> &'a arrow_array::UInt64Array {
+        self.ranking_epoch_column
+    }
+    #[doc = concat!("Borrows the exact declared field for `", "ranking_epoch", "`.")]
+    pub fn ranking_epoch_field(&self) -> &'a pse_relations::FieldRef {
+        &self.batch.schema_ref().fields()[1usize]
+    }
+    #[doc = concat!(
+        "Borrows the actual Arrow column `",
         "active_generation",
         "`, including its offsets and validity bitmap.",
     )]
@@ -341,7 +383,7 @@ impl<'a> RuntimeKnowledgeStateView<'a> {
     }
     #[doc = concat!("Borrows the exact declared field for `", "active_generation", "`.")]
     pub fn active_generation_field(&self) -> &'a pse_relations::FieldRef {
-        &self.batch.schema_ref().fields()[1usize]
+        &self.batch.schema_ref().fields()[2usize]
     }
     /// Decodes one row for an explicit scalar algorithm boundary.
     /// Columnar consumers should borrow the concrete column accessors.
@@ -358,6 +400,10 @@ impl<'a> RuntimeKnowledgeStateView<'a> {
         }
         Ok(RuntimeKnowledgeStateRow {
             r#key: pse_relations::columnar::ArrowValue::read(self.key_column, index)?,
+            r#ranking_epoch: pse_relations::columnar::ArrowValue::read(
+                self.ranking_epoch_column,
+                index,
+            )?,
             r#active_generation: pse_relations::columnar::ArrowValue::read(
                 self.active_generation_column,
                 index,

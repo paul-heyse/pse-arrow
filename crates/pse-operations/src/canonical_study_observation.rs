@@ -101,6 +101,8 @@ pub struct CurrentFollow {
     ended: bool,
     #[cfg(test)]
     snapshot_pause_until: Option<Instant>,
+    #[cfg(test)]
+    close_dependency_after_read: Option<usize>,
 }
 impl std::fmt::Debug for CurrentFollow {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -262,6 +264,8 @@ impl CanonicalStore {
             ended: false,
             #[cfg(test)]
             snapshot_pause_until: None,
+            #[cfg(test)]
+            close_dependency_after_read: None,
         };
         if let Err(error) = follow.register().await {
             if let Err(cleanup) = follow.withdraw().await {
@@ -273,6 +277,10 @@ impl CanonicalStore {
     }
 }
 impl CurrentFollow {
+    #[cfg(test)]
+    pub(crate) fn lose_linked_run_after_next_read(&mut self) {
+        self.close_dependency_after_read = Some(2);
+    }
     #[cfg(test)]
     pub(crate) fn cross_principal_boundary_after_next_read(
         &mut self,
@@ -461,6 +469,14 @@ impl CurrentFollow {
         if let Some(until) = self.snapshot_pause_until.take() {
             tokio::time::sleep_until(until.min(self.deadline).into()).await;
         }
+        #[cfg(test)]
+        if let Some(index) = self.close_dependency_after_read.take() {
+            self.subscriptions
+                .get_mut(index)
+                .ok_or(CanonicalError::IncompleteResponse)?
+                .close()
+                .await?;
+        }
         // A completed read is still tentative across the principal boundary.
         // Check after typed decoding and attribution, immediately before publication.
         if Instant::now() >= read_deadline {
@@ -468,15 +484,23 @@ impl CurrentFollow {
             self.next_check = Instant::now();
             return Ok(FollowUpdate::Unavailable);
         }
+        let after = self
+            .subscriptions
+            .iter()
+            .map(Subscription::notice)
+            .collect::<Vec<_>>();
+        if after
+            .iter()
+            .any(|notice| !matches!(notice, SubscriptionNotice::Active { .. }))
+        {
+            self.withdraw().await?;
+            self.next_check = Instant::now();
+            return Ok(FollowUpdate::Unavailable);
+        }
         Ok(match snapshot {
             Some(snapshot) => FollowUpdate::Snapshot {
                 snapshot,
-                refresh_pending: before
-                    != self
-                        .subscriptions
-                        .iter()
-                        .map(Subscription::notice)
-                        .collect::<Vec<_>>(),
+                refresh_pending: before != after,
                 next_revalidation_at,
             },
             None => FollowUpdate::Unavailable,

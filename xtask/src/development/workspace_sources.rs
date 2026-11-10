@@ -52,7 +52,7 @@ pub struct SourceBounds {
     pub max_bytes: usize,
     /// One admitted source, at most 4 MiB.
     pub max_source_bytes: usize,
-    /// Closed native subjects, at most 256.
+    /// Closed native subjects, bounded by the knowledge owner (currently 4096).
     pub max_subjects: usize,
     /// Directory entries examined for finite native owner/producer indexes.
     pub max_discovery_entries: usize,
@@ -65,7 +65,7 @@ impl Default for SourceBounds {
             max_sources: 256,
             max_bytes: 32 << 20,
             max_source_bytes: 4 << 20,
-            max_subjects: 256,
+            max_subjects: super::catalog::knowledge::MAX_SUBJECTS,
             max_discovery_entries: 4096,
             milliseconds: 15000,
         }
@@ -159,7 +159,7 @@ fn validate_selection(selection: &SourceSelection) -> Result<()> {
     );
     ensure!(
         (1..=256).contains(&bounds.max_sources)
-            && (1..=256).contains(&bounds.max_subjects)
+            && (1..=super::catalog::knowledge::MAX_SUBJECTS).contains(&bounds.max_subjects)
             && (1..=32 << 20).contains(&bounds.max_bytes)
             && (1..=4 << 20).contains(&bounds.max_source_bytes)
             && (1..=4096).contains(&bounds.max_discovery_entries)

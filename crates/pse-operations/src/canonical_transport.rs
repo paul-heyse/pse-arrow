@@ -215,7 +215,6 @@ impl std::ops::Deref for CanonicalClient {
 
 pub(crate) struct ClientState {
     client: Arc<Client>,
-    executor: tokio::runtime::Handle,
     budget: Duration,
     namespace: String,
     database: String,
@@ -266,11 +265,10 @@ impl CanonicalClient {
     }
     pub(crate) fn new(client: Client, budget: Duration, options: &super::CanonicalOptions) -> Self {
         Self {
-            access: super::lifetime::ConnectionAccess::default(),
+            access: super::lifetime::ConnectionAccess::for_client(&client),
             schema: Arc::default(),
             inner: Arc::new(ClientState {
                 client: Arc::new(client),
-                executor: tokio::runtime::Handle::current(),
                 budget,
                 namespace: options.namespace.clone(),
                 database: options.database.clone(),
@@ -305,7 +303,7 @@ impl CanonicalClient {
         F: Future + Send + 'static,
         F::Output: Send + 'static,
     {
-        self.executor.spawn(work)
+        self.client.spawn(work)
     }
 
     /// VIEWER cannot implicitly define catalog entries during USE. Inspect the

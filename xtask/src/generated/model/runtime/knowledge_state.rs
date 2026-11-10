@@ -8,12 +8,18 @@
 pub struct RuntimeKnowledgeStateRow {
     ///key
     pub r#key: String,
+    ///ranking_epoch
+    pub r#ranking_epoch: u64,
     ///active_generation
     pub r#active_generation: Option<String>,
 }
 impl pse_model::SemanticEq for RuntimeKnowledgeStateRow {
     fn semantic_eq(&self, other: &Self) -> bool {
         pse_model::SemanticEq::semantic_eq(&self.r#key, &other.r#key)
+            && pse_model::SemanticEq::semantic_eq(
+                &self.r#ranking_epoch,
+                &other.r#ranking_epoch,
+            )
             && pse_model::SemanticEq::semantic_eq(
                 &self.r#active_generation,
                 &other.r#active_generation,
@@ -31,6 +37,8 @@ impl pse_model::SemanticFrame for RuntimeKnowledgeStateRow {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
         hash.str(stringify!(r#key));
         pse_model::SemanticFrame::frame(&self.r#key, hash);
+        hash.str(stringify!(r#ranking_epoch));
+        pse_model::SemanticFrame::frame(&self.r#ranking_epoch, hash);
         hash.str(stringify!(r#active_generation));
         pse_model::SemanticFrame::frame(&self.r#active_generation, hash);
     }
@@ -39,6 +47,7 @@ impl pse_model::HeapUsage for RuntimeKnowledgeStateRow {
     fn heap_bytes(&self) -> usize {
         0usize
             .saturating_add(pse_model::HeapUsage::heap_bytes(&self.r#key))
+            .saturating_add(pse_model::HeapUsage::heap_bytes(&self.r#ranking_epoch))
             .saturating_add(pse_model::HeapUsage::heap_bytes(&self.r#active_generation))
     }
 }

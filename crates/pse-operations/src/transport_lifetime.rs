@@ -42,12 +42,14 @@ struct State {
 
 #[derive(Debug)]
 pub(crate) struct PhysicalLifetime {
+    executor: tokio::runtime::Handle,
     state: Mutex<State>,
     idle: tokio::sync::Notify,
 }
-impl Default for PhysicalLifetime {
-    fn default() -> Self {
+impl PhysicalLifetime {
+    fn new(executor: tokio::runtime::Handle) -> Self {
         Self {
+            executor,
             state: Mutex::new(State {
                 phase: Phase::Open,
                 activities: 0,
@@ -62,7 +64,7 @@ impl Default for PhysicalLifetime {
 }
 
 /// Logical admission and continuation over one independently owned physical client.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct ConnectionAccess {
     pub(crate) physical: Arc<PhysicalLifetime>,
     caller: Arc<AtomicBool>,
@@ -165,6 +167,18 @@ impl<F: Future> Future for InheritedActivity<F> {
 }
 
 impl ConnectionAccess {
+    /// Bind admission and aggregate teardown to this connection's original
+    /// physical executor. Temporary callers do not own its shutdown progress.
+    pub fn for_client(client: &crate::transport::client::Client) -> Self {
+        Self::on_executor(client.executor())
+    }
+    fn on_executor(executor: tokio::runtime::Handle) -> Self {
+        Self {
+            physical: Arc::new(PhysicalLifetime::new(executor)),
+            caller: Arc::new(AtomicBool::new(false)),
+            continuation: None,
+        }
+    }
     /// Drain this independently owned connection with the existing bounded lifetime owner.
     /// The caller supplies only its own transport teardown; no scientific client is exposed.
     pub async fn disconnect<F, O>(&self, ordinary: O) -> Result<(), CanonicalError>
@@ -411,7 +425,7 @@ impl PhysicalLifetime {
             let deadline = crate::transport::current_deadline().unwrap_or_else(|| {
                 crate::transport::original_deadline(crate::transport::REQUEST_TIMEOUT)
             });
-            tokio::spawn(async move {
+            self.executor.spawn(async move {
                 let result = async {
                     // Readers protect both clients. Failure here forbids either
                     // disconnect, while the clients themselves are independent.
@@ -527,7 +541,7 @@ mod tests {
 
     #[tokio::test]
     async fn inherited_activity_captures_before_spawn_and_drops_ready_child_in_scope() {
-        let caller = ConnectionAccess::default();
+        let caller = ConnectionAccess::on_executor(tokio::runtime::Handle::current());
         let activity = caller.admit().unwrap();
         let observations = Arc::new(Mutex::new(Vec::new()));
         let child = activity.sync_scope(|| {
@@ -549,9 +563,15 @@ mod tests {
 
     #[test]
     fn inherited_activity_pending_repoll_and_cancel_drop_restore_captured_authority() {
-        let caller = ConnectionAccess::default();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        let _entered = runtime.enter();
+        let caller = ConnectionAccess::on_executor(tokio::runtime::Handle::current());
         let activity = caller.admit().unwrap();
-        let ambient = ConnectionAccess::default().admit().unwrap();
+        let ambient = ConnectionAccess::on_executor(tokio::runtime::Handle::current())
+            .admit()
+            .unwrap();
         let observations = Arc::new(Mutex::new(Vec::new()));
         let mut child = Box::pin(activity.sync_scope(|| {
             inherit_activity(ActivityProbe {
@@ -585,9 +605,15 @@ mod tests {
 
     #[test]
     fn inherited_activity_panic_drop_is_scoped_but_unpolled_and_uncaptured_are_ambient() {
-        let caller = ConnectionAccess::default();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        let _entered = runtime.enter();
+        let caller = ConnectionAccess::on_executor(tokio::runtime::Handle::current());
         let activity = caller.admit().unwrap();
-        let ambient = ConnectionAccess::default().admit().unwrap();
+        let ambient = ConnectionAccess::on_executor(tokio::runtime::Handle::current())
+            .admit()
+            .unwrap();
         for (behavior, polled, captured, expected) in [
             (2, true, true, vec![Some(true), Some(true)]),
             (1, false, true, vec![Some(false)]),
@@ -626,7 +652,11 @@ mod tests {
 
     #[test]
     fn inherited_activity_ready_releases_authority_before_completed_wrapper_is_dropped() {
-        let caller = ConnectionAccess::default();
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        let _entered = runtime.enter();
+        let caller = ConnectionAccess::on_executor(tokio::runtime::Handle::current());
         let activity = caller.admit().unwrap();
         let observations = Arc::new(Mutex::new(Vec::new()));
         let mut child = Box::pin(activity.sync_scope(|| {
@@ -665,7 +695,7 @@ mod tests {
 
     #[tokio::test]
     async fn caller_aliases_close_together_but_continuation_and_independent_caller_survive() {
-        let caller = ConnectionAccess::default();
+        let caller = ConnectionAccess::on_executor(tokio::runtime::Handle::current());
         let escaped = caller.clone();
         let other = caller.independent_with(|access| access).unwrap();
         let activity = caller.admit().unwrap();
@@ -689,7 +719,7 @@ mod tests {
 
     #[tokio::test]
     async fn refused_physical_close_preserves_open_admission_and_both_drivers() {
-        let caller = ConnectionAccess::default();
+        let caller = ConnectionAccess::on_executor(tokio::runtime::Handle::current());
         let activity = caller.admit().unwrap();
         let called = Arc::new(AtomicUsize::new(0));
         let driver = called.clone();
@@ -729,7 +759,7 @@ mod tests {
 
     #[tokio::test]
     async fn cancelled_close_waiter_does_not_cancel_two_driver_drain() {
-        let caller = ConnectionAccess::default();
+        let caller = ConnectionAccess::on_executor(tokio::runtime::Handle::current());
         let physical = caller.physical.clone();
         let (ordinary_done, done) = tokio::sync::oneshot::channel();
         let (resume, paused) = tokio::sync::oneshot::channel();
@@ -769,9 +799,78 @@ mod tests {
         assert_eq!(caller.physical.state.lock().unwrap().phase, Phase::Closed);
     }
 
+    #[test]
+    fn aggregate_close_finishes_on_physical_executor_after_caller_stops_polling() {
+        let (access_tx, access_rx) = std::sync::mpsc::channel();
+        let (observe_tx, observe_rx) = tokio::sync::oneshot::channel();
+        let (done_tx, done_rx) = std::sync::mpsc::channel();
+        let physical_thread = std::thread::spawn(move || {
+            let runtime = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            runtime.block_on(async move {
+                let access = ConnectionAccess::on_executor(tokio::runtime::Handle::current());
+                access_tx.send(access.clone()).unwrap();
+                observe_rx.await.unwrap();
+                let result = access
+                    .physical
+                    .close(
+                        || async { panic!("original round owns readers") },
+                        || async { panic!("original round owns ordinary drain") },
+                        || async { panic!("original round owns activation drain") },
+                    )
+                    .await;
+                done_tx
+                    .send((result, access.physical.state.lock().unwrap().phase))
+                    .unwrap();
+            });
+        });
+        let access = access_rx.recv().unwrap();
+        let caller = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let (entered_tx, entered_rx) = tokio::sync::oneshot::channel();
+        let (resume_tx, resume_rx) = tokio::sync::oneshot::channel();
+        let drains = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let owned_drains = drains.clone();
+        caller.block_on(async {
+            let closing = access.clone();
+            let waiter = tokio::spawn(async move {
+                closing
+                    .disconnect(move || async move {
+                        owned_drains.fetch_add(1, Ordering::SeqCst);
+                        entered_tx.send(()).unwrap();
+                        resume_rx.await.unwrap();
+                        Ok(())
+                    })
+                    .await
+            });
+            entered_rx.await.unwrap();
+            assert!(matches!(
+                access.admit(),
+                Err(CanonicalError::ConnectionUnavailable)
+            ));
+            waiter.abort();
+            assert!(waiter.await.unwrap_err().is_cancelled());
+        });
+        // The temporary caller is deliberately never polled again. Both the
+        // original drain and a successor waiter execute on the physical owner.
+        resume_tx.send(()).unwrap();
+        observe_tx.send(()).unwrap();
+        let (result, phase) = done_rx
+            .recv_timeout(std::time::Duration::from_secs(5))
+            .unwrap();
+        result.unwrap();
+        assert_eq!(phase, Phase::Closed);
+        assert_eq!(drains.load(Ordering::SeqCst), 1);
+        physical_thread.join().unwrap();
+    }
+
     #[tokio::test]
     async fn failed_second_driver_keeps_closing_and_retry_skips_acknowledged_first_driver() {
-        let caller = ConnectionAccess::default();
+        let caller = ConnectionAccess::on_executor(tokio::runtime::Handle::current());
         let result = caller
             .physical
             .close(
@@ -805,7 +904,7 @@ mod tests {
     #[tokio::test]
     async fn last_activity_release_and_new_admission_serialize_with_close() {
         for _ in 0..32 {
-            let caller = ConnectionAccess::default();
+            let caller = ConnectionAccess::on_executor(tokio::runtime::Handle::current());
             let activity = caller.admit().unwrap();
             let contender = caller.clone();
             let physical = caller.physical.clone();
@@ -843,7 +942,7 @@ mod tests {
     #[tokio::test]
     async fn original_close_waiter_observes_its_failure_after_a_successful_retry() {
         use std::{future::Future, task::Poll};
-        let caller = ConnectionAccess::default();
+        let caller = ConnectionAccess::on_executor(tokio::runtime::Handle::current());
         let first = caller.physical.close(
             || async { Ok(()) },
             || async { Ok(()) },
@@ -878,7 +977,7 @@ mod tests {
     }
     #[tokio::test]
     async fn failed_first_driver_still_settles_second_and_retains_each_error() {
-        let caller = ConnectionAccess::default();
+        let caller = ConnectionAccess::on_executor(tokio::runtime::Handle::current());
         let error = caller
             .physical
             .close(
@@ -896,7 +995,7 @@ mod tests {
 
     #[tokio::test]
     async fn stalled_first_driver_cannot_block_second_and_child_keeps_original_deadline() {
-        let caller = ConnectionAccess::default();
+        let caller = ConnectionAccess::on_executor(tokio::runtime::Handle::current());
         let completed = Arc::new(AtomicBool::new(false));
         let second = completed.clone();
         let deadline = tokio::time::Instant::now() + std::time::Duration::from_millis(40);
@@ -923,7 +1022,7 @@ mod tests {
 
     #[tokio::test]
     async fn failed_reader_prerequisite_preserves_both_clients() {
-        let caller = ConnectionAccess::default();
+        let caller = ConnectionAccess::on_executor(tokio::runtime::Handle::current());
         let result = caller
             .physical
             .close(
@@ -944,7 +1043,7 @@ mod tests {
 
     #[tokio::test]
     async fn physical_child_preserves_exact_longer_enclosing_settlement_offer() {
-        let caller = ConnectionAccess::default();
+        let caller = ConnectionAccess::on_executor(tokio::runtime::Handle::current());
         let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(60);
         crate::transport::operation_scope(
             deadline.into_std(),

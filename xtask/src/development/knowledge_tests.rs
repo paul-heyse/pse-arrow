@@ -236,6 +236,8 @@ fn query(mode: KnowledgeMode, generation: Option<String>) -> KnowledgeQuery {
         version: pse_model::document::Version,
         generation,
         mode,
+        population: KnowledgePopulation::SelectedGeneration,
+        search: KnowledgeSearch::Exact,
         kind: None,
         owner: None,
         native_id: None,
@@ -261,10 +263,10 @@ fn knowledge_query_checks_version_before_body_and_preserves_predicate() {
     example.validate().unwrap();
     let request = query(KnowledgeMode::Productions, None);
     let mut value = serde_json::to_value(&request).unwrap();
-    assert_eq!(value["version"], 1);
+    assert_eq!(value["version"], 2);
     let decoded = KnowledgeQuery::decode_json(&serde_json::to_vec(&value).unwrap()).unwrap();
     assert_eq!(decoded.mode, KnowledgeMode::Productions);
-    value["version"] = serde_json::json!(2);
+    value["version"] = serde_json::json!(3);
     value["mode"] = serde_json::json!({"malformed":"current body"});
     let error = KnowledgeQuery::decode_json(&serde_json::to_vec(&value).unwrap()).unwrap_err();
     assert_eq!(
@@ -385,10 +387,7 @@ fn knowledge_query_refuses_unbounded_or_unstructured_text_and_mixed_modes() {
     let mut request = query(KnowledgeMode::Subjects, None);
     request.validate().unwrap();
     request.text = Some("boundary".into());
-    assert!(
-        request.validate().is_err(),
-        "text requires an explicit structured population"
-    );
+    request.validate().unwrap();
     request.kind = Some(parsed("contract"));
     request.validate().unwrap();
     request.limit = 65;
@@ -399,6 +398,62 @@ fn knowledge_query_refuses_unbounded_or_unstructured_text_and_mixed_modes() {
     request.validate().unwrap();
     request.kind = Some(parsed("generator"));
     assert!(request.validate().is_err());
+}
+
+#[test]
+fn knowledge_complete_population_predicates_precede_pagination() {
+    let mut request = query(KnowledgeMode::Subjects, None);
+    request.text = Some("late_match".into());
+    let (prefix, sql) = selection(&request);
+    assert!(prefix.is_empty());
+    assert!(!sql.contains("257"));
+    assert!(sql.contains("FROM knowledge_subjects WHERE generation=$selected"));
+    assert!(sql.contains("knowledge_excerpts WHERE generation=$selected AND text @0@ $text"));
+    request.population = KnowledgePopulation::ExplicitSubjects {
+        subjects: vec!["original".into()],
+    };
+    request.validate().unwrap();
+    assert!(selection(&request).1.contains("subject_id IN $subject_ids"));
+    request.population = KnowledgePopulation::ExplicitSubjects {
+        subjects: vec!["same".into(), "same".into()],
+    };
+    assert!(request.validate().is_err());
+}
+
+#[test]
+fn knowledge_ranked_cursor_requires_finite_score_and_population_epoch() {
+    let mut request = query(KnowledgeMode::Subjects, None);
+    request.search = KnowledgeSearch::Ranked;
+    assert!(request.validate().is_err());
+    request.text = Some("source meaning".into());
+    request.validate().unwrap();
+    let (prefix, sql) = selection(&request);
+    assert!(prefix.contains("search::score(0)"));
+    assert!(sql.contains("ORDER BY ranked.score DESC,key"));
+    request.cursor = Some(KnowledgeCursor {
+        issuing_store: "issuer".into(),
+        generation: digest("gen"),
+        query_digest: request.identity().unwrap(),
+        after: digest("last"),
+        ranking_epoch: Some(3),
+        score_bits: Some(1.25_f64.to_bits()),
+    });
+    request.validate().unwrap();
+    request.cursor.as_mut().unwrap().score_bits = Some(f64::NAN.to_bits());
+    assert!(request.validate().is_err());
+    request.cursor.as_mut().unwrap().score_bits = Some(1.25_f64.to_bits());
+    request.cursor.as_mut().unwrap().ranking_epoch = None;
+    assert!(request.validate().is_err());
+    assert!(stage_sql().contains("ranking_epoch+=1u64"));
+    assert_eq!(
+        rank_score(Value::Number(surrealdb_types::Number::Float(1.25))).unwrap(),
+        1.25
+    );
+    assert!(rank_score(Value::Number(surrealdb_types::Number::Float(f64::INFINITY))).is_err());
+    assert!(
+        rank_score(pse_operations::canonical_codec::encode_finite(1.25).unwrap()).is_err(),
+        "relevance does not use a scientific cell representation"
+    );
 }
 
 #[test]
@@ -930,5 +985,178 @@ pub(crate) async fn exercise_native(
     importer.knowledge_import(&rebuilt).await?;
     assert_eq!(reader.knowledge_select(&selected).await?.subjects.len(), 1);
     assert_eq!(reader.status().await?, before);
+    let mut large = first_corpus.clone();
+    large.expected_active = Some(rebuilt.generation()?);
+    large.subjects = (0..300)
+        .map(|index| {
+            let mut value = first_corpus.subjects[0].clone();
+            value.id = format!("complete-subject-{index:04}");
+            value.native_id = value.id.clone();
+            value.label = value.id.clone();
+            value
+        })
+        .collect();
+    large.edges.clear();
+    large.productions.clear();
+    large.excerpts = large
+        .subjects
+        .iter()
+        .enumerate()
+        .map(|(index, subject)| KnowledgeExcerpt {
+            id: format!("complete-excerpt-{index:04}"),
+            source_id: "docs".into(),
+            subject_id: Some(subject.id.clone()),
+            text: "late complete membership".into(),
+            locator: format!("owner:docs#{index}"),
+            basis: "text".into(),
+        })
+        .collect();
+    large.excerpts[0].text = format!("[[authored]] {}membership", "α😺 ".repeat(300));
+    let large_receipt = importer.knowledge_import(&large).await?;
+    let mut complete = query(
+        KnowledgeMode::Subjects,
+        Some(large_receipt.generation.clone()),
+    );
+    complete.text = Some("membership".into());
+    let mut seen = BTreeSet::new();
+    loop {
+        let page = reader.knowledge_select(&complete).await?;
+        for subject in page.subjects {
+            assert!(seen.insert(subject.id));
+        }
+        complete.cursor = page.next;
+        if complete.cursor.is_none() {
+            break;
+        }
+    }
+    assert_eq!(
+        seen.len(),
+        300,
+        "text must filter the entire generation, not 257 candidates"
+    );
+    let mut bounded = complete.clone();
+    bounded.cursor = None;
+    bounded.population = KnowledgePopulation::ExplicitSubjects {
+        subjects: vec![
+            "complete-subject-0299".into(),
+            "complete-subject-0000".into(),
+        ],
+    };
+    let bounded_page = reader.knowledge_select(&bounded).await?;
+    assert_eq!(bounded_page.subjects.len(), 2);
+    assert!(bounded_page.next.is_none());
+    let mut ranked = query(
+        KnowledgeMode::Subjects,
+        Some(large_receipt.generation.clone()),
+    );
+    ranked.text = Some("membership".into());
+    ranked.search = KnowledgeSearch::Ranked;
+    ranked.limit = 1;
+    let first_page = reader.knowledge_select(&ranked).await?;
+    assert_eq!(first_page.ranking.len(), 1);
+    assert!(first_page.ranking[0].score.is_finite());
+    assert!(first_page.ranking[0].highlight.contains("[[membership]]"));
+    assert_eq!(first_page.ranking[0].source_id, "docs");
+    assert_eq!(
+        first_page.ranking[0]
+            .subject_id
+            .strip_prefix("complete-subject-"),
+        first_page.ranking[0]
+            .excerpt_id
+            .strip_prefix("complete-excerpt-"),
+        "best-excerpt attribution must stay with the ranked subject"
+    );
+    assert!(first_page.ranking[0].locator.starts_with("owner:docs#"));
+    assert_eq!(
+        reader.knowledge_select(&ranked).await?.ranking[0].subject_id,
+        first_page.ranking[0].subject_id,
+        "native BM25 ties use stable identity"
+    );
+    let mut irrelevant = ranked.clone();
+    irrelevant.text = Some("unrepresentedtoken".into());
+    assert!(
+        reader
+            .knowledge_select(&irrelevant)
+            .await?
+            .subjects
+            .is_empty()
+    );
+    let mut reformulated = ranked.clone();
+    reformulated.text = Some("COMPLETE membership".into());
+    assert!(
+        !reader
+            .knowledge_select(&reformulated)
+            .await?
+            .ranking
+            .is_empty(),
+        "authored lexical reformulation follows the selected token analyzer"
+    );
+    let mut punctuation = reformulated.clone();
+    punctuation.text = Some("COMPLETE membership?".into());
+    assert!(
+        reader
+            .knowledge_select(&punctuation)
+            .await?
+            .ranking
+            .is_empty(),
+        "the declared code-symbol analyzer retains an absent question-mark term"
+    );
+    let ranked_plan = reader.knowledge_explain(&ranked).await?;
+    assert!(!ranked_plan.explanation.analyzed);
+    assert!(ranked_plan.explanation.response.is_some());
+    let mut late = ranked.clone();
+    late.population = KnowledgePopulation::ExplicitSubjects {
+        subjects: vec!["complete-subject-0000".into()],
+    };
+    let late_page = reader.knowledge_select(&late).await?;
+    assert_eq!(late_page.ranking.len(), 1);
+    assert!(
+        late_page.ranking[0].highlight.contains("[[membership]]"),
+        "native Unicode offsets must center a match beyond512characters: {}",
+        late_page.ranking[0].highlight
+    );
+    assert!(
+        !late_page.ranking[0].highlight.contains("[[authored]]"),
+        "authored marker text is not a search offset"
+    );
+    assert!(late_page.ranking[0].highlight.chars().count() <= 512);
+    ranked.cursor = first_page.next;
+    let second_page = reader.knowledge_select(&ranked).await?;
+    assert_eq!(second_page.ranking.len(), 1);
+    assert_ne!(
+        first_page.ranking[0].subject_id,
+        second_page.ranking[0].subject_id
+    );
+    let mut staged_other = large.clone();
+    staged_other.subjects[0].label = "different unactivated generation".into();
+    let mut follow = reader
+        .follow_index(
+            crate::development::evidence::IndexFollowSelection {
+                family: crate::development::evidence::IndexFollowFamily::Knowledge,
+                generation: None,
+            },
+            std::time::Instant::now() + std::time::Duration::from_secs(60),
+        )
+        .await?;
+    assert!(matches!(
+        follow.next().await?,
+        crate::development::evidence::IndexFollowEvent::Snapshot { .. }
+    ));
+    importer.knowledge_stage(&prepare(&staged_other)?).await?;
+    assert!(matches!(
+        tokio::time::timeout(std::time::Duration::from_secs(10), follow.next())
+            .await
+            .expect("native knowledge invalidation must arrive")?,
+        crate::development::evidence::IndexFollowEvent::Snapshot { .. }
+    ));
+    follow.close().await?;
+    assert_eq!(
+        reader.knowledge_status().await?["active_generation"],
+        large_receipt.generation
+    );
+    assert!(
+        reader.knowledge_select(&ranked).await.is_err(),
+        "staging changes global rank population"
+    );
     Ok(())
 }

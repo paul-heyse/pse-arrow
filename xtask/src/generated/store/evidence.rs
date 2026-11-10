@@ -4,7 +4,7 @@
 /// Independent tooling interpretation.
 pub const INTERPRETATION: &str = "pse-tooling-evidence-v3";
 /// Tooling-only schema and codec compatibility identity.
-pub const SCHEMA_DIGEST: &str = "a952ce9f35025a0abc5dd5178472cff5d905f1878affda0f38c5f8a2743912e4";
+pub const SCHEMA_DIGEST: &str = "44ae37ad0b1883b5a2039b01a0115e8c8fc2d70c4547d2768573b8522a8e819d";
 /// Tooling-only registry declarations.
 pub const SCHEMA: &str = include_str!("evidence.surql");
 /// Mutation of a required value; omission leaves the original unchanged.

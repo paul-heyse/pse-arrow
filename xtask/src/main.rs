@@ -195,10 +195,16 @@ enum Cmd {
         /// JSON encoded CanonicalGraphRequest from the generated product schema.
         #[arg(long)]
         request: PathBuf,
-        /// Also return the native static physical plan of the same bound query.
+        /// Interpret the request as a bounded occurrence-preserving multi-hop path question.
+        #[arg(long)]
+        paths: bool,
+        /// Describe checked SQL/bindings without connecting or executing a query.
+        #[arg(long, conflicts_with_all = ["explain", "experiment"])]
+        describe_only: bool,
+        /// Return only the native static physical plan without executing the graph query.
         #[arg(long)]
         explain: bool,
-        /// Execute and drain native EXPLAIN ANALYZE; includes static explanation.
+        /// Explicitly execute and drain native EXPLAIN ANALYZE.
         #[arg(long)]
         experiment: bool,
     },
@@ -884,11 +890,19 @@ fn main() -> Result<()> {
             state,
             database,
             request,
+            paths,
+            describe_only,
             explain,
             experiment,
-        } => {
-            canonical_diagnostics::graph(&state, database.as_deref(), &request, explain, experiment)
-        }
+        } => canonical_diagnostics::graph(
+            &state,
+            database.as_deref(),
+            &request,
+            explain,
+            experiment,
+            paths,
+            describe_only,
+        ),
         #[cfg(feature = "canonical-tools")]
         Cmd::CanonicalQueryInspect {
             state,

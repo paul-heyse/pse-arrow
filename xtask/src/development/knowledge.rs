@@ -347,7 +347,7 @@ impl KnowledgeCorpus {
             || self.sources.is_empty()
             || self.sources.len() > 256
             || self.subjects.is_empty()
-            || self.subjects.len() > 256
+            || self.subjects.len() > declaration::MAX_SUBJECTS
             || self.excerpts.len() > 1024
             || self.edges.len() > 2048
             || self.productions.len() > 1024
@@ -487,6 +487,29 @@ pub enum KnowledgeMode {
     /// Exact declaration-generator-artifact assertion.
     Productions,
 }
+/// Population whose complete predicate is evaluated before paging.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum KnowledgePopulation {
+    /// All admitted subjects in the identified generation.
+    #[default]
+    SelectedGeneration,
+    /// An intentional caller-supplied subject set, never an implicit prefix.
+    ExplicitSubjects {
+        /// Exact original subject identities.
+        subjects: Vec<String>,
+    },
+}
+/// Text interpretation; ranking does not grant scientific authority.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum KnowledgeSearch {
+    /// Native exact lexical filtering, ordered by subject identity.
+    #[default]
+    Exact,
+    /// Best matching excerpt BM25, descending, with unique subject-key ties.
+    Ranked,
+}
 /// Exact issuing cut, predicate, and page fence.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -499,6 +522,10 @@ pub struct KnowledgeCursor {
     pub query_digest: String,
     /// Last native member key.
     pub after: String,
+    /// Index population fence, including staged generations.
+    pub ranking_epoch: Option<u64>,
+    /// Exact binary64 score bits of the last ranked subject.
+    pub score_bits: Option<u64>,
 }
 /// Exact conjunction of native facets; no relevance substitution or arbitrary SQL.
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
@@ -506,11 +533,17 @@ pub struct KnowledgeCursor {
 #[schemars(example = knowledge_query_example())]
 pub struct KnowledgeQuery {
     /// Required native document encoding version.
-    pub version: pse_model::document::Version<1>,
+    pub version: pse_model::document::Version<2>,
     /// Null selects the independent current pointer.
     pub generation: Option<String>,
     /// Subject, graph, or production operation.
     pub mode: KnowledgeMode,
+    /// Explicit search population, independent from the returned page size.
+    #[serde(default)]
+    pub population: KnowledgePopulation,
+    /// Exact or ranked lexical interpretation.
+    #[serde(default)]
+    pub search: KnowledgeSearch,
     /// Exact concept family.
     pub kind: Option<SubjectKind>,
     /// Exact native owner.
@@ -536,7 +569,8 @@ pub struct KnowledgeQuery {
     pub generator_id: Option<String>,
     /// Exact production artifact.
     pub artifact_id: Option<String>,
-    /// Optional text predicate within a structurally selected subject population.
+    /// Optional analyzer-backed keyword predicate over the declared population.
+    /// Code-symbol punctuation remains a query term; question punctuation is not ignored.
     pub text: Option<String>,
     /// Page extent, one through 64.
     pub limit: usize,
@@ -544,12 +578,12 @@ pub struct KnowledgeQuery {
     pub cursor: Option<KnowledgeCursor>,
 }
 fn knowledge_query_example() -> serde_json::Value {
-    serde_json::json!({"version":1,"mode":"productions","artifact_id":"generated_artifact:crates/pse-authoring/src/generated/documents.rs","limit":8})
+    serde_json::json!({"version":2,"mode":"productions","artifact_id":"generated_artifact:crates/pse-authoring/src/generated/documents.rs","limit":8})
 }
 impl KnowledgeQuery {
     /// Decode the version header before the closed request body.
     pub fn decode_json(bytes: &[u8]) -> Result<Self, pse_model::document::JsonDecodeError> {
-        pse_model::document::decode_versioned::<Self, 1>(bytes)
+        pse_model::document::decode_versioned::<Self, 2>(bytes)
     }
     fn structural(&self) -> bool {
         self.kind.is_some()
@@ -565,6 +599,38 @@ impl KnowledgeQuery {
     /// # Errors
     /// The query mixes modes, exceeds bounds or supplies invalid identities.
     pub fn validate(&self) -> Result<(), EvidenceError> {
+        if let KnowledgePopulation::ExplicitSubjects { subjects } = &self.population {
+            let unique: BTreeSet<_> = subjects.iter().collect();
+            if self.mode != KnowledgeMode::Subjects
+                || subjects.len() > 256
+                || unique.len() != subjects.len()
+                || subjects.iter().any(|id| !bounded(id, 4096))
+            {
+                return Err(invalid("invalid explicit subject population"));
+            }
+        }
+        if self.search == KnowledgeSearch::Ranked
+            && (self.mode != KnowledgeMode::Subjects || self.text.is_none())
+        {
+            return Err(invalid("ranked mode requires a subject text query"));
+        }
+        if self
+            .cursor
+            .as_ref()
+            .is_some_and(|cursor| match self.search {
+                KnowledgeSearch::Exact => {
+                    cursor.ranking_epoch.is_some() || cursor.score_bits.is_some()
+                }
+                KnowledgeSearch::Ranked => {
+                    cursor.ranking_epoch.is_none()
+                        || cursor
+                            .score_bits
+                            .is_none_or(|bits| !f64::from_bits(bits).is_finite())
+                }
+            })
+        {
+            return Err(EvidenceError::Cursor);
+        }
         if !(1..=64).contains(&self.limit)
             || self.generation.as_ref().is_some_and(|value| !hash(value))
             || self.topics.len() > 16
@@ -594,13 +660,7 @@ impl KnowledgeQuery {
             || self.generator_id.is_some()
             || self.artifact_id.is_some();
         match self.mode {
-            KnowledgeMode::Subjects
-                if !production
-                    && self.relation.is_none()
-                    && (self.text.is_none() || self.structural()) =>
-            {
-                Ok(())
-            }
+            KnowledgeMode::Subjects if !production && self.relation.is_none() => Ok(()),
             KnowledgeMode::Graph
                 if !production && self.subject_id.is_some() && self.text.is_none() =>
             {
@@ -622,6 +682,9 @@ impl KnowledgeQuery {
         request.cursor = None;
         request.topics.sort();
         request.topics.dedup();
+        if let KnowledgePopulation::ExplicitSubjects { subjects } = &mut request.population {
+            subjects.sort();
+        }
         Ok(digest(encoded(&request)?))
     }
 }
@@ -649,7 +712,7 @@ const COVERAGE: KnowledgeCoverage = KnowledgeCoverage {
 #[serde(deny_unknown_fields)]
 pub struct KnowledgePage {
     /// Native result encoding version.
-    pub version: pse_model::document::Version<1>,
+    pub version: pse_model::document::Version<2>,
     /// Issuing tooling authority.
     pub issuing_store: String,
     /// Exact activated corpus.
@@ -662,6 +725,12 @@ pub struct KnowledgePage {
     pub sources: Vec<KnowledgeSource>,
     /// Selected subjects or exact edge/production endpoint closure.
     pub subjects: Vec<KnowledgeSubject>,
+    /// Population promised by this query; a page size does not restrict it.
+    pub population: KnowledgePopulation,
+    /// Ranked order and best-excerpt attribution; empty for exact operations.
+    pub ranking: Vec<KnowledgeRank>,
+    /// Global full-text population revision used for ranking.
+    pub ranking_epoch: Option<u64>,
     /// Optional matching subject-attributed excerpts.
     pub excerpts: Vec<KnowledgeExcerpt>,
     /// Exact typed graph results.
@@ -673,12 +742,28 @@ pub struct KnowledgePage {
     /// Same-predicate, same-cut continuation.
     pub next: Option<KnowledgeCursor>,
 }
+/// A subject's native best-excerpt ranking; highlights remain plain text.
+#[derive(Clone, Debug, Serialize, JsonSchema)]
+pub struct KnowledgeRank {
+    /// Original subject identity.
+    pub subject_id: String,
+    /// Finite native BM25 score.
+    pub score: f64,
+    /// Original matching excerpt identity.
+    pub excerpt_id: String,
+    /// Exact original source carrier of the best excerpt.
+    pub source_id: String,
+    /// Original source locator for independent inspection.
+    pub locator: String,
+    /// Bounded native highlighted excerpt preview.
+    pub highlight: String,
+}
 /// Nonexecuting versioned plan envelope; optimizer plan contents are opaque version-specific data.
 #[derive(Clone, Debug, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct KnowledgeExplain {
     /// Native result encoding version.
-    pub version: pse_model::document::Version<1>,
+    pub version: pse_model::document::Version<2>,
     /// Original issuing tooling identity.
     pub issuing_store: String,
     /// Exact selected active generation.
@@ -689,8 +774,8 @@ pub struct KnowledgeExplain {
     pub query_digest: String,
     /// Raw informational optimizer output, not a stable query grammar.
     pub raw_plan_json: String,
-    /// Optional population selection's informational plan.
-    pub population_plan_json: Option<String>,
+    /// Common source-owned identity, selected native query and original inspection statistics.
+    pub explanation: pse_operations::query_explanation::NativeQueryExplanation,
     /// Original coverage limitations.
     pub coverage: KnowledgeCoverage,
     /// This read does not reopen original source files.
@@ -938,7 +1023,7 @@ fn stage_sql() -> String {
         }
     }
     sql.push_str(
-        "}; IF time::micros()>=$expiry { THROW 'knowledge original deadline expired'; }; COMMIT;",
+        "UPDATE ONLY knowledge_state:current SET ranking_epoch+=1u64; }; IF time::micros()>=$expiry { THROW 'knowledge original deadline expired'; }; COMMIT;",
     );
     sql
 }
@@ -1102,7 +1187,7 @@ impl EvidenceStore {
             )
         })?)?;
         Ok(
-            serde_json::json!({"issuing_store":marker.issuing_store,"interpretation":wire::INTERPRETATION,"schema_digest":wire::SCHEMA_DIGEST,"active_generation":state.active_generation,"freshness":"imported-cut-only"}),
+            serde_json::json!({"issuing_store":marker.issuing_store,"interpretation":wire::INTERPRETATION,"schema_digest":wire::SCHEMA_DIGEST,"active_generation":state.active_generation,"ranking_epoch":state.ranking_epoch,"freshness":"imported-cut-only"}),
         )
     }
     /// Remove only the derived knowledge family, leaving evidence and native sources intact.
@@ -1113,7 +1198,7 @@ impl EvidenceStore {
         for (table, _) in declaration::FAMILIES.iter().rev() {
             sql.push_str(&format!("DELETE {table};"));
         }
-        sql.push_str("DELETE knowledge_generations; UPDATE knowledge_state:current SET active_generation=NONE; IF time::micros()>=$expiry { THROW 'knowledge deadline expired'; }; COMMIT;");
+        sql.push_str("DELETE knowledge_generations; UPDATE knowledge_state:current SET active_generation=NONE,ranking_epoch+=1u64; IF time::micros()>=$expiry { THROW 'knowledge deadline expired'; }; COMMIT;");
         transport::protected_query("knowledge-reset", || {
             self.query(sql.clone())
                 .map(|query| query.bind(("issuer", self.issuing_store.clone())))
@@ -1147,8 +1232,23 @@ impl EvidenceStore {
         } else {
             "[]"
         };
+        let (subject_query, delivered_items) = if request.mode == KnowledgeMode::Subjects {
+            if request.search == KnowledgeSearch::Ranked {
+                (
+                    "$items.map(|$row|object::remove($row,['ranked']))",
+                    "$items.map(|$row|{key:$row.key,ranked:$row.ranked})",
+                )
+            } else {
+                ("$items", "$items.map(|$row|{key:$row.key})")
+            }
+        } else {
+            (
+                "SELECT * FROM knowledge_subjects WHERE generation=$selected AND key IN $keys LIMIT 257",
+                "$items",
+            )
+        };
         let sql = format!(
-            "BEGIN READ ONLY; LET $marker=SELECT * FROM ONLY evidence_interpretations:current; LET $pointer=SELECT * FROM ONLY knowledge_state:current; LET $selected=IF $generation=NONE {{ $pointer.active_generation }} ELSE {{ $generation }}; LET $header=SELECT * FROM ONLY type::record('knowledge_generations',$selected); {prefix} LET $items={item_query}; LET $keys={keys}; LET $sources=SELECT * FROM knowledge_sources WHERE generation=$selected ORDER BY key LIMIT 257; LET $subjects=SELECT * FROM knowledge_subjects WHERE generation=$selected AND key IN $keys LIMIT 257; LET $contributors=SELECT * FROM knowledge_subject_sources WHERE generation=$selected AND subject_key IN $keys LIMIT 2049; LET $topics=SELECT * FROM knowledge_subject_topics WHERE generation=$selected AND subject_key IN $keys LIMIT 4097; LET $excerpts={excerpt_query}; SELECT VALUE {{marker:$marker,header:$header,sources:$sources,subjects:$subjects,contributors:$contributors,topics:$topics,excerpts:$excerpts,items:$items}} FROM [0]; COMMIT;"
+            "BEGIN READ ONLY; LET $marker=SELECT * FROM ONLY evidence_interpretations:current; LET $pointer=SELECT * FROM ONLY knowledge_state:current; LET $selected=IF $generation=NONE {{ $pointer.active_generation }} ELSE {{ $generation }}; LET $header=SELECT * FROM ONLY type::record('knowledge_generations',$selected); {prefix} LET $items={item_query}; LET $keys={keys}; LET $sources=SELECT * FROM knowledge_sources WHERE generation=$selected ORDER BY key LIMIT 257; LET $subjects={subject_query}; LET $contributors=SELECT * FROM knowledge_subject_sources WHERE generation=$selected AND subject_key IN $keys LIMIT 2049; LET $topics=SELECT * FROM knowledge_subject_topics WHERE generation=$selected AND subject_key IN $keys LIMIT 4097; LET $excerpts={excerpt_query}; SELECT VALUE {{marker:$marker,pointer:$pointer,header:$header,sources:$sources,subjects:$subjects,contributors:$contributors,topics:$topics,excerpts:$excerpts,items:{delivered_items}}} FROM [0]; COMMIT;"
         );
         let mut response = transport::bounded_query(bind_request(
             self.query_with_limits(sql, limits())?,
@@ -1177,6 +1277,18 @@ impl EvidenceStore {
             )?)?,
             true,
         )?;
+        let pointer = wire::decode_knowledge_state(as_object(
+            pse_operations::canonical_codec::required(&mut record, "pointer")?,
+        )?)?;
+        let ranking_epoch =
+            (request.search == KnowledgeSearch::Ranked).then_some(pointer.ranking_epoch);
+        if request
+            .cursor
+            .as_ref()
+            .is_some_and(|cursor| cursor.ranking_epoch != ranking_epoch)
+        {
+            return Err(EvidenceError::Cursor);
+        }
         let generation = wire::decode_knowledge_generations(as_object(
             pse_operations::canonical_codec::required(&mut record, "header")?,
         )?)?;
@@ -1313,16 +1425,89 @@ impl EvidenceStore {
         let mut required = BTreeSet::new();
         let mut edges = Vec::new();
         let mut productions = Vec::new();
+        let mut ranking = Vec::new();
         let mut after = None;
-        for item in items {
+        let mut score_bits = None;
+        for mut item in items {
             match request.mode {
                 KnowledgeMode::Subjects => {
-                    let row = wire::decode_knowledge_subjects(item)?;
-                    if row.generation != generation.key {
-                        return Err(EvidenceError::Cursor);
+                    let rank = if request.search == KnowledgeSearch::Ranked {
+                        let mut rank = as_object(pse_operations::canonical_codec::required(
+                            &mut item, "ranked",
+                        )?)?;
+                        let score = rank_score(pse_operations::canonical_codec::required(
+                            &mut rank, "score",
+                        )?)?;
+                        let excerpt_key = pse_operations::canonical_codec::decode_string(
+                            pse_operations::canonical_codec::required(&mut rank, "excerpt_id")?,
+                        )?;
+                        let excerpt_member = pse_operations::canonical_codec::decode_string(
+                            pse_operations::canonical_codec::required(&mut rank, "excerpt_key")?,
+                        )?;
+                        let ranked_subject = pse_operations::canonical_codec::decode_string(
+                            pse_operations::canonical_codec::required(&mut rank, "subject_key")?,
+                        )?;
+                        if excerpt_member != member(&generation.key, &excerpt_key)? {
+                            return Err(EvidenceError::Cursor);
+                        }
+                        let source_key = pse_operations::canonical_codec::decode_string(
+                            pse_operations::canonical_codec::required(&mut rank, "source_key")?,
+                        )?;
+                        let locator = pse_operations::canonical_codec::decode_string(
+                            pse_operations::canonical_codec::required(&mut rank, "locator")?,
+                        )?;
+                        let highlight = pse_operations::canonical_codec::decode_string(
+                            pse_operations::canonical_codec::required(&mut rank, "highlight")?,
+                        )?;
+                        score_bits = Some(score.to_bits());
+                        Some((
+                            score,
+                            excerpt_key,
+                            source_key,
+                            locator,
+                            highlight,
+                            ranked_subject,
+                        ))
+                    } else {
+                        None
+                    };
+                    let key = pse_operations::canonical_codec::decode_string(
+                        pse_operations::canonical_codec::required(&mut item, "key")?,
+                    )?;
+                    let row = subjects.get(&key).ok_or_else(|| {
+                        invalid("ordered subject identity is absent from its native selection")
+                    })?;
+                    if !item.is_empty() {
+                        return Err(invalid(
+                            "ordered subject projection contains undeclared fields",
+                        ));
                     }
-                    required.insert(row.key.clone());
-                    after = Some(row.key);
+                    required.insert(key.clone());
+                    if let Some((
+                        score,
+                        excerpt_key,
+                        source_key,
+                        locator,
+                        highlight,
+                        ranked_subject,
+                    )) = rank
+                    {
+                        if ranked_subject != key {
+                            return Err(EvidenceError::Cursor);
+                        }
+                        let source = sources
+                            .get(&source_key)
+                            .ok_or_else(|| invalid("ranked excerpt source is absent"))?;
+                        ranking.push(KnowledgeRank {
+                            subject_id: row.id.clone(),
+                            score,
+                            excerpt_id: excerpt_key,
+                            source_id: source.id.clone(),
+                            locator,
+                            highlight,
+                        });
+                    }
+                    after = Some(key);
                 }
                 KnowledgeMode::Graph => {
                     let row = wire::decode_knowledge_subject_edges(item)?;
@@ -1400,16 +1585,31 @@ impl EvidenceStore {
                 });
             }
         }
-        let subjects = subjects
+        let mut subjects: Vec<_> = subjects
             .into_iter()
             .filter_map(|(key, subject)| required.contains(&key).then_some(subject))
             .collect();
+        if request.search == KnowledgeSearch::Ranked {
+            let order: BTreeMap<_, _> = ranking
+                .iter()
+                .enumerate()
+                .map(|(index, rank)| (&rank.subject_id, index))
+                .collect();
+            subjects.sort_by_key(|subject| order.get(&subject.id).copied().unwrap_or(usize::MAX));
+        }
+        if let Some(epoch) = ranking_epoch {
+            if self.knowledge_status().await?["ranking_epoch"].as_u64() != Some(epoch) {
+                return Err(EvidenceError::Cursor);
+            }
+        }
         let next = if more {
             after.map(|after| KnowledgeCursor {
                 issuing_store: self.issuing_store.clone(),
                 generation: generation.key.clone(),
                 query_digest,
                 after,
+                ranking_epoch,
+                score_bits,
             })
         } else {
             None
@@ -1422,6 +1622,9 @@ impl EvidenceStore {
             coverage: COVERAGE,
             sources: sources.into_values().collect(),
             subjects,
+            population: request.population.clone(),
+            ranking,
+            ranking_epoch,
             excerpts,
             edges,
             productions,
@@ -1450,38 +1653,21 @@ impl EvidenceStore {
             cursor.issuing_store != self.issuing_store
                 || cursor.generation != generation
                 || cursor.query_digest != identity
+                || (request.search == KnowledgeSearch::Ranked
+                    && status["ranking_epoch"].as_u64() != cursor.ranking_epoch)
         }) {
             return Err(EvidenceError::Cursor);
         }
         let (prefix, items) = selection(request);
-        let sql = format!("LET $selected=$generation; {prefix} EXPLAIN FORMAT JSON {items};");
-        let population_plan = if let Some(population) = prefix
-            .strip_prefix("LET $population=")
-            .and_then(|value| value.strip_suffix(';'))
-        {
-            let sql = format!("LET $selected=$generation; EXPLAIN FORMAT JSON {population};");
-            let mut response = transport::bounded_query(
-                bind_request(
-                    self.query_with_limits(
-                        sql,
-                        canonical::MetadataResponse::DiagnosticPlan.limits(),
-                    )?,
-                    request,
-                )
-                .bind(("generation", generation.clone())),
-            )
-            .await?;
-            let index = response
-                .num_statements()
-                .checked_sub(1)
-                .ok_or_else(|| invalid("native population plan absent"))?;
-            Some(response.take::<Value>(index)?)
-        } else {
-            None
-        };
+        let sql = format!(
+            "EXPLAIN FORMAT JSON {{LET $selected=$generation; {prefix} RETURN ({items});}};"
+        );
         let mut response = transport::bounded_query(
             bind_request(
-                self.query_with_limits(sql, canonical::MetadataResponse::DiagnosticPlan.limits())?,
+                self.query_with_limits(
+                    sql.clone(),
+                    canonical::MetadataResponse::DiagnosticPlan.limits(),
+                )?,
                 request,
             )
             .bind(("generation", generation.clone())),
@@ -1491,9 +1677,30 @@ impl EvidenceStore {
             .num_statements()
             .checked_sub(1)
             .ok_or_else(|| invalid("native plan absent"))?;
+        let server_version = response.server_version().map(str::to_owned);
+        let captured = pse_operations::query_explanation::NativeExplanationResponse::capture(
+            &response,
+            pse_operations::query_explanation::NativeExplanationResponseKind::Inspection,
+        )?;
         let plan: Value = response.take(index)?;
+        let mut explanation = pse_operations::query_explanation::NativeQueryExplanation::new(
+            pse_operations::query_explanation::NativeExplanationIdentity {
+                issuer: self.issuing_store.clone(),
+                data_cut: serde_json::json!({"generation":generation,"ranking_epoch":status["ranking_epoch"],"query_digest":identity}),
+                server_version,
+                server_recipe: None,
+                server_invocation: None,
+            },
+            serde_json::json!({"sql":sql,"request":request}),
+            &plan,
+            false,
+        )?;
+        explanation.response = Some(captured);
         let after = self.knowledge_status().await?;
-        if request.generation.is_none() && status["active_generation"] != after["active_generation"]
+        if (request.generation.is_none()
+            && status["active_generation"] != after["active_generation"])
+            || (request.search == KnowledgeSearch::Ranked
+                && status["ranking_epoch"] != after["ranking_epoch"])
         {
             return Err(EvidenceError::Cursor);
         }
@@ -1505,14 +1712,17 @@ impl EvidenceStore {
             query_digest: identity,
             raw_plan_json: serde_json::to_string(&plan)
                 .map_err(|cause| invalid(cause.to_string()))?,
-            population_plan_json: population_plan
-                .map(|value| serde_json::to_string(&value))
-                .transpose()
-                .map_err(|cause| invalid(cause.to_string()))?,
+            explanation,
             coverage: COVERAGE,
             freshness: "imported-cut-only",
             experimental_execution: false,
         })
+    }
+}
+fn rank_score(value: Value) -> Result<f64, EvidenceError> {
+    match value {
+        Value::Number(surrealdb_types::Number::Float(score)) if score.is_finite() => Ok(score),
+        _ => Err(invalid("native BM25 score must be a finite float")),
     }
 }
 fn as_object(value: Value) -> Result<Object, EvidenceError> {
@@ -1556,18 +1766,30 @@ fn selection(request: &KnowledgeQuery) -> (String, String) {
             if request.subject_id.is_some() {
                 filter.push_str(" AND subject_id=$subject_id");
             }
-            let population = format!(
-                "SELECT * FROM knowledge_subjects WHERE generation=$selected{filter} LIMIT 257"
-            );
+            if matches!(
+                request.population,
+                KnowledgePopulation::ExplicitSubjects { .. }
+            ) {
+                filter.push_str(" AND subject_id IN $subject_ids");
+            }
+            if request.search == KnowledgeSearch::Ranked {
+                return (
+                    // Native offsets and string::slice both count Unicode scalar values in v4.
+                    // First merged span has no preceding inserted marker, so its original
+                    // position also locates that first highlight in the marked text.
+                    format!("LET $raw_matches=SELECT subject_key,key AS excerpt_key,excerpt_id,source_key,locator,search::score(0) AS score,search::highlight('[[',']]',0) AS marked,(search::offsets(0)['0'][0].s) AS match_start FROM knowledge_excerpts WHERE generation=$selected AND text @0@ $text; LET $matches=SELECT subject_key,excerpt_key,excerpt_id,source_key,locator,score,string::slice(marked,math::max([0,match_start-128]),math::max([0,match_start-128])+512) AS highlight FROM $raw_matches; LET $ranked=SELECT *, (SELECT * FROM $matches WHERE subject_key=$parent.key ORDER BY score DESC,excerpt_key LIMIT 1)[0] AS ranked FROM knowledge_subjects WHERE generation=$selected{filter} AND key IN $matches.subject_key;"),
+                    "SELECT * FROM $ranked WHERE $after='' OR ranked.score<$score OR (ranked.score=$score AND key>$after) ORDER BY ranked.score DESC,key LIMIT $limit".into(),
+                );
+            }
             let text = if request.text.is_some() {
-                " AND key IN (SELECT VALUE subject_key FROM knowledge_excerpts WHERE generation=$selected AND subject_key IN $population.key AND text @0@ $text)"
+                " AND key IN (SELECT VALUE subject_key FROM knowledge_excerpts WHERE generation=$selected AND text @0@ $text)"
             } else {
                 ""
             };
             (
-                format!("LET $population={population};"),
+                String::new(),
                 format!(
-                    "SELECT * FROM $population WHERE key>$after{text} ORDER BY key LIMIT $limit"
+                    "SELECT * FROM knowledge_subjects WHERE generation=$selected{filter} AND key>$after{text} ORDER BY key LIMIT $limit"
                 ),
             )
         }
@@ -1615,6 +1837,22 @@ fn selection(request: &KnowledgeQuery) -> (String, String) {
 }
 fn bind_request<'a>(mut query: Query<'a>, request: &KnowledgeQuery) -> Query<'a> {
     query = query
+        .bind((
+            "subject_ids",
+            match &request.population {
+                KnowledgePopulation::SelectedGeneration => Vec::<String>::new(),
+                KnowledgePopulation::ExplicitSubjects { subjects } => subjects.clone(),
+            },
+        ))
+        .bind((
+            "score",
+            request
+                .cursor
+                .as_ref()
+                .and_then(|cursor| cursor.score_bits)
+                .map(f64::from_bits)
+                .unwrap_or(0.0),
+        ))
         .bind(("generation", request.generation.clone()))
         .bind(("kind", request.kind.map(|value| value.as_str().to_owned())))
         .bind(("owner", request.owner.clone()))

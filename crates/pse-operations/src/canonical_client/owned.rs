@@ -322,6 +322,9 @@ pub(super) struct Driver {
     closing: AtomicBool,
 }
 impl Driver {
+    pub(super) fn executor(&self) -> tokio::runtime::Handle {
+        self.tasks.runtime.clone()
+    }
     pub(super) fn new() -> Arc<Self> {
         Arc::new(Self {
             closing: AtomicBool::new(false),

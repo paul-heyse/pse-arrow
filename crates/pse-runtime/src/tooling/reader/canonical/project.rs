@@ -57,6 +57,38 @@ impl ProjectReadSelection {
 #[derive(Clone, Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ProjectRead {
+    /// Observe the exact selected native incarnation; no maintenance effects.
+    #[cfg(feature = "native-service")]
+    Persistence,
+    /// Observe current compact facts in one bounded native subscription window.
+    Follow {
+        /// Exact study or run identity; notification payloads never become facts.
+        selection: pse_operations::canonical_study_workbench::FollowSelection,
+        /// Finite observation window in 1..=20000ms.
+        window_ms: u64,
+        /// Maximum retained updates in 1..=64.
+        maximum_updates: u16,
+    },
+    /// Read an occurrence-preserving canonical neighborhood.
+    Graph {
+        /// The original typed graph question.
+        request: pse_operations::canonical_explanations::CanonicalGraphRequest,
+    },
+    /// Read bounded evidence-bearing paths in one native snapshot.
+    GraphPaths {
+        /// The original finite path question.
+        request: pse_operations::canonical_explanations::CanonicalGraphPathsRequest,
+    },
+    /// Current compact lifecycle counts, separate from scientific results.
+    StudySummary {
+        /// Exact study identity.
+        study: String,
+    },
+    /// Current compact run header, without acquiring result bytes.
+    RunSummary {
+        /// Exact run identity.
+        run: String,
+    },
     /// Authenticate the opened store without reading project records.
     Target,
     /// Read bounded metadata for the selected collection and owner.
@@ -120,6 +152,39 @@ pub struct ProjectTarget {
 #[derive(Debug, Serialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ProjectReadView {
+    /// Authenticated original-server metrics, with unavailable capabilities explicit.
+    #[cfg(feature = "native-service")]
+    Persistence {
+        /// Operational observations, independent of scientific time and protected results.
+        observation: pse_operations::native_service::NativePersistenceObservation,
+    },
+    /// Whole current-state snapshots; this is not a resumable transition history.
+    Follow {
+        /// Original native snapshots or explicit unavailability.
+        updates: Vec<pse_operations::canonical_study_workbench::FollowUpdate>,
+        /// True when the caller's count, rather than its window, ended observation.
+        update_limit_reached: bool,
+    },
+    /// Original bounded graph evidence.
+    Graph {
+        /// The product-owned neighborhood.
+        graph: pse_operations::canonical_explanations::CanonicalGraphDocument,
+    },
+    /// Original bounded path evidence and explicit completeness.
+    GraphPaths {
+        /// Ordered pages from the same fully received bounded native snapshot.
+        pages: Vec<pse_operations::canonical_explanations::CanonicalGraphPathsDocument>,
+    },
+    /// Current lifecycle counts as of the native read.
+    StudySummary {
+        /// Missing or unauthorized root remains unavailable.
+        summary: Option<pse_operations::canonical_study_workbench::StudySummary>,
+    },
+    /// Current compact run facts as of the native read.
+    RunSummary {
+        /// Missing or unauthorized root remains unavailable.
+        summary: Option<pse_operations::canonical_study_workbench::RunSummary>,
+    },
     /// The store identity is in the enclosing authenticated target.
     Target,
     /// Canonical metadata page.
@@ -173,8 +238,90 @@ async fn read(
     store: &CanonicalStore,
     query: ProjectRead,
     cancel: &pse_columnar::CancellationToken,
+    deadline: Instant,
 ) -> Result<ProjectReadView, ReaderError> {
     Ok(match query {
+        #[cfg(feature = "native-service")]
+        ProjectRead::Persistence => ProjectReadView::Persistence {
+            observation: pse_operations::native_service::inspect_owned_persistence(
+                store.deployment_state(),
+                deadline,
+            )
+            .await
+            .map_err(|error| ReaderError::NativeService(Box::new(error)))?,
+        },
+        ProjectRead::Follow {
+            selection,
+            window_ms,
+            maximum_updates,
+        } => {
+            if !(1..=20_000).contains(&window_ms) || !(1..=64).contains(&maximum_updates) {
+                return Err(super::super::invalid(
+                    "project follow requires a 1..=20000ms window and 1..=64 updates",
+                ));
+            }
+            // Leave the original connection owner time to kill registrations and drain.
+            let stop = Instant::now() + Duration::from_millis(window_ms);
+            if stop + Duration::from_secs(2) > deadline {
+                return Err(super::super::invalid(
+                    "project follow window exceeds the remaining observer allowance",
+                ));
+            }
+            let mut follow = store
+                .follow_current(selection, deadline)
+                .await
+                .map_err(canonical)?;
+            let observed = async {
+                let mut updates = Vec::with_capacity(usize::from(maximum_updates));
+                while updates.len() < usize::from(maximum_updates) {
+                    let next = tokio::select! {
+                        _ = tokio::time::sleep_until(stop.into()) => break,
+                        next = follow.next() => next.map_err(canonical)?,
+                    };
+                    let ended = matches!(
+                        next,
+                        pse_operations::canonical_study_workbench::FollowUpdate::Ended
+                    );
+                    updates.push(next);
+                    if ended {
+                        break;
+                    }
+                }
+                Ok(ProjectReadView::Follow {
+                    update_limit_reached: updates.len() == usize::from(maximum_updates),
+                    updates,
+                })
+            }
+            .await;
+            let cleanup = follow.close().await.map_err(canonical);
+            match (observed, cleanup) {
+                (Ok(view), Ok(())) => view,
+                (Err(error), Ok(())) | (Ok(_), Err(error)) => return Err(error),
+                (Err(operation), Err(cleanup)) => {
+                    return Err(ReaderError::Settlement {
+                        operation: Box::new(operation),
+                        cleanup: Box::new(cleanup),
+                    });
+                }
+            }
+        }
+        ProjectRead::Graph { request } => ProjectReadView::Graph {
+            graph: store.graph_explanation(&request).await.map_err(canonical)?,
+        },
+        ProjectRead::GraphPaths { request } => {
+            let mut read = store.begin_graph_paths(&request).await.map_err(canonical)?;
+            let mut pages = Vec::new();
+            while let Some(page) = read.next_page().map_err(canonical)? {
+                pages.push(page);
+            }
+            ProjectReadView::GraphPaths { pages }
+        }
+        ProjectRead::StudySummary { study } => ProjectReadView::StudySummary {
+            summary: store.study_summary(&study).await.map_err(canonical)?,
+        },
+        ProjectRead::RunSummary { run } => ProjectReadView::RunSummary {
+            summary: store.run_summary(&run).await.map_err(canonical)?,
+        },
         ProjectRead::Target => ProjectReadView::Target,
         ProjectRead::Metadata { request } => ProjectReadView::Metadata {
             page: store
@@ -261,7 +408,9 @@ pub(in crate::tooling::reader) fn encode(
                 database: store.database().into(),
                 issuing_store: issuing_store.into(),
             };
-            let view = cancel.until_cancelled(read(store, query, cancel)).await??;
+            let view = cancel
+                .until_cancelled(read(store, query, cancel, deadline))
+                .await??;
             cancel.checkpoint()?;
             encode_response(response_with_policy(
                 correlation.clone(),

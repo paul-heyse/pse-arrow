@@ -396,3 +396,14 @@ Do not mutate shared installations, clean Cargo artifacts or vary global flags.
 
 These are build freshness controls; numerical solver/runtime qualification is a
 separate integration obligation.
+
+## SurrealDB v4 authentication replies
+
+The selected v4 server's `grpc::authenticate` converts successful `Value::None` into
+`Some(Tokens::default())`, while protocol 0.14.1 describes an absent token message as no
+rotation. The native client treats that exact neutral message as no replacement and retains
+the presented access token. Nondefault token metadata without an access token still refuses;
+actual replacement tokens retain the ordinary replay contract. This is a boundary normalization,
+with no password fallback or server patch. The
+[selected server implementation](https://github.com/surrealdb/surrealdb/blob/284fe93afc851c3baec2c262c01289602021a70d/surrealdb/server/src/rpc/grpc.rs)
+and native protocol controls own its version-specific basis.

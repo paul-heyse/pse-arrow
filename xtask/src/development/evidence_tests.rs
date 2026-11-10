@@ -301,6 +301,18 @@ async fn evidence_native_scoped_roles_complete_generation_and_cursor_fences() {
         let admin=EvidenceStore::client(&options).await?;let context=||RequestContext::control(original_deadline(canonical::REQUEST_TIMEOUT).into_std());
         admin.signin(Root{username:username.into(),password:password.into()}).request_context(context()).await?;
         admin.use_ns(&options.namespace).use_db(&options.database).request_context(context()).await?;
+        let mut follow=reader.follow_index(IndexFollowSelection {family:IndexFollowFamily::Evidence,generation:None},std::time::Instant::now()+std::time::Duration::from_secs(60)).await?;
+        assert!(matches!(follow.next().await?,IndexFollowEvent::Snapshot {..}));
+        use surrealdb_types::ToSql as _;
+        let replacement=Value::String(uuid::Uuid::new_v4().to_string().into()).to_sql();
+        transport::bounded_query(admin.query(format!("DEFINE USER OVERWRITE reader ON DATABASE PASSWORD {replacement} ROLES VIEWER;")).request_context(context())).await?;
+        follow.revalidate_principal_now();
+        assert!(matches!(follow.next().await?,IndexFollowEvent::Unavailable),"a cached Actor cannot renew current credentials");
+        let restored=Value::String(options.credentials.reader_password.clone().into()).to_sql();
+        transport::bounded_query(admin.query(format!("DEFINE USER OVERWRITE reader ON DATABASE PASSWORD {restored} ROLES VIEWER;")).request_context(context())).await?;
+        assert!(matches!(follow.next().await?,IndexFollowEvent::Resynchronizing));
+        assert!(matches!(follow.next().await?,IndexFollowEvent::Snapshot {..}));
+        follow.close().await?;
         let cancelled=transport::bounded_query(admin.query(format!("BEGIN; SELECT * FROM evidence_interpretations:current; REMOVE DATABASE `{}`; CANCEL;",options.database)).request_context(context())).await;
         assert!(matches!(&cancelled,Err(CanonicalError::Driver(error)) if matches!(error.query_details(),Some(surrealdb_types::QueryError::Cancelled))),"CANCEL must establish rollback, not an earlier failure: {cancelled:?}");admin.disconnect().await?;
         let retained=EvidenceStore::open(&options,EvidenceAccess::Reader).await?;assert_eq!(retained.issuing_store,reader.issuing_store);retained.disconnect().await?;

@@ -19,9 +19,9 @@ DEFINE TYPE pse_knowledge_productions_merge AS object ASSERT object::keys($value
 DEFINE TYPE pse_knowledge_sources_create AS {key: string, generation: string, source_id: string, kind: string, locator: string, version_digest: string, basis: pse_knowledge_basis, title: string, status: pse_knowledge_source_status};
 DEFINE TYPE pse_knowledge_sources_replace AS {};
 DEFINE TYPE pse_knowledge_sources_merge AS object ASSERT object::keys($value) ALLINSIDE [];
-DEFINE TYPE pse_knowledge_state_create AS {key: string, active_generation: option<string>};
-DEFINE TYPE pse_knowledge_state_replace AS {active_generation: option<string>};
-DEFINE TYPE pse_knowledge_state_merge AS object ASSERT object::keys($value) ALLINSIDE ['active_generation'] AND ('active_generation' NOT IN object::keys($value) OR ($value.active_generation=NONE OR ((<string>$value.active_generation)=$value.active_generation)));
+DEFINE TYPE pse_knowledge_state_create AS {key: string, ranking_epoch: u64, active_generation: option<string>};
+DEFINE TYPE pse_knowledge_state_replace AS {ranking_epoch: u64, active_generation: option<string>};
+DEFINE TYPE pse_knowledge_state_merge AS object ASSERT object::keys($value) ALLINSIDE ['ranking_epoch', 'active_generation'] AND ('ranking_epoch' NOT IN object::keys($value) OR ($value.ranking_epoch!=NONE AND ((<u64>$value.ranking_epoch)=$value.ranking_epoch))) AND ('active_generation' NOT IN object::keys($value) OR ($value.active_generation=NONE OR ((<string>$value.active_generation)=$value.active_generation)));
 DEFINE TYPE pse_knowledge_subject_edges_create AS {key: string, generation: string, edge_id: string, source_key: string, in: record<knowledge_subjects>, target_key: string, out: record<knowledge_subjects>, relation: pse_knowledge_relation_kind, basis: pse_knowledge_basis};
 DEFINE TYPE pse_knowledge_subject_edges_replace AS {};
 DEFINE TYPE pse_knowledge_subject_edges_merge AS object ASSERT object::keys($value) ALLINSIDE [];
@@ -80,6 +80,7 @@ DEFINE FIELD title ON knowledge_sources TYPE string READONLY;
 DEFINE FIELD status ON knowledge_sources TYPE pse_knowledge_source_status READONLY;
 DEFINE TABLE knowledge_state SCHEMAFULL;
 DEFINE FIELD key ON knowledge_state TYPE string READONLY ASSERT $value = record::id($this.id);
+DEFINE FIELD ranking_epoch ON knowledge_state TYPE u64;
 DEFINE FIELD active_generation ON knowledge_state TYPE option<string>;
 DEFINE TABLE knowledge_subject_edges TYPE RELATION IN knowledge_subjects OUT knowledge_subjects ENFORCED SCHEMAFULL;
 DEFINE FIELD key ON knowledge_subject_edges TYPE string READONLY ASSERT $value = record::id($this.id);
@@ -140,4 +141,4 @@ DEFINE FIELD OVERWRITE relation ON knowledge_subject_edges TYPE pse_knowledge_re
 DEFINE FIELD OVERWRITE topic ON knowledge_subject_topics TYPE string READONLY ASSERT { LET $knowledge_assert_generation=$this.generation; LET $knowledge_assert_subject=$this.subject_key; LET $knowledge_assert_source=$this.source_key; RETURN $this.subject_key_record.kind IN ['document','contract','decision','plan_package'] AND array::len((SELECT VALUE key FROM knowledge_subject_sources WHERE generation=$knowledge_assert_generation AND subject_key=$knowledge_assert_subject AND source_key=$knowledge_assert_source AND role='metadata' LIMIT 1))=1; };
 DEFINE FIELD OVERWRITE excerpt_id ON knowledge_excerpts TYPE string READONLY ASSERT { LET $knowledge_assert_generation=$this.generation; LET $knowledge_assert_subject=$this.subject_key; LET $knowledge_assert_source=$this.source_key; RETURN ($this.subject_key=NONE AND $this.subject_key_record=NONE) OR ($this.subject_key!=NONE AND $this.subject_key_record=type::record('knowledge_subjects',$this.subject_key) AND record::exists($this.subject_key_record) AND $this.subject_key_record.generation=$this.generation AND array::len((SELECT VALUE key FROM knowledge_subject_sources WHERE generation=$knowledge_assert_generation AND subject_key=$knowledge_assert_subject AND source_key=$knowledge_assert_source LIMIT 1))=1); };
 DEFINE ANALYZER knowledge_text_v2 TOKENIZERS blank,class,camel,punct FILTERS lowercase;
-DEFINE INDEX knowledge_excerpt_text ON knowledge_excerpts FIELDS text FULLTEXT ANALYZER knowledge_text_v2 BM25;
+DEFINE INDEX knowledge_excerpt_text ON knowledge_excerpts FIELDS text FULLTEXT ANALYZER knowledge_text_v2 BM25 HIGHLIGHTS;

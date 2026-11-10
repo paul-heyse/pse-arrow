@@ -390,7 +390,7 @@ async fn grpc_cancelled_dispatched_owner_retains_grants_until_actual_response_dr
     let reservation = MemoryConsumer::new("response-drain-fixture").register(&pool);
     reservation.try_grow(4096).unwrap();
     let owner = Arc::new(reservation);
-    let access = crate::transport::lifetime::ConnectionAccess::default();
+    let access = crate::transport::lifetime::ConnectionAccess::for_client(&db);
     let weak = Arc::downgrade(&owner);
     let ctx = context()
         .with_payload_owner(owner)
@@ -2217,7 +2217,12 @@ async fn grpc_projected_batches_remain_tentative_when_the_commit_slot_fails() {
 #[tokio::test]
 async fn grpc_subscription_continuity_and_cleanup_have_independent_outcomes() {
     use crate::transport::client::{Root, SubscriptionNotice};
-    for marker in ["CONTINUITY_EOF", "CLEANUP_REFUSED", "NO_BEGIN"] {
+    for marker in [
+        "CONTINUITY_EOF",
+        "CLEANUP_REFUSED",
+        "NO_BEGIN",
+        "REGISTRATION_REFUSED",
+    ] {
         let peer = peer::start_generations(2).await;
         let db = connect(&peer).await;
         // The scripted peer accepts generations sequentially; its second
@@ -2237,10 +2242,21 @@ async fn grpc_subscription_continuity_and_cleanup_have_independent_outcomes() {
                 context(),
             )
             .await;
-        if marker == "NO_BEGIN" {
+        if marker == "REGISTRATION_REFUSED" {
+            let error = opening.unwrap_err();
             assert!(
-                opening.unwrap_err().to_string().contains("Begin"),
-                "pre-attachment protocol failure remains the opening error"
+                error.is_not_allowed(),
+                "original pre-Begin error kind must survive opening cleanup: {error:?}"
+            );
+            assert!(
+                error.to_string().contains("fixture registration denial"),
+                "{error:?}"
+            );
+        } else if marker == "NO_BEGIN" {
+            let error = opening.unwrap_err();
+            assert!(
+                error.to_string().contains("Begin"),
+                "pre-attachment protocol failure remains the opening error: {error:?}"
             );
         } else {
             let mut subscription = opening.unwrap();
@@ -2261,6 +2277,52 @@ async fn grpc_subscription_continuity_and_cleanup_have_independent_outcomes() {
                 assert!(message.contains("fixture Detach refusal"), "{message}");
             }
         }
+        tokio::time::timeout(Duration::from_secs(2), peer.server)
+            .await
+            .unwrap()
+            .unwrap();
+    }
+}
+
+#[tokio::test]
+async fn grpc_authenticate_preserves_access_for_neutral_responses_and_replays_real_rotation() {
+    for token in [
+        "fixture-no-replacement",
+        "fixture-neutral-replacement",
+        "fixture-partial-replacement",
+        "fixture-original",
+    ] {
+        let peer = peer::start_generations(if token == "fixture-partial-replacement" {
+            1
+        } else {
+            2
+        })
+        .await;
+        let db = connect(&peer).await;
+        let authenticated = db.authenticate(token).request_context(context()).await;
+        if token == "fixture-partial-replacement" {
+            assert!(
+                authenticated
+                    .unwrap_err()
+                    .to_string()
+                    .contains("omitted rotated access")
+            );
+        } else {
+            authenticated.unwrap();
+            assert!(
+                db.query("RETURN 'MALFORMED';")
+                    .request_context(context())
+                    .await
+                    .is_err()
+            );
+            let mut response = db
+                .query("RETURN 'AFTER_AUTHENTICATION';")
+                .request_context(context())
+                .await
+                .unwrap();
+            assert_eq!(response.take::<Value>(0).unwrap(), Value::Bool(true));
+        }
+        db.disconnect().await.unwrap();
         tokio::time::timeout(Duration::from_secs(2), peer.server)
             .await
             .unwrap()

@@ -616,6 +616,9 @@ pub struct EvidenceStore {
     #[cfg(test)]
     pub(crate) ack_fault: Arc<std::sync::atomic::AtomicU8>,
 }
+#[path = "index_follow.rs"]
+mod index_follow;
+pub use index_follow::{IndexFollow, IndexFollowEvent, IndexFollowFamily, IndexFollowSelection};
 impl std::fmt::Debug for EvidenceStore {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("EvidenceStore")
@@ -688,9 +691,10 @@ impl EvidenceStore {
             let _ = db.disconnect().await;
             return Err(e.into());
         }
+        let access = ConnectionAccess::for_client(&db);
         let mut store = Self {
             db: Arc::new(db),
-            access: ConnectionAccess::default(),
+            access,
             options: options.clone(),
             issuing_store: String::new(),
             role,
@@ -1158,7 +1162,7 @@ COMMIT;"#;
             let reader=serde_json::to_string(&options.credentials.reader_password).map_err(|e|config(e.to_string()))?;let importer=serde_json::to_string(&options.credentials.importer_password).map_err(|e|config(e.to_string()))?;
             // The fresh schemas and marker commit together. Snapshot isolation
             // permits the v4 index builder's independent bookkeeping writes.
-            let sql=format!("BEGIN ISOLATION LEVEL SNAPSHOT; IF time::micros()>=$expiry {{ THROW 'evidence original initialization deadline expired'; }}; {} {} CREATE knowledge_state:current SET key='current'; CREATE evidence_interpretations:current CONTENT $marker; DEFINE USER `{}` ON DATABASE PASSWORD {reader} ROLES VIEWER; DEFINE USER `{}` ON DATABASE PASSWORD {importer} ROLES EDITOR; IF time::micros()>=$expiry {{ THROW 'evidence original initialization deadline expired'; }}; COMMIT;",wire::SCHEMA,crate::generated::store::knowledge::SCHEMA,options.credentials.reader_username,options.credentials.importer_username);
+            let sql=format!("BEGIN ISOLATION LEVEL SNAPSHOT; IF time::micros()>=$expiry {{ THROW 'evidence original initialization deadline expired'; }}; {} {} CREATE knowledge_state:current SET key='current',ranking_epoch=0u64; CREATE evidence_interpretations:current CONTENT $marker; DEFINE USER `{}` ON DATABASE PASSWORD {reader} ROLES VIEWER; DEFINE USER `{}` ON DATABASE PASSWORD {importer} ROLES EDITOR; IF time::micros()>=$expiry {{ THROW 'evidence original initialization deadline expired'; }}; COMMIT;",wire::SCHEMA,crate::generated::store::knowledge::SCHEMA,options.credentials.reader_username,options.credentials.importer_username);
             transport::bounded_query(db.query(sql).bind(("marker",input)).bind(("expiry",rpc_expiry(deadline)?)).request_context(RequestContext::control(deadline.into_std()))).await.map_err(|source|EvidenceError::LifecycleFailure{operation:"initialize",namespace:options.namespace.clone(),database:options.database.clone(),issuing_store:marker.issuing_store.clone(),source:Box::new(source)})?;Ok::<_,EvidenceError>(())
         }.await;
         let drained = db.disconnect().await;

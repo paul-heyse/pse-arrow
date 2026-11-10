@@ -119,7 +119,8 @@ impl ResultReadDrain {
             .clone();
         for entry in failed {
             let drain = self.clone();
-            let task = tokio::spawn(async move {
+            let client = entry.store.db.clone();
+            let task = client.spawn(async move {
                 let _retry = entry.retry.lock().await;
                 if entry.done.load(std::sync::atomic::Ordering::Acquire) {
                     return Ok(());
@@ -147,7 +148,8 @@ impl ResultReadDrain {
             .clone();
         for entry in failed {
             let drain = self.clone();
-            let task = tokio::spawn(async move {
+            let client = entry.store.db.clone();
+            let task = client.spawn(async move {
                 let _retry = entry.retry.lock().await;
                 if entry.done.load(std::sync::atomic::Ordering::Acquire) {
                     return Ok(());

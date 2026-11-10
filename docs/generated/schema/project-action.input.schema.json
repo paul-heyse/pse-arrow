@@ -11030,15 +11030,6 @@
           ],
           "description": "Original cursor input."
         },
-        "delay_ms": {
-          "description": "Original delay_ms input.",
-          "format": "uint64",
-          "minimum": 0,
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
         "kind": {
           "const": "study_observe",
           "type": "string"

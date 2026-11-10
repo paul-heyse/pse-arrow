@@ -13,6 +13,9 @@ status: current
 Discovery filters the complete selected population before paging. Ranked continuation
 also binds ranking population epoch and interpretation. Native query descriptions supply
 both execution and nonexecuting inspection; analyzed reads require explicit admission.
+The selected v4 analyzer needs a native SELECT pipeline around a multi-statement path block.
+The explanation carries its exact inspection SQL and checked bindings; no preliminary graph
+execution or fabricated inner counters stand in for a native analyzed response.
 Owned SurrealDB telemetry receives explicit Collector gRPC configuration under the original
 service incarnation. Configuration alone does not establish delivered observations.
 Explicit scratch setup establishes the actual native temporary store before readiness;

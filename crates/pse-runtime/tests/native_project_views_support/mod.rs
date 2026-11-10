@@ -363,7 +363,6 @@ fn exercise(
                         maximum_events: 512,
                     },
                     cursor: None,
-                    delay_ms: None,
                 },
                 true,
             )?

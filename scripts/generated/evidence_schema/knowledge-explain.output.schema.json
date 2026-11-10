@@ -49,6 +49,157 @@
           "type": "string"
         }
       ]
+    },
+    "NativeExplanationIdentity": {
+      "additionalProperties": false,
+      "description": "Source-owned context for one exact selected native query. Unknown supplier facts stay absent.",
+      "properties": {
+        "data_cut": {
+          "description": "Exact generation/revision/continuation selection supplied by the query owner."
+        },
+        "issuer": {
+          "description": "Issuer from the same admitted store, not a caller's display alias.",
+          "type": "string"
+        },
+        "server_invocation": {
+          "description": "Original physical server invocation when supplied by its owner.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "server_recipe": {
+          "description": "Exact prepared recipe when the physical owner supplies it.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "server_version": {
+          "description": "Actual supplied server version; an unobserved version is unknown.",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "issuer",
+        "data_cut",
+        "server_version",
+        "server_recipe",
+        "server_invocation"
+      ],
+      "type": "object"
+    },
+    "NativeExplanationResponse": {
+      "additionalProperties": false,
+      "description": "Original complete response facts. Durations are never combined with caller-side clocks.",
+      "properties": {
+        "kind": {
+          "$ref": "#/$defs/NativeExplanationResponseKind",
+          "description": "Whether these facts describe EXPLAIN inspection or the explicitly profiled operation."
+        },
+        "statements": {
+          "description": "Supplied per-statement facts, retaining statement positions and absent durations.",
+          "items": {
+            "$ref": "#/$defs/NativeExplanationStatement"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "statements"
+      ],
+      "type": "object"
+    },
+    "NativeExplanationResponseKind": {
+      "description": "Distinguish passive inspection work from executing the selected profiled operation.",
+      "oneOf": [
+        {
+          "const": "inspection",
+          "description": "Original response to a nonexecuting EXPLAIN inspection.",
+          "type": "string"
+        },
+        {
+          "const": "profiled_operation",
+          "description": "Original response to an explicitly admitted EXPLAIN ANALYZE operation.",
+          "type": "string"
+        }
+      ]
+    },
+    "NativeExplanationStatement": {
+      "additionalProperties": false,
+      "description": "Facts from one original response slot.",
+      "properties": {
+        "database_execution_ns": {
+          "description": "Supplied database execution time only, in nanoseconds; absent remains unknown.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "statement": {
+          "description": "Actual original statement position.",
+          "format": "uint",
+          "minimum": 0,
+          "type": "integer"
+        },
+        "succeeded": {
+          "description": "Original statement status, not inferred from a plan or output count.",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "statement",
+        "succeeded",
+        "database_execution_ns"
+      ],
+      "type": "object"
+    },
+    "NativeQueryExplanation": {
+      "additionalProperties": false,
+      "description": "Bounded projection of a selected query and supplier facts, not a permanent supplier plan schema.",
+      "properties": {
+        "analyzed": {
+          "description": "True only for explicitly admitted ANALYZE; ordinary inspection does not execute the query.",
+          "type": "boolean"
+        },
+        "identity": {
+          "$ref": "#/$defs/NativeExplanationIdentity",
+          "description": "Selected issuer, cut and available incarnation facts."
+        },
+        "observations": {
+          "description": "Bounded supplier operator observations with missing counters omitted.",
+          "items": true,
+          "type": "array"
+        },
+        "query": {
+          "description": "Actual checked source query description and bindings used by this owner."
+        },
+        "response": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/NativeExplanationResponse"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Complete original inspection/profile response, when actually received."
+        }
+      },
+      "required": [
+        "identity",
+        "query",
+        "analyzed",
+        "observations",
+        "response"
+      ],
+      "type": "object"
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -62,6 +213,10 @@
     "experimental_execution": {
       "description": "False: explaining never runs ANALYZE.",
       "type": "boolean"
+    },
+    "explanation": {
+      "$ref": "#/$defs/NativeQueryExplanation",
+      "description": "Common source-owned identity, selected native query and original inspection statistics."
     },
     "freshness": {
       "description": "This read does not reopen original source files.",
@@ -79,13 +234,6 @@
       "$ref": "#/$defs/KnowledgeMode",
       "description": "Original query operation."
     },
-    "population_plan_json": {
-      "description": "Optional population selection's informational plan.",
-      "type": [
-        "string",
-        "null"
-      ]
-    },
     "query_digest": {
       "description": "Exact predicate and extent identity.",
       "type": "string"
@@ -95,8 +243,8 @@
       "type": "string"
     },
     "version": {
-      "const": 1,
-      "default": 1,
+      "const": 2,
+      "default": 2,
       "description": "Native result encoding version.",
       "type": "integer"
     }
@@ -108,7 +256,7 @@
     "mode",
     "query_digest",
     "raw_plan_json",
-    "population_plan_json",
+    "explanation",
     "coverage",
     "freshness",
     "experimental_execution"

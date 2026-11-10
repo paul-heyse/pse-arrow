@@ -114,7 +114,8 @@ async fn finish(held: Held, commit: bool) -> EngineResult<()> {
 impl Drop for HeldTransaction {
     fn drop(&mut self) {
         if let Some(held) = self.0.take() {
-            tokio::spawn(async move {
+            let client = held.client.clone();
+            client.spawn(async move {
                 let _ = finish(held, false).await;
             });
         }

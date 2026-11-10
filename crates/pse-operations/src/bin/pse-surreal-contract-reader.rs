@@ -63,9 +63,11 @@ async fn read(cli: Cli) -> Result<(), NativeServiceError> {
         .map_err(|_| refused("contract reader connection failed"))?;
     let outcome=async {
         client.authenticate(&token).request_context(RequestContext::control(deadline)).await
-            .map_err(|_|refused("suite token authentication failed"))?;
+            .map_err(|error| {eprintln!("contract reader: authentication failure kind={}",error.kind_str());refused("suite token authentication failed")})?;
+        eprintln!("contract reader: stage=authenticated");
         client.use_ns(&namespace).use_db(&database).request_context(RequestContext::control(deadline)).await
             .map_err(|_|refused("suite context selection failed"))?;
+        eprintln!("contract reader: stage=context_selected");
         let mut result=bounded_query(client.query("SELECT * FROM ONLY canonical_guards:exact; SELECT * FROM ONLY canonical_payload_blocks:exact;")
             .request_context(RequestContext::control(deadline))).await
             .map_err(|_|refused("independent contract read failed"))?;
@@ -78,13 +80,16 @@ async fn read(cli: Cli) -> Result<(), NativeServiceError> {
         if guard.generation!=cli.expected_generation || payload.ordinal!=u64::MAX || payload.payload.as_slice()!=[0,1,0,255] {
             return Err(refused("independent unsigned or byte expectation differs"));
         }
+        eprintln!("contract reader: stage=readback_checked");
         Ok(())
     }.await;
     if outcome.is_ok() && cli.wait_for_interruption {
         let _reader = std::fs::File::open("exec-wait")?;
         tokio::time::sleep(Duration::from_secs(60)).await;
     }
+    eprintln!("contract reader: stage=disconnect_started");
     let drained = client.disconnect().await;
+    eprintln!("contract reader: stage=disconnect_complete");
     match (outcome, drained) {
         (Err(error), _) => Err(error),
         (Ok(()), Err(_)) => Err(refused("contract reader connection did not drain")),

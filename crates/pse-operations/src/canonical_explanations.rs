@@ -1683,6 +1683,15 @@ mod server_tests {
             .await
             .unwrap();
         assert_eq!(path_plan["explanation"]["analyzed"], false);
+        let path_profile = store
+            .inspect_graph_paths(&paths_request, true)
+            .await
+            .unwrap();
+        assert_eq!(path_profile["explanation"]["analyzed"], true);
+        assert_eq!(
+            path_profile["explanation"]["response"]["kind"],
+            "profiled_operation"
+        );
         assert!(paths.complete);
         assert_eq!(paths.paths.len(), 4);
         assert_eq!(paths.paths.iter().filter(|path| path.cycle).count(), 2);
@@ -1825,7 +1834,11 @@ mod server_tests {
             store.begin_graph_paths(&hub_request).await.is_err(),
             "high multiplicity cannot exceed the finite retained/wire snapshot budget"
         );
-        let mut input_consumers = vec![analysis.key.clone()];
+        let mut input_consumers = vec![
+            analysis.key.clone(),
+            path_analysis.key.clone(),
+            hub_analysis.key.clone(),
+        ];
         // Populate enough genuine immutable consumers to cross the maximum page size.
         for ordinal in 0..65 {
             let mut consumer = store

@@ -353,6 +353,11 @@ Read or change project data through its prepared product owner
 Usage: pse project [OPTIONS] <COMMAND>
 
 Commands:
+  persistence       Read original-incarnation MX observations without granting maintenance authority
+  follow            Observe compact current state through a bounded native subscription window
+  graph             Read bounded metadata graph evidence; payload access remains separate
+  study-summary     Read current compact lifecycle counts without hydrating scientific results
+  run-summary       Read a current compact run header without opening result payloads
   targets           Authenticate configured target choices through their connection-only readers
   inspect-pack      Verify and inspect an existing project pack offline
   export-status     Observe the exact original pack or study publication without opening a service
@@ -401,6 +406,385 @@ Options:
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project persistence`
+
+~~~~text
+Read original-incarnation MX observations without granting maintenance authority
+
+Usage: pse project persistence [OPTIONS]
+
+Options:
+  -C <checkout>
+
+
+      --reader <READER>
+          Exact reader identifier returned by `pse observe prepare`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --state <STATE>
+          Exact existing private canonical deployment state directory
+
+      --database <DATABASE>
+          Exact existing database; defaults to the database configured by the deployment
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --target <TARGET>
+          Exact alias from the checkout's private CLI settings
+
+      --context-file <CONTEXT_FILE>
+          Exact private CLI settings file, relative to the selected checkout
+
+      --context-profile <CONTEXT_PROFILE>
+          Named settings profile from the selected file
+
+      --timeout-ms <TIMEOUT_MS>
+          Total reader allowance in milliseconds, from 1 through 25000
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project follow`
+
+~~~~text
+Observe compact current state through a bounded native subscription window
+
+Usage: pse project follow [OPTIONS] <COMMAND>
+
+Commands:
+  study  Follow one exact study's compact lifecycle summary
+  run    Follow one exact run's compact header
+
+Options:
+  -C <checkout>
+
+
+      --reader <READER>
+          Exact reader identifier returned by `pse observe prepare`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --state <STATE>
+          Exact existing private canonical deployment state directory
+
+      --database <DATABASE>
+          Exact existing database; defaults to the database configured by the deployment
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --target <TARGET>
+          Exact alias from the checkout's private CLI settings
+
+      --context-file <CONTEXT_FILE>
+          Exact private CLI settings file, relative to the selected checkout
+
+      --context-profile <CONTEXT_PROFILE>
+          Named settings profile from the selected file
+
+      --timeout-ms <TIMEOUT_MS>
+          Total reader allowance in milliseconds, from 1 through 25000
+
+      --window-ms <WINDOW_MS>
+          Observation window; closing it never cancels scientific work
+
+          [default: 5000]
+
+      --maximum-updates <MAXIMUM_UPDATES>
+          Stop after this many current-state updates
+
+          [default: 32]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project follow study`
+
+~~~~text
+Follow one exact study's compact lifecycle summary
+
+Usage: pse project follow study [OPTIONS] <STUDY>
+
+Arguments:
+  <STUDY>
+
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project follow run`
+
+~~~~text
+Follow one exact run's compact header
+
+Usage: pse project follow run [OPTIONS] <RUN>
+
+Arguments:
+  <RUN>
+
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project graph`
+
+~~~~text
+Read bounded metadata graph evidence; payload access remains separate
+
+Usage: pse project graph [OPTIONS] --request <REQUEST>
+
+Options:
+  -C <checkout>
+
+
+      --reader <READER>
+          Exact reader identifier returned by `pse observe prepare`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --state <STATE>
+          Exact existing private canonical deployment state directory
+
+      --database <DATABASE>
+          Exact existing database; defaults to the database configured by the deployment
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --target <TARGET>
+          Exact alias from the checkout's private CLI settings
+
+      --context-file <CONTEXT_FILE>
+          Exact private CLI settings file, relative to the selected checkout
+
+      --context-profile <CONTEXT_PROFILE>
+          Named settings profile from the selected file
+
+      --timeout-ms <TIMEOUT_MS>
+          Total reader allowance in milliseconds, from 1 through 25000
+
+      --request <REQUEST>
+          Original typed graph request as JSON
+
+      --paths
+          Select the finite multi-hop path request contract
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project study-summary`
+
+~~~~text
+Read current compact lifecycle counts without hydrating scientific results
+
+Usage: pse project study-summary [OPTIONS] <STUDY>
+
+Arguments:
+  <STUDY>
+
+
+Options:
+  -C <checkout>
+
+
+      --reader <READER>
+          Exact reader identifier returned by `pse observe prepare`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --state <STATE>
+          Exact existing private canonical deployment state directory
+
+      --database <DATABASE>
+          Exact existing database; defaults to the database configured by the deployment
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --target <TARGET>
+          Exact alias from the checkout's private CLI settings
+
+      --context-file <CONTEXT_FILE>
+          Exact private CLI settings file, relative to the selected checkout
+
+      --context-profile <CONTEXT_PROFILE>
+          Named settings profile from the selected file
+
+      --timeout-ms <TIMEOUT_MS>
+          Total reader allowance in milliseconds, from 1 through 25000
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse project run-summary`
+
+~~~~text
+Read a current compact run header without opening result payloads
+
+Usage: pse project run-summary [OPTIONS] <RUN>
+
+Arguments:
+  <RUN>
+
+
+Options:
+  -C <checkout>
+
+
+      --reader <READER>
+          Exact reader identifier returned by `pse observe prepare`
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --state <STATE>
+          Exact existing private canonical deployment state directory
+
+      --database <DATABASE>
+          Exact existing database; defaults to the database configured by the deployment
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --target <TARGET>
+          Exact alias from the checkout's private CLI settings
+
+      --context-file <CONTEXT_FILE>
+          Exact private CLI settings file, relative to the selected checkout
+
+      --context-profile <CONTEXT_PROFILE>
+          Named settings profile from the selected file
+
+      --timeout-ms <TIMEOUT_MS>
+          Total reader allowance in milliseconds, from 1 through 25000
 
   -h, --help
           Print help (see a summary with '-h')

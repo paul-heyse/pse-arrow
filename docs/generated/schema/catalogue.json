@@ -3036,7 +3036,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: host_operations :: project :: ProjectAction",
       "schema_path": "docs/generated/schema/project-action.input.schema.json",
-      "schema_sha256": "c5781e761fb4876f3cf199a2804deb7a9b509b3a60b44e9adb056dc311eecf19",
+      "schema_sha256": "bc0f7859dc74372780c16e548b13311029b6b4e3496394e1eb0434c39a505047",
       "slug": "project-action",
       "version": null,
       "wire": "Native"
@@ -3048,7 +3048,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: host_operations :: project :: ProjectAction",
       "schema_path": "docs/generated/schema/project-action.output.schema.json",
-      "schema_sha256": "5da3270ca6696d39fc87d87a543a3feb0811abfb1079ffccd54effae04a4d594",
+      "schema_sha256": "267a794dc13eb55f4107ef3ace58c20f0e0432c0b4b127c8629006c672717b3e",
       "slug": "project-action",
       "version": null,
       "wire": "Native"
@@ -3612,7 +3612,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: host_operations :: project :: ProjectOperationRequest",
       "schema_path": "docs/generated/schema/project-operation-request.input.schema.json",
-      "schema_sha256": "04afb5f67df7e323406ff456cb8164ac4beec13b4d65e053894103caf2c4ee85",
+      "schema_sha256": "f3115b2986cf6dc1047769f0d8dcb1b452bbeb1b79d5e7ad573939389141fa9d",
       "slug": "project-operation-request",
       "version": 2,
       "wire": "Native"
@@ -3624,7 +3624,7 @@
       "registration_source": "crates/pse-runtime/src/boundary_documents.rs",
       "rust_type": "pse_runtime :: host_operations :: project :: ProjectOperationRequest",
       "schema_path": "docs/generated/schema/project-operation-request.output.schema.json",
-      "schema_sha256": "b044f50369f5b1389d0a2c16911a22ff02cd9790781112d85736b46013237710",
+      "schema_sha256": "1e1924a70503ac6153194868d223ee5de3c32ae8fe8a49e283dfd9d89c3693bc",
       "slug": "project-operation-request",
       "version": 2,
       "wire": "Native"
@@ -5922,6 +5922,6 @@
       "wire": "FlatV1"
     }
   ],
-  "schema_set_fingerprint": "blake3:e18be7685d62f66e87ac2b97a8bc7829d505825496fbe5d620c80471e7cd0199",
+  "schema_set_fingerprint": "blake3:33c2a241b69b51b28e99e4f2a4b03ef71e9a6281d454327bb8e191dd0a8d7f25",
   "version": 1
 }

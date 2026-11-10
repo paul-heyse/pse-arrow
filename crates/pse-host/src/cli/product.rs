@@ -79,6 +79,52 @@ pub(super) enum Action {
 }
 #[derive(Debug, Subcommand)]
 pub(super) enum ProjectAction {
+    /// Read original-incarnation MX observations without granting maintenance authority.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
+    Persistence {
+        #[command(flatten)]
+        source: ProjectSource,
+    },
+    /// Observe compact current state through a bounded native subscription window.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
+    Follow {
+        #[command(flatten)]
+        source: ProjectSource,
+        /// Observation window; closing it never cancels scientific work.
+        #[arg(long, default_value_t = 5000, value_parser = clap::value_parser!(u64).range(1..=20000))]
+        window_ms: u64,
+        /// Stop after this many current-state updates.
+        #[arg(long, default_value_t = 32, value_parser = clap::value_parser!(u16).range(1..=64))]
+        maximum_updates: u16,
+        #[command(subcommand)]
+        selection: CurrentRoot,
+    },
+    /// Read bounded metadata graph evidence; payload access remains separate.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
+    Graph {
+        #[command(flatten)]
+        source: ProjectSource,
+        /// Original typed graph request as JSON.
+        #[arg(long)]
+        request: PathBuf,
+        /// Select the finite multi-hop path request contract.
+        #[arg(long)]
+        paths: bool,
+    },
+    /// Read current compact lifecycle counts without hydrating scientific results.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
+    StudySummary {
+        #[command(flatten)]
+        source: ProjectSource,
+        study: String,
+    },
+    /// Read a current compact run header without opening result payloads.
+    #[command(add(crate::catalog::description::CommandEffect::Read))]
+    RunSummary {
+        #[command(flatten)]
+        source: ProjectSource,
+        run: String,
+    },
     /// Authenticate configured target choices through their connection-only readers.
     #[command(add(crate::catalog::description::CommandEffect::Read))]
     #[command(add(crate::catalog::Examples(&[&[]])))]
@@ -367,6 +413,24 @@ impl std::str::FromStr for ProjectCursor {
 #[derive(Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 enum ProjectQuery {
+    Persistence,
+    Follow {
+        selection: CurrentRoot,
+        window_ms: u64,
+        maximum_updates: u16,
+    },
+    Graph {
+        request: Box<RawValue>,
+    },
+    GraphPaths {
+        request: Box<RawValue>,
+    },
+    StudySummary {
+        study: String,
+    },
+    RunSummary {
+        run: String,
+    },
     Target,
     Metadata {
         request: ProjectMetadataQuery,
@@ -396,6 +460,14 @@ enum ProjectQuery {
     ImportStatus {
         intent: Box<RawValue>,
     },
+}
+#[derive(Debug, Subcommand, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub(super) enum CurrentRoot {
+    /// Follow one exact study's compact lifecycle summary.
+    Study { study: String },
+    /// Follow one exact run's compact header.
+    Run { run: String },
 }
 #[derive(Serialize)]
 struct ProjectMetadataQuery {
@@ -561,6 +633,23 @@ impl ProjectAction {
         let resolve =
             |path| Ok::<_, HostError>(std::path::absolute(super::source_path(selected, path)?)?);
         let (command, source, query) = match self {
+            Self::Persistence { source } => {
+                ("project persistence", source, ProjectQuery::Persistence)
+            }
+            Self::Follow {
+                source,
+                window_ms,
+                maximum_updates,
+                selection,
+            } => (
+                "project follow",
+                source,
+                ProjectQuery::Follow {
+                    selection,
+                    window_ms,
+                    maximum_updates,
+                },
+            ),
             Self::InspectPack {
                 reader,
                 input,
@@ -644,6 +733,29 @@ impl ProjectAction {
                 source,
                 ProjectQuery::StudyWorkbench { request },
             ),
+            Self::StudySummary { source, study } => (
+                "project study-summary",
+                source,
+                ProjectQuery::StudySummary { study },
+            ),
+            Self::RunSummary { source, run } => (
+                "project run-summary",
+                source,
+                ProjectQuery::RunSummary { run },
+            ),
+            Self::Graph {
+                source,
+                request,
+                paths,
+            } => {
+                let request = request_file(&resolve(request)?)?;
+                let query = if paths {
+                    ProjectQuery::GraphPaths { request }
+                } else {
+                    ProjectQuery::Graph { request }
+                };
+                ("project graph", source, query)
+            }
             Self::Research { source, selection } => (
                 "project research",
                 source,

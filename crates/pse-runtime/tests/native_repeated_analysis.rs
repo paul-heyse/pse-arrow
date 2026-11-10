@@ -929,7 +929,7 @@ async fn assert_passive_observation(data: &RetainedDataServices, study: &str) {
     assert_eq!(continued.cursor.context, cursor.context);
     assert!(!continued.status.header.cancelled);
     reconnected.observation_token().cancel();
-    assert!(reconnected.follow(Duration::ZERO).await.is_err());
+    assert!(reconnected.poll().await.is_err());
     reconnected.close();
     // Observation close/cancellation never changes the governing scientific state.
     let mut current = data.observe_study(cursor.request, None).await.unwrap();

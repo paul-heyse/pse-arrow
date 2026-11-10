@@ -874,6 +874,11 @@ Tentative query batches retain original allocation and physical custody through 
 EOF and trailers. Releasing a batch does not reset cumulative query admission. Original
 effect acknowledgements and protected payload release remain separate capabilities.
 
+Finite native request owners and their automatic release work run on the original physical
+client's executor. A caller's executor may stop observing without stranding charged work on
+that executor. Replies can precede outbound drain, but neither a reply nor observer teardown
+releases the original request activity, payload or protection before actual settlement.
+
 Evidence-bearing paths stage one bounded native read-only snapshot before exposing immutable
 pages. The owner retains its original deadline and allocation through those pages; continuation
 never refetches a mutable graph under an old cut. Expansion and retained bytes have independent

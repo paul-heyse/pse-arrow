@@ -565,6 +565,10 @@ pub enum ReaderError {
     /// Original canonical connection/protection/history owner failure.
     #[error(transparent)]
     Canonical(Box<pse_operations::canonical::CanonicalError>),
+    /// Original physical producer/metrics read failure, without adopting service ownership.
+    #[cfg(feature = "native-service")]
+    #[error(transparent)]
+    NativeService(Box<pse_operations::native_service::NativeServiceError>),
     /// Original retained-data validation/allocation/selection failure.
     #[error(transparent)]
     Workflow(Box<crate::workflow::WorkflowError>),

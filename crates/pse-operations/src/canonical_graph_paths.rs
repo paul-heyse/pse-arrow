@@ -151,12 +151,18 @@ LET $carry{depth}=$carry{previous}.frontier.fold({{paths:$carry{previous}.paths,
         ));
         Ok(sql)
     }
-    fn query_sql(&self) -> Result<String, CanonicalError> {
+    fn output_body(&self) -> Result<String, CanonicalError> {
         Ok(format!(
-            "{} LET $output=array::concat([{{kind:'summary',root:$frozen_root,used:$carry{}.used,truncated:$carry{}.truncated}}],$selected.map(|$path|{{kind:'path',path:$path}})); SELECT VALUE $this FROM $output;",
+            "{} LET $output=array::concat([{{kind:'summary',root:$frozen_root,used:$carry{}.used,truncated:$carry{}.truncated}}],$selected.map(|$path|{{kind:'path',path:$path}}));",
             self.body()?,
             self.depth,
             self.depth
+        ))
+    }
+    fn query_sql(&self) -> Result<String, CanonicalError> {
+        Ok(format!(
+            "{} SELECT VALUE $this FROM $output;",
+            self.output_body()?
         ))
     }
     fn bindings(&self) -> Result<BTreeMap<String, Value>, CanonicalError> {
@@ -194,11 +200,16 @@ LET $carry{depth}=$carry{previous}.frontier.fold({{paths:$carry{previous}.paths,
         )
     }
     fn explained(&self, analyze: bool) -> Result<String, CanonicalError> {
-        Ok(format!(
-            "EXPLAIN {}FORMAT JSON {{{}}};",
-            if analyze { "ANALYZE " } else { "" },
-            self.query_sql()?
-        ))
+        if analyze {
+            // v4's ANALYZE lowerer needs a pipeline around imperative block expressions.
+            // The complete same body stays inside EXPLAIN; no setup query executes first.
+            Ok(format!(
+                "EXPLAIN ANALYZE FORMAT JSON SELECT VALUE {{{} RETURN $output;}} FROM [0];",
+                self.output_body()?
+            ))
+        } else {
+            Ok(format!("EXPLAIN FORMAT JSON {{{}}};", self.query_sql()?))
+        }
     }
 }
 impl CanonicalStore {
@@ -218,7 +229,7 @@ impl CanonicalStore {
             let captured=crate::query_explanation::NativeExplanationResponse::capture(&response,if analyze {crate::query_explanation::NativeExplanationResponseKind::ProfiledOperation}else{crate::query_explanation::NativeExplanationResponseKind::Inspection})?;
             let plan=response.take::<Value>(0)?;
             let mut explanation=crate::query_explanation::NativeQueryExplanation::new(
-                crate::query_explanation::NativeExplanationIdentity {issuer:self.issuing_store()?.to_owned(),data_cut:serde_json::json!({"anchor":request.anchor,"depth":request.depth,"work":request.work}),server_version,server_recipe:None,server_invocation:None},request.description()?,&plan,analyze)?;
+                crate::query_explanation::NativeExplanationIdentity {issuer:self.issuing_store()?.to_owned(),data_cut:serde_json::json!({"anchor":request.anchor,"depth":request.depth,"work":request.work}),server_version,server_recipe:None,server_invocation:None},serde_json::json!({"operation":request.description()?,"inspection_sql":sql}),&plan,analyze)?;
             explanation.response=Some(captured);
             Ok(serde_json::json!({"explanation":explanation,"raw_plan":plan,"scope":"native plan of the entire bounded path block; missing inner operator counters remain unknown"}))
         })).await
@@ -633,7 +644,7 @@ mod tests {
                 let sql = request.explained(analyzed).unwrap();
                 surrealdb_expr::parser::parse(&sql).unwrap();
                 assert!(sql.starts_with(if analyzed {
-                    "EXPLAIN ANALYZE FORMAT JSON {"
+                    "EXPLAIN ANALYZE FORMAT JSON SELECT VALUE {"
                 } else {
                     "EXPLAIN FORMAT JSON {"
                 }));

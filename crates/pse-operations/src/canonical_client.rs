@@ -241,7 +241,14 @@ impl Generation {
                     .await
                     .map_err(errors::status_to_error)?
                     .into_inner();
-                if let Some(tokens) = response.tokens {
+                // The selected v4 server's grpc::to_tokens(None) emits a
+                // present, entirely default Tokens message for successful
+                // non-rotating Authenticate. It is the neutral no-replacement
+                // response; partial replacement metadata still fails closed.
+                if let Some(tokens) = response
+                    .tokens
+                    .filter(|tokens| tokens != &rpc::Tokens::default())
+                {
                     if tokens.access.is_empty() {
                         return Err(connection("Server omitted rotated access token"));
                     }
@@ -343,6 +350,8 @@ struct State {
     address: SocketAddr,
     message_bytes: usize,
     reconnect: bool,
+    // The initial physical owner also performs reconnect and teardown work.
+    executor: tokio::runtime::Handle,
     generation: tokio::sync::Mutex<Arc<Generation>>,
     acknowledged: Mutex<Vec<Setup>>,
     setup: Arc<tokio::sync::Mutex<()>>,
@@ -459,6 +468,18 @@ impl std::fmt::Debug for Client {
     }
 }
 impl Client {
+    pub(crate) fn executor(&self) -> tokio::runtime::Handle {
+        self.state.executor.clone()
+    }
+    /// Continue native ownership on the physical executor, even if a temporary
+    /// caller stops polling after receiving its response.
+    pub(crate) fn spawn<F>(&self, work: F) -> tokio::task::JoinHandle<F::Output>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        self.state.executor.spawn(work)
+    }
     /// Connect an authenticated-loopback transport under the enclosing clock.
     pub async fn connect(address: SocketAddr, message_bytes: usize) -> EngineResult<Self> {
         Self::connect_with_replay(address, message_bytes, true).await
@@ -514,6 +535,7 @@ impl Client {
                     address,
                     message_bytes,
                     reconnect,
+                    executor: generation.driver.executor(),
                     generation: tokio::sync::Mutex::new(generation),
                     acknowledged: Mutex::new(Vec::new()),
                     setup: Arc::new(tokio::sync::Mutex::new(())),
@@ -623,7 +645,7 @@ impl Client {
         };
         let task = context.clone();
         let (send, receive) = tokio::sync::oneshot::channel();
-        tokio::spawn(owned::observe("bounded", async move {
+        self.spawn(owned::observe("bounded", async move {
             let _active = active;
             let _drain = Drain(task.clone());
             let _payload = task.payload_owner().map(|owner| owner.retain_driver());
@@ -721,7 +743,7 @@ impl Client {
         };
         if start {
             let state = self.state.clone();
-            tokio::spawn(owned::observe("disconnect", async move {
+            self.spawn(owned::observe("disconnect", async move {
                 let generation = state.generation.lock().await.clone();
                 let detached = if generation.driver.begin_close() && !generation.driver.closed() {
                     // A failed or expired detach never prevents actual socket drain.

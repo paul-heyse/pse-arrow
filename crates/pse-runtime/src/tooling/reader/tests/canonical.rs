@@ -108,6 +108,20 @@ fn project_study_workbench_reads_the_selected_store_and_refuses_foreign_cursor()
     assert_eq!(payload["target"]["issuing_store"], issuing_store);
     assert_eq!(payload["result"]["kind"], "target");
 
+    #[cfg(feature = "native-service")]
+    {
+        let (exit, payload) = query(issuing_store, ProjectRead::Persistence);
+        assert_eq!(exit, 0, "{payload}");
+        let observation = &payload["result"]["observation"];
+        assert_eq!(observation["source"], "original_server");
+        assert_eq!(observation["recorded_versions_available"], false);
+        assert_eq!(observation["manual_snapshot_available"], false);
+        assert_eq!(
+            observation["service_invocation"].as_str().unwrap().len(),
+            32
+        );
+    }
+
     let (exit, payload) = query("different-store", ProjectRead::Target);
     assert_eq!(exit, 2, "{payload}");
     assert_eq!(payload["kind"], "refusal");
@@ -126,6 +140,33 @@ fn project_study_workbench_reads_the_selected_store_and_refuses_foreign_cursor()
     assert_eq!(payload["result"]["result"]["kind"], "dataset");
     assert!(payload["result"]["result"]["row"].is_null());
     assert!(payload["result"]["result"]["members"].is_null());
+
+    for read in [
+        ProjectRead::StudySummary {
+            study: "absent".into(),
+        },
+        ProjectRead::RunSummary {
+            run: "absent".into(),
+        },
+    ] {
+        let (exit, payload) = query(issuing_store, read);
+        assert_eq!(exit, 0, "{payload}");
+        assert!(payload["result"]["summary"].is_null());
+    }
+    let (exit, payload) = query(
+        issuing_store,
+        ProjectRead::Follow {
+            selection: pse_operations::canonical_study_workbench::FollowSelection::Study {
+                study: "absent".into(),
+            },
+            window_ms: 200,
+            maximum_updates: 1,
+        },
+    );
+    assert_eq!(exit, 0, "{payload}");
+    assert_eq!(payload["result"]["kind"], "follow");
+    assert_eq!(payload["result"]["updates"][0]["kind"], "unavailable");
+    assert_eq!(payload["result"]["update_limit_reached"], true);
 
     let (exit, payload) = query(
         issuing_store,

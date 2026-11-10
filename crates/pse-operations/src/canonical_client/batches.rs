@@ -161,7 +161,10 @@ pub(super) async fn consume<C: BatchConsumer>(
             )
             .await;
             let (response, rows) = match collected {
-                Ok(result) => result,
+                Ok((response, rows)) => (
+                    response.with_server_version(generation.server_version.clone()),
+                    rows,
+                ),
                 Err(error) => {
                     generation.driver.shutdown().await;
                     return Err(error);

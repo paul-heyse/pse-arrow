@@ -639,20 +639,9 @@ async fn dispatch(
                     serde_json::json!({"cohort": cohort.receipt(), "member": member, "output": output, "bytes": bytes}),
                 )
             })?,
-            Action::StudyObserve {
-                request,
-                cursor,
-                delay_ms,
-            } => boxed(shared, async move {
+            Action::StudyObserve { request, cursor } => boxed(shared, async move {
                 let mut observer = runtime.observe_study(request, cursor).await?;
-                let page = if let Some(ms) = delay_ms {
-                    ensure!(ms <= 60_000, "observation delay exceeds 60 seconds");
-                    observer
-                        .follow(std::time::Duration::from_millis(ms))
-                        .await?
-                } else {
-                    observer.poll().await?
-                };
+                let page = observer.poll().await?;
                 observer.close();
                 value(page)
             })?,

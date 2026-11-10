@@ -2004,7 +2004,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/model/enums.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2018,7 +2018,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/relations/enums.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2032,7 +2032,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/model/enums.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2046,7 +2046,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/relations/enums.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2816,7 +2816,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/model/enums.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2830,7 +2830,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/relations/enums.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2844,7 +2844,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/model/enums.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2858,7 +2858,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/relations/enums.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2872,7 +2872,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/model/enums.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2886,7 +2886,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/relations/enums.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2900,7 +2900,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/model/enums.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2914,7 +2914,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/relations/enums.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2928,7 +2928,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/model/enums.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2942,7 +2942,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/relations/enums.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2956,7 +2956,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/model/enums.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2970,7 +2970,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/relations/enums.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2984,7 +2984,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/model/enums.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2998,7 +2998,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/relations/enums.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3012,7 +3012,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/model/enums.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3026,7 +3026,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/relations/enums.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -19070,7 +19070,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/model/runtime/evidence_facts.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -19084,7 +19084,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/relations/runtime/evidence_facts.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -19098,7 +19098,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append",
       "output_path": "xtask/src/generated/store/evidence.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -19112,7 +19112,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append",
       "output_path": "xtask/src/generated/store/evidence.surql",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -19126,7 +19126,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/model/runtime/evidence_generations.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -19140,7 +19140,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/relations/runtime/evidence_generations.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -19154,7 +19154,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append",
       "output_path": "xtask/src/generated/store/evidence.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -19168,7 +19168,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append",
       "output_path": "xtask/src/generated/store/evidence.surql",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -19182,7 +19182,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/model/runtime/evidence_interpretations.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -19196,7 +19196,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/relations/runtime/evidence_interpretations.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -19210,7 +19210,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append",
       "output_path": "xtask/src/generated/store/evidence.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -19224,7 +19224,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append",
       "output_path": "xtask/src/generated/store/evidence.surql",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -19966,7 +19966,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/model/runtime/knowledge_excerpts.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -19980,7 +19980,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/relations/runtime/knowledge_excerpts.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -19994,7 +19994,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append_knowledge",
       "output_path": "xtask/src/generated/store/knowledge.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20008,7 +20008,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append_knowledge",
       "output_path": "xtask/src/generated/store/knowledge.surql",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20022,7 +20022,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/model/runtime/knowledge_generations.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20036,7 +20036,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/relations/runtime/knowledge_generations.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20050,7 +20050,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append_knowledge",
       "output_path": "xtask/src/generated/store/knowledge.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20064,7 +20064,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append_knowledge",
       "output_path": "xtask/src/generated/store/knowledge.surql",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20078,7 +20078,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/model/runtime/knowledge_productions.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20092,7 +20092,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/relations/runtime/knowledge_productions.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20106,7 +20106,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append_knowledge",
       "output_path": "xtask/src/generated/store/knowledge.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20120,7 +20120,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append_knowledge",
       "output_path": "xtask/src/generated/store/knowledge.surql",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20134,7 +20134,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/model/runtime/knowledge_sources.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20148,7 +20148,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/relations/runtime/knowledge_sources.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20162,7 +20162,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append_knowledge",
       "output_path": "xtask/src/generated/store/knowledge.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20176,7 +20176,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append_knowledge",
       "output_path": "xtask/src/generated/store/knowledge.surql",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20190,7 +20190,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/model/runtime/knowledge_state.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20204,7 +20204,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/relations/runtime/knowledge_state.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20218,7 +20218,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append_knowledge",
       "output_path": "xtask/src/generated/store/knowledge.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20232,7 +20232,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append_knowledge",
       "output_path": "xtask/src/generated/store/knowledge.surql",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20246,7 +20246,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/model/runtime/knowledge_subject_edges.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20260,7 +20260,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/relations/runtime/knowledge_subject_edges.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20274,7 +20274,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append_knowledge",
       "output_path": "xtask/src/generated/store/knowledge.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20288,7 +20288,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append_knowledge",
       "output_path": "xtask/src/generated/store/knowledge.surql",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20302,7 +20302,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/model/runtime/knowledge_subject_sources.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20316,7 +20316,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/relations/runtime/knowledge_subject_sources.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20330,7 +20330,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append_knowledge",
       "output_path": "xtask/src/generated/store/knowledge.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20344,7 +20344,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append_knowledge",
       "output_path": "xtask/src/generated/store/knowledge.surql",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20358,7 +20358,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/model/runtime/knowledge_subject_topics.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20372,7 +20372,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/relations/runtime/knowledge_subject_topics.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20386,7 +20386,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append_knowledge",
       "output_path": "xtask/src/generated/store/knowledge.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20400,7 +20400,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append_knowledge",
       "output_path": "xtask/src/generated/store/knowledge.surql",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20414,7 +20414,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/model/runtime/knowledge_subjects.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20428,7 +20428,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/family.rs",
       "generator_symbol": "development_rust",
       "output_path": "xtask/src/generated/relations/runtime/knowledge_subjects.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20442,7 +20442,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append_knowledge",
       "output_path": "xtask/src/generated/store/knowledge.rs",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -20456,7 +20456,7 @@
       "generator_path": "xtask/src/codegen/private_store.rs",
       "generator_symbol": "append_knowledge",
       "output_path": "xtask/src/generated/store/knowledge.surql",
-      "source_identity": "blake3:adfd76032cea1885c5e8f5e983fe5e2a260be05499acdeceddc8573c259f11ef",
+      "source_identity": "blake3:12067b67e1b6cb9ae1d11a0a15e971785873860f5c5560fc4c3df8f03c89000f",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null

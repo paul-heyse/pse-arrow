@@ -37,7 +37,7 @@ force-validate = [
   "pse-schema/force-validate",
 ]
 default = []
-product-reader = ["dep:clap"]
+product-reader = ["dep:clap", "native-service"]
 product-operators = [
   "product-reader",
   "pse-operations/canonical-maintenance",

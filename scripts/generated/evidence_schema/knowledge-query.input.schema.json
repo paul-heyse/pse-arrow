@@ -20,6 +20,24 @@
         "query_digest": {
           "description": "Exact predicate and extent identity.",
           "type": "string"
+        },
+        "ranking_epoch": {
+          "description": "Index population fence, including staged generations.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "score_bits": {
+          "description": "Exact binary64 score bits of the last ranked subject.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
         }
       },
       "required": [
@@ -63,6 +81,47 @@
         }
       ]
     },
+    "KnowledgePopulation": {
+      "description": "Population whose complete predicate is evaluated before paging.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "All admitted subjects in the identified generation.",
+          "properties": {
+            "kind": {
+              "const": "selected_generation",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "An intentional caller-supplied subject set, never an implicit prefix.",
+          "properties": {
+            "kind": {
+              "const": "explicit_subjects",
+              "type": "string"
+            },
+            "subjects": {
+              "description": "Exact original subject identities.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "kind",
+            "subjects"
+          ],
+          "type": "object"
+        }
+      ]
+    },
     "KnowledgeRelationKind": {
       "enum": [
         "owns",
@@ -77,6 +136,21 @@
         "references"
       ],
       "type": "string"
+    },
+    "KnowledgeSearch": {
+      "description": "Text interpretation; ranking does not grant scientific authority.",
+      "oneOf": [
+        {
+          "const": "exact",
+          "description": "Native exact lexical filtering, ordered by subject identity.",
+          "type": "string"
+        },
+        {
+          "const": "ranked",
+          "description": "Best matching excerpt BM25, descending, with unique subject-key ties.",
+          "type": "string"
+        }
+      ]
     },
     "KnowledgeSubjectKind": {
       "enum": [
@@ -103,7 +177,7 @@
       "artifact_id": "generated_artifact:crates/pse-authoring/src/generated/documents.rs",
       "limit": 8,
       "mode": "productions",
-      "version": 1
+      "version": 2
     }
   ],
   "properties": {
@@ -199,6 +273,13 @@
         "null"
       ]
     },
+    "population": {
+      "$ref": "#/$defs/KnowledgePopulation",
+      "default": {
+        "kind": "selected_generation"
+      },
+      "description": "Explicit search population, independent from the returned page size."
+    },
     "publication_scope": {
       "description": "Exact publication scope, independent of lifecycle.",
       "type": [
@@ -217,6 +298,11 @@
       ],
       "description": "Optional typed graph relation."
     },
+    "search": {
+      "$ref": "#/$defs/KnowledgeSearch",
+      "default": "exact",
+      "description": "Exact or ranked lexical interpretation."
+    },
     "subject_id": {
       "description": "Subject selection or exact graph root.",
       "type": [
@@ -225,7 +311,7 @@
       ]
     },
     "text": {
-      "description": "Optional text predicate within a structurally selected subject population.",
+      "description": "Optional analyzer-backed keyword predicate over the declared population.\nCode-symbol punctuation remains a query term; question punctuation is not ignored.",
       "type": [
         "string",
         "null"
@@ -240,8 +326,8 @@
       "type": "array"
     },
     "version": {
-      "const": 1,
-      "default": 1,
+      "const": 2,
+      "default": 2,
       "description": "Required native document encoding version.",
       "type": "integer"
     }

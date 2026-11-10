@@ -120,7 +120,7 @@ fn append_knowledge(registry: &Registry, tree: &mut GeneratedTree) -> Result<Str
     );
     let _ = writeln!(
         ddl,
-        "DEFINE INDEX {} ON {} FIELDS {} FULLTEXT ANALYZER {} BM25;",
+        "DEFINE INDEX {} ON {} FIELDS {} FULLTEXT ANALYZER {} BM25 HIGHLIGHTS;",
         search.name, search.table, search.field, search.analyzer
     );
     let interpretation = declaration::INTERPRETATION;
@@ -292,7 +292,7 @@ mod tests {
         assert!(ddl.contains("DEFINE FIELD OVERWRITE relation ON knowledge_subject_edges TYPE pse_knowledge_relation_kind READONLY ASSERT"));
         assert!(ddl.contains("DEFINE TABLE knowledge_subject_edges TYPE RELATION IN knowledge_subjects OUT knowledge_subjects ENFORCED"));
         assert!(ddl.contains("DEFINE ANALYZER knowledge_text_v2 TOKENIZERS blank,class,camel,punct FILTERS lowercase;"));
-        assert!(ddl.contains("DEFINE INDEX knowledge_excerpt_text ON knowledge_excerpts FIELDS text FULLTEXT ANALYZER knowledge_text_v2 BM25;"));
+        assert!(ddl.contains("DEFINE INDEX knowledge_excerpt_text ON knowledge_excerpts FIELDS text FULLTEXT ANALYZER knowledge_text_v2 BM25 HIGHLIGHTS;"));
         assert!(ddl.contains("REFERENCE ON DELETE REJECT READONLY ASSERT $value=type::record('knowledge_subjects',$this.generator_key)"));
         assert!(ddl.contains("DEFINE FIELD OVERWRITE excerpt_id ON knowledge_excerpts TYPE string READONLY ASSERT { LET $knowledge_assert_generation=$this.generation;"));
         assert!(

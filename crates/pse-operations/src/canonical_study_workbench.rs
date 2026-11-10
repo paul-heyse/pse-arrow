@@ -158,7 +158,6 @@ struct CaptureOwner {
     key: String,
     owner: String,
     request: Vec<u8>,
-    executor: tokio::runtime::Handle,
     release_needed: std::sync::atomic::AtomicBool,
     metadata: std::sync::Mutex<Option<crate::transport::client::ResponseAllocation>>,
 }
@@ -202,7 +201,6 @@ fn capture_owner(
         key: key.into(),
         owner: owner.into(),
         request: request.to_vec(),
-        executor: tokio::runtime::Handle::current(),
         release_needed: std::sync::atomic::AtomicBool::new(true),
         metadata: std::sync::Mutex::new(None),
     });
@@ -446,7 +444,8 @@ impl Drop for CaptureOwner {
             request.clone(),
             metadata.clone(),
         );
-        self.executor.spawn(async move {
+        let client = store.db.clone();
+        client.spawn(async move {
             let result = crate::canonical::transport::optional_response_ownership_scope(
                 metadata,
                 release_capture_custody(&store, &key, &owner, &request),

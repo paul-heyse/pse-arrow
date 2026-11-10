@@ -201,7 +201,7 @@ impl Client {
         let attached = Arc::new(AtomicBool::new(false));
         let cleanup = Arc::new(std::sync::Mutex::new(None::<EngineResult<()>>));
         let task = context.clone().with_response_limits(limits);
-        tokio::spawn(owned::observe("subscription", async move {
+        self.spawn(owned::observe("subscription", async move {
             let lifetime = task.lifetime_owner().map(|owner| owner.retain());
             let payload = task.payload_owner().map(|owner| owner.retain_driver());
             let ready_send = Arc::new(std::sync::Mutex::new(Some(ready_send)));
@@ -293,7 +293,13 @@ impl Client {
             task.release_lifetime_after_drain();
             done_send.send_replace(Some(result));
         }));
-        let client = tokio::select! {biased;_=context.interrupted()=>return Err(context.interruption_error()),ready=ready=>ready.map_err(|_|connection("Subscription owner failed before attachment"))??};
+        // The retained performer reports setup failure after physical cleanup.
+        // A failed dispatched execute also cancels this shared lifecycle; racing
+        // that cancellation echo would replace its original protocol/auth error.
+        // Abandoning this waiter still cancels through Opening's drop guard.
+        let client = ready
+            .await
+            .map_err(|_| connection("Subscription owner failed before attachment"))??;
         opening.accepted = true;
         Ok(Subscription {
             client,

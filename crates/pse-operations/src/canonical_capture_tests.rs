@@ -590,6 +590,30 @@ async fn current_summary_and_fixed_viewer_follow_preserve_scientific_classificat
     })
     .await
     .expect("exact linked run transition must invalidate study header");
+    follow.lose_linked_run_after_next_read();
+    bounded_query(
+        store
+            .db
+            .query("UPDATE ONLY type::record('canonical_runs',$run) SET terminal_class='failed';")
+            .bind(("run", initial.header.run.clone())),
+    )
+    .await
+    .unwrap();
+    assert!(
+        matches!(follow.next().await.unwrap(), FollowUpdate::Unavailable),
+        "losing the linked-run channel during a read must withdraw currentness"
+    );
+    let FollowUpdate::Snapshot {
+        snapshot: CurrentSnapshot::Study(recovered),
+        ..
+    } = follow.next().await.unwrap()
+    else {
+        panic!("lost dependency must be registered again before resnapshot")
+    };
+    assert_eq!(
+        recovered.header.outcome,
+        Some(pse_model::generated::enums::CanonicalTerminalOutcome::Failed)
+    );
     store.cancel_study(study).await.unwrap();
     let observed = tokio::time::timeout(Duration::from_secs(3), async {
         loop {

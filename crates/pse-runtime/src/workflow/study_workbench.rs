@@ -568,22 +568,30 @@ impl FrozenStudyCohort {
                 break;
             }
         }
-        let mut cursor = None;
-        loop {
-            cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
-            let page = cancel
-                .until_cancelled(self.member_page(StudyCohortPageRequest {
-                    maximum: pse_schema::catalog::study_workbench::STUDY_CAPTURE_PAGE_ROWS,
-                    cursor,
-                }))
-                .await
-                .map_err(pse_engine::EngineError::from)??;
-            cursor = page.next.clone();
-            write_page_line(&mut output, &StudyCohortExportRecord::Members(page))?;
-            if cursor.is_none() {
-                break;
-            }
-        }
+        let response = super::connected_results::pooled_response_owner(
+            &self.services.pool(),
+            "study-cohort:streamed-member-export",
+            pse_operations::canonical::MetadataResponse::StudyPage,
+        )?;
+        let staged = MemberExport {
+            output,
+            issuing_store: self.receipt.issuing_store.clone(),
+            capture: self.receipt.capture.clone(),
+            count: self.receipt.member_count,
+        };
+        let streamed = cancel
+            .until_cancelled(super::connected_results::protected_response_scope(
+                self.capture.clone(),
+                response,
+                self.capture.stream_members(
+                    self.receipt.member_count,
+                    usize::try_from(maximum_bytes).map_err(|_| contract("export byte bound"))?,
+                    staged,
+                ),
+            ))
+            .await
+            .map_err(pse_engine::EngineError::from)??;
+        let mut output = streamed.output;
         cancel.checkpoint().map_err(pse_engine::EngineError::from)?;
         write_page_line(
             &mut output,
@@ -834,6 +842,38 @@ impl FrozenStudyCohort {
             unavailable: progress.unavailable,
             batches,
             state: relation.state,
+        })
+    }
+}
+struct MemberExport {
+    output: std::io::BufWriter<super::connected_results::BoundedExportFile>,
+    issuing_store: String,
+    capture: String,
+    count: u64,
+}
+impl pse_operations::canonical_study_workbench::CaptureMemberConsumer for MemberExport {
+    fn consume(
+        &mut self,
+        rows: Vec<CapturedStudyRow<StudyCohortMember>>,
+    ) -> Result<(), pse_operations::canonical::CanonicalError> {
+        let next = rows
+            .last()
+            .filter(|row| row.position + 1 < self.count)
+            .map(|row| StudyCohortCursor {
+                issuing_store: self.issuing_store.clone(),
+                capture: self.capture.clone(),
+                after: row.position,
+            });
+        write_page_line(
+            &mut self.output,
+            &StudyCohortExportRecord::Members(StudyCohortMemberPage {
+                members: rows,
+                next,
+                _owner: None,
+            }),
+        )
+        .map_err(|error| {
+            pse_operations::canonical::CanonicalError::Configuration(error.to_string())
         })
     }
 }

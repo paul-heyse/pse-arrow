@@ -52,7 +52,9 @@ fn relation_version(
 }
 
 /// Derived interpretation, independent of scientific research and source authority.
-pub const INTERPRETATION: &str = "pse-development-knowledge-v3";
+pub const INTERPRETATION: &str = "pse-development-knowledge-v4";
+/// Complete admitted subject population; output pages and explicit-ID populations stay separate.
+pub const MAX_SUBJECTS: usize = 4096;
 /// Evidence origin, independent of native lifecycle and publication state.
 pub const BASES: &[&str] = &[
     "declared",
@@ -373,7 +375,8 @@ pub const FULL_TEXT: FullTextIndex = FullTextIndex {
     field: "text",
     analyzer: "knowledge_text_v2",
 };
-/// Selected tokenization.
+/// Selected code/document tokenization, retaining isolated punctuation as code-symbol
+/// terms in indexed text and queries. A question mark is not discarded from a query.
 pub const TOKENIZERS: &[&str] = &["blank", "class", "camel", "punct"];
 /// Selected normalization.
 pub const FILTERS: &[&str] = &["lowercase"];
@@ -466,6 +469,7 @@ pub(crate) fn declare(b: &mut RegistryBuilder) {
         &["key"],
         vec![
             column("key", text()),
+            column("ranking_epoch", T::native(D::UInt64)).canonical_mutable(),
             column("active_generation", text())
                 .canonical_mutable()
                 .optional(),

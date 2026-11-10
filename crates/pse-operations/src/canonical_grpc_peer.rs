@@ -395,6 +395,31 @@ async fn start_scripted(
                                     })
                                 }
                             }
+                            "Authenticate" => {
+                                let request = rpc::AuthenticateRequest::decode(payload).unwrap();
+                                let tokens = match request.token.as_str() {
+                                    "fixture-no-replacement" => None,
+                                    "fixture-neutral-replacement" | "fixture-rotated" => {
+                                        Some(rpc::Tokens::default())
+                                    }
+                                    "fixture-partial-replacement" => Some(rpc::Tokens {
+                                        refresh: "fixture-incomplete".into(),
+                                        ..Default::default()
+                                    }),
+                                    "fixture-original" if generation == 0 => Some(rpc::Tokens {
+                                        access: "fixture-rotated".into(),
+                                        ..Default::default()
+                                    }),
+                                    _ => {
+                                        status = "7";
+                                        None
+                                    }
+                                };
+                                frame(rpc::AuthenticateResponse {
+                                    tokens,
+                                    expires_at: None,
+                                })
+                            }
                             "Use" => frame(rpc::UseResponse {
                                 namespace: "namespace".into(),
                                 database: "database".into(),
@@ -709,7 +734,16 @@ async fn start_scripted(
                                 let refused = query.contains("CLEANUP_REFUSED");
                                 failed_subscription_cleanup
                                     .store(refused, std::sync::atomic::Ordering::Release);
-                                if query.contains("NO_BEGIN") {
+                                if query.contains("REGISTRATION_REFUSED") {
+                                    frame(rpc::SubscribeResponse {
+                                        frame: Some(rpc::subscribe_response::Frame::Error(
+                                            proto::SurrealError::new(
+                                                proto::ErrorKind::NotAllowed,
+                                                "fixture registration denial",
+                                            ),
+                                        )),
+                                    })
+                                } else if query.contains("NO_BEGIN") {
                                     Vec::new()
                                 } else {
                                     frame(rpc::SubscribeResponse {

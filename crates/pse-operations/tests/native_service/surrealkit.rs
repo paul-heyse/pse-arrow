@@ -228,6 +228,10 @@ impl SuiteTool<'_> {
         selection: SuiteSelection,
         interrupt_at: Option<PathBuf>,
     ) -> Result<(ExitStatus, Vec<u8>), NativeServiceError> {
+        eprintln!(
+            "SurrealKit fixture phase={}",
+            folder.file_name().unwrap_or_default().to_string_lossy()
+        );
         let (schema_source, suite) = selection.cli();
         let allowance = match selection {
             SuiteSelection::CurrentSchema
@@ -304,6 +308,17 @@ impl SuiteTool<'_> {
             let settlement = child.cancel();
             if child.retained_status().is_some() && settlement.is_ok() {
                 child_pending.store(false, Ordering::Release);
+            }
+            if observed.is_err()
+                && let Some(output) = child.captured_output()
+            {
+                for line in String::from_utf8_lossy(&output.stderr.prefix)
+                    .lines()
+                    .filter(|line| line.starts_with("contract reader:"))
+                    .take(16)
+                {
+                    eprintln!("{}", line.chars().take(4096).collect::<String>());
+                }
             }
             let status = match (observed, settlement) {
                 (Ok(_writer), Ok(status)) => status,
@@ -466,7 +481,14 @@ fn wait_for_project_reader(
         }
     }
     Err(NativeServiceError::Refused(
-        "SurrealKit did not reach the selected interrupted input",
+        match path.file_name().and_then(|name| name.to_str()) {
+            Some("exec-wait") => {
+                "SurrealKit external consumer did not reach its interruption rendezvous"
+            }
+            Some("setup.surql") => "SurrealKit did not reach the selected interrupted setup input",
+            Some("seed.surql") => "SurrealKit did not reach the selected interrupted seed input",
+            _ => "SurrealKit did not reach the selected interrupted input",
+        },
     ))
 }
 
@@ -589,17 +611,19 @@ fn verify_report_population(
             .iter()
             .filter(|case| !case.passed && case.kind == "exec")
         {
-            if let Some(message) = &case.message {
+            let command = case.name.strip_prefix("exec: ").unwrap_or_default();
+            let prefix = format!("`{command}` exited with status ");
+            let code = case
+                .message
+                .as_deref()
+                .and_then(|message| message.strip_prefix(&prefix))
+                .and_then(|status| status.parse::<u8>().ok());
+            if let Some(code) = code {
+                eprintln!("External native consumer exited with status {code}");
+            } else {
                 eprintln!(
-                    "External native consumer: {}",
-                    message.chars().take(4096).collect::<String>()
+                    "External consumer setup or process failed; details remain in its private report"
                 );
-            }
-            for assertion in case.assertions.iter().filter(|assertion| !assertion.passed) {
-                // This fixture's connection-only helper emits sanitized failures;
-                // credentials are environment inputs, never command/report fields.
-                let message = assertion.message.chars().take(4096).collect::<String>();
-                eprintln!("External native consumer {}: {message}", assertion.name);
             }
         }
         return Err(NativeServiceError::Command {

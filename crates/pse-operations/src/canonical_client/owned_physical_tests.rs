@@ -420,8 +420,12 @@ fn acknowledged_query() -> Vec<u8> {
     }));
     bytes
 }
-#[tokio::test]
-async fn early_query_ack_keeps_physical_admission_bounded_and_original_deadline_releases_uploads() {
+async fn early_ack_peer() -> (
+    std::net::SocketAddr,
+    Arc<Mutex<Vec<hyper::body::Incoming>>>,
+    Arc<AtomicUsize>,
+    tokio::task::JoinHandle<()>,
+) {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
     let incoming = Arc::new(Mutex::new(Vec::new()));
@@ -483,6 +487,11 @@ async fn early_query_ack_keeps_physical_admission_bounded_and_original_deadline_
             .serve_connection(TokioIo::new(socket), service)
             .await;
     });
+    (address, incoming, queries, server)
+}
+#[tokio::test]
+async fn early_query_ack_keeps_physical_admission_bounded_and_original_deadline_releases_uploads() {
+    let (address, incoming, queries, server) = early_ack_peer().await;
     let client = Client::connect(address, 1 << 20).await.unwrap();
     let payload = 256 * 1024;
     let metadata = crate::canonical::MetadataResponse::Protection.allocation_bytes();
@@ -546,4 +555,73 @@ async fn early_query_ack_keeps_physical_admission_bounded_and_original_deadline_
         .await
         .unwrap()
         .unwrap();
+}
+
+#[test]
+fn completed_query_drains_on_its_physical_executor_after_the_caller_stops_polling() {
+    // Two independent current-thread runtimes model the physical fixture owner
+    // and a temporary caller. This does not widen either runtime or host policy.
+    let (ready_send, ready) = std::sync::mpsc::sync_channel(1);
+    let (release, release_receive) =
+        tokio::sync::oneshot::channel::<(RequestContext, Arc<dyn MemoryPool>)>();
+    let (finished, settled) = tokio::sync::oneshot::channel();
+    let physical = std::thread::spawn(move || {
+        let executor = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        executor.block_on(async move {
+            let (address, incoming, _, server) = early_ack_peer().await;
+            let client = Client::connect(address, 1 << 20).await.unwrap();
+            ready_send.send(client.clone()).unwrap();
+            let (context, pool) = release_receive.await.unwrap();
+            // The server's withheld receive window is the physical gate. Only
+            // this owner executor is driven while it is released and drained.
+            let bodies = std::mem::take(&mut *incoming.lock().unwrap());
+            for body in bodies {
+                assert!(body.collect().await.unwrap().to_bytes().len() > 200 * 1024);
+            }
+            tokio::time::timeout(Duration::from_secs(2), async {
+                while client.state.active.load(Ordering::Acquire) != 0 || pool.reserved() != 0 {
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await
+            .expect("completed caller cannot strand request ownership on its parked runtime");
+            assert!(context.outbound_is_drained());
+            client.disconnect().await.unwrap();
+            incoming.lock().unwrap().clear();
+            tokio::time::timeout(Duration::from_secs(2), server)
+                .await
+                .unwrap()
+                .unwrap();
+            finished.send(()).unwrap();
+        });
+    });
+    let client = ready.recv_timeout(Duration::from_secs(5)).unwrap();
+    let caller = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let payload = 256 * 1024;
+    let metadata = crate::canonical::MetadataResponse::Protection.allocation_bytes();
+    let pool: Arc<dyn MemoryPool> = Arc::new(GreedyMemoryPool::new(payload * 4 + metadata));
+    let context = owned_context(&pool, payload * 4, Instant::now() + Duration::from_secs(5));
+    caller.block_on(async {
+        let mut response = client
+            .query(format!("RETURN '{}'", "x".repeat(payload)))
+            .request_context(context.clone())
+            .await
+            .unwrap();
+        assert_eq!(response.take::<Option<bool>>(0).unwrap(), Some(true));
+    });
+    assert!(!context.outbound_is_drained());
+    assert_eq!(client.state.active.load(Ordering::Acquire), 1);
+    assert!(pool.reserved() > 0);
+    release.send((context, pool)).unwrap();
+    // In particular, do not call caller.block_on while the original physical
+    // owner finishes the request, its retained grants and the connection.
+    settled.blocking_recv().unwrap();
+    physical.join().unwrap();
+    drop(caller);
 }

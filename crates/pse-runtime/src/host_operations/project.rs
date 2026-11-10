@@ -280,7 +280,6 @@ project_actions! {
     OBSERVATION => StudyObserve {
         request: StudyObservationRequest,
         cursor: Option<StudyObservationCursor>,
-        delay_ms: Option<u64>,
     },
     CANONICAL_COMMAND => Import {
         documents: ProjectDraftDocuments,

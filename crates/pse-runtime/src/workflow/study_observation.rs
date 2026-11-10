@@ -8,7 +8,9 @@ use super::{
 };
 use pse_columnar::CancellationToken;
 use pse_contract::boundary_projection::{Direction, LocalRule, ValidateProjection as _};
-use std::{collections::BTreeMap, sync::Arc, time::Duration};
+#[cfg(test)]
+use std::time::Duration;
+use std::{collections::BTreeMap, sync::Arc};
 const OBSERVED_MEMBERS: LocalRule = LocalRule::UnsignedRange { min: 1, max: 64 };
 const OBSERVED_EVENTS: LocalRule = LocalRule::UnsignedRange { min: 1, max: 512 };
 const MAXIMUM_OBSERVED_SOURCES: usize = 64;
@@ -481,20 +483,6 @@ impl StudyObserver {
         self.closed = true;
         self.cancel.cancel();
         self.live.clear();
-    }
-    /// Wait briefly for another poll; cancellation applies only to this observation future.
-    pub async fn follow(
-        &mut self,
-        interval: Duration,
-    ) -> Result<StudyObservationPage, WorkflowError> {
-        if interval > Duration::from_secs(60) {
-            return Err(contract("observer follow interval exceeds bound"));
-        }
-        self.cancel
-            .until_cancelled(tokio::time::sleep(interval))
-            .await
-            .map_err(pse_engine::EngineError::from)?;
-        self.poll().await
     }
     /// Poll only this complete selected bounded study and its existing original attempt owners.
     pub async fn poll(&mut self) -> Result<StudyObservationPage, WorkflowError> {

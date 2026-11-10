@@ -81,9 +81,9 @@
       "registration_source": "xtask/src/codegen/private_documents.rs",
       "rust_type": "xtask::development::knowledge::KnowledgeExplain",
       "schema_path": "scripts/generated/evidence_schema/knowledge-explain.output.schema.json",
-      "schema_sha256": "0cd7a52238a3e1360dae8c5d7132cfb508a6a61edb28b96b7253161c9b73d6d5",
+      "schema_sha256": "042527475c29e9a09bc473138a648f102a77876afeaf27c71e0e87473f551f68",
       "slug": "knowledge-explain",
-      "version": 1,
+      "version": 2,
       "wire": "Native"
     },
     {
@@ -93,9 +93,9 @@
       "registration_source": "xtask/src/codegen/private_documents.rs",
       "rust_type": "xtask::development::knowledge::KnowledgePage",
       "schema_path": "scripts/generated/evidence_schema/knowledge-page.output.schema.json",
-      "schema_sha256": "b94d8f8443e2bf5d79c77e1c0e0c0b56d83ad03adcdd6ecb84e85d050ca6b96a",
+      "schema_sha256": "c1f95655df02c6ff54c84be2c016f96f2c16cb75d1002f6a8fd030d425a5c025",
       "slug": "knowledge-page",
-      "version": 1,
+      "version": 2,
       "wire": "Native"
     },
     {
@@ -105,12 +105,12 @@
       "registration_source": "xtask/src/codegen/private_documents.rs",
       "rust_type": "xtask::development::knowledge::KnowledgeQuery",
       "schema_path": "scripts/generated/evidence_schema/knowledge-query.input.schema.json",
-      "schema_sha256": "2335868bb524663570b19d4568ec90b2031f6db70d99d71d6030d590e0a66e12",
+      "schema_sha256": "e22b8d7a94d55ac4dd856f9e17e109533aaeda3386b6c397c857b93f07a08b78",
       "slug": "knowledge-query",
-      "version": 1,
+      "version": 2,
       "wire": "Native"
     }
   ],
-  "schema_set_fingerprint": "blake3:6b19f646a50dca528f884bfbf5e10819c0cc8b3f2076feec81e1b1bdcb795f36",
+  "schema_set_fingerprint": "blake3:a1450a3a14124cebe8c13053add137fc936e750efd6bdf5022d48eb77bc786c4",
   "version": 1
 }

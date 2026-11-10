@@ -83,13 +83,33 @@
         "query_digest": {
           "description": "Exact predicate and extent identity.",
           "type": "string"
+        },
+        "ranking_epoch": {
+          "description": "Index population fence, including staged generations.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "score_bits": {
+          "description": "Exact binary64 score bits of the last ranked subject.",
+          "format": "uint64",
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
         }
       },
       "required": [
         "issuing_store",
         "generation",
         "query_digest",
-        "after"
+        "after",
+        "ranking_epoch",
+        "score_bits"
       ],
       "type": "object"
     },
@@ -189,6 +209,47 @@
       ],
       "type": "object"
     },
+    "KnowledgePopulation": {
+      "description": "Population whose complete predicate is evaluated before paging.",
+      "oneOf": [
+        {
+          "additionalProperties": false,
+          "description": "All admitted subjects in the identified generation.",
+          "properties": {
+            "kind": {
+              "const": "selected_generation",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": false,
+          "description": "An intentional caller-supplied subject set, never an implicit prefix.",
+          "properties": {
+            "kind": {
+              "const": "explicit_subjects",
+              "type": "string"
+            },
+            "subjects": {
+              "description": "Exact original subject identities.",
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "kind",
+            "subjects"
+          ],
+          "type": "object"
+        }
+      ]
+    },
     "KnowledgeProduction": {
       "additionalProperties": false,
       "description": "Actual declaration-generator-specific-output correspondence.",
@@ -232,6 +293,45 @@
         "artifact_id",
         "direction",
         "basis"
+      ],
+      "type": "object"
+    },
+    "KnowledgeRank": {
+      "description": "A subject's native best-excerpt ranking; highlights remain plain text.",
+      "properties": {
+        "excerpt_id": {
+          "description": "Original matching excerpt identity.",
+          "type": "string"
+        },
+        "highlight": {
+          "description": "Bounded native highlighted excerpt preview.",
+          "type": "string"
+        },
+        "locator": {
+          "description": "Original source locator for independent inspection.",
+          "type": "string"
+        },
+        "score": {
+          "description": "Finite native BM25 score.",
+          "format": "double",
+          "type": "number"
+        },
+        "source_id": {
+          "description": "Exact original source carrier of the best excerpt.",
+          "type": "string"
+        },
+        "subject_id": {
+          "description": "Original subject identity.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "subject_id",
+        "score",
+        "excerpt_id",
+        "source_id",
+        "locator",
+        "highlight"
       ],
       "type": "object"
     },
@@ -523,12 +623,32 @@
       ],
       "description": "Same-predicate, same-cut continuation."
     },
+    "population": {
+      "$ref": "#/$defs/KnowledgePopulation",
+      "description": "Population promised by this query; a page size does not restrict it."
+    },
     "productions": {
       "description": "Exact production assertions.",
       "items": {
         "$ref": "#/$defs/KnowledgeProduction"
       },
       "type": "array"
+    },
+    "ranking": {
+      "description": "Ranked order and best-excerpt attribution; empty for exact operations.",
+      "items": {
+        "$ref": "#/$defs/KnowledgeRank"
+      },
+      "type": "array"
+    },
+    "ranking_epoch": {
+      "description": "Global full-text population revision used for ranking.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
     },
     "sources": {
       "description": "Complete source membership for independent freshness observation.",
@@ -545,8 +665,8 @@
       "type": "array"
     },
     "version": {
-      "const": 1,
-      "default": 1,
+      "const": 2,
+      "default": 2,
       "description": "Native result encoding version.",
       "type": "integer"
     }
@@ -559,6 +679,9 @@
     "coverage",
     "sources",
     "subjects",
+    "population",
+    "ranking",
+    "ranking_epoch",
     "excerpts",
     "edges",
     "productions",
