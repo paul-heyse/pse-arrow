@@ -184,6 +184,8 @@ pub use pse_model::generated::enums::StudyResultRole;
 /// Prepared operation products; only the existing operation supervisors execute these.
 #[derive(Clone, Debug)]
 pub enum PreparedStudyOperation {
+    /// Source-bound physical scalar observation.
+    SelectedObservation(Box<super::PreparedSelectedObservation>),
     /// Existing algebraic preparation.
     DeclaredCase(Box<ModelingSolvePreparation>),
     /// Existing integration preparation.
@@ -512,6 +514,7 @@ impl OperationPreparation<'_> {
         let compiler = self.preparation.compiler;
         let limits = self.preparation.limits;
         match &self.operation {
+            OperationRequest::SelectedObservation(operation) => Ok(PreparedStudyOperation::SelectedObservation(Box::new(package.prepare_selected_observation(services, operation, self.preparation, self.binding, cancel).await?))),
             OperationRequest::DeclaredCase(case) => package
                 .prepare_case_operation(
                     services,
@@ -889,6 +892,9 @@ impl StudyOperation {
                 ));
             }
             match &self.operation {
+                OperationRequest::SelectedObservation(operation) => {
+                    package.prepare_selected_observation(services, operation, &self.preparation, Some(binding), cancel).await?;
+                }
                 OperationRequest::Simulation(simulation) => {
                     let execution = package
                         .declared_execution(
@@ -971,6 +977,7 @@ impl StudyOperation {
     /// Declared owner products, never a claim that the run produced usable members.
     pub fn output_roles(&self) -> Vec<StudyResultRole> {
         match &self.operation {
+            OperationRequest::SelectedObservation(_) => vec![StudyResultRole::SelectedObservations],
             OperationRequest::DeclaredCase(_) => vec![StudyResultRole::CaseResult],
             OperationRequest::Simulation(_) => vec![StudyResultRole::Trajectory],
             OperationRequest::Fit(fit) => {
@@ -1047,7 +1054,7 @@ impl PreparedStudyOperation {
     pub fn seed_need(&self) -> SeedNeed {
         match self {
             Self::DeclaredCase(case) if case.solve.compatibility().is_some() => SeedNeed::Required,
-            Self::DeclaredCase(_) | Self::Simulation(_) | Self::Fit(_) | Self::Horizon(_) => {
+            Self::SelectedObservation(_) | Self::DeclaredCase(_) | Self::Simulation(_) | Self::Fit(_) | Self::Horizon(_) => {
                 SeedNeed::NotNeeded
             }
         }
@@ -1067,6 +1074,7 @@ impl PreparedStudyOperation {
         }
         let dispatch = extent(|attempt| self.start_attempt(services, cancel, attempt));
         let branch = match self {
+            Self::SelectedObservation(observation) => extent(|attempt| observation.start_attempt(services, attempt, cancel)),
             Self::DeclaredCase(case) => extent(|attempt| {
                 services.start_attempt(vec![case.as_ref().clone()], attempt, cancel)
             }),
@@ -1101,6 +1109,7 @@ impl PreparedStudyOperation {
     ) -> Result<RunHandle, WorkflowError> {
         let mut work: futures_util::future::BoxFuture<'_, Result<RunHandle, WorkflowError>> =
             match self {
+                Self::SelectedObservation(observation) => super::worker::boxed_worker_action(|| observation.start_attempt(services, attempt, cancel)),
                 Self::DeclaredCase(case) => super::worker::boxed_worker_action(|| {
                     services.start_attempt(vec![case.as_ref().clone()], attempt, cancel)
                 }),
@@ -1155,6 +1164,7 @@ impl PreparedStudyOperation {
     ) -> Result<RunHandle, WorkflowError> {
         super::run::RunSupervisor::check_launch_cancel(Some(cancel))?;
         match self {
+            Self::SelectedObservation(observation) => observation.start(services, cancel),
             Self::DeclaredCase(case) => {
                 services
                     .start_modeling(vec![case.as_ref().clone()], false, cancel)
@@ -1196,7 +1206,7 @@ pub(in crate::workflow) fn scientific_facts(result: &RunResult) -> ScientificFac
         seed_permission: single.is_some_and(|assessment| assessment.permits_seed),
     }
 }
-fn validate_declared(
+pub(in crate::workflow) fn validate_declared(
     case: DeclarationId,
     route: ModelingAnalysisRoute,
     execution: &super::DeclaredExecution,

@@ -467,3 +467,9 @@ the series under ADR-0096. There is no implementation Outcome yet.
 ## Execution checkpoint — 2026-11-10
 
 Execution begins at clean baseline `e427c474b`. ADR-0265/0266 establish the new scientific contracts before dependent implementation. The approved scope includes typed selected-observation members beside ordinary case solves. Existing A–C products remain foundations; root owns shared schema/native/result integration and three assignments own D, E and F implementation. Package completion requires actual consumer cutover, deletions and scoped acceptance; Plan66 and H retain their separate scope.
+
+The shared exact-objective and controlled diagnostic core is committed in `c0736fa18`.
+The original selected core batch passed 36 tests; the second diagnostic/Gram/root batch passed
+16 tests. Compiler source admission, retained reduction use, final supplier controls and the
+ordinary native mathematical publication/reader are still being integrated and qualified.
+These bounded passes do not close D01–D06 or qualify physical feasibility.

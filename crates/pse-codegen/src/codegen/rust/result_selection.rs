@@ -79,7 +79,10 @@ pub(super) fn render(reg: &Registry) -> Result<TokenStream, SchemaError> {
                 relation.key.qualified_name()
             ))
         })?;
-        if values.is_empty() || step.is_some() && experiment.is_some() {
+        // Original mathematical/context products have meaningful run/owner keys
+        // without a scalar value. Value predicates still admit only the declared
+        // Float64 fields; a context product cannot manufacture one.
+        if step.is_some() && experiment.is_some() {
             return Err(super::error(format!(
                 "{} has an incomplete result selection contract",
                 relation.key.qualified_name()
@@ -161,7 +164,7 @@ mod tests {
                 &entry.fields
             })
             .collect::<Vec<_>>();
-        assert_eq!(fields.len(), 5);
+        assert_eq!(fields.len(), 10);
         let field = |fields: &syn::punctuated::Punctuated<syn::FieldValue, syn::token::Comma>,
                      name: &str| {
             fields
@@ -207,6 +210,12 @@ mod tests {
             fields
                 .iter()
                 .any(|fields| strings(field(fields, "values")) == ["value", "scale"])
+        );
+        assert!(
+            fields
+                .iter()
+                .any(|fields| strings(field(fields, "values")).is_empty()),
+            "mathematical products retain original run/owner selection without inventing a scalar"
         );
     }
 }

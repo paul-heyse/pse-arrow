@@ -14,6 +14,8 @@ use std::sync::Arc;
 
 mod adoption;
 mod ingress;
+mod analytical;
+mod expectation;
 mod inspection;
 mod outgoing;
 mod responses;
@@ -167,6 +169,8 @@ impl Implementation {
 }
 
 impl bindings::EngineeringService for Implementation {
+    expectation::methods!();
+    analytical::methods!();
     inspection::methods!();
     async fn inspect_physical<'a>(
         &'a self,

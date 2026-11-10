@@ -455,6 +455,9 @@ impl SpecializedModel {
                 .sum::<usize>()
             + crate::expression::occurrences::retained_bytes(self.source_occurrences())
             + self.finite_facts.retained_bytes()
+            + map(&self.indexed_contractions, |_, contraction| {
+                contraction.retained_bytes()
+            })
             + selections(&self.selection_closures)
             + map(&self.root_selections, |_, s| match s {
                 crate::specialize::RootSelection::Branch { inspection, .. } => {

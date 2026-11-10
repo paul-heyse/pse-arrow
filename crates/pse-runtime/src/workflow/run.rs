@@ -664,6 +664,9 @@ impl RunResult {
             .map(|recorder| recorder.projection())
             .unwrap_or((None, InvocationEndpoints::default(), Vec::new(), 0, None));
         let family = match self.original_request() {
+            RunRequest::Expectation(_) => "expectation",
+            RunRequest::Mathematical(_) => "mathematical",
+            RunRequest::SelectedObservation(_) => "selected_observation",
             RunRequest::Initialization(_) => "initialization",
             RunRequest::Horizon(_) => "horizon",
             RunRequest::Modeling(_) => "modeling",
@@ -2877,3 +2880,9 @@ mod scientific_product_tests {
         );
     }
 }
+
+mod selected_observation;
+
+mod mathematical;
+
+mod expectation;

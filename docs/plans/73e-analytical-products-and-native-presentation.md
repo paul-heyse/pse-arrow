@@ -505,3 +505,12 @@ with the series under ADR-0096. No implementation Outcome is claimed by this dra
 ## Execution checkpoint — 2026-11-10
 
 Execution begins at clean baseline `e427c474b`. ADR-0265/0266 establish the new scientific contracts before dependent implementation. The approved scope includes typed selected-observation members beside ordinary case solves. Existing A–C products remain foundations; root owns shared schema/native/result integration and three assignments own D, E and F implementation. Package completion requires actual consumer cutover, deletions and scoped acceptance; Plan66 and H retain their separate scope.
+
+The selected analytical core is committed in `0b061fbd6`, with five selected tests passing.
+Original indexed contractions, source-aware compiler/runtime producers, native printer products,
+ordinary issued mathematical operations and protected readers are now in integration. The
+conditional integration companion is not selected: authored caloric primitives already support
+the mandatory derivative/series/identity consumer, while the compatible companion lacks the
+required complete scoped-control/cache contract. A named missing caloric antiderivative or
+an upstream controlled API is the reopen trigger. Padé and bounded integer-relation research
+remain selected work. Native and source-consumer acceptance is still open.

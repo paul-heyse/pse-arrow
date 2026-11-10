@@ -480,9 +480,9 @@ fn admit_rational_normalization(
             })?,
             AtomView::Pow(power) => {
                 let (mut n, mut d) = extent(power.get_base(), limits, scope, depth + 1)?;
-                let exponent = i64::try_from(power.get_exp()).map_err(|_| {
-                    MathError::Contract("nonintegral rational normalization exponent".into())
-                })?;
+                let Ok(exponent) = i64::try_from(power.get_exp()) else {
+                    return Ok((1, 1));
+                };
                 if exponent < 0 {
                     std::mem::swap(&mut n, &mut d);
                 }
@@ -908,6 +908,13 @@ impl SelectedExpression {
         scope: &ExecutionScope,
     ) -> Result<(), MathError> {
         for requirement in &self.requirements {
+            crate::typed::admit_exact_source_substitution(
+                &requirement.argument,
+                axis,
+                point,
+                limits,
+                scope,
+            )?;
             let argument = requirement
                 .argument
                 .replace(axis.clone())
@@ -1021,6 +1028,7 @@ impl SelectedExpression {
         };
         // Native polynomial conversion leaves nonpolynomial parts as coefficients.
         // Only coordinate-independent coefficients establish exact finite termination.
+        admit_rational_normalization(&self.expression, limits, scope)?;
         let polynomial = self.expression.to_polynomial_in_vars::<u32>(axis.clone());
         let exactly_terminating = polynomial
             .coefficients

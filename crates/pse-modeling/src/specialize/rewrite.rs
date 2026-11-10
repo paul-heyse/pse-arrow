@@ -687,17 +687,29 @@ impl Engine<'_, '_> {
                     self.lexical_references
                         .insert(binder.var.clone(), reference);
                 }
-                return self.finish_finite_reduction(
+                let selection = finite::ReductionSelection {
+                    carrier,
+                    selected: selected_members.into(),
+                };
+                let indexed = if *kind == ReduceKind::Sum {
+                    self.original_contraction(
+                        instance, at, binder, body, &env, &selection, &prototype, &source,
+                    )?
+                } else {
+                    None
+                };
+                let result = self.finish_finite_reduction(
                     *kind,
-                    finite::ReductionSelection {
-                        carrier,
-                        selected: selected_members.into(),
-                    },
+                    selection,
                     (prototype, result_type),
                     terms,
                     source,
                     at,
-                );
+                )?;
+                if let Some(indexed) = indexed {
+                    self.model.indexed_contractions.insert(result.root, indexed);
+                }
+                return Ok(result);
             }
             ExprKind::Fold { .. } => return self.fold(instance, expression, &env, chain, source),
             ExprKind::Let { bindings, body } => {

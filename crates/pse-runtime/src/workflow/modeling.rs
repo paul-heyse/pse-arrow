@@ -149,7 +149,13 @@ pub use providers::{
     ProviderInspectionRequest,
 };
 mod numerical_observation;
+mod mathematical_diagnostics;
+pub use mathematical_diagnostics::MathematicalDiagnosticOperation;
 mod observation_batch;
+mod analytical;
+pub use analytical::AuthoredAnalyticalResult;
+mod selected_observation;
+pub use selected_observation::{CompletedSelectedObservation, PreparedSelectedObservation, SelectedObservationPopulation, SelectedObservationValues};
 mod portable_preparation;
 pub(super) mod results;
 mod symbolic_preparation;

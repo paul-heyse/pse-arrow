@@ -235,6 +235,7 @@ impl From<MathError> for CompileError {
 type Result<T> = std::result::Result<T, CompileError>;
 mod modeling;
 pub use modeling::{
+    AnalyticalOperation, AnalyticalCoordinate, AnalyticalOutput, AnalyticalSource, CompiledAnalyticalResult,
     AdmittedImplicit, AdmittedModeling, AnnotationObservation, AutomaticCausalUnit, BoundLookup,
     BoundLookupKey, BoundStructure, CompilerView, ConditionalUnitInventory, Derivation, Derived,
     FlowConnectionDocument, FlowSelectionDocument, ImplicitAlgorithm, ImplicitCapabilities,

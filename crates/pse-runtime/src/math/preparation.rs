@@ -137,6 +137,9 @@ pub(crate) struct OwnedModelingFrontier {
     generation: u64,
 }
 impl OwnedModelingFrontier {
+    pub(crate) fn product(&self) -> &ModelingPreparationFrontier {
+        &self.product
+    }
     pub(crate) fn body_requests(
         &self,
     ) -> impl Iterator<Item = pse_ids::roles::SemanticBodyHash> + '_ {

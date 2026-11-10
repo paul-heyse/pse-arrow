@@ -448,7 +448,10 @@ impl RunResult {
                 .modeling_failure
                 .as_ref()
                 .and_then(|failure| failure.step),
-            RunRequest::Initialization(_)
+            RunRequest::Expectation(_)
+            | RunRequest::Mathematical(_)
+            | RunRequest::SelectedObservation(_)
+            | RunRequest::Initialization(_)
             | RunRequest::Horizon(_)
             | RunRequest::Simulation(_)
             | RunRequest::Fit(_) => Some(0),

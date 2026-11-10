@@ -80,6 +80,9 @@ pub struct SelectedRegion {
     pub occurrences: BTreeMap<SemanticId, pse_model::diagnostic::SourceLocation>,
     /// Actual current numerical and guard dependency identities.
     pub reads: RegionReads,
+    /// Actual source contractions keyed by compact reduction roots. These identities
+    /// are receiving attribution, outside reusable scalar mathematical identity.
+    pub indexed: BTreeMap<NodeIx, OriginalContraction>,
 }
 impl SelectedRegion {
     /// Conservative owned-container extent, including current receiver attribution.
@@ -112,6 +115,12 @@ impl SelectedRegion {
             .saturating_add(self.derivations.retained_bytes())
             .saturating_add(map(&self.occurrences))
             .saturating_add(
+                self.indexed
+                    .values()
+                    .map(OriginalContraction::retained_bytes)
+                    .sum::<usize>(),
+            )
+            .saturating_add(
                 self.occurrences
                     .values()
                     .map(pse_model::diagnostic::SourceLocation::heap_bytes)
@@ -132,6 +141,7 @@ impl PartialEq for SelectedRegion {
             && self.support_identity == other.support_identity
             && self.inputs == other.inputs
             && self.bindings == other.bindings
+            && self.indexed == other.indexed
             && self.attribution == other.attribution
             && self.reads == other.reads
             && self.checked_members == other.checked_members
@@ -416,6 +426,16 @@ impl crate::SpecializedModel {
         }
         let support_identity = support_identity(&support);
         let occurrences = occurrences::collect(self, &syntax, &attribution)?;
+        let indexed = self
+            .indexed_contractions
+            .iter()
+            .filter_map(|(root, contraction)| {
+                relocation
+                    .nodes
+                    .get(root)
+                    .map(|local| (*local, contraction.clone()))
+            })
+            .collect();
         Ok(SelectedRegion {
             syntax,
             inputs,
@@ -428,6 +448,7 @@ impl crate::SpecializedModel {
             checked_sources,
             derivations,
             occurrences,
+            indexed,
         })
     }
 }
@@ -1323,6 +1344,16 @@ impl SelectedRegion {
         let support_identity = support_identity(&support);
         let occurrences =
             occurrences::reselect(&self.syntax, &syntax, &self.occurrences, &relocation)?;
+        let indexed = self
+            .indexed
+            .iter()
+            .filter_map(|(old, value)| {
+                relocation
+                    .nodes
+                    .get(old)
+                    .map(|local| (*local, value.clone()))
+            })
+            .collect();
         Ok(Self {
             syntax,
             inputs,
@@ -1335,6 +1366,7 @@ impl SelectedRegion {
             checked_sources,
             derivations: self.derivations.clone(),
             occurrences,
+            indexed,
         })
     }
 }

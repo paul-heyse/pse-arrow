@@ -24,6 +24,42 @@ pub struct ResultSelection {
 pub const RESULT_SELECTIONS: &[ResultSelection] = &[
     ResultSelection {
         relation: pse_ids::SemanticId::from_bytes([
+            144u8, 23u8, 84u8, 0u8, 33u8, 196u8, 162u8, 130u8, 82u8, 242u8, 38u8, 49u8,
+            230u8, 192u8, 243u8, 38u8,
+        ]),
+        run: "run_id",
+        owner: "output_id",
+        step: None,
+        experiment: None,
+        sort: &[],
+        values: &["estimate"],
+    },
+    ResultSelection {
+        relation: pse_ids::SemanticId::from_bytes([
+            145u8, 36u8, 7u8, 81u8, 13u8, 204u8, 197u8, 45u8, 56u8, 183u8, 128u8, 96u8,
+            214u8, 61u8, 1u8, 56u8,
+        ]),
+        run: "run_id",
+        owner: "child_id",
+        step: None,
+        experiment: None,
+        sort: &[],
+        values: &["proposal_weight"],
+    },
+    ResultSelection {
+        relation: pse_ids::SemanticId::from_bytes([
+            132u8, 254u8, 49u8, 9u8, 213u8, 39u8, 34u8, 92u8, 63u8, 9u8, 22u8, 229u8,
+            216u8, 241u8, 165u8, 203u8,
+        ]),
+        run: "run_id",
+        owner: "parent_id",
+        step: None,
+        experiment: None,
+        sort: &[],
+        values: &["failure_probability"],
+    },
+    ResultSelection {
+        relation: pse_ids::SemanticId::from_bytes([
             72u8, 80u8, 229u8, 187u8, 141u8, 59u8, 124u8, 11u8, 116u8, 112u8, 248u8,
             108u8, 61u8, 88u8, 247u8, 71u8,
         ]),
@@ -50,6 +86,30 @@ pub const RESULT_SELECTIONS: &[ResultSelection] = &[
         experiment: None,
         sort: &["run_id", "parameter_id"],
         values: &["value", "scale"],
+    },
+    ResultSelection {
+        relation: pse_ids::SemanticId::from_bytes([
+            197u8, 177u8, 87u8, 2u8, 66u8, 129u8, 209u8, 107u8, 31u8, 114u8, 222u8,
+            115u8, 69u8, 222u8, 4u8, 30u8,
+        ]),
+        run: "run_id",
+        owner: "source_id",
+        step: None,
+        experiment: None,
+        sort: &["run_id", "ordinal"],
+        values: &[],
+    },
+    ResultSelection {
+        relation: pse_ids::SemanticId::from_bytes([
+            49u8, 136u8, 230u8, 238u8, 69u8, 16u8, 62u8, 50u8, 196u8, 181u8, 31u8, 58u8,
+            99u8, 161u8, 130u8, 246u8,
+        ]),
+        run: "run_id",
+        owner: "member_id",
+        step: None,
+        experiment: None,
+        sort: &["run_id", "ordinal"],
+        values: &["value"],
     },
     ResultSelection {
         relation: pse_ids::SemanticId::from_bytes([

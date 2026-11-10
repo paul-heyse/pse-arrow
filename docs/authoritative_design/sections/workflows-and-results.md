@@ -1163,6 +1163,28 @@ proposal, accumulators, streams and merged coverage; recovery resumes that seale
 not a newly seeded substitute population. Producer-independent reading uses original stored
 products and permissions without resampling or acquiring broader payload access.
 
+The generated native request reconstructs a typed parent controller. It issues each frozen
+population as an immutable ordinary study; the existing managed scientific worker reconstructs
+the case or selected-observation member operations. Adaptive control is not recursively
+scheduled as another finite study member. Eligible local pure observations share the selected
+batch realization and retain a separate original completion for each occurrence. Native
+case solves retain their ordinary scalar route.
+
+Immutable request, proposal and boundary records support reconciliation. A separate terminal
+parent decision distinguishes a stopped population from its last complete adaptation boundary.
+The producing ordinary run publishes registered summaries, original samples and typed output
+estimates under its sealed canonical result manifest. The parent publication locator binds
+that exact run, attempt and manifest. Public readers select those recorded products through
+existing result protection and retain their snapshot and allocation custody through response
+or export drain. They do not decode the recovery journal to regenerate missing data. Sample
+pages are clipped to the selected original child, including an empty page beyond its extent.
+
+Relative nominal error targets refer to the declared reference-centered mean; absolute targets
+are physical intervals. When no target is selected, precision is unclaimed even if the requested
+finite population completes. An undefined joint pushforward at a positive-mass base point is
+an invalid declared law and refuses before downstream child activation. Missing physical
+outputs in an admitted child remain missing, and cannot be renormalized into an expectation.
+
 ### 19.4 Parameter estimation
 
 > Decision: [ADR-0218](../../adr/0218-scientific-research-workbench.md) (proposed; maintainer-authorized Plan51c target).

@@ -11,7 +11,7 @@ mod session;
 pub use readiness::{EngineeringFixtureReady, EngineeringFrontendReady};
 #[cfg(feature = "engineering-service")]
 pub use session::{
-    EngineeringModelingOutput, EngineeringPhysicalOutput, EngineeringProviderPreparation,
+    EngineeringExpectationOutput, EngineeringExpectationSamplesOutput, EngineeringModelingOutput, EngineeringPhysicalOutput, EngineeringProviderPreparation,
     EngineeringResultOutput, EngineeringService, EngineeringServiceError, EngineeringStudyOutput,
 };
 

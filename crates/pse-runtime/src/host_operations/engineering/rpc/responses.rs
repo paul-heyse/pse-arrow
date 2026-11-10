@@ -54,6 +54,9 @@ macro_rules! selected_response {
 }
 
 impl EngineeringClient {
+    fixed_response!(inner, execute_expectation, execute_expectation_with_options, EngineeringExecuteExpectation, ExpectationReportView, "Execute or reconcile the original explicit-measure parent.");
+    fixed_response!(inner, read_expectation, read_expectation_with_options, EngineeringReadExpectation, ExpectationReportView, "Read the retained original expectation without preparing science.");
+    fixed_response!(inner, read_expectation_samples, read_expectation_samples_with_options, EngineeringReadExpectationSamples, EngineeringExpectationSamplesView, "Read bounded original sample attribution and physical observations.");
     fixed_response!(
         inner,
         describe_contract,

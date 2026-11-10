@@ -1237,6 +1237,19 @@ mod result_projection_unit {
     }
 
     #[test]
+    fn mathematical_products_refuse_scalar_predicates_without_inventing_values() {
+        let relation = pse_relations::generated::runtime::mathematical_products::RELATION_ID;
+        let selection = pse_relations::generated::result_selection::for_relation(relation).unwrap();
+        assert_eq!(selection.run, "run_id");
+        assert_eq!(selection.owner, "source_id");
+        assert!(selection.values.is_empty());
+        for field in ["source_context", "result_context", "native_views", "supported", "value"] {
+            assert!(scalar_expression(relation, field, None, None, None).is_err());
+            assert!(scalar_expression(relation, field, Some(0.0), None, Some(false)).is_err());
+        }
+    }
+
+    #[test]
     fn native_scalar_predicates_keep_ieee_payloads_and_conditional_finite_modes() {
         use datafusion::arrow::{
             datatypes::{DataType, Field, Schema},

@@ -145,3 +145,18 @@ F05 starts when F01–F04 function together. It finishes with targeted journeys 
 ## Execution checkpoint — 2026-11-10
 
 Execution begins at clean baseline `e427c474b`. ADR-0265/0266 establish the new scientific contracts before dependent implementation. The approved scope includes typed selected-observation members beside ordinary case solves. Existing A–C products remain foundations; root owns shared schema/native/result integration and three assignments own D, E and F implementation. Package completion requires actual consumer cutover, deletions and scoped acceptance; Plan66 and H retain their separate scope.
+
+The nested sampler-fork correction is committed in `2dbd7509e`; the serde feature/lock selection
+is committed in `875058229`. Fixed/adaptive estimator preparation, original physical observation
+members, source-owned joint transforms, local pure-member batching and protected child-output
+selection are implemented and under targeted verification. Native execution now has immutable
+parent/proposal/boundary custody and a distinct terminal-parent report: a completed adaptation
+subset cannot stand in for parent completion. Registered sample/estimate projections and native
+report/sample readers are implemented through the ordinary producing run's sealed result
+manifest. The immutable recovery journal does not substitute for published data. A generated
+native request reconstructs the parent controller, whose finite child operations are reconstructed
+by the existing managed scientific worker; eligible local pure observations consume C's batch
+owner with original per-occurrence completions. An unavailable required output withholds its
+estimate and standard error, preserving original points/counts without a successful-subset mean.
+End-to-end heater, cancellation, replay and independent reader journeys remain required;
+F01–F05 are not yet closed.

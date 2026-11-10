@@ -641,6 +641,28 @@ impl RunResult {
         )?;
         out.document.failure = self.error().map(ToString::to_string);
         match self.replay_request() {
+            RunRequest::Expectation(expectation) => {
+                select_single(request)?;
+                out.source(&expectation.source,0)?;
+                out.fact("/expectation/constructor".into(),"explicit-measure-expectation.v1",&super::replay::expectation_request_facts(expectation)?.constructor)?;
+                if let Ok(super::RunReport::Expectation(product)) = self.report() { out.fact("/expectation/report".into(),"expectation-report.v1",&product.report)?; }
+            }
+            RunRequest::Mathematical(mathematical) => {
+                select_single(request)?;
+                out.source(&mathematical.source, 0)?;
+                out.fact("/mathematical/constructor".into(), "selected-mathematical.v1", &super::replay::mathematical_request_facts(mathematical)?.constructor)?;
+                if let Ok(super::RunReport::Mathematical(product)) = self.report() {
+                    out.fact("/mathematical/product".into(), "mathematical-product.v1", product)?;
+                }
+            }
+            RunRequest::SelectedObservation(observation) => {
+                select_single(request)?;
+                out.source(&observation.source, 0)?;
+                out.fact("/observation/constructor".into(), "selected-observation.v1", &super::replay::selected_observation_request_facts(observation)?.constructor)?;
+                if let Ok(super::RunReport::SelectedObservation(values)) = self.report() {
+                    out.fact("/observation/values".into(), "selected-observation-values.v1", values)?;
+                }
+            }
             RunRequest::Initialization(initialization) => {
                 if request.steps.iter().any(|step| *step != 0) {
                     return Err(contract(

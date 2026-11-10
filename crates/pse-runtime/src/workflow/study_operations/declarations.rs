@@ -3,6 +3,39 @@
 // Actual source declarations; original native methods and admission remain beside the owner.
 
 pse_contract::projection_struct! {
+/// One authored scalar output and its requested physical representation.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SelectedObservationOutput {
+    projection: { name: "SelectedObservationOutput", rust_path: crate::workflow::SelectedObservationOutput, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    /// Contextually resolved member in the original source; never a formula string.
+    pub member: crate::workflow::BindingTarget => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    /// Required output quantity, checked against actual inferred source support.
+    pub quantity: pse_quantity::QuantityTypeId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    /// Registered output representation unit.
+    pub unit: pse_quantity::UnitId => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
+}
+pse_contract::projection_struct! {
+/// Original physically admitted scalar observations, distinct from equation residuals and solves.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SelectedObservationOperation {
+    projection: { name: "SelectedObservationOperation", rust_path: crate::workflow::SelectedObservationOperation, version: 1,
+        direction: pse_contract::boundary_projection::Direction::Both, reserved_tags: [], reserved_names: [] };
+    /// Original selected source definition.
+    pub root: DeclarationId => { tag: 1, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    /// Original specialized occurrence.
+    pub instance: pse_model::generated::identities::InstanceId => { tag: 2, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    /// Structural inputs; numerical point values use the ordinary binding owner.
+    pub bindings: pse_modeling::Bindings => { tag: 3, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+    /// Ordered actual physical scalar outputs.
+    pub outputs: Vec<SelectedObservationOutput> => { tag: 4, direction: pse_contract::boundary_projection::Direction::Both, rules: [] };
+}
+}
+
+pse_contract::projection_struct! {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 /// One existing authored solve and its native settings document.
@@ -159,5 +192,7 @@ pse_contract::projection_enum! {
         Fit(FitOperation) => 3;
         /// Existing closed-loop horizon owner.
         Horizon(Box<HorizonOperation>) => 4;
+        /// Original physically typed selected scalar observations.
+        SelectedObservation(SelectedObservationOperation) => 5;
     }
 }

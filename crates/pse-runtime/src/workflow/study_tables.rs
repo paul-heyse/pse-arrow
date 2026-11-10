@@ -52,6 +52,7 @@ pub(in crate::workflow) fn admission_projection(
     point: &StudyPointDefinition,
 ) -> Result<Vec<u8>, WorkflowError> {
     let case_id = match &point.operation.operation {
+        OperationRequest::SelectedObservation(_) => None,
         OperationRequest::DeclaredCase(case) => Some(case.case),
         OperationRequest::Simulation(simulation) => Some(simulation.case),
         OperationRequest::Fit(_) => None,
@@ -87,6 +88,7 @@ pub(in crate::workflow) fn outcome_row(
         study_id,
         point_index: i64::from(outcome.key.0),
         case_id: match point.map(|point| &point.operation.operation) {
+            Some(OperationRequest::SelectedObservation(_)) => None,
             Some(OperationRequest::DeclaredCase(case)) => Some(case.case),
             Some(OperationRequest::Simulation(simulation)) => Some(simulation.case),
             Some(OperationRequest::Fit(_)) | None => None,

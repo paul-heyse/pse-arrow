@@ -437,6 +437,35 @@ pub struct ReplayCoverage {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ReplayConstructor {
+    /// Original measure and sample policy. A fresh replay is a same-seed population replay, not an independent statistical replicate.
+    Expectation {
+        /// Original positional scientific source.
+        source_position: usize,
+        /// Original immutable statistical parent.
+        parent: pse_model::generated::identities::StudyId,
+        /// Actual admitted request; no supplier Grid or private checkpoint is accepted here.
+        request: super::expectation::ExpectationRequest,
+    },
+    /// Original selected mathematical operation without supplier executable state.
+    Mathematical {
+        /// Original positional immutable source.
+        source_position: usize,
+        /// Actual selected source members and requested mathematical meaning.
+        request: super::MathematicalRequest,
+        /// Exact original preparation policy.
+        preparation: super::PreparationSettings,
+    },
+    /// Exact original source-bound selected physical observation.
+    SelectedObservation {
+        /// Position in the retained immutable source inventory.
+        source_position: usize,
+        /// Original selected members and physical representations.
+        operation: super::SelectedObservationOperation,
+        /// Actual preparation policy.
+        settings: super::PreparationSettings,
+        /// Actual canonical physical input coordinates.
+        values: BTreeMap<SemanticId, f64>,
+    },
     /// Original authored initialization, without manufacturing a prepared numerical point.
     Initialization {
         /// Exact original analysis constructor and physical source position.
@@ -514,6 +543,15 @@ pub(super) struct ReplayRequestFacts {
     pub solver_settings: Vec<ReplaySolverSettings>,
     pub contexts: Vec<pse_model::generated::runtime::scientific_contexts::Row>,
     pub constructor: ReplayConstructor,
+}
+pub(super) fn expectation_request_facts(request: &super::expectation::PreparedExpectationOperation) -> Result<ReplayRequestFacts, WorkflowError> {
+    Ok(ReplayRequestFacts { runtime_premises: vec![], solver_settings: vec![], contexts: vec![], constructor: ReplayConstructor::Expectation { source_position:0, parent:request.parent, request:request.request.clone() } })
+}
+pub(super) fn mathematical_request_facts(request: &super::PreparedMathematicalOperation) -> Result<ReplayRequestFacts, WorkflowError> {
+    Ok(ReplayRequestFacts { runtime_premises: vec![], solver_settings: vec![], contexts: vec![], constructor: ReplayConstructor::Mathematical { source_position: 0, request: request.request.clone(), preparation: request.preparation.clone() } })
+}
+pub(super) fn selected_observation_request_facts(request: &super::PreparedSelectedObservation) -> Result<ReplayRequestFacts, WorkflowError> {
+    Ok(ReplayRequestFacts { runtime_premises: vec![], solver_settings: vec![], contexts: vec![], constructor: ReplayConstructor::SelectedObservation { source_position: 0, operation: request.operation.clone(), settings: request.settings.clone(), values: request.values.scalars.clone() } })
 }
 pub(super) fn initialization_request_facts(
     request: &super::PreparedInitializationOperation,
@@ -882,6 +920,13 @@ impl ScientificReplay {
             return Err(crate::math::MathRuntimeError::Cancelled.into());
         }
         match self.inputs() {
+            RunRequest::Expectation(original) => {
+                let mut replay = original.clone();
+                replay.parent = pse_operations::mint_id();
+                replay.start(&self.result.services, cancel)
+            }
+            RunRequest::Mathematical(original) => original.start(&self.result.services, cancel),
+            RunRequest::SelectedObservation(original) => original.start(&self.result.services, cancel),
             RunRequest::Initialization(original) => {
                 let mut source = original.source.clone();
                 source.held_preparation = None;
@@ -3896,6 +3941,9 @@ pub struct ReplayDecisionDocument {
 impl ScientificReplay {
     fn constructor_extent(&self) -> Result<usize, WorkflowError> {
         let original = match self.inputs() {
+            RunRequest::Expectation(request) => super::study_variants::document_extent(&request.request, 16 << 20)?,
+            RunRequest::Mathematical(request) => super::study_variants::document_extent(&(&request.request, &request.preparation), 16 << 20)?,
+            RunRequest::SelectedObservation(request) => super::study_variants::document_extent(&(&request.operation, &request.settings, &request.values.scalars), 16 << 20)?,
             RunRequest::Initialization(request) => {
                 let analysis = &request.execution.analysis;
                 // Count borrowed variable metadata before cloning the portable
@@ -4135,6 +4183,10 @@ pub(in crate::workflow) fn source_reconstruction_extent(
 #[derive(Clone, Copy, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ReplayNativeRecordCoverage {
+    /// Actual native attempt evidence belongs to the retained original finite child studies.
+    OriginalStudyMembers,
+    /// Pure original mathematical observations dispatch no native solver.
+    NoNativeRecords,
     /// All native reports produced by retained strategy operations have compact records.
     StrategyAttempts,
     /// Integration retains its trajectory report and partial coverage; per-attempt adapter

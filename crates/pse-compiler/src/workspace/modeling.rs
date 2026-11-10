@@ -1283,6 +1283,7 @@ pub use conditional::{AutomaticCausalUnit, ConditionalUnitInventory};
 pub(super) mod executable;
 mod flow;
 pub use executable::{
+    AnalyticalOperation, AnalyticalSource, AnalyticalCoordinate, AnalyticalOutput, CompiledAnalyticalResult,
     AdmittedImplicit, AdmittedModeling, AnnotationObservation, BoundLookup, BoundLookupKey,
     BoundStructure, CompilerView, Derivation, Derived, ImplicitAlgorithm, ImplicitCapabilities,
     ImplicitMeaning, ImplicitProgramRequest, ImplicitPrograms, ImplicitScale, ImplicitSelection,

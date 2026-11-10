@@ -28,6 +28,9 @@ pub(in crate::workflow) async fn assert_review_transport(
             assert_eq!(document.facts.iter().find(|fact| fact.path == path).unwrap().payload, expected);
         };
         match result.replay_request() {
+            RunRequest::Expectation(request) => exact_fact("/expectation/constructor", serde_json::to_vec(&replay::expectation_request_facts(request).unwrap().constructor).unwrap()),
+            RunRequest::Mathematical(request) => exact_fact("/mathematical/constructor", serde_json::to_vec(&replay::mathematical_request_facts(request).unwrap().constructor).unwrap()),
+            RunRequest::SelectedObservation(request) => exact_fact("/observation/constructor", serde_json::to_vec(&replay::selected_observation_request_facts(request).unwrap().constructor).unwrap()),
             RunRequest::Initialization(initialization) => {
                 exact_fact("/initialization/policy", serde_json::to_vec(initialization.policy().unwrap()).unwrap());
                 exact_fact("/initialization/constructor", serde_json::to_vec(&ReplayCaseConstructor::from_analysis(0, &initialization.execution.analysis).unwrap()).unwrap());

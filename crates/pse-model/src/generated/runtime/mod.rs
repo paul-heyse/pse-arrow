@@ -49,6 +49,16 @@ pub mod r#canonical_edges;
 ///Generated relation contract.
 pub mod r#canonical_execution_operations;
 ///Generated relation contract.
+pub mod r#canonical_expectation_boundaries;
+///Generated relation contract.
+pub mod r#canonical_expectation_finalizations;
+///Generated relation contract.
+pub mod r#canonical_expectation_proposals;
+///Generated relation contract.
+pub mod r#canonical_expectation_publications;
+///Generated relation contract.
+pub mod r#canonical_expectations;
+///Generated relation contract.
 pub mod r#canonical_file_admission;
 ///Generated relation contract.
 pub mod r#canonical_file_borrowers;
@@ -213,6 +223,12 @@ pub mod r#diagnostics_findings;
 ///Generated relation contract.
 pub mod r#execution_statistics;
 ///Generated relation contract.
+pub mod r#expectation_estimates;
+///Generated relation contract.
+pub mod r#expectation_samples;
+///Generated relation contract.
+pub mod r#expectation_summaries;
+///Generated relation contract.
 pub mod r#fit_constraints;
 ///Generated relation contract.
 pub mod r#fit_experiment_assessments;
@@ -234,6 +250,8 @@ pub mod r#initialization_stages;
 pub mod r#live_simulation_samples;
 ///Generated relation contract.
 pub mod r#local_validity;
+///Generated relation contract.
+pub mod r#mathematical_products;
 ///Generated relation contract.
 pub mod r#modeling_checks;
 ///Generated relation contract.
@@ -294,6 +312,8 @@ pub mod r#route_decisions;
 pub mod r#run_lineage;
 ///Generated relation contract.
 pub mod r#scientific_contexts;
+///Generated relation contract.
+pub mod r#selected_observations;
 ///Generated relation contract.
 pub mod r#simulation_events;
 ///Generated relation contract.

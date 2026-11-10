@@ -226,7 +226,7 @@ impl EngineeringService {
         let source = self.operation(&source_operation, Kind::Source)?;
         let intent = (&source_operation, &expected_source, &output, &inputs);
         let extent =
-            crate::workflow::bounded_study_document_extent(&intent, 16 << 20).map_err(owner)?;
+            crate::workflow::document_extent(&intent, 16 << 20).map_err(owner)?;
         let reservation = self
             .shared
             .math()
@@ -269,7 +269,7 @@ impl EngineeringService {
                 let identity =
                     pse_ids::document::of(pse_ids::Frame::DurableStudyRequestV5, &definition)
                         .map_err(owner)?;
-                let extent = crate::workflow::bounded_study_document_extent(&definition, 128 << 20)
+                let extent = crate::workflow::document_extent(&definition, 128 << 20)
                     .map_err(owner)?;
                 let retained = service
                     .shared
@@ -338,7 +338,7 @@ impl EngineeringService {
                 "original study preparation has a different input capability",
             ));
         }
-        let extent = crate::workflow::bounded_study_document_extent(
+        let extent = crate::workflow::document_extent(
             &prepared.definition,
             super::super::DOCUMENT_RESPONSE_BYTES,
         )
@@ -407,7 +407,7 @@ impl EngineeringService {
                 "portable study differs from the exact original immutable preparation",
             ));
         }
-        let extent = crate::workflow::bounded_study_document_extent(&definition, 128 << 20)
+        let extent = crate::workflow::document_extent(&definition, 128 << 20)
             .map_err(owner)?;
         let reservation = self
             .shared

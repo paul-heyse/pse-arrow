@@ -877,7 +877,7 @@ impl RunResult {
                     #[cfg(feature = "solver-diffsol")]
                     RunRequest::Shooting { problem: p, .. } => p.numerics(),
                     RunRequest::Modeling(p) => p[step].solve.numerics(),
-                    RunRequest::Horizon(_) => return None,
+                    RunRequest::Expectation(_) | RunRequest::Mathematical(_) | RunRequest::SelectedObservation(_) | RunRequest::Horizon(_) => return None,
                 })
             };
             let mut resolved = crate::workflow::result_export::Rows::<resolved::Row>::new(

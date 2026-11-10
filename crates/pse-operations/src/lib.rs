@@ -21,6 +21,7 @@ pub mod canonical_lifecycle;
 pub mod canonical_project_imports;
 pub mod canonical_projects;
 pub mod canonical_research;
+pub mod canonical_expectations;
 pub mod canonical_result_retention;
 pub mod canonical_results;
 pub mod canonical_retention;

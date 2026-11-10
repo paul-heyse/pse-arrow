@@ -585,6 +585,12 @@ frames! {
         /// Current operation-specific production and consumption contracts; earlier bytes remain frozen.
         /// Canonical modeling revision inputs for an immutable study.
         DurableStudyRequestV5 => "pse.durable.study_request.v5",
+        /// Original selected physical scalar operation, source context and actual canonical point.
+        SelectedObservationV1 => "pse.selected.observation.v1",
+        /// Explicit measure, original selected outputs and sampler controls, excluding coordinator execution identity.
+        ExpectationRequestV1 => "pse.expectation.request.v1",
+        /// Original selected analytical or exact/assurance mathematical operation.
+        DurableMathematicalRequestV1 => "pse.durable.mathematical_request.v1",
         /// Original study execution coordinates, framed by study identity, native role and occurrence key.
         StudyExecutionCoordinateV1 => "pse.study.execution-coordinate.v1",
         /// Prior operation-specific study inputs; canonical revisions use V5.

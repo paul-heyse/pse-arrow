@@ -1251,6 +1251,16 @@ identity. Historical reading performs no new science. Typed selected observation
 actual physical output expressions through existing admitted execution/batch owners, independently
 of case solves and without treating equation residuals as output values.
 
+The selected exact-source realization represents each admitted canonical binary64 literal
+and fixed input by its exact dyadic rational value. It does not reinterpret a decimal token
+as an exact decimal or change the ordinary numerical realization. Realization-qualified
+preparation identities keep these products distinct. Original source eligibility precedes
+algebraic simplification; canceling an unsupported operation cannot admit an enclosure.
+Mathematical products publish examined scope and actual arithmetic support independently
+of physical feasibility. Their completion grants diagnostic use, never a physical solution
+or solver initialization permission. Stored native printer views are read without rebuilding
+their originating expressions.
+
 ### 14.4 Incrementality
 
 > Decision: [ADR-0215](../../adr/0215-resolved-library-execution.md) (proposed) — resolved product identity and incremental reuse.

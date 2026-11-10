@@ -33952,6 +33952,10 @@ pub enum StudyResultRole {
     #[serde(rename = "horizon_history")]
     #[strum(serialize = "horizon_history")]
     HorizonHistory,
+    ///selected_observations
+    #[serde(rename = "selected_observations")]
+    #[strum(serialize = "selected_observations")]
+    SelectedObservations,
 }
 impl pse_contract::boundary_projection::ProjectionType for StudyResultRole {
     fn projection(
@@ -33999,8 +34003,8 @@ impl crate::SemanticEq for StudyResultRole {
 }
 impl StudyResultRole {
     /// All members in declaration order; the ordinal is presentation only.
-    pub const ALL: [Self; 6usize] = {
-        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<6usize>() {
+    pub const ALL: [Self; 7usize] = {
+        match <Self as strum::VariantArray>::VARIANTS.first_chunk::<7usize>() {
             Some(members) => *members,
             None => panic!("strum variant count disagrees with registry"),
         }
@@ -34018,6 +34022,7 @@ impl StudyResultRole {
             Self::ParameterCovariance => 3usize,
             Self::ProfileIntervals => 4usize,
             Self::HorizonHistory => 5usize,
+            Self::SelectedObservations => 6usize,
         }
     }
     /// The sanctioned IDAES member name, where applicable.
@@ -34034,6 +34039,7 @@ impl StudyResultRole {
             Self::ParameterCovariance => None,
             Self::ProfileIntervals => None,
             Self::HorizonHistory => None,
+            Self::SelectedObservations => None,
         }
     }
 }
@@ -34050,7 +34056,7 @@ impl schemars::JsonSchema for StudyResultRole {
         schemars::json_schema!(
             { "type" : "string", "enum" : ["case_result", "trajectory",
             "parameter_estimates", "parameter_covariance", "profile_intervals",
-            "horizon_history"] }
+            "horizon_history", "selected_observations"] }
         )
     }
 }

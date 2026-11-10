@@ -2512,7 +2512,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2526,7 +2526,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2540,7 +2540,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2554,7 +2554,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2568,7 +2568,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2582,7 +2582,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2596,7 +2596,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2610,7 +2610,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2624,7 +2624,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2638,7 +2638,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2652,7 +2652,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2666,7 +2666,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2680,7 +2680,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2694,7 +2694,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2708,7 +2708,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2722,7 +2722,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2736,7 +2736,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2750,7 +2750,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2764,7 +2764,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2778,7 +2778,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2792,7 +2792,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2806,7 +2806,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2820,7 +2820,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2834,7 +2834,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2848,7 +2848,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2862,7 +2862,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2876,7 +2876,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2890,7 +2890,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2904,7 +2904,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2918,7 +2918,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2932,7 +2932,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2946,7 +2946,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2960,7 +2960,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2974,7 +2974,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -2988,7 +2988,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3002,7 +3002,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3016,7 +3016,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3030,7 +3030,147 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
+      "source_path": null,
+      "source_role": "semantic_declaration_without_source_location",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [],
+      "declaration_key": "runtime.canonical_expectation_boundaries@1",
+      "declaration_kind": "relation",
+      "direction": null,
+      "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
+      "generator_symbol": "append",
+      "output_path": "crates/pse-operations/src/generated/surreal.rs",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
+      "source_path": null,
+      "source_role": "semantic_declaration_without_source_location",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [],
+      "declaration_key": "runtime.canonical_expectation_boundaries@1",
+      "declaration_kind": "relation",
+      "direction": null,
+      "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
+      "generator_symbol": "append",
+      "output_path": "crates/pse-operations/src/generated/surreal.surql",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
+      "source_path": null,
+      "source_role": "semantic_declaration_without_source_location",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [],
+      "declaration_key": "runtime.canonical_expectation_finalizations@1",
+      "declaration_kind": "relation",
+      "direction": null,
+      "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
+      "generator_symbol": "append",
+      "output_path": "crates/pse-operations/src/generated/surreal.rs",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
+      "source_path": null,
+      "source_role": "semantic_declaration_without_source_location",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [],
+      "declaration_key": "runtime.canonical_expectation_finalizations@1",
+      "declaration_kind": "relation",
+      "direction": null,
+      "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
+      "generator_symbol": "append",
+      "output_path": "crates/pse-operations/src/generated/surreal.surql",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
+      "source_path": null,
+      "source_role": "semantic_declaration_without_source_location",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [],
+      "declaration_key": "runtime.canonical_expectation_proposals@1",
+      "declaration_kind": "relation",
+      "direction": null,
+      "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
+      "generator_symbol": "append",
+      "output_path": "crates/pse-operations/src/generated/surreal.rs",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
+      "source_path": null,
+      "source_role": "semantic_declaration_without_source_location",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [],
+      "declaration_key": "runtime.canonical_expectation_proposals@1",
+      "declaration_kind": "relation",
+      "direction": null,
+      "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
+      "generator_symbol": "append",
+      "output_path": "crates/pse-operations/src/generated/surreal.surql",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
+      "source_path": null,
+      "source_role": "semantic_declaration_without_source_location",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [],
+      "declaration_key": "runtime.canonical_expectation_publications@1",
+      "declaration_kind": "relation",
+      "direction": null,
+      "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
+      "generator_symbol": "append",
+      "output_path": "crates/pse-operations/src/generated/surreal.rs",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
+      "source_path": null,
+      "source_role": "semantic_declaration_without_source_location",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [],
+      "declaration_key": "runtime.canonical_expectation_publications@1",
+      "declaration_kind": "relation",
+      "direction": null,
+      "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
+      "generator_symbol": "append",
+      "output_path": "crates/pse-operations/src/generated/surreal.surql",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
+      "source_path": null,
+      "source_role": "semantic_declaration_without_source_location",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [],
+      "declaration_key": "runtime.canonical_expectations@1",
+      "declaration_kind": "relation",
+      "direction": null,
+      "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
+      "generator_symbol": "append",
+      "output_path": "crates/pse-operations/src/generated/surreal.rs",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
+      "source_path": null,
+      "source_role": "semantic_declaration_without_source_location",
+      "source_symbol": null
+    },
+    {
+      "basis": "declared",
+      "contract_sections": [],
+      "declaration_key": "runtime.canonical_expectations@1",
+      "declaration_kind": "relation",
+      "direction": null,
+      "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
+      "generator_symbol": "append",
+      "output_path": "crates/pse-operations/src/generated/surreal.surql",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3044,7 +3184,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3058,7 +3198,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3072,7 +3212,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3086,7 +3226,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3100,7 +3240,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3114,7 +3254,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3128,7 +3268,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3142,7 +3282,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3156,7 +3296,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3170,7 +3310,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3184,7 +3324,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3198,7 +3338,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3212,7 +3352,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3226,7 +3366,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3240,7 +3380,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3254,7 +3394,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3268,7 +3408,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3282,7 +3422,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3296,7 +3436,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3310,7 +3450,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3324,7 +3464,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3338,7 +3478,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3352,7 +3492,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3366,7 +3506,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3380,7 +3520,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3394,7 +3534,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3408,7 +3548,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3422,7 +3562,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3436,7 +3576,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3450,7 +3590,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3464,7 +3604,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3478,7 +3618,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3492,7 +3632,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3506,7 +3646,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3520,7 +3660,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3534,7 +3674,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3548,7 +3688,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3562,7 +3702,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3576,7 +3716,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3590,7 +3730,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3604,7 +3744,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3618,7 +3758,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3632,7 +3772,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3646,7 +3786,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3660,7 +3800,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3674,7 +3814,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3688,7 +3828,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3702,7 +3842,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3716,7 +3856,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3730,7 +3870,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3744,7 +3884,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3758,7 +3898,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3772,7 +3912,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3786,7 +3926,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3800,7 +3940,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3814,7 +3954,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3828,7 +3968,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3842,7 +3982,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3856,7 +3996,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3870,7 +4010,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3884,7 +4024,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3898,7 +4038,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3912,7 +4052,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3926,7 +4066,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3940,7 +4080,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3954,7 +4094,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3968,7 +4108,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3982,7 +4122,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -3996,7 +4136,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4010,7 +4150,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4024,7 +4164,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4038,7 +4178,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4052,7 +4192,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4066,7 +4206,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4080,7 +4220,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4094,7 +4234,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4108,7 +4248,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4122,7 +4262,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4136,7 +4276,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4150,7 +4290,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4164,7 +4304,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4178,7 +4318,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4192,7 +4332,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4206,7 +4346,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4220,7 +4360,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4234,7 +4374,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4248,7 +4388,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4262,7 +4402,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4276,7 +4416,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4290,7 +4430,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4304,7 +4444,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4318,7 +4458,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4332,7 +4472,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4346,7 +4486,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4360,7 +4500,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4374,7 +4514,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4388,7 +4528,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4402,7 +4542,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4416,7 +4556,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4430,7 +4570,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4444,7 +4584,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4458,7 +4598,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4472,7 +4612,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4486,7 +4626,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4500,7 +4640,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4514,7 +4654,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4528,7 +4668,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4542,7 +4682,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4556,7 +4696,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4570,7 +4710,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4584,7 +4724,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4598,7 +4738,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4612,7 +4752,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4626,7 +4766,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4640,7 +4780,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4654,7 +4794,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4668,7 +4808,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4682,7 +4822,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4696,7 +4836,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4710,7 +4850,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4724,7 +4864,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4738,7 +4878,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4752,7 +4892,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4766,7 +4906,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4780,7 +4920,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4794,7 +4934,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4808,7 +4948,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4822,7 +4962,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4836,7 +4976,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4850,7 +4990,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4864,7 +5004,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4878,7 +5018,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4892,7 +5032,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4906,7 +5046,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4920,7 +5060,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4934,7 +5074,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4948,7 +5088,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4962,7 +5102,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4976,7 +5116,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.rs",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null
@@ -4990,7 +5130,7 @@
       "generator_path": "crates/pse-codegen/src/codegen/surreal.rs",
       "generator_symbol": "append",
       "output_path": "crates/pse-operations/src/generated/surreal.surql",
-      "source_identity": "blake3:a1a6ddcef04499f259f0af111af404e7560fc06942d072640f5c824f66618d85",
+      "source_identity": "blake3:cebe83cf72b75ab300b17b9ea1b0a03d8b45cde72533243d82581af3bfed0cfd",
       "source_path": null,
       "source_role": "semantic_declaration_without_source_location",
       "source_symbol": null

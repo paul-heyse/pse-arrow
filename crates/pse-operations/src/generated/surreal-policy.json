@@ -25,6 +25,11 @@
     "canonical_draft_diagnostics",
     "canonical_edges",
     "canonical_execution_operations",
+    "canonical_expectation_boundaries",
+    "canonical_expectation_finalizations",
+    "canonical_expectation_proposals",
+    "canonical_expectation_publications",
+    "canonical_expectations",
     "canonical_file_borrowers",
     "canonical_file_instances",
     "canonical_history_identities",
@@ -157,6 +162,26 @@
     },
     "canonical_execution_operations": {
       "retention": "Receipt",
+      "backup": "Required"
+    },
+    "canonical_expectation_boundaries": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_expectation_finalizations": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_expectation_proposals": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_expectation_publications": {
+      "retention": "Durable",
+      "backup": "Required"
+    },
+    "canonical_expectations": {
+      "retention": "Durable",
       "backup": "Required"
     },
     "canonical_file_admission": {

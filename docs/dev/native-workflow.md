@@ -173,6 +173,164 @@ Modeling diagnostics, physical sample campaigns and nonlinear explanations use t
 owners directly; their Python result projections are retired. Shared diagnostic settings
 remain only where the retained developer conformance parser consumes them.
 
+## Selected mathematical products
+
+For an admitted package, select actual authored member IDs and independent coordinate IDs.
+Pass a typed mathematical request through the same `prepare_operation` and run/wait flow
+shown above. For example, with previously selected `root`, `instance`, `bindings`, `enthalpy`
+and `temperature`:
+
+```rust
+let request = pse_runtime::workflow::RuntimeOperationRequest::Mathematical(
+    pse_runtime::workflow::MathematicalRequest::Analytical(
+        pse_runtime::workflow::AnalyticalOperationRequest {
+            root,
+            instance,
+            bindings,
+            member: enthalpy,
+            operation: pse_compiler::workspace::AnalyticalOperation::Derivative {
+                coordinates: vec![temperature],
+            },
+            limits: pse_math::jets::EvaluationLimits::default(),
+        },
+    ),
+);
+```
+
+`Series` selects an authored expansion-point member and explicit native truncation depth;
+its returned remainder order and exact polynomial termination are separate fields. `Identity`
+retains complete physical contracts, original guards and the normalization conclusion.
+`Indexed` accepts the supported original finite contraction, preserving fixed external axes
+and original binder correspondence. `RationalApproximation` returns analytical Padé
+mathematics without a numerical error certificate. `IntegerRelation` is an explicit bounded
+research request; a numerical candidate gains an exact claim only when the original native
+algebraic expressions independently verify it.
+
+The native `ExecuteMathematical` operation takes that same typed `MathematicalRequest`
+with caller-issued operation, run and attempt identifiers and the original source revision.
+Use ordinary `WaitRun` and protected `ReadResult` with relation `runtime.mathematical_products`.
+The stored row keeps source revision, complete physical/source context, claim availability
+and native Symbolica, LaTeX and Typst views. Reading it after source retirement uses retained
+data services and does not prepare or evaluate science. Mathematical availability grants
+diagnostic use; it does not establish physical feasibility or a usable solver seed.
+
+## Expectations under explicit probability laws
+
+An expectation selects an original authored case or a `SelectedObservationOperation`
+containing actual physical member IDs. Use `package.declarations` and `package.prepare`
+or the native `InspectModeling` operation to obtain those IDs from the admitted source.
+Resolve quantity and unit IDs through its physical context or `InspectPhysical`; request
+metadata is checked against the compiler's physical contract. A constraint residual is
+not a selected physical output.
+
+The [complete heater caller](../../crates/pse-runtime/tests/native_expectation_support/mod.rs)
+loads the physical, domain and correlations packages and its authored consumer. It selects
+ordinary `Heater` case execution and pure `Pure` member observation separately. For that
+admitted pure selection, the following request uses the actual `outlet`, `flow`, `duty`
+and `dh` member IDs, their resolved physical quantity/unit IDs, and distinct authored
+category IDs `one` and `two`:
+
+```rust
+use pse_runtime::workflow::expectation::*;
+use pse_runtime::workflow::{BindingQuantity, BindingTarget, OperationSource};
+use pse_model::scalars::FiniteBound;
+
+let value = |quantity, unit, magnitude| BindingQuantity {
+    quantity, unit,
+    magnitude: FiniteBound::try_new(magnitude).expect("finite example literal"),
+};
+let outputs = [(duty, power, watt, 1000.), (dh, delta_h, joule_per_mol, 600.)]
+    .into_iter().map(|(output, quantity, unit, scale)| ExpectationOutput {
+        output, quantity, unit, reference: None,
+        scale: value(quantity, unit, scale),
+        absolute_error: None, relative_error: None, train: true,
+    }).collect();
+let request = ExpectationRequest {
+    source: OperationSource::of(&package),
+    preparation: pse_runtime::workflow::PreparationSettings::default(),
+    member: ExpectationMember::Observation(selected_heater),
+    coordinates: vec![
+        ExpectationCoordinate::Uniform {
+            target: BindingTarget::Member(outlet),
+            lower: value(temperature, kelvin, 310.),
+            upper: value(temperature, kelvin, 330.),
+        },
+        ExpectationCoordinate::Categorical {
+            target: BindingTarget::Member(flow),
+            categories: vec![
+                ExpectationCategory { category: one,
+                    value: value(molar_flow, mol_per_second, 1.), probability: 0.25 },
+                ExpectationCategory { category: two,
+                    value: value(molar_flow, mol_per_second, 2.), probability: 0.75 },
+            ],
+        },
+    ],
+    transform: None, outputs,
+    estimator: ExpectationEstimator::Adaptive(ExpectationAdaptiveSettings {
+        bins: 8, minimum_training_samples: 2, bin_evolution: None,
+        uniform_mixture: 0.1, maximum_probability_ratio: 4.,
+        discrete_learning_rate: 0.5, continuous_learning_rate: 0.5,
+    }),
+    controls: ExpectationControls {
+        seed: 456, lanes: 4, samples_per_iteration: 32,
+        maximum_iterations: 2, maximum_samples: 64,
+        normalization_tolerance: 1e-12,
+    },
+    failure_probability: true,
+    replay: ExpectationReplay::PopulationAndBoundary,
+};
+let owned = runtime.execute_expectation(&package, parent, request, &stop).await?;
+let report = &owned.report;
+let samples = runtime.expectation_samples(parent, 0, 0, 32, &stop).await?;
+```
+
+`selected_heater` demands `duty` and `dh` with their physical quantities and units.
+The two characteristic interval scales are 1000 W and 600 J/mol. Their zero references
+are appropriate for these additive quantities. An affine point output requires an explicit
+physical reference and a compatible difference scale; its standard error is an interval.
+Use `ExpectationMember::Case(CaseOperation { ... })` for the authored solver fixture and
+`FixedMonteCarlo` for direct sampling of the same target law. Solver selection and numerical
+requirements remain ordinary case settings; the linked caller includes their construction.
+
+With constant molar heat capacity 30 J/(mol K), the uniform-temperature heater has analytic
+mean duty 1050 W and enthalpy difference 600 J/mol. Selecting the authored `Squared`
+pushforward, with `u` uniform on [0,1] and outlet `310 K + (20 K) u²`, gives 875 W and
+500 J/mol. `ExpectationTransform` binds its selected physical outputs to the member inputs;
+it retains the joint base population. It does not infer a density Jacobian or turn this law
+into uniform temperature sampling.
+
+The parent controls finite ordinary studies; the existing managed worker reconstructs their
+case or selected-observation members. Eligible pure populations and pushforwards use the
+compiled batch owner. The seed, stream assignment, original samples and sealed native
+boundaries define replay; a seed alone is insufficient. Repeating the same parent/request
+reads its original result. Changing that parent's request refuses.
+
+Inspect each output's `complete`, `issued`, `available`, `unavailable` and `precision_met`,
+and the parent's `limit_reached`. Missing required output withholds that output's estimate and
+standard error; successful members never become a renormalized expectation. The separately
+requested failure probability classifies scientific member admission/domain/solve failures.
+Cancellation, infrastructure loss and unsupported interpretation leave it incomplete.
+An undefined pushforward instead refuses the declared law before downstream child activation,
+with original base-point and cause attribution. Statistical standard error is not an enclosure
+or evidence of empirical model accuracy.
+
+`runtime.expectation_summaries`, `runtime.expectation_samples` and
+`runtime.expectation_estimates` are original registered products under the ordinary parent
+run/attempt/manifest. `expectation_report`, `expectation_samples` and `expectation_estimates`
+also belong to `RetainedDataServices`, so an independent reader needs no source or mathematical
+services. Keep `RetainedExpectationReport` and its `.report` together through response encoding;
+it retains the protected read and allocation. Sample paging stays within its selected child;
+missing coverage does not trigger evaluation.
+
+For a generated native client, use `EngineeringServiceClient::execute_expectation` with
+`engineering_projection::encode_engineering_execute_expectation(EngineeringExecuteExpectation
+{ operation, source_operation, parent, request })`, then `decode_expectation_report`.
+`read_expectation` and `read_expectation_samples` accept the corresponding
+`EngineeringReadExpectation` and `EngineeringReadExpectationSamples` projections.
+The [authenticated Unix HTTP/2 caller](../../crates/pse-runtime/tests/native_expectation_support/wire.rs)
+shows real source admission, inspection, typed execution and a new independent frontend
+reading the original products after producer retirement.
+
 ## Dynamics and fitting
 
 Native design generation uses `ModelingPackage::generate_design` with typed physical

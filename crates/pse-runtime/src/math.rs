@@ -2,6 +2,7 @@
 // Copyright (c) 2026 Paul Heyse
 //! One Salsa compiler and one shared runtime effect boundary for process mathematics.
 mod artifacts;
+mod analytical;
 pub mod flows;
 mod functions;
 #[cfg(feature = "solver-kinsol")]
@@ -9,6 +10,7 @@ pub mod initialization;
 mod jobs;
 mod joined_pool;
 pub mod modeling;
+mod mathematical_diagnostics;
 mod numerical;
 pub(crate) mod numerics;
 pub use numerical::NumericalArtifact;

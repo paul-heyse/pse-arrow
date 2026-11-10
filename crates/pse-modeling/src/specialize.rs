@@ -25,6 +25,7 @@ pub(crate) use rewrite::RewriteContext;
 mod construction;
 pub(crate) use construction::OriginalGuard;
 mod constructed;
+mod indexed;
 mod operations;
 mod reductions;
 mod transform_graph;
@@ -508,6 +509,9 @@ pub struct SpecializedModel {
     >,
     /// Actual typed finite domains, ordered tuples, and demanded member realizations.
     pub finite_facts: finite::FiniteFacts,
+    /// Original indexed source correspondence, captured before scalar specialization.
+    pub indexed_contractions:
+        BTreeMap<crate::resolved::NodeIx, crate::resolved::OriginalContraction>,
     /// Explicit function selectors for single-residual implicit occurrences.
     pub root_selections: BTreeMap<InstanceId, RootSelection>,
     /// Immutable selected records and authored closure edges in this model scope.

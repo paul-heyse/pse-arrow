@@ -15,6 +15,12 @@ type LazyRequestIdentity<'a> =
 /// Borrowed execution-input projection; it never stores an independent request.
 #[derive(Clone, Copy, Debug)]
 pub enum RunRequest<'a> {
+    /// Explicit-measure parent over original finite native child studies.
+    Expectation(&'a super::expectation::PreparedExpectationOperation),
+    /// Selected source-bound exact, analytical or assurance observation.
+    Mathematical(&'a super::PreparedMathematicalOperation),
+    /// Original selected physical scalar operation.
+    SelectedObservation(&'a super::PreparedSelectedObservation),
     /// Original authored initialization, before a numerical start or final candidate exists.
     Initialization(&'a super::PreparedInitializationOperation),
     /// Compact horizon inputs.
@@ -81,9 +87,34 @@ impl<'a> RunRequest<'a> {
     /// One exhaustive dispatch supplies all lifecycle readers with the same premises.
     pub(super) fn facts(self) -> RequestFacts<'a> {
         use crate::workflow::{ReplayNativeRecordCoverage as Coverage, contract};
-        let encode =
-            |value| serde_json::to_value(value).map_err(|error| contract(error.to_string()));
+        fn encode<T: serde::Serialize>(value: T) -> Result<serde_json::Value, WorkflowError> {
+            serde_json::to_value(value).map_err(|error| contract(error.to_string()))
+        }
         match self {
+            Self::Expectation(request) => RequestFacts {
+                sources: vec![&request.source],
+                identity: Box::new(move || Ok((request.identity()?, None))),
+                provenance: encode(&(request.parent, &request.request)).map(|value| vec![value]),
+                requested_steps: 1,
+                native_record_coverage: Coverage::OriginalStudyMembers,
+                replay: Box::new(move |_| super::replay::expectation_request_facts(request)),
+            },
+            Self::Mathematical(request) => RequestFacts {
+                sources: vec![&request.source],
+                identity: Box::new(move || Ok((request.identity()?, None))),
+                provenance: encode(&request.request).map(|value| vec![value]),
+                requested_steps: 1,
+                native_record_coverage: Coverage::NoNativeRecords,
+                replay: Box::new(move |_| super::replay::mathematical_request_facts(request)),
+            },
+            Self::SelectedObservation(request) => RequestFacts {
+                sources: vec![&request.source],
+                identity: Box::new(move || Ok((request.identity()?, None))),
+                provenance: encode(&request.operation).map(|value| vec![value]),
+                requested_steps: 1,
+                native_record_coverage: Coverage::NoNativeRecords,
+                replay: Box::new(move |_| super::replay::selected_observation_request_facts(request)),
+            },
             Self::Initialization(request) => RequestFacts {
                 sources: vec![&request.source],
                 identity: Box::new(move || Ok((request.identity(), None))),
@@ -203,6 +234,12 @@ impl<'a> RunRequest<'a> {
 /// Borrowed report projection derived from the paired outcome.
 #[derive(Clone, Copy, Debug)]
 pub enum RunReport<'a> {
+    /// Frozen statistical products, separately from physical or enclosure claims.
+    Expectation(&'a super::expectation::ExpectationProduct),
+    /// Frozen mathematical observation and its actual claim scope.
+    Mathematical(&'a super::MathematicalProduct),
+    /// Original physical scalar values and source applicability.
+    SelectedObservation(&'a super::SelectedObservationValues),
     /// Complete stage, continuation and original-specification initialization history.
     Initialization(&'a super::ModelingInitializationReport),
     /// Compact original horizon history.
@@ -233,6 +270,27 @@ pub enum HorizonRunOutcome {
 /// The sole owning request/result pair. A family cannot contain another family's report.
 #[derive(Debug)]
 pub enum RunOutcome {
+    /// Original explicit-measure parent and its joined products.
+    Expectation {
+        /// Source, measure, outputs and finite sampler controls.
+        request: Box<super::expectation::PreparedExpectationOperation>,
+        /// Frozen terminal statistical products, including incomplete parent outcomes.
+        result: Report<Box<super::expectation::ExpectationProduct>>,
+    },
+    /// One original selected mathematical operation.
+    Mathematical {
+        /// Actual source selection and preparation policy.
+        request: Box<super::PreparedMathematicalOperation>,
+        /// Frozen mathematical product, separately from physical feasibility.
+        result: Report<Box<super::MathematicalProduct>>,
+    },
+    /// Original scalar observation retains its source and actual point separately.
+    SelectedObservation {
+        /// Source-bound admitted output and actual input coordinates.
+        request: Box<super::PreparedSelectedObservation>,
+        /// Original scalar observation or original point failure.
+        result: Report<Box<super::SelectedObservationValues>>,
+    },
     /// An authored initialization keeps failures as scientific history, not an input error.
     Initialization {
         /// Original admitted specification and policy.
@@ -282,6 +340,9 @@ pub enum RunOutcome {
 impl RunOutcome {
     pub(super) fn request(&self) -> RunRequest<'_> {
         match self {
+            Self::Expectation { request, .. } => RunRequest::Expectation(request),
+            Self::Mathematical { request, .. } => RunRequest::Mathematical(request),
+            Self::SelectedObservation { request, .. } => RunRequest::SelectedObservation(request),
             Self::Initialization { request, .. } => RunRequest::Initialization(request),
             Self::Modeling { request, .. } => RunRequest::Modeling(request),
             Self::Simulation { request, .. } => RunRequest::Simulation(request),
@@ -304,7 +365,10 @@ impl RunOutcome {
     pub(super) fn original_request(&self) -> RunRequest<'_> {
         match self {
             Self::Horizon { request, .. } => RunRequest::Horizon(request),
-            Self::Initialization { .. }
+            Self::Expectation { .. }
+            | Self::Mathematical { .. }
+            | Self::SelectedObservation { .. }
+            | Self::Initialization { .. }
             | Self::Modeling { .. }
             | Self::Simulation { .. }
             | Self::Fit { .. } => self.request(),
@@ -314,6 +378,9 @@ impl RunOutcome {
     }
     pub(super) fn report(&self) -> Result<RunReport<'_>, &Arc<WorkflowError>> {
         match self {
+            Self::Expectation { result, .. } => result.as_ref().map(|report| RunReport::Expectation(report)),
+            Self::Mathematical { result, .. } => result.as_ref().map(|report| RunReport::Mathematical(report)),
+            Self::SelectedObservation { result, .. } => result.as_ref().map(|report| RunReport::SelectedObservation(report)),
             Self::Initialization { result, .. } => result
                 .as_ref()
                 .map(|report| RunReport::Initialization(report)),
@@ -340,6 +407,9 @@ impl RunOutcome {
     }
     pub(super) fn error(&self) -> Option<&Arc<WorkflowError>> {
         match self {
+            Self::Expectation { result, .. } => result.as_ref().err(),
+            Self::Mathematical { result, .. } => result.as_ref().err(),
+            Self::SelectedObservation { result, .. } => result.as_ref().err(),
             Self::Initialization { result, .. } => result.as_ref().err(),
             Self::Modeling { result, .. } => result.as_ref().err(),
             Self::Simulation { result, .. } => result.as_ref().err(),
@@ -358,6 +428,9 @@ impl RunOutcome {
     }
     pub(super) fn fail(&mut self, error: Arc<WorkflowError>) {
         match self {
+            Self::Expectation { result, .. } => *result = Err(error),
+            Self::Mathematical { result, .. } => *result = Err(error),
+            Self::SelectedObservation { result, .. } => *result = Err(error),
             Self::Initialization { result, .. } => *result = Err(error),
             Self::Modeling { result, .. } => *result = Err(error),
             Self::Simulation { result, .. } => *result = Err(error),
@@ -536,6 +609,24 @@ impl super::RunResult {
             non_modeling_accepted: None,
         };
         match &self.outcome {
+            RunOutcome::Expectation { result, .. } => {
+                facts.requested = 1;
+                facts.observed = usize::from(result.is_ok());
+                facts.non_modeling_accepted = Some(result.as_ref().is_ok_and(|product| product.permits_result()));
+                facts.table_ids.extend([expectation_summaries::RELATION_ID, expectation_estimates::RELATION_ID, expectation_samples::RELATION_ID]);
+            }
+            RunOutcome::Mathematical { result, .. } => {
+                facts.requested = 1;
+                facts.observed = usize::from(result.as_ref().is_ok_and(|product| product.succeeded));
+                facts.non_modeling_accepted = Some(result.as_ref().is_ok_and(|product| product.supported));
+                facts.table_ids.push(mathematical_products::RELATION_ID);
+            }
+            RunOutcome::SelectedObservation { request, result } => {
+                facts.requested = request.members.len();
+                facts.observed = result.as_ref().map_or(0, |result| result.canonical.len());
+                facts.non_modeling_accepted = Some(result.is_ok());
+                facts.table_ids.push(selected_observations::RELATION_ID);
+            }
             RunOutcome::Initialization { result, .. } => {
                 facts.table_ids.extend(modeling_table_ids());
                 facts.table_ids.push(modeling_initializations::RELATION_ID);

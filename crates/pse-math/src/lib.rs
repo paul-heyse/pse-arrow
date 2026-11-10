@@ -37,6 +37,7 @@ pub mod mathematical_diagnostics;
 mod native_compiled;
 pub mod normalization;
 pub mod numerical_observation;
+pub mod integration;
 pub mod numerics;
 pub mod presolve;
 mod rational_binary64;

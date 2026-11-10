@@ -9,6 +9,391 @@
     clippy::struct_field_names,
     reason = "field names are the authoritative relation contract"
 )]
+pub struct ExpectationOriginalOutput {
+    ///member
+    pub r#member: pse_ids::SemanticId,
+    ///canonical
+    pub r#canonical: Option<f64>,
+}
+impl crate::SemanticEq for ExpectationOriginalOutput {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#member, &other.r#member)
+            && crate::SemanticEq::semantic_eq(&self.r#canonical, &other.r#canonical)
+    }
+}
+impl PartialEq for ExpectationOriginalOutput {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+impl pse_contract::boundary_projection::ProjectionType for ExpectationOriginalOutput {
+    fn projection(
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ExpectationOriginalOutput",
+                "crates/pse-schema/src/catalog/expectation_products.rs",
+                1u32,
+                pse_contract::boundary_projection::Direction::Output,
+                &[],
+                &[],
+                |graph| Ok(
+                    pse_contract::boundary_projection::Shape::Record(
+                        vec![
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    pse_ids::SemanticId,
+                                >(
+                                    graph,
+                                    "member",
+                                    1u32,
+                                    pse_contract::boundary_projection::Direction::Output,
+                                    vec![],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Scalar(
+                                        pse_contract::boundary_projection::Scalar::SemanticId,
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "member",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.doc\":\"member\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"payload\"},\"name\":\"member\",\"nullable\":false}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "1".into()),
+                                            ("pse.domain.doc".into(), "member".into()),
+                                            ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    Option<f64>,
+                                >(
+                                    graph,
+                                    "canonical",
+                                    2u32,
+                                    pse_contract::boundary_projection::Direction::Output,
+                                    vec![],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Optional(
+                                        Box::new(
+                                            pse_contract::boundary_projection::TypeRef::Scalar(
+                                                pse_contract::boundary_projection::Scalar::F64Bits,
+                                            ),
+                                        ),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "canonical",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.doc\":\"canonical\",\"pse.domain.role\":\"payload\"},\"name\":\"canonical\",\"nullable\":true}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "2".into()),
+                                            ("pse.domain.doc".into(), "canonical".into()),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                        ]),
+                                    )
+                            },
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl pse_contract::boundary_projection::ProjectionRecord for ExpectationOriginalOutput {
+    const VERSION: u32 = 1u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "member"),
+        (2u32, "canonical"),
+    ];
+    type Fields = (pse_ids::SemanticId, Option<f64>);
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#member, self.r#canonical)
+    }
+    fn from_projection_fields(
+        (r#member, r#canonical): Self::Fields,
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
+        Ok(Self { r#member, r#canonical })
+    }
+}
+impl pse_contract::boundary_projection::ValidateProjection
+for ExpectationOriginalOutput {
+    const NEEDS_RECURSIVE_VALIDATION: bool = <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <Option<
+            f64,
+        > as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            pse_contract::boundary_projection::validate_field(
+                &self.r#member,
+                &pse_contract::boundary_projection::field_path(path, "member"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#canonical,
+                &pse_contract::boundary_projection::field_path(path, "canonical"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct ExpectationPhysicalInput {
+    ///member
+    pub r#member: pse_ids::SemanticId,
+    ///quantity
+    pub r#quantity: crate::generated::identities::QuantityTypeId,
+    ///canonical
+    pub r#canonical: f64,
+}
+impl crate::SemanticEq for ExpectationPhysicalInput {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#member, &other.r#member)
+            && crate::SemanticEq::semantic_eq(&self.r#quantity, &other.r#quantity)
+            && crate::SemanticEq::semantic_eq(&self.r#canonical, &other.r#canonical)
+    }
+}
+impl PartialEq for ExpectationPhysicalInput {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
+    }
+}
+impl pse_contract::boundary_projection::ProjectionType for ExpectationPhysicalInput {
+    fn projection(
+        graph: &mut pse_contract::boundary_projection::ProjectionGraph,
+    ) -> Result<
+        pse_contract::boundary_projection::TypeRef,
+        pse_contract::boundary_projection::ProjectionError,
+    > {
+        graph
+            .declare::<
+                Self,
+            >(
+                "ExpectationPhysicalInput",
+                "crates/pse-schema/src/catalog/expectation_products.rs",
+                1u32,
+                pse_contract::boundary_projection::Direction::Output,
+                &[],
+                &[],
+                |graph| Ok(
+                    pse_contract::boundary_projection::Shape::Record(
+                        vec![
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    pse_ids::SemanticId,
+                                >(
+                                    graph,
+                                    "member",
+                                    1u32,
+                                    pse_contract::boundary_projection::Direction::Output,
+                                    vec![],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Scalar(
+                                        pse_contract::boundary_projection::Scalar::SemanticId,
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "member",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"1\",\"pse.domain.doc\":\"member\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.role\":\"payload\"},\"name\":\"member\",\"nullable\":false}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "1".into()),
+                                            ("pse.domain.doc".into(), "member".into()),
+                                            ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    crate::generated::identities::QuantityTypeId,
+                                >(
+                                    graph,
+                                    "quantity",
+                                    2u32,
+                                    pse_contract::boundary_projection::Direction::Output,
+                                    vec![],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Named(
+                                        "QuantityTypeId".into(),
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "quantity",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":{\"FixedSizeBinary\":16},\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"2\",\"pse.domain.doc\":\"quantity\",\"pse.domain.extension\":\"pse.semantic_id\",\"pse.domain.identity\":\"quantity_type\",\"pse.domain.role\":\"payload\"},\"name\":\"quantity\",\"nullable\":false}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "2".into()),
+                                            ("pse.domain.doc".into(), "quantity".into()),
+                                            ("pse.domain.extension".into(), "pse.semantic_id".into()),
+                                            ("pse.domain.identity".into(), "quantity_type".into()),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                        ]),
+                                    )
+                            },
+                            {
+                                let projected = pse_contract::boundary_projection::Field::of::<
+                                    f64,
+                                >(
+                                    graph,
+                                    "canonical",
+                                    3u32,
+                                    pse_contract::boundary_projection::Direction::Output,
+                                    vec![],
+                                )?;
+                                if projected.ty
+                                    != pse_contract::boundary_projection::TypeRef::Scalar(
+                                        pse_contract::boundary_projection::Scalar::F64Bits,
+                                    )
+                                {
+                                    return Err(
+                                        pse_contract::boundary_projection::ProjectionError::invalid(
+                                            "canonical",
+                                            "compiler-resolved native field differs from its source Rust/Arrow projection",
+                                        ),
+                                    );
+                                }
+                                projected
+                                    .with_named_facets(
+                                        std::collections::BTreeMap::from([
+                                            (
+                                                "pse.codegen.native_field".into(),
+                                                "{\"data_type\":\"Float64\",\"dict_id\":0,\"dict_is_ordered\":false,\"metadata\":{\"pse.domain.boundary.tag\":\"3\",\"pse.domain.doc\":\"canonical\",\"pse.domain.role\":\"payload\"},\"name\":\"canonical\",\"nullable\":false}"
+                                                    .into(),
+                                            ),
+                                            ("pse.domain.boundary.tag".into(), "3".into()),
+                                            ("pse.domain.doc".into(), "canonical".into()),
+                                            ("pse.domain.role".into(), "payload".into()),
+                                        ]),
+                                    )
+                            },
+                        ],
+                    ),
+                ),
+            )
+    }
+}
+impl pse_contract::boundary_projection::ProjectionRecord for ExpectationPhysicalInput {
+    const VERSION: u32 = 1u32;
+    const FIELD_LAYOUT: &'static [(u32, &'static str)] = &[
+        (1u32, "member"),
+        (2u32, "quantity"),
+        (3u32, "canonical"),
+    ];
+    type Fields = (
+        pse_ids::SemanticId,
+        crate::generated::identities::QuantityTypeId,
+        f64,
+    );
+    fn into_projection_fields(self) -> Self::Fields {
+        (self.r#member, self.r#quantity, self.r#canonical)
+    }
+    fn from_projection_fields(
+        (r#member, r#quantity, r#canonical): Self::Fields,
+    ) -> Result<Self, pse_contract::boundary_projection::AdapterError> {
+        Ok(Self {
+            r#member,
+            r#quantity,
+            r#canonical,
+        })
+    }
+}
+impl pse_contract::boundary_projection::ValidateProjection for ExpectationPhysicalInput {
+    const NEEDS_RECURSIVE_VALIDATION: bool = <pse_ids::SemanticId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <crate::generated::identities::QuantityTypeId as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION
+        || <f64 as pse_contract::boundary_projection::ValidateProjection>::NEEDS_RECURSIVE_VALIDATION;
+    fn validate_at(
+        &self,
+        path: &str,
+    ) -> Result<(), pse_contract::boundary_projection::ValidationError> {
+        if Self::NEEDS_RECURSIVE_VALIDATION {
+            pse_contract::boundary_projection::validate_field(
+                &self.r#member,
+                &pse_contract::boundary_projection::field_path(path, "member"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#quantity,
+                &pse_contract::boundary_projection::field_path(path, "quantity"),
+                &[],
+            )?;
+            pse_contract::boundary_projection::validate_field(
+                &self.r#canonical,
+                &pse_contract::boundary_projection::field_path(path, "canonical"),
+                &[],
+            )?;
+        }
+        Ok(())
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
 pub struct FitExperimentAssessmentFailureObservationsItemContractsItemIndicesItem {
     ///bound_index
     pub r#bound_index: pse_ids::SemanticId,
@@ -1899,6 +2284,36 @@ impl pse_contract::boundary_projection::ValidateProjection for LocalValidity {
             )?;
         }
         Ok(())
+    }
+}
+/// A row or nested value projected from the registry declaration.
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+#[allow(
+    clippy::struct_field_names,
+    reason = "field names are the authoritative relation contract"
+)]
+pub struct MathematicalNativeView {
+    ///path
+    pub r#path: String,
+    ///symbolica
+    pub r#symbolica: String,
+    ///latex
+    pub r#latex: String,
+    ///typst
+    pub r#typst: String,
+}
+impl crate::SemanticEq for MathematicalNativeView {
+    fn semantic_eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(&self.r#path, &other.r#path)
+            && crate::SemanticEq::semantic_eq(&self.r#symbolica, &other.r#symbolica)
+            && crate::SemanticEq::semantic_eq(&self.r#latex, &other.r#latex)
+            && crate::SemanticEq::semantic_eq(&self.r#typst, &other.r#typst)
+    }
+}
+impl PartialEq for MathematicalNativeView {
+    fn eq(&self, other: &Self) -> bool {
+        crate::SemanticEq::semantic_eq(self, other)
     }
 }
 /// A row or nested value projected from the registry declaration.
@@ -7662,6 +8077,39 @@ impl pse_contract::boundary_projection::ValidateProjection for VersionRequiremen
         Ok(())
     }
 }
+impl crate::SemanticFrame for ExpectationOriginalOutput {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#member));
+        crate::SemanticFrame::frame(&self.r#member, hash);
+        hash.str(stringify!(r#canonical));
+        crate::SemanticFrame::frame(&self.r#canonical, hash);
+    }
+}
+impl crate::HeapUsage for ExpectationOriginalOutput {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#member))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#canonical))
+    }
+}
+impl crate::SemanticFrame for ExpectationPhysicalInput {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#member));
+        crate::SemanticFrame::frame(&self.r#member, hash);
+        hash.str(stringify!(r#quantity));
+        crate::SemanticFrame::frame(&self.r#quantity, hash);
+        hash.str(stringify!(r#canonical));
+        crate::SemanticFrame::frame(&self.r#canonical, hash);
+    }
+}
+impl crate::HeapUsage for ExpectationPhysicalInput {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#member))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#quantity))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#canonical))
+    }
+}
 impl crate::SemanticFrame
 for FitExperimentAssessmentFailureObservationsItemContractsItemIndicesItem {
     fn frame(&self, hash: &mut pse_ids::FramedHasher) {
@@ -8402,6 +8850,27 @@ impl crate::HeapUsage for LocalValidity {
                 crate::HeapUsage::heap_bytes(&self.r#root_backward_error_limit),
             )
             .saturating_add(crate::HeapUsage::heap_bytes(&self.r#root_neighborhood))
+    }
+}
+impl crate::SemanticFrame for MathematicalNativeView {
+    fn frame(&self, hash: &mut pse_ids::FramedHasher) {
+        hash.str(stringify!(r#path));
+        crate::SemanticFrame::frame(&self.r#path, hash);
+        hash.str(stringify!(r#symbolica));
+        crate::SemanticFrame::frame(&self.r#symbolica, hash);
+        hash.str(stringify!(r#latex));
+        crate::SemanticFrame::frame(&self.r#latex, hash);
+        hash.str(stringify!(r#typst));
+        crate::SemanticFrame::frame(&self.r#typst, hash);
+    }
+}
+impl crate::HeapUsage for MathematicalNativeView {
+    fn heap_bytes(&self) -> usize {
+        0usize
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#path))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#symbolica))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#latex))
+            .saturating_add(crate::HeapUsage::heap_bytes(&self.r#typst))
     }
 }
 impl crate::SemanticFrame for ModelingCellValueReferencesPathsItem {

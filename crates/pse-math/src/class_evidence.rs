@@ -19,7 +19,7 @@ use std::{
 };
 use symbolica::{
     atom::{Atom, AtomCore, AtomView, Indeterminate, Symbol},
-    domains::atom::AtomField,
+    domains::{atom::AtomField, rational::Rational},
     poly::polynomial::MultivariatePolynomial,
 };
 
@@ -895,7 +895,7 @@ fn aggregate_expressions_with_coordinates(
     plan: &CasePlan,
     values: &CaseValues,
     selected: Aggregation<'_>,
-    coordinates: Option<&BTreeMap<SemanticId, usize>>,
+    coordinates: Option<(&BTreeMap<SemanticId, usize>, usize)>,
     allowance: &mut Allowance,
     cancel: &Arc<AtomicBool>,
 ) -> Result<AggregatedExpressions, MathError> {
@@ -955,7 +955,7 @@ fn aggregate_expressions_with_coordinates(
                 let binding = binding.slots.get(slot).ok_or_else(|| {
                     MathError::Contract("class input outside binding layout".into())
                 })?;
-                let column = if let Some(coordinates) = coordinates {
+                let column = if let Some((coordinates, _)) = coordinates {
                     coordinates.get(&binding.source()).copied()
                 } else {
                     plan.projection_topology()
@@ -964,15 +964,21 @@ fn aggregate_expressions_with_coordinates(
                         .copied()
                 };
                 let replacement = if let Some(column) = column {
-                    formals.get(column, allowance)? * Atom::num(binding.scale())
-                        + Atom::num(binding.offset())
+                    if let Some((_, bits)) = coordinates {
+                        formals.get(column, allowance)? * exact_binary64_atom(binding.scale(), bits)?
+                            + exact_binary64_atom(binding.offset(), bits)?
+                    } else {
+                        formals.get(column, allowance)? * Atom::num(binding.scale())
+                            + Atom::num(binding.offset())
+                    }
                 } else {
                     let value = values
                         .scalars
                         .get(&binding.source())
                         .ok_or_else(|| MathError::Contract("missing class assumption".into()))?;
-                    if coordinates.is_some() {
-                        Atom::num(binding.scale()) * Atom::num(*value) + Atom::num(binding.offset())
+                    if let Some((_, bits)) = coordinates {
+                        exact_binary64_atom(binding.scale(), bits)? * exact_binary64_atom(*value, bits)?
+                            + exact_binary64_atom(binding.offset(), bits)?
                     } else {
                         Atom::num(binding.scale() * value + binding.offset())
                     }
@@ -1031,6 +1037,13 @@ fn aggregate_expressions_with_coordinates(
     Ok((formals, expressions, missing))
 }
 
+/// Preserve the exact original binary64 datum before diagnostic arithmetic.
+pub(crate) fn exact_binary64_atom(value: f64, coefficient_bits: usize) -> Result<Atom, MathError> {
+    let value = Rational::try_from(value).map_err(|error| MathError::Library(error.to_string()))?;
+    if crate::rational_binary64::bits(&value)? > coefficient_bits { return Err(MathError::Limit("diagnostic fixed coefficient bits")); }
+    Ok(Atom::num(value))
+}
+
 /// The exact diagnostic consumes the same selected sparse aggregation owner, with
 /// explicit symbolic parameter coordinates rather than prematurely freezing them.
 pub(crate) fn diagnostic_expressions(
@@ -1039,6 +1052,7 @@ pub(crate) fn diagnostic_expressions(
     rows: &[SemanticId],
     coordinates: &[SemanticId],
     limit: usize,
+    coefficient_bits: usize,
     cancel: &Arc<AtomicBool>,
 ) -> Result<Vec<Atom>, MathError> {
     let coordinates = coordinates
@@ -1052,7 +1066,7 @@ pub(crate) fn diagnostic_expressions(
         plan,
         values,
         Aggregation::Rows(&selected),
-        Some(&coordinates),
+        Some((&coordinates, coefficient_bits)),
         &mut allowance,
         cancel,
     )?;

@@ -25,6 +25,9 @@ use std::{
 use tokio::sync::Notify;
 mod contract;
 mod edit;
+mod analytical;
+mod expectation;
+pub use expectation::{EngineeringExpectationOutput, EngineeringExpectationSamplesOutput};
 mod inspection;
 mod source_read;
 mod study;
@@ -130,6 +133,7 @@ enum Outcome {
         handle: RunHandle,
         preparation: ContentHash,
     },
+    Expectation(Arc<EngineeringExpectationOutput>),
     PreparedStudy(Arc<study::PreparedStudy>),
     Study(Arc<crate::workflow::StudyHandle>),
     StudyCohort(Arc<crate::workflow::FrozenStudyCohort>),
@@ -139,6 +143,7 @@ enum Outcome {
 }
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Kind {
+    Expectation,
     Source,
     Run,
     StudyPreparation,
@@ -1996,7 +2001,7 @@ pub(super) mod tests {
             spill,
         )
     }
-    fn source_input() -> EngineeringAdmitSource {
+    pub(super) fn source_input() -> EngineeringAdmitSource {
         let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/packages");
         let physical = root.join("physical-primitives");
         let files = [

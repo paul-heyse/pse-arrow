@@ -362,6 +362,7 @@ pub(super) fn operation_context(
 impl RunResult {
     pub(super) fn capture_diagnostics(&self) -> Vec<BoundaryDiagnostic> {
         let mut diagnostics: Vec<BoundaryDiagnostic> = match self.report() {
+            Ok(RunReport::Expectation(_) | RunReport::Mathematical(_) | RunReport::SelectedObservation(_)) => Vec::new(),
             Ok(RunReport::Horizon(_)) => self
                 .completion
                 .as_ref()
@@ -465,7 +466,7 @@ impl RunResult {
             }
         };
         match self.report() {
-            Ok(RunReport::Horizon(_)) => {}
+            Ok(RunReport::Expectation(_) | RunReport::Mathematical(_) | RunReport::SelectedObservation(_) | RunReport::Horizon(_)) => {}
             Ok(RunReport::Initialization(report)) => {
                 for result in report
                     .attempts

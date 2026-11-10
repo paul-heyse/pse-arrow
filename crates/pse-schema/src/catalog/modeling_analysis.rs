@@ -401,6 +401,7 @@ pub(super) fn register(b: &mut RegistryBuilder) {
             "parameter_covariance",
             "profile_intervals",
             "horizon_history",
+            "selected_observations",
         ],
     );
     enumeration(

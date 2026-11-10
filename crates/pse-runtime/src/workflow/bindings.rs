@@ -199,6 +199,11 @@ impl ModelingPackage {
                 }
                 *admission = None;
                 match &operation.operation {
+                    super::OperationRequest::SelectedObservation(selected) => {
+                        let prepared = self.prepare_selected_observation(services, selected, &operation.preparation, None, cancel).await?;
+                        let binding = self.admit_overlay(prepared.model.compiled(), overlay)?;
+                        return Ok((binding, pse_model::study::SeedNeed::NotNeeded));
+                    }
                     super::OperationRequest::Simulation(simulation) => {
                         let execution = self
                             .declared_execution_with_demand(

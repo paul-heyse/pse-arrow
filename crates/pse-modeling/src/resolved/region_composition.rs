@@ -638,7 +638,13 @@ impl SelectedRegion {
         let mut derivations = crate::derived::Facts::default();
         let mut reads = RegionReads::default();
         let mut occurrences = BTreeMap::new();
+        let mut indexed = BTreeMap::new();
         for (region, map) in regions.iter().zip(&relocated) {
+            for (root, contraction) in &region.indexed {
+                if let Some(local) = map.nodes.get(root) {
+                    indexed.insert(*local, contraction.clone());
+                }
+            }
             for (relationship, identity) in region.derivations.iter() {
                 if derivations.publish(*relationship)? != *identity {
                     return Err(invalid(
@@ -685,6 +691,7 @@ impl SelectedRegion {
             derivations,
             occurrences,
             reads,
+            indexed,
         })
     }
 }

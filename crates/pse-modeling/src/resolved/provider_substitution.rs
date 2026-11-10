@@ -407,6 +407,16 @@ impl SelectedRegion {
             })
             .collect::<Result<_>>()?;
         let occurrences = occurrences::collect(model, &syntax, &actual_attribution)?;
+        let indexed = region
+            .indexed
+            .iter()
+            .filter_map(|(old, value)| {
+                relocation
+                    .nodes
+                    .get(old)
+                    .map(|local| (*local, value.clone()))
+            })
+            .collect();
         Ok(Self {
             support_identity: support_identity(&support),
             syntax,
@@ -419,6 +429,7 @@ impl SelectedRegion {
             derivations: region.derivations,
             occurrences,
             reads,
+            indexed,
         })
     }
 }

@@ -14,6 +14,8 @@ mod factorable;
 mod grouped;
 mod numerical_observation;
 mod mathematical_diagnostics;
+mod analytical;
+pub use analytical::{AnalyticalOperation,AnalyticalSource,AnalyticalCoordinate, AnalyticalOutput,CompiledAnalyticalResult};
 pub use numerical_observation::{
     NumericalObservationArtifact, NumericalObservationBuildRecipe,
     NumericalObservationInstanceRequest, NumericalObservationRequest,

@@ -23,7 +23,8 @@
 //! None of these local operations requires a canonical deployment, Python or a CLI.
 mod conformance_documents;
 pub use conformance_documents::{ConformanceManifest, ConformanceRun, RunSettings};
-pub use modeling::{ConformanceObservation, with_conformance_observer};
+pub use modeling::{
+    AuthoredAnalyticalResult,ConformanceObservation, with_conformance_observer};
 mod diagnostic_request;
 mod reduction;
 mod reproducer;
@@ -134,6 +135,7 @@ mod native_study_tests;
 mod native_worker;
 mod physical_cache;
 pub mod sampling;
+pub mod expectation;
 mod worker;
 pub use bindings::{
     AdmittedBinding, AdmittedBindingEntry, BindingAssignment, BindingQuantity, BindingTarget,
@@ -161,8 +163,7 @@ pub use study_demand::{
     CompactStudyResult, StudyDetailDemand, StudyMemberDemand, StudyOutputDemand,
 };
 mod study_variants;
-#[cfg(feature = "engineering-service")]
-pub(crate) use study_variants::document_extent as bounded_study_document_extent;
+pub(crate) use study_variants::document_extent;
 pub use study_variants::{
     LazyStudyDefinition, SelectedStudyVariant, SourceChoice, StudyInputs, StudyVariants,
 };
@@ -197,7 +198,7 @@ pub use study_operations::{
     ControllerPrediction, EstimatorInput, EstimatorMeasurement, EstimatorOperation, FitOperation,
     HorizonBinding, HorizonInputDocument, HorizonOperation, HorizonSignalDocument,
     OperationRequest, OperationSource, PreparationSettings, PreparedStudyOperation,
-    SimulationOperation, StudyOperation, StudyResultRole,
+    SelectedObservationOperation, SelectedObservationOutput, SimulationOperation, StudyOperation, StudyResultRole,
 };
 pub(crate) mod numerics;
 mod objectives;
@@ -303,6 +304,7 @@ pub mod uncertainty;
 #[cfg(feature = "solver-idas")]
 pub use modeling::ConsistentInitializationResult;
 pub use modeling::ModelingNativeAnalysis;
+pub use modeling::{CompletedSelectedObservation, MathematicalDiagnosticOperation, PreparedSelectedObservation, SelectedObservationPopulation, SelectedObservationValues};
 pub use modeling::ModelingStructuralAnalysis;
 pub use modeling::scientific_intake;
 pub use modeling::{
@@ -358,6 +360,8 @@ use pse_engine::{
 };
 pub use run::{IssuedRunIdentity, IssuedRunStart, RunHandle, RunResult, StoredStart};
 mod run_outcome;
+mod mathematical_products;
+pub use mathematical_products::{AnalyticalOperationRequest,MathematicalRequest,PreparedMathematicalOperation,MathematicalProduct,StoredMathematicalView};
 pub use run_outcome::{HorizonRunOutcome, RunOutcome, RunReport, RunRequest};
 mod live_simulation;
 pub use live_simulation::{

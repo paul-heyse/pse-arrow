@@ -5,6 +5,10 @@
 use pse_contract::boundary_projection::{Direction, LocalRule, ProjectionError, ProjectionGraph};
 use pse_model::engineering::OPERATION_ID_RULE;
 
+mod analytical;
+pub use analytical::EngineeringExecuteMathematical;
+mod expectation;
+pub use expectation::{EngineeringExecuteExpectation, EngineeringReadExpectation, EngineeringReadExpectationSamples, EngineeringExpectationSamples};
 mod inspection;
 mod study;
 pub use inspection::{EngineeringInspectModeling, EngineeringInspectProviders};
@@ -86,6 +90,8 @@ pub fn projection() -> Result<ProjectionGraph, ProjectionError> {
         )?
         .effects(pse_contract::operation_effects::EffectFacts::OBSERVATION)?;
     let service = inspection::service(service, &mut graph)?;
+    let service = expectation::service(service, &mut graph)?;
+    let service = analytical::service(service, &mut graph)?;
     graph.service(service)?;
     study::services(&mut graph)?;
     Ok(graph)

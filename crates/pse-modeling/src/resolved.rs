@@ -16,6 +16,8 @@ pub(crate) mod functions;
 #[path = "resolved/functions-constructed.rs"]
 mod functions_constructed;
 mod import;
+mod indexed;
+pub use indexed::{ContractionAxis, ContractionFactor, OriginalContraction};
 mod occurrences;
 pub(crate) mod operation;
 /// Passive complete scientific restoration records; fields remain owner-controlled.

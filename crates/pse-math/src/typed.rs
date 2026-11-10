@@ -2266,3 +2266,32 @@ impl ExactSourceControl {
         Ok(())
     }
 }
+
+/// Reuse the exact source growth admission before native substitution can fold
+/// an authored point into a retained high power. No expression is constructed.
+pub(crate) fn admit_exact_source_substitution(
+    expression: &Atom,
+    axis: &Atom,
+    point: &Atom,
+    limits: crate::jets::EvaluationLimits,
+    scope: &pse_kernels::ExecutionScope,
+) -> Result<(), MathError> {
+    let control = ExactSourceControl {
+        limits,
+        coefficient_bits: limits.scratch_bytes.saturating_mul(8),
+        scope: scope.nested(),
+        work: std::sync::atomic::AtomicUsize::new(0),
+        reserved: std::sync::atomic::AtomicUsize::new(0),
+        aliases: std::sync::Mutex::new(Default::default()),
+    };
+    let symbol = axis
+        .get_symbol()
+        .ok_or_else(|| MathError::Contract("exact source substitution coordinate".into()))?;
+    let extent = control.extent(point.as_view(), 0)?;
+    control
+        .aliases
+        .lock()
+        .map_err(|_| MathError::Contract("exact source stage admission poisoned".into()))?
+        .insert(symbol, extent);
+    control.reserve(&[expression], 1)
+}

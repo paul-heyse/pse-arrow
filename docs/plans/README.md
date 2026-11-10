@@ -89,3 +89,18 @@ schema evolution, canonical operations, graph/search, observation, persistence/d
 developer workflows, diagnostics and integrated acceptance. Plans66 and 71 retain their own
 scope and status. Plan72 supersedes only Plan68, without importing its obligations.
 Local targeted checks precede assembled scope-end qualification.
+
+[Plan73: Symbolica ecosystem improvements](73-symbolica-ecosystem-improvements.md) owns
+the selected mathematical, numerical, analytical and study improvements. The entire series
+executes before returning to Plan66; Plan66 retains its own scope and will be reconciled
+afterward. The companion package tables own current implementation and acceptance status.
+The coordinator records opportunity dispositions and the cross-series handoff.
+
+- [73a · Shared mathematical preparation](73a-shared-mathematical-preparation.md)
+- [73b · Supplier controls and qualified receiving](73b-supplier-controls-and-qualified-receiving.md)
+- [73c · Stable operations and batch execution](73c-stable-operations-and-batch-execution.md)
+- [73d · Exact structure and numerical assurance](73d-exact-structure-and-numerical-assurance.md)
+- [73e · Analytical products and native presentation](73e-analytical-products-and-native-presentation.md)
+- [73f · Explicit-measure expectation studies](73f-explicit-measure-expectation-studies.md)
+- [73g · Finite topology exploration](73g-finite-topology-exploration.md)
+- [73h · Build boundaries and integrated acceptance](73h-build-boundaries-and-integrated-acceptance.md)

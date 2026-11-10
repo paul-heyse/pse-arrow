@@ -585,6 +585,8 @@ impl CasePlan {
             || request.rows.iter().collect::<BTreeSet<_>>().len() != request.rows.len()
             || coordinates.iter().collect::<BTreeSet<_>>().len() != coordinates.len()
             || coordinates.iter().any(|id| !declared.contains(id))
+            || request.unknowns.iter().any(|id| !self.structure().variables().iter()
+                .any(|variable| variable.port.id == *id && !variable.fixed))
             || request
                 .rows
                 .iter()
@@ -620,6 +622,7 @@ impl CasePlan {
             &request.rows,
             &coordinates,
             limits.work,
+            limits.coefficient_bits,
             scope.cancellation(),
         )?;
         if request.claim == DiagnosticClaim::ExactIdentity {
@@ -756,11 +759,12 @@ impl CasePlan {
                                 "nonfinite diagnostic fixed input".into(),
                             ));
                         }
-                        Atom::num(*value)
+                        crate::class_evidence::exact_binary64_atom(*value, limits.coefficient_bits)?
                     };
                     slots.insert(
                         slot,
-                        value * Atom::num(binding.scale()) + Atom::num(binding.offset()),
+                        value * crate::class_evidence::exact_binary64_atom(binding.scale(), limits.coefficient_bits)?
+                            + crate::class_evidence::exact_binary64_atom(binding.offset(), limits.coefficient_bits)?,
                     );
                 }
                 for stage in stages {
@@ -2422,6 +2426,14 @@ mod tests {
             plan.prepare_mathematical_diagnostic(&CaseValues::default(), demand, None, &scope())
                 .is_err()
         );
+        let parameter_plan = self::plan(3, |_, input| vec![input[2].clone()]);
+        let mut wrongly_bound = request(DiagnosticClaim::ChosenPrecision, 1, 1, 0);
+        wrongly_bound.unknowns = vec![id(3)];
+        wrongly_bound.inputs = vec![point(3, 2)];
+        assert!(parameter_plan.prepare_mathematical_diagnostic(&CaseValues::default(), wrongly_bound.clone(), None, &scope()).is_err());
+        wrongly_bound.unknowns.clear();
+        wrongly_bound.parameters = vec![id(3)];
+        assert!(parameter_plan.mathematical_diagnostics(&CaseValues::default(), wrongly_bound, None, &scope()).is_ok());
         let mut limits = DiagnosticLimits::default();
         limits.coefficient_bits = 16;
         let large = ExactValue {

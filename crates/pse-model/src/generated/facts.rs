@@ -183,6 +183,24 @@ pub enum FactBatch {
     r#RuntimeCanonicalExecutionOperations(
         Vec<super::r#runtime::r#canonical_execution_operations::Row>,
     ),
+    #[doc = stringify!(r#RuntimeCanonicalExpectationBoundaries)]
+    r#RuntimeCanonicalExpectationBoundaries(
+        Vec<super::r#runtime::r#canonical_expectation_boundaries::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalExpectationFinalizations)]
+    r#RuntimeCanonicalExpectationFinalizations(
+        Vec<super::r#runtime::r#canonical_expectation_finalizations::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalExpectationProposals)]
+    r#RuntimeCanonicalExpectationProposals(
+        Vec<super::r#runtime::r#canonical_expectation_proposals::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalExpectationPublications)]
+    r#RuntimeCanonicalExpectationPublications(
+        Vec<super::r#runtime::r#canonical_expectation_publications::Row>,
+    ),
+    #[doc = stringify!(r#RuntimeCanonicalExpectations)]
+    r#RuntimeCanonicalExpectations(Vec<super::r#runtime::r#canonical_expectations::Row>),
     #[doc = stringify!(r#RuntimeCanonicalFileAdmission)]
     r#RuntimeCanonicalFileAdmission(
         Vec<super::r#runtime::r#canonical_file_admission::Row>,
@@ -459,6 +477,12 @@ pub enum FactBatch {
     r#RuntimeDiagnosticsFindings(Vec<super::r#runtime::r#diagnostics_findings::Row>),
     #[doc = stringify!(r#RuntimeExecutionStatistics)]
     r#RuntimeExecutionStatistics(Vec<super::r#runtime::r#execution_statistics::Row>),
+    #[doc = stringify!(r#RuntimeExpectationEstimates)]
+    r#RuntimeExpectationEstimates(Vec<super::r#runtime::r#expectation_estimates::Row>),
+    #[doc = stringify!(r#RuntimeExpectationSamples)]
+    r#RuntimeExpectationSamples(Vec<super::r#runtime::r#expectation_samples::Row>),
+    #[doc = stringify!(r#RuntimeExpectationSummaries)]
+    r#RuntimeExpectationSummaries(Vec<super::r#runtime::r#expectation_summaries::Row>),
     #[doc = stringify!(r#RuntimeFitConstraints)]
     r#RuntimeFitConstraints(Vec<super::r#runtime::r#fit_constraints::Row>),
     #[doc = stringify!(r#RuntimeFitExperimentAssessments)]
@@ -487,6 +511,8 @@ pub enum FactBatch {
     ),
     #[doc = stringify!(r#RuntimeLocalValidity)]
     r#RuntimeLocalValidity(Vec<super::r#runtime::r#local_validity::Row>),
+    #[doc = stringify!(r#RuntimeMathematicalProducts)]
+    r#RuntimeMathematicalProducts(Vec<super::r#runtime::r#mathematical_products::Row>),
     #[doc = stringify!(r#RuntimeModelingChecks)]
     r#RuntimeModelingChecks(Vec<super::r#runtime::r#modeling_checks::Row>),
     #[doc = stringify!(r#RuntimeModelingConformance)]
@@ -565,6 +591,8 @@ pub enum FactBatch {
     r#RuntimeRunLineage(Vec<super::r#runtime::r#run_lineage::Row>),
     #[doc = stringify!(r#RuntimeScientificContexts)]
     r#RuntimeScientificContexts(Vec<super::r#runtime::r#scientific_contexts::Row>),
+    #[doc = stringify!(r#RuntimeSelectedObservations)]
+    r#RuntimeSelectedObservations(Vec<super::r#runtime::r#selected_observations::Row>),
     #[doc = stringify!(r#RuntimeSimulationEvents)]
     r#RuntimeSimulationEvents(Vec<super::r#runtime::r#simulation_events::Row>),
     #[doc = stringify!(r#RuntimeSimulationSamples)]
@@ -1002,6 +1030,36 @@ impl FactBatch {
                 pse_ids::SemanticId::from_bytes([
                     8u8, 88u8, 166u8, 12u8, 122u8, 223u8, 1u8, 234u8, 47u8, 249u8, 95u8,
                     230u8, 101u8, 243u8, 224u8, 178u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalExpectationBoundaries(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    231u8, 115u8, 142u8, 37u8, 66u8, 140u8, 214u8, 202u8, 0u8, 212u8,
+                    54u8, 202u8, 242u8, 253u8, 149u8, 249u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalExpectationFinalizations(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    91u8, 130u8, 110u8, 184u8, 95u8, 41u8, 167u8, 37u8, 94u8, 177u8,
+                    78u8, 32u8, 4u8, 176u8, 54u8, 211u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalExpectationProposals(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    179u8, 151u8, 123u8, 133u8, 131u8, 212u8, 119u8, 75u8, 233u8, 148u8,
+                    25u8, 8u8, 139u8, 230u8, 120u8, 190u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalExpectationPublications(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    168u8, 90u8, 158u8, 53u8, 248u8, 17u8, 79u8, 35u8, 230u8, 171u8,
+                    180u8, 135u8, 63u8, 196u8, 108u8, 109u8,
+                ])
+            }
+            Self::r#RuntimeCanonicalExpectations(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    231u8, 61u8, 55u8, 110u8, 221u8, 74u8, 205u8, 61u8, 252u8, 109u8,
+                    183u8, 5u8, 161u8, 83u8, 66u8, 136u8,
                 ])
             }
             Self::r#RuntimeCanonicalFileAdmission(_) => {
@@ -1496,6 +1554,24 @@ impl FactBatch {
                     208u8, 66u8, 43u8, 201u8, 94u8, 251u8,
                 ])
             }
+            Self::r#RuntimeExpectationEstimates(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    144u8, 23u8, 84u8, 0u8, 33u8, 196u8, 162u8, 130u8, 82u8, 242u8, 38u8,
+                    49u8, 230u8, 192u8, 243u8, 38u8,
+                ])
+            }
+            Self::r#RuntimeExpectationSamples(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    145u8, 36u8, 7u8, 81u8, 13u8, 204u8, 197u8, 45u8, 56u8, 183u8, 128u8,
+                    96u8, 214u8, 61u8, 1u8, 56u8,
+                ])
+            }
+            Self::r#RuntimeExpectationSummaries(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    132u8, 254u8, 49u8, 9u8, 213u8, 39u8, 34u8, 92u8, 63u8, 9u8, 22u8,
+                    229u8, 216u8, 241u8, 165u8, 203u8,
+                ])
+            }
             Self::r#RuntimeFitConstraints(_) => {
                 pse_ids::SemanticId::from_bytes([
                     101u8, 252u8, 184u8, 47u8, 75u8, 75u8, 64u8, 232u8, 175u8, 53u8,
@@ -1560,6 +1636,12 @@ impl FactBatch {
                 pse_ids::SemanticId::from_bytes([
                     137u8, 55u8, 94u8, 214u8, 185u8, 47u8, 59u8, 201u8, 200u8, 36u8,
                     157u8, 19u8, 95u8, 3u8, 57u8, 68u8,
+                ])
+            }
+            Self::r#RuntimeMathematicalProducts(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    197u8, 177u8, 87u8, 2u8, 66u8, 129u8, 209u8, 107u8, 31u8, 114u8,
+                    222u8, 115u8, 69u8, 222u8, 4u8, 30u8,
                 ])
             }
             Self::r#RuntimeModelingChecks(_) => {
@@ -1742,6 +1824,12 @@ impl FactBatch {
                     68u8, 254u8, 28u8, 182u8, 127u8, 198u8,
                 ])
             }
+            Self::r#RuntimeSelectedObservations(_) => {
+                pse_ids::SemanticId::from_bytes([
+                    49u8, 136u8, 230u8, 238u8, 69u8, 16u8, 62u8, 50u8, 196u8, 181u8,
+                    31u8, 58u8, 99u8, 161u8, 130u8, 246u8,
+                ])
+            }
             Self::r#RuntimeSimulationEvents(_) => {
                 pse_ids::SemanticId::from_bytes([
                     68u8, 37u8, 108u8, 83u8, 90u8, 159u8, 135u8, 70u8, 231u8, 174u8,
@@ -1904,6 +1992,11 @@ impl FactBatch {
             Self::r#RuntimeCanonicalDraftDiagnostics(rows) => rows.len(),
             Self::r#RuntimeCanonicalEdges(rows) => rows.len(),
             Self::r#RuntimeCanonicalExecutionOperations(rows) => rows.len(),
+            Self::r#RuntimeCanonicalExpectationBoundaries(rows) => rows.len(),
+            Self::r#RuntimeCanonicalExpectationFinalizations(rows) => rows.len(),
+            Self::r#RuntimeCanonicalExpectationProposals(rows) => rows.len(),
+            Self::r#RuntimeCanonicalExpectationPublications(rows) => rows.len(),
+            Self::r#RuntimeCanonicalExpectations(rows) => rows.len(),
             Self::r#RuntimeCanonicalFileAdmission(rows) => rows.len(),
             Self::r#RuntimeCanonicalFileBorrowers(rows) => rows.len(),
             Self::r#RuntimeCanonicalFileInstances(rows) => rows.len(),
@@ -1986,6 +2079,9 @@ impl FactBatch {
             Self::r#RuntimeDiagnosticSamples(rows) => rows.len(),
             Self::r#RuntimeDiagnosticsFindings(rows) => rows.len(),
             Self::r#RuntimeExecutionStatistics(rows) => rows.len(),
+            Self::r#RuntimeExpectationEstimates(rows) => rows.len(),
+            Self::r#RuntimeExpectationSamples(rows) => rows.len(),
+            Self::r#RuntimeExpectationSummaries(rows) => rows.len(),
             Self::r#RuntimeFitConstraints(rows) => rows.len(),
             Self::r#RuntimeFitExperimentAssessments(rows) => rows.len(),
             Self::r#RuntimeFitObservations(rows) => rows.len(),
@@ -1997,6 +2093,7 @@ impl FactBatch {
             Self::r#RuntimeInitializationStages(rows) => rows.len(),
             Self::r#RuntimeLiveSimulationSamples(rows) => rows.len(),
             Self::r#RuntimeLocalValidity(rows) => rows.len(),
+            Self::r#RuntimeMathematicalProducts(rows) => rows.len(),
             Self::r#RuntimeModelingChecks(rows) => rows.len(),
             Self::r#RuntimeModelingConformance(rows) => rows.len(),
             Self::r#RuntimeModelingDiagnosticSamples(rows) => rows.len(),
@@ -2027,6 +2124,7 @@ impl FactBatch {
             Self::r#RuntimeRouteDecisions(rows) => rows.len(),
             Self::r#RuntimeRunLineage(rows) => rows.len(),
             Self::r#RuntimeScientificContexts(rows) => rows.len(),
+            Self::r#RuntimeSelectedObservations(rows) => rows.len(),
             Self::r#RuntimeSimulationEvents(rows) => rows.len(),
             Self::r#RuntimeSimulationSamples(rows) => rows.len(),
             Self::r#RuntimeSolutionPool(rows) => rows.len(),
@@ -2385,6 +2483,31 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeCanonicalExecutionOperations(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalExpectationBoundaries(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalExpectationFinalizations(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalExpectationProposals(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalExpectationPublications(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeCanonicalExpectations(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -2799,6 +2922,21 @@ impl FactBatch {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
             }
+            Self::r#RuntimeExpectationEstimates(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeExpectationSamples(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeExpectationSummaries(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
             Self::r#RuntimeFitConstraints(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
@@ -2850,6 +2988,11 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeLocalValidity(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeMathematicalProducts(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -3000,6 +3143,11 @@ impl FactBatch {
                 }
             }
             Self::r#RuntimeScientificContexts(rows) => {
+                for row in rows {
+                    crate::SemanticFrame::frame(row, &mut hash);
+                }
+            }
+            Self::r#RuntimeSelectedObservations(rows) => {
                 for row in rows {
                     crate::SemanticFrame::frame(row, &mut hash);
                 }
@@ -3364,6 +3512,34 @@ impl FactBatch {
                     .map(|row| Self::r#RuntimeCanonicalExecutionOperations(
                         vec![row.clone()],
                     ))
+            }
+            Self::r#RuntimeCanonicalExpectationBoundaries(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalExpectationBoundaries(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeCanonicalExpectationFinalizations(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalExpectationFinalizations(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeCanonicalExpectationProposals(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalExpectationProposals(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeCanonicalExpectationPublications(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalExpectationPublications(
+                        vec![row.clone()],
+                    ))
+            }
+            Self::r#RuntimeCanonicalExpectations(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeCanonicalExpectations(vec![row.clone()]))
             }
             Self::r#RuntimeCanonicalFileAdmission(rows) => {
                 rows.get(index)
@@ -3781,6 +3957,18 @@ impl FactBatch {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeExecutionStatistics(vec![row.clone()]))
             }
+            Self::r#RuntimeExpectationEstimates(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeExpectationEstimates(vec![row.clone()]))
+            }
+            Self::r#RuntimeExpectationSamples(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeExpectationSamples(vec![row.clone()]))
+            }
+            Self::r#RuntimeExpectationSummaries(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeExpectationSummaries(vec![row.clone()]))
+            }
             Self::r#RuntimeFitConstraints(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeFitConstraints(vec![row.clone()]))
@@ -3826,6 +4014,10 @@ impl FactBatch {
             Self::r#RuntimeLocalValidity(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeLocalValidity(vec![row.clone()]))
+            }
+            Self::r#RuntimeMathematicalProducts(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeMathematicalProducts(vec![row.clone()]))
             }
             Self::r#RuntimeModelingChecks(rows) => {
                 rows.get(index)
@@ -3952,6 +4144,10 @@ impl FactBatch {
             Self::r#RuntimeScientificContexts(rows) => {
                 rows.get(index)
                     .map(|row| Self::r#RuntimeScientificContexts(vec![row.clone()]))
+            }
+            Self::r#RuntimeSelectedObservations(rows) => {
+                rows.get(index)
+                    .map(|row| Self::r#RuntimeSelectedObservations(vec![row.clone()]))
             }
             Self::r#RuntimeSimulationEvents(rows) => {
                 rows.get(index)
@@ -4705,6 +4901,61 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalExecutionOperations(left),
                 Self::r#RuntimeCanonicalExecutionOperations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalExpectationBoundaries(left),
+                Self::r#RuntimeCanonicalExpectationBoundaries(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalExpectationFinalizations(left),
+                Self::r#RuntimeCanonicalExpectationFinalizations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalExpectationProposals(left),
+                Self::r#RuntimeCanonicalExpectationProposals(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalExpectationPublications(left),
+                Self::r#RuntimeCanonicalExpectationPublications(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalExpectations(left),
+                Self::r#RuntimeCanonicalExpectations(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -5613,6 +5864,39 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeExpectationEstimates(left),
+                Self::r#RuntimeExpectationEstimates(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeExpectationSamples(left),
+                Self::r#RuntimeExpectationSamples(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeExpectationSummaries(left),
+                Self::r#RuntimeExpectationSummaries(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeFitConstraints(left),
                 Self::r#RuntimeFitConstraints(right),
             ) => {
@@ -5714,6 +5998,17 @@ impl FactBatch {
                 }
             }
             (Self::r#RuntimeLocalValidity(left), Self::r#RuntimeLocalValidity(right)) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeMathematicalProducts(left),
+                Self::r#RuntimeMathematicalProducts(right),
+            ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
                         crate::SemanticEq::semantic_eq(left, right)
@@ -6034,6 +6329,17 @@ impl FactBatch {
             (
                 Self::r#RuntimeScientificContexts(left),
                 Self::r#RuntimeScientificContexts(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(left, right)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeSelectedObservations(left),
+                Self::r#RuntimeSelectedObservations(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -6670,6 +6976,41 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#RuntimeCanonicalExpectationBoundaries(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalExpectationFinalizations(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalExpectationProposals(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalExpectationPublications(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeCanonicalExpectations(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#RuntimeCanonicalFileAdmission(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -7244,6 +7585,27 @@ impl FactBatch {
                             .saturating_add(size_of::<Self>())
                     })
             }
+            Self::r#RuntimeExpectationEstimates(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeExpectationSamples(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeExpectationSummaries(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
             Self::r#RuntimeFitConstraints(rows) => {
                 rows.get(index)
                     .map(|row| {
@@ -7315,6 +7677,13 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeLocalValidity(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeMathematicalProducts(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -7525,6 +7894,13 @@ impl FactBatch {
                     })
             }
             Self::r#RuntimeScientificContexts(rows) => {
+                rows.get(index)
+                    .map(|row| {
+                        crate::HeapUsage::owned_bytes(row)
+                            .saturating_add(size_of::<Self>())
+                    })
+            }
+            Self::r#RuntimeSelectedObservations(rows) => {
                 rows.get(index)
                     .map(|row| {
                         crate::HeapUsage::owned_bytes(row)
@@ -8466,6 +8842,61 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalExecutionOperations(left),
                 Self::r#RuntimeCanonicalExecutionOperations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalExpectationBoundaries(left),
+                Self::r#RuntimeCanonicalExpectationBoundaries(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalExpectationFinalizations(left),
+                Self::r#RuntimeCanonicalExpectationFinalizations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalExpectationProposals(left),
+                Self::r#RuntimeCanonicalExpectationProposals(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalExpectationPublications(left),
+                Self::r#RuntimeCanonicalExpectationPublications(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#key, &right.r#key)
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeCanonicalExpectations(left),
+                Self::r#RuntimeCanonicalExpectations(right),
             ) => {
                 match (left.get(index), right.get(other_index)) {
                     (Some(left), Some(right)) => {
@@ -9432,6 +9863,63 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeExpectationEstimates(left),
+                Self::r#RuntimeExpectationEstimates(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#parent_id,
+                                &right.r#parent_id,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#output_id,
+                                &right.r#output_id,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeExpectationSamples(left),
+                Self::r#RuntimeExpectationSamples(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#parent_id,
+                                &right.r#parent_id,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#iteration,
+                                &right.r#iteration,
+                            )
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#ordinal,
+                                &right.r#ordinal,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeExpectationSummaries(left),
+                Self::r#RuntimeExpectationSummaries(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#parent_id,
+                                &right.r#parent_id,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeFitConstraints(left),
                 Self::r#RuntimeFitConstraints(right),
             ) => {
@@ -9592,6 +10080,21 @@ impl FactBatch {
                             && crate::SemanticEq::semantic_eq(
                                 &left.r#quantity,
                                 &right.r#quantity,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
+                Self::r#RuntimeMathematicalProducts(left),
+                Self::r#RuntimeMathematicalProducts(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#ordinal,
+                                &right.r#ordinal,
                             )
                     }
                     _ => false,
@@ -10137,6 +10640,21 @@ impl FactBatch {
                 }
             }
             (
+                Self::r#RuntimeSelectedObservations(left),
+                Self::r#RuntimeSelectedObservations(right),
+            ) => {
+                match (left.get(index), right.get(other_index)) {
+                    (Some(left), Some(right)) => {
+                        crate::SemanticEq::semantic_eq(&left.r#run_id, &right.r#run_id)
+                            && crate::SemanticEq::semantic_eq(
+                                &left.r#ordinal,
+                                &right.r#ordinal,
+                            )
+                    }
+                    _ => false,
+                }
+            }
+            (
                 Self::r#RuntimeSimulationEvents(left),
                 Self::r#RuntimeSimulationEvents(right),
             ) => {
@@ -10674,6 +11192,26 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
             }
+            Self::r#RuntimeCanonicalExpectationBoundaries(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalExpectationFinalizations(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalExpectationProposals(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalExpectationPublications(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
+            Self::r#RuntimeCanonicalExpectations(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#key, &mut hash);
+            }
             Self::r#RuntimeCanonicalFileAdmission(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#key, &mut hash);
@@ -11012,6 +11550,24 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#name, &mut hash);
             }
+            Self::r#RuntimeExpectationEstimates(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#parent_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#output_id, &mut hash);
+            }
+            Self::r#RuntimeExpectationSamples(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#parent_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#iteration, &mut hash);
+                crate::SemanticFrame::frame(&row.r#ordinal, &mut hash);
+            }
+            Self::r#RuntimeExpectationSummaries(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#parent_id, &mut hash);
+            }
             Self::r#RuntimeFitConstraints(rows) => {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
@@ -11070,6 +11626,11 @@ impl FactBatch {
                 crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
                 crate::SemanticFrame::frame(&row.r#step, &mut hash);
                 crate::SemanticFrame::frame(&row.r#quantity, &mut hash);
+            }
+            Self::r#RuntimeMathematicalProducts(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#ordinal, &mut hash);
             }
             Self::r#RuntimeModelingChecks(rows) => {
                 let row = rows.get(index)?;
@@ -11245,6 +11806,11 @@ impl FactBatch {
                 let row = rows.get(index)?;
                 crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
                 crate::SemanticFrame::frame(&row.r#step, &mut hash);
+            }
+            Self::r#RuntimeSelectedObservations(rows) => {
+                let row = rows.get(index)?;
+                crate::SemanticFrame::frame(&row.r#run_id, &mut hash);
+                crate::SemanticFrame::frame(&row.r#ordinal, &mut hash);
             }
             Self::r#RuntimeSimulationEvents(rows) => {
                 let row = rows.get(index)?;
@@ -11776,6 +12342,41 @@ impl FactBatch {
             (
                 Self::r#RuntimeCanonicalExecutionOperations(left),
                 Self::r#RuntimeCanonicalExecutionOperations(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalExpectationBoundaries(left),
+                Self::r#RuntimeCanonicalExpectationBoundaries(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalExpectationFinalizations(left),
+                Self::r#RuntimeCanonicalExpectationFinalizations(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalExpectationProposals(left),
+                Self::r#RuntimeCanonicalExpectationProposals(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalExpectationPublications(left),
+                Self::r#RuntimeCanonicalExpectationPublications(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeCanonicalExpectations(left),
+                Self::r#RuntimeCanonicalExpectations(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -12355,6 +12956,27 @@ impl FactBatch {
                 Ok(())
             }
             (
+                Self::r#RuntimeExpectationEstimates(left),
+                Self::r#RuntimeExpectationEstimates(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeExpectationSamples(left),
+                Self::r#RuntimeExpectationSamples(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeExpectationSummaries(left),
+                Self::r#RuntimeExpectationSummaries(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
                 Self::r#RuntimeFitConstraints(left),
                 Self::r#RuntimeFitConstraints(mut right),
             ) => {
@@ -12424,6 +13046,13 @@ impl FactBatch {
             (
                 Self::r#RuntimeLocalValidity(left),
                 Self::r#RuntimeLocalValidity(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeMathematicalProducts(left),
+                Self::r#RuntimeMathematicalProducts(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -12631,6 +13260,13 @@ impl FactBatch {
             (
                 Self::r#RuntimeScientificContexts(left),
                 Self::r#RuntimeScientificContexts(mut right),
+            ) => {
+                left.append(&mut right);
+                Ok(())
+            }
+            (
+                Self::r#RuntimeSelectedObservations(left),
+                Self::r#RuntimeSelectedObservations(mut right),
             ) => {
                 left.append(&mut right);
                 Ok(())
@@ -12869,6 +13505,21 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeCanonicalExecutionOperations(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
+            Self::r#RuntimeCanonicalExpectationBoundaries(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalExpectationFinalizations(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalExpectationProposals(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalExpectationPublications(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeCanonicalExpectations(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimeCanonicalFileAdmission(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
@@ -13089,6 +13740,13 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeExecutionStatistics(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
             }
+            Self::r#RuntimeExpectationEstimates(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
+            Self::r#RuntimeExpectationSamples(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeExpectationSummaries(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimeFitConstraints(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeFitExperimentAssessments(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
@@ -13110,6 +13768,9 @@ impl crate::HeapUsage for FactBatch {
                 crate::HeapUsage::heap_bytes(rows)
             }
             Self::r#RuntimeLocalValidity(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeMathematicalProducts(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimeModelingChecks(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeModelingConformance(rows) => {
                 crate::HeapUsage::heap_bytes(rows)
@@ -13168,6 +13829,9 @@ impl crate::HeapUsage for FactBatch {
             Self::r#RuntimeRouteDecisions(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeRunLineage(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeScientificContexts(rows) => crate::HeapUsage::heap_bytes(rows),
+            Self::r#RuntimeSelectedObservations(rows) => {
+                crate::HeapUsage::heap_bytes(rows)
+            }
             Self::r#RuntimeSimulationEvents(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSimulationSamples(rows) => crate::HeapUsage::heap_bytes(rows),
             Self::r#RuntimeSolutionPool(rows) => crate::HeapUsage::heap_bytes(rows),

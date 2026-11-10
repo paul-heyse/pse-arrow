@@ -182,6 +182,10 @@ pub struct StudyReport {
     pub(in crate::workflow) _owner: Arc<dyn pse_columnar::PayloadOwner>,
 }
 impl StudyReport {
+    /// Original recorded study identity; local scientific studies retain its absence.
+    pub fn canonical_study_id(&self) -> Option<StudyId> {
+        self.canonical_study
+    }
     /// Explicit execution capabilities retained by this effectful result owner.
     pub fn services(&self) -> &ExecutionServices {
         &self.services
@@ -210,6 +214,7 @@ impl super::Runtime {
         definition: &StudyDefinition,
         maximum_points: usize,
         cancel: &crate::CancelSource,
+        issued: Option<super::IssuedStudyIdentity>,
     ) -> Result<StudyReport, WorkflowError> {
         if definition.modeling_revision != package.source_attribution()
             || maximum_points == 0
@@ -221,7 +226,10 @@ impl super::Runtime {
             ));
         }
         let primary = self.managed_primary(cancel).await?;
-        let handle = Box::pin(self.start_recorded_study(definition.clone(), cancel)).await?;
+        let handle = match issued {
+            Some(issued) => Box::pin(self.start_issued_study(definition.clone(), issued, cancel)).await?,
+            None => Box::pin(self.start_recorded_study(definition.clone(), cancel)).await?,
+        };
         let inventory = wait_study_inventory(
             handle.study_id(),
             cancel,
@@ -310,6 +318,12 @@ impl super::Runtime {
         maximum_points: usize,
         cancel: &crate::CancelSource,
     ) -> Result<StudyReport, WorkflowError> {
+        self.execute_study_with_issuance(definition, maximum_points, cancel, None).await
+    }
+    pub(in crate::workflow) async fn execute_study_with_issuance(
+        &self, definition: &StudyDefinition, maximum_points: usize, cancel: &crate::CancelSource,
+        issued: Option<super::IssuedStudyIdentity>,
+    ) -> Result<StudyReport, WorkflowError> {
         super::study::creation_checkpoint(cancel)?;
         if maximum_points == 0
             || maximum_points > super::MAXIMUM_STUDY_POINTS
@@ -340,6 +354,7 @@ impl super::Runtime {
                     definition,
                     maximum_points,
                     cancel,
+                    issued,
                 )))
                 .await;
                 let mut report = report?;
@@ -758,13 +773,14 @@ impl ModelingPackage {
                 }
                 // Group only already-ready fresh steps whose owning adapter supports
                 // batching. All other cases execute in independent sequence futures.
-                let mut groups = Vec::<(Option<crate::math::solves::DirectBatchKey>, Vec<(usize, StartProvenance)>)>::new();
+                let mut groups = Vec::<(Option<LocalBatchKey>, Vec<(usize, StartProvenance)>)>::new();
                 for (index, start) in starts {
                     let batching = if matches!(start, StartProvenance::Fresh
                         | StartProvenance::FreshFallback { .. }) && !successors.contains_key(&index) {
                         match ready.get(&index) {
                             Some(ReadyOperation { operation: PreparedStudyOperation::DeclaredCase(case),
-                                staged: None, .. }) => case.solve.direct_batch_candidate(&work_cancel).map(|candidate| candidate.key),
+                                staged: None, .. }) => case.solve.direct_batch_candidate(&work_cancel).map(|candidate| LocalBatchKey::Solve(candidate.key)),
+                            Some(ReadyOperation { operation: PreparedStudyOperation::SelectedObservation(observation), staged: None, .. }) => Some(LocalBatchKey::Observation(observation.population_key()?)),
                             _ => None,
                         }
                     } else { None };
@@ -882,6 +898,11 @@ struct ReadyOperation {
     lane: super::study_operations::StudyPreparationLane,
     operation: PreparedStudyOperation,
     staged: Option<Staged>,
+}
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum LocalBatchKey {
+    Solve(crate::math::solves::DirectBatchKey),
+    Observation(pse_ids::ContentHash),
 }
 /// Access paths over existing pure policy facts. Capacity-blocked work is not
 /// policy-dirty again until capacity or a relevant occurrence event changes.
@@ -1409,6 +1430,30 @@ async fn execute_lane_inner(
             }],
             staged,
         };
+    }
+    if members.iter().all(|member| matches!(member.preparation.operation, PreparedStudyOperation::SelectedObservation(_))) {
+        let prepared = members.iter().filter_map(|member| match &member.preparation.operation { PreparedStudyOperation::SelectedObservation(observation) => Some(observation.as_ref().clone()), _ => None }).collect::<Vec<_>>();
+        let population = super::PreparedSelectedObservation::evaluate_population(&prepared, services.preparation(), cancel).await;
+        let mut points = Vec::with_capacity(members.len());
+        match population {
+            Ok(completed) if completed.len() == members.len() => {
+                let publications = members.drain(..).zip(completed).map(|(member, completed)| async move {
+                    let result = async {
+                        let original = completed.start(services, cancel)?.wait().await?;
+                        settle_occurrence(original, &member.output, member.revision, member.continuation_owner).await
+                    }.await;
+                    ExecutedPoint { index: member.index, revision: member.revision, start: member.start, result }
+                });
+                points = futures_util::future::join_all(publications).await;
+            }
+            outcome => {
+                let error = Arc::new(match outcome { Ok(_) => super::contract("selected observation population original extent differs"), Err(error) => error });
+                for member in members.drain(..) {
+                    points.push(ExecutedPoint { index: member.index, revision: member.revision, start: member.start, result: Err(WorkflowError::Shared(error.clone())) });
+                }
+            }
+        }
+        return LaneCompletion::Executed { lanes: Vec::new(), points, staged: None };
     }
     let mut points = Vec::with_capacity(members.len());
     let deadline = members

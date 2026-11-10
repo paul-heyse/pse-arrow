@@ -334,6 +334,10 @@ pub fn derive(
     engine.model.integrated.clear();
     engine.model.meshes.clear();
     engine.model.closures.clear();
+    engine
+        .model
+        .indexed_contractions
+        .retain(|root, _| !recipe.context.indexed_contractions.contains_key(root));
     engine.model.exchanges.clear();
     engine
         .model
@@ -838,6 +842,11 @@ impl Engine<'_, '_> {
             &bindings,
             Some(&foreign_bindings),
         )?;
+        for (root, contraction) in &fragment.model.indexed_contractions {
+            self.model
+                .indexed_contractions
+                .insert(imported.node(*root)?, contraction.clone());
+        }
         for symbol in fragment.model.symbols.slots() {
             if new.contains(&symbol.id) {
                 let mut symbol = symbol.clone();
