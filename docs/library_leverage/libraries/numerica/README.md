@@ -1,5 +1,7 @@
 # Numerica
 
+The developed cross-library findings live in [numerical realization](../symbolica/numerical-realization.md), [packed contracts](../symbolica/packed-evaluator-contract.md) and [exact-domain operations](../symbolica/exact-domain-operations.md).
+
 [November9 discovery](briefing.md): [domains and certification](domains-and-certification.md), [differentiation and integration](differentiation-and-integration.md).
 
 Realizations considered: installed `numerica` 3.0.1 (crates.io, released 2026-09-29, the newest

@@ -71,3 +71,21 @@ These questions can often be settled through source and interface inspection. Ti
 only for consequential uncertainty; no benchmark campaign is required to justify a plausible
 simplification. Existing libraries are the baseline option, and retained local policy must earn
 its place through a concrete contract gap.
+
+## Integrated numerical and structural preparation
+
+The `f6e91eb37` extension identifies actual supplier-owned scalar-buffer packing adapters,
+not only a hypothetical application loop. Their contracts differ; see the
+[packed evaluator account](packed-evaluator-contract.md). Native JIT/C++ feature reach can
+add compilation even when it removes host packing. The packed interpreter can avoid runtime
+native compilation, but introduces numeric specialization and requires compatible lane/control
+semantics. Callback fallback may still execute scalar functions independently per lane.
+
+Structural template correspondence can also move the cost boundary: canonical graph conversion
+and mathematical equality qualification earn value only if they remove preparation that survives
+current definition-level reuse. Native indexed Symbolica canonicalization is another complete
+route when the science is a genuine contraction. Preserve alias sharing through ordered formal
+bindings rather than flattening repeated motifs merely to compare them. Exact matrix extraction
+similarly needs comparison against sparse candidate-driven evidence, including conversion and
+retained coefficient context. No measured clean-build, incremental-build or execution gain is
+inferred from these source-established integration seams.

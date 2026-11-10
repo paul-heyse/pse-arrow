@@ -1,5 +1,7 @@
 # Evaluator composition and execution discovery
 
+[Stable operations and packed numerical realization](numerical-realization.md) develops complete function/derivative/domain/backend compositions; [packed evaluator boundaries](packed-evaluator-contract.md) owns the source-qualified adapter and control-flow contracts.
+
 Inspected 2026-11-09 at `d9e82627`, maintained Symbolica 3.0.1 and primary tagged 3.0.2 sources. **Interface-checked** source observations; **Proposed** research directions. No execution, compile probe or measurement. Earlier November 2 evaluator research retains its original evidence date.
 
 ## Already effective

@@ -70,13 +70,41 @@ For a selected responsibility, deepen its codebase opportunity and applicability
 complete alternatives through the existing leverage routes. Reusable technical accounts remain
 separate from contextual hypotheses. No licence was used to exclude a direction.
 
-## Follow-up from the companion addenda
+## Integrated companion findings
 
-The later [Numerica addendum assessment](../numerica/addendum-followup.md) identifies stable
-operations through the whole execution pipeline and precise SIMD eligibility as the strongest
-new depth. A bounded exact-arithmetic update inquiry is also credible; directed rational
-conversion and low-level polynomial kernels already have substantive supplier delegation.
-The [Graphica addendum assessment](../graphica/addendum-followup.md) sharpens mapped template
-reuse and bounded closed/open topology generation, including the missing edge-correspondence
-problem. It also corrects the earlier directed self-loop factor statement. These are research
-priorities, not new adoption or Plan66 execution decisions.
+The extension inspected `f6e91eb37` on 2026-11-09 and developed the addendum triage into
+three workflow accounts within this same discovery. These deepen, rather than redate or
+replace, the original breadth coverage.
+
+- [Stable operations and packed execution](numerical-realization.md): stable symbolic heads
+  can combine mathematical derivatives with domain-specific numerical and export definitions.
+  Ordinary body registration does not make `log(1+x)` stable. Symbolica already owns packed
+  domains and batch adapters, but domain width, callback scalarization, branch semantics and
+  a source-derived JIT multi-output unpacking hazard materially distinguish the available routes.
+- [Exact-domain operations](exact-domain-operations.md): parameter-aware rational-polynomial
+  matrix extraction is a real higher-level alternative to repeated affine/coeff extraction.
+  Current sparse demanded evidence is a countercase; native kernels and exact conversion
+  are already delegated. A small exact Schur update is narrower than replacing certificate
+  logic. Simple rational interval trial points are an additional exact-search hypothesis,
+  constrained by endpoint/progress and admitted contraction bounds.
+- [Structural correspondence into mathematics](../graphica/mathematical-template-reuse.md):
+  a colored incidence representation could turn ports/connections into mapped vertices,
+  then transport ordered mathematical bindings and derivative axes. Symbolica functions
+  and aliases have different capture rules. For a genuinely indexed mathematical motif,
+  native tensor canonicalization already composes Graphica with Symbolica and may remove
+  the need for a separate application graph projection. Bounded topology synthesis can
+  feed ordinary typed admission and shared mathematical preparation.
+
+The next attention should go to a stable multi-output demanded region and one repeated
+mathematical motif, alongside a selected exact affine block. These are concrete research
+directions rather than mandatory new implementation packages. Compare the whole useful
+operation: shared mathematical preparation, representation/binding conversion, scalar or
+packed execution, invalidation and actual consumer scope. Existing joint preparation, formal
+bindings, callback policy and class-specific scientific authority are the baseline; their
+mechanisms may be redesigned when a coherent replacement preserves required meaning.
+
+The [packed evaluator contract](packed-evaluator-contract.md) owns reusable technical
+constraints. The [coverage account](coverage.md#integrated-companion-investigation) maps
+all addendum families, retained API contexts and remaining evidence limits. The earlier
+addendum-followup pages now route to these developed owners rather than maintaining parallel
+priorities. No comparative adoption verdict, scientific qualification or speedup is claimed.

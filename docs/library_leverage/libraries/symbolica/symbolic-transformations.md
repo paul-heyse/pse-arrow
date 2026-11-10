@@ -1,5 +1,7 @@
 # Shared expressions and native transformations
 
+[Stable-head construction](numerical-realization.md#stable-function-identity-must-survive-preparation) and [mapped mathematical templates](../graphica/mathematical-template-reuse.md) deepen how Symbolica functions, aliases and derivatives compose with companion capabilities.
+
 Inspected 2026-11-09 at `d9e82627`; **Interface-checked** representative source, **Proposed** research directions. No probe or timing measurement. This is contextual discovery, not adoption selection.
 
 ## Already effective

@@ -1,5 +1,7 @@
 # Symbolica
 
+[Integrated numerical realization](numerical-realization.md), [packed evaluator contract](packed-evaluator-contract.md) and [exact-domain operations](exact-domain-operations.md) develop the companion additions within this discovery.
+
 [November9 ecosystem discovery](briefing.md) and [coverage/evidence](coverage.md) broaden the earlier account; older applicability conclusions below retain their original dates.
 
 Read the [library-led briefing](briefing.md) for the 2026-11-02 current-use synthesis,

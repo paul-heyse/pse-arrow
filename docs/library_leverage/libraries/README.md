@@ -31,7 +31,7 @@ still connects them to a concrete opportunity. Follow the
 [technical research guide](../references/technical-contracts.md) for selected implementation
 details rather than treating a broad API inventory as a behavioral contract.
 
-The [November 9 Symbolica ecosystem discovery](symbolica/briefing.md) spans shared transformations, exact algebra, evaluator composition, numerical domains, derivatives/integration, graph symmetry and structured companions. Its topic accounts and coverage retain separate source and evidence limits.
+The [November 9 Symbolica ecosystem discovery](symbolica/briefing.md) spans shared transformations, exact algebra, evaluator composition, numerical domains, derivatives/integration, graph symmetry and structured companions. Its topic accounts and coverage retain separate source and evidence limits. The integrated companion extension develops stable/packed evaluation, exact-domain operations and structural correspondence into shared Symbolica mathematics.
 
 ## Applicability account
 

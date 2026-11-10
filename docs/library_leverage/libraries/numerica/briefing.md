@@ -1,5 +1,7 @@
 # Numerica: discovery briefing
 
+The integrated investigation develops [stable/packed numerical realization](../symbolica/numerical-realization.md) and [exact-domain operations](../symbolica/exact-domain-operations.md), following these capabilities through Symbolica rather than treating direct Numerica use as the default target.
+
 The [advanced-addendum follow-up](addendum-followup.md), inspected at `924b0c3b2`, adds targeted research priorities and exact-source clarifications after the original discovery baseline.
 
 Inspected 2026-11-09 at `d9e82627f` on `main`, including the supplied untracked

@@ -144,3 +144,46 @@ Graphica technical page's directed self-loop doubling statement was erroneous an
 to undirected-only against the locked source. Earlier dates otherwise remain intact.
 No repository-level health checks were run for this documentation assessment, respecting
 parallel work and the maintainer's instruction.
+
+## Integrated companion investigation
+
+Execution baseline `f6e91eb37b980262ba40a6617fb49adaabf58e33`, 2026-11-09; the only
+initial working changes were the user-supplied untracked Numerica/Graphica overviews. Those
+inputs remain separate from this research publication. The entire addenda had been read
+end to end; this extension followed their consequential seams through maintained Symbolica,
+locked companion sources and representative consumers. It is the same discovery account.
+
+| Added territory | Developed owner and disposition |
+| --- | --- |
+| Numerica1 SIMD; 5 precision/stability; 14 composed numerical representations | [Numerical realization](numerical-realization.md) and [packed contract](packed-evaluator-contract.md): source-checked symbolic-head callbacks/export, x4/x8 interpreted domains, native x4 adapters, derivative components versus lanes, whole-value branch semantics and multi-output JIT unpacking hazard. |
+| Numerica2–3 fraction-free/matrix operations; 8 exact conversion/owned arithmetic | [Exact-domain operations](exact-domain-operations.md): rational-polynomial parameter extraction, field versus original-domain solve, affine and Schur consumers, sparse-demand countercases. |
+| Numerica4 enclosures; 5 parsing/classification/precision | Existing [domain contract](../numerica/domains-and-certification.md) and current directed binary64 converter remain substantive leverage. No new certified transcendental support inferred. Stable-function implementation coverage is deepened above. |
+| Numerica6–7 polynomial/geometric kernels | Exact-domain account traces existing Symbolica dispatch and surrounding representation decisions; direct kernel use needs a distinct consumer or missed useful dispatch. |
+| Numerica9 ring-aware formatting; 10 CSR | Useful existing representation utilities, with no new independent local duplication demonstrated. Matrix domain/context ownership remains material. |
+| Numerica11 rational approximation | Exact-search use of simple trial points is now explicit, beyond approximate reporting. Endpoint returns and lack of contraction preclude a naive replacement of admitted midpoint refinement. |
+| Numerica12 Python; 13 utilities/adaptive statistics | Reference tooling and representation utilities remain eligible; no product Python change or unexplained generic ownership layer proposed. Adaptive grids can consume shared evaluated integrands, with original measure/weight/update semantics. |
+| Numerica14–15 interactions/version caveats | Cross-library routes above replace isolated API endorsements; locked sources resolve selected contracts without treating all domain/backend combinations as interchangeable. |
+| Graphica1 symmetry; 3 correspondence; 4 hidden metadata | [Mathematical-template reuse](../graphica/mathematical-template-reuse.md): explicit incidence/port mapping route, aliases versus function capture, scientific axis/value transport. Corrected undirected-only self-loop factor retained. |
+| Graphica2 generation; 5 callbacks; 6 bridges | Same owner develops finite inventory/size bounds, typed authored admission, exact screening and shared evaluation; completeness, retention and physical-flow distinctions remain explicit. |
+| Graphica7 mutation; 8 helpers/disconnected graphs/iteration; 9 interactions | Same owner retains endpoint normalization, isolated units, stable ordering and metadata constraints; utility APIs create no general graph-engine replacement claim. |
+| Related Symbolica capabilities | Native heads/derivative/evaluation/export registration, multi-output/direct evaluators, domain mapping/dualization, exact polynomial/matrix operations, aliases and lexical capture, tensor-index canonicalization using Graphica. All are investigated through complete workflows, not forced into every consumer. |
+
+The existing three defining-package API manifests were read again. Their package/version and
+feature identities still supply useful navigation: the Symbolica export selects GMP/MPFR but
+not native code generation. It exposes neither BatchEvaluator nor evaluate_batch in that
+documentation context; current feature-gated backend source establishes those methods instead.
+No native API acquisition or default-context absence inference was substituted for this distinction.
+The historical failed census remains qualified; no fresh census was attempted or claimed.
+
+Focused source reads settled the discovery questions; no runtime or compiler probe was necessary.
+In particular the JIT multi-output bounds issue is an inspected slicing path, not a reproduced
+runtime failure or a newly fixed product bug. A fresh reader checked the numerical/domain drafts,
+found no material blocker, and clarified that unsupported callback coverage does not imply Rust
+memory unsafety. The coordinator inspected decisive source paths and integrated the three lanes.
+No performance experiment, product test, formatter or repository-level health check was run.
+
+**Tested:** a scoped stdlib Python read checked relative local-file link destinations and trailing
+whitespace in all 18 changed research documents: zero failures against a zero target. This
+establishes document-level checks only, not heading-anchor/external-link verification or product
+qualification. No repository-level health checks were run. The addendum triage pages now route
+to the developed thematic owners; the original full texts remain recoverable in Git.

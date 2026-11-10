@@ -1,5 +1,7 @@
 # Exact algebra and solving discovery
 
+[Exact-domain operations](exact-domain-operations.md) develops parameter-aware matrix extraction, domain-preserving elimination, concrete affine/Schur consumers, supplier kernel dispatch and exact interval trial points.
+
 Inspected 2026-11-09 at `d9e82627`; source observations **Interface-checked**, research directions **Proposed**. No scientific execution or performance measurement. Inherited October 27 root and Numerica findings retain their original scope.
 
 ## Existing delegation and stronger compositions
