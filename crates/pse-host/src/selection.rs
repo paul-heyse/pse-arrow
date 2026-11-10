@@ -665,8 +665,10 @@ fn package<'a>(
 
 fn target_flag(kinds: &[String]) -> Result<&'static str, CorrectnessError> {
     for kind in kinds {
+        if library_kind(kind) {
+            return Ok("--lib");
+        }
         match kind.as_str() {
-            "lib" | "rlib" | "dylib" | "cdylib" | "staticlib" | "proc-macro" => return Ok("--lib"),
             "test" => return Ok("--test"),
             "bin" => return Ok("--bin"),
             "example" => return Ok("--example"),
@@ -675,6 +677,13 @@ fn target_flag(kinds: &[String]) -> Result<&'static str, CorrectnessError> {
         }
     }
     Err(invalid("target kind has no supported compiler selection"))
+}
+
+fn library_kind(kind: &str) -> bool {
+    matches!(
+        kind,
+        "lib" | "rlib" | "dylib" | "cdylib" | "staticlib" | "proc-macro"
+    )
 }
 
 pub(crate) fn empty(request: &Request) -> Plan {
@@ -773,9 +782,10 @@ pub fn plan(metadata: &Metadata, request: Request) -> Result<Plan, CorrectnessEr
                     if intent.target.as_ref().is_some_and(|target| {
                         !declaration.targets.iter().any(|candidate| {
                             candidate.name.as_str() == target.name
-                                && candidate.kind.iter().any(|kind| {
-                                    matches!(kind.to_string().as_str(), "lib" | "proc-macro")
-                                })
+                                && candidate
+                                    .kind
+                                    .iter()
+                                    .any(|kind| library_kind(&kind.to_string()))
                         })
                     }) {
                         continue;
@@ -784,7 +794,7 @@ pub fn plan(metadata: &Metadata, request: Request) -> Result<Plan, CorrectnessEr
                         target
                             .kind
                             .iter()
-                            .any(|kind| matches!(kind.to_string().as_str(), "lib" | "proc-macro"))
+                            .any(|kind| library_kind(&kind.to_string()))
                     }) else {
                         continue;
                     };

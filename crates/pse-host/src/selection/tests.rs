@@ -866,3 +866,30 @@ fn real_native_repeated_analysis_explain_derives_its_target_features_without_pre
     }));
     assert!(resolved.needs_binary_listing());
 }
+
+#[test]
+fn library_selection_admits_native_module_cdylib_rlib_and_explicit_targets() {
+    let mut data = metadata();
+    data.packages[0].targets[0].kind = ["cdylib", "rlib"]
+        .into_iter()
+        .map(|kind| serde_json::from_value(json!(kind)).unwrap())
+        .collect();
+    for target in [None, Some(("alpha", Some("cdylib"))), Some(("alpha", None))] {
+        let mut input = request(vec![intent(target)]);
+        input.scope = Scope::Targets {
+            scope: Box::new(input.scope),
+            selector: CargoTargets::Library,
+        };
+        let selected = plan(&data, input).unwrap();
+        assert_eq!(selected.groups().len(), 1);
+        assert_eq!(
+            selected.groups()[0].roots()[0].target().unwrap().name,
+            "alpha"
+        );
+        assert!(
+            selected.groups()[0]
+                .arguments()
+                .contains(&"--lib".to_owned())
+        );
+    }
+}
