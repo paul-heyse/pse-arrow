@@ -891,7 +891,7 @@ use native U64 with checked Int/Decimal wire widening; temporal precision and au
 IEEE bits retain meaning. Installed native witnesses supplement partial compiler projections.
 Plan72a owns implementation evidence; Plan72b retained-state transitions and Plan72i receiving.
 
-The native target interpretation is `pse.substrate.v11`; private knowledge and evidence use
+The native target interpretation is `pse.substrate.v12`; private knowledge and evidence use
 `pse-development-knowledge-v3` and `pse-tooling-evidence-v3`. SQL numeric key/text projections
 retain plain decimal spellings through exact formatting conversion. These changes do not alter
 scientific document frames. Prior configured native stores require explicit owned transition
@@ -1096,33 +1096,31 @@ receipt reconciliation and supplies no automatic replay right.
 
 #### 20.6.3 Frozen capture and copy fidelity
 
-> Decision: ADR-0230 (proposed Plan64g G08 amendment; maintainer-authorized target).
+> Decision: [ADR-0262](../../adr/0262-canonical-operations-and-owned-transitions.md)
+> (proposed), maintainer-authorized Plan72c target replacing ADR-0230's blanket witness.
 
-The replacement target is one bounded atomic transaction over a preexisting global publication
-witness, complete selected membership, immutable captured facts/protections and exact-request
-receipt. Every selector/captured-fact writer participates through its transaction; lease-only
-renewal does not change the witness. Required conflict checks include future matching insertion
-and metadata dependencies. Cancellation has no pending-capture exclusion to wait on. Original
-clock, exact replay/readback, authenticated release and actual reader drain remain required.
-Capture advances the witness with protection publication; retention and withdrawal register it
-before testing protection absence. Both commit orders must conflict or preserve the protection,
-including a new protection whose row did not exist when retention inspected it. Read-only
-registration is distinct from mutation; lease-only work never increments the witness.
-Writable SQL-only Surrealism is conditional on exact-engine rollback/timeout/settlement evidence;
-otherwise the existing authored transaction owner supplies the same contract.
-The selected engine requires the coarse `fn::*` grant for our underscored custom namespaces.
-The immutable export issues fixed queries with bound values; callers supply neither SQL nor
-function names. Pure builtin grants and network/module-KV denial remain independently attested.
-This paragraph records the selected target, not implemented or qualified G08 behavior. The gate below describes
-the existing realization until its producers and consumers have migrated together.
+Capture materializes complete selected membership, immutable facts/protections and its
+exact-request receipt in one bounded explicitly serializable transaction. Point/range
+read dependencies cover source selection, absence/future matches, metadata and retirement.
+Exact study selection uses the native record lookup; empty selections avoid unrelated
+point scans. The concurrency-only global publication row and event fanout retire with
+their callers. Source/issuer authority, history protection, file-owner custody and actual
+reader drain remain explicit. Cancellation does not wait on a pending-capture exclusion.
+Original clocks and exact replay/readback remain required. Both retention/capture commit
+orders must conflict or preserve protection, including absent protection rows. Later paging
+consumes the frozen product and authentic original owner; it does not extend the acquisition
+transaction. Plan72c owns actual native race qualification and its evidence limits.
+
+The study extension is a pure readonly typed Rust policy. SQL performs acquisition and
+guarded publication visibly; no network, module KV, solver or transaction-access host
+capability enters that policy call.
 
 > Decision: [ADR-0230](../../adr/0230-bounded-study-publication-and-capture.md) (proposed),
 > selected Plan56d target; implementation and qualification remain with its owning packages.
 
-Publication shares applicable native guards and set/frontier mutation while retaining every exact
-logical acknowledgement. The scoped capture gate protects its complete selector universe and
-selected attempt/manifests without spanning user paging. Exact recovery changes its checked fence
-before reopening, so stale capture cannot commit. Native copy progress/checkpoints bind original
+Publication retains applicable authority guards and exact logical acknowledgements.
+Atomic materialization protects its complete selected universe and attempt/manifests
+without spanning user paging. Native copy progress/checkpoints bind original
 frozen inventory and exact resume premises; progress is not terminal acknowledgement or thaw.
 Canonical framed integrity and independent archive SHA256 share each protected source/readback
 stream. Fresh payload copies retain four physical phases: source validation/fingerprint, actual

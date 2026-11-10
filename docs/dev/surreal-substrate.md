@@ -40,6 +40,27 @@ Do not hand-edit it, initialize over user data, copy credentials into command li
 adoption from a directory name. Rust fixture callers never require a user's persistent service.
 External existing-service mutation is outside this fresh-state owner.
 
+### Explicit empty reconstruction
+
+The design-phase target uses `pse.substrate.v12`. An authentic `StoppedCanonicalState`
+can select `empty_reconstruction_intent` and synchronously
+`prepare_empty_reconstruction` with an explicit prepared target specification. The
+resulting `ReconstructionController` retains both physical owners. Its `launch` and
+`reconcile` methods borrow the controller, so cancelling either future leaves custody
+available for recovery or shutdown. Reconciliation follows the original issued target
+and validates it; it never initializes or launches a replacement implicitly.
+
+`into_ready` transfers a validated fresh service and the still-stopped original. The
+fresh target has its own issuer and credentials and contains no copied scientific
+results or imported authored models. Retain the original until actual authored-input
+obligations are resolved, then dispose it explicitly. Source files and workspaces outside
+the owned state remain outside replacement authority. The target cannot be placed inside
+the old state, so explicit old-state disposal cannot erase it.
+
+`reconstruction_status` and `reconstruction_origin` report immutable original selection
+and provenance, including after old-state disposal and target reopening. These observations
+grant neither liveness nor ownership. No configured deployment is reset by ordinary opening.
+
 ### Project and derived evidence operations
 
 For routine project inspection, prepare a captured product image with

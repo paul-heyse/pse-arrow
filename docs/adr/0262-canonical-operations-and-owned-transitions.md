@@ -6,7 +6,7 @@ date: 2026-11-09
 deciders: [paul-heyse]
 level: decision
 principles: [AP-02, AP-04, AP-06, AP-07, DP-09, DP-24]
-blueprint: [§4.7, §20.5, §20.6.11]
+blueprint: [§4.7, §20.5, §20.6.3, §20.6.11]
 review: docs/functional_reviews/surrealdb-functional-improvements-2026-11-09.md
 evidence: Interface-checked
 supersedes: []
@@ -26,7 +26,7 @@ Current maintenance re-epochs the current schema rather than migrating retained 
 
 ## Scope
 
-Amend blueprint §4.7, §20.5 and §20.6.11 for typed operations, shared pure policy
+Amend blueprint §4.7, §20.5, §20.6.3 and §20.6.11 for typed operations, shared pure policy
 and owned transitions. Scientific algorithms, external-effect authority, original
 acknowledgements and validation-only ordinary opening keep their existing owners.
 The record remains proposed; Plan72b/72c own implementation and Plan72i receiving.
@@ -68,14 +68,18 @@ reset authority. Do not build a v11 compatibility reader or retained-results bac
 for this cutover. Native migration mechanisms remain available for separately admitted useful
 transitions; they do not delay current fresh-state adoption.
 
-Transition intent binds issuer, predecessor, frozen effective inputs, original/target
-module artifacts, effects and preservation policy. The actual lifecycle owner closes and
-drains ordinary participants/server before isolated maintenance. Exclusion lasts through
-index gaps and activation. Ordinary readmission follows physical handoff. Supplier history,
-data conformance, ready indexes and activation remain distinct facts. Unknown replies
-reconcile the original operation before replay. Fallbacks cannot silently repair data;
-preserve originals and independently compare membership and values. Reverse DDL cannot
-restore discarded information.
+Frozen effect preview binds original inputs and issuer interpretation without granting execution.
+The selected empty reconstruction starts from an authentically stopped source. Synchronous
+preparation returns a controller holding both physical owners before asynchronous launch;
+borrowed reconciliation validates the original target without another factory. Ready handoff
+requires successful validation. Source retention ends only through explicit disposal. Passive
+origin records survive source disposal and target reopening; they cannot claim live ownership.
+Unknown replies reconcile the original operation before replay.
+
+For separately admitted retained-data transitions, supplier history, data conformance, ready
+indexes and activation remain distinct facts. Exclusion spans actual index gaps. Fallbacks
+cannot silently repair data, and reverse DDL cannot restore discarded information. Such a
+transition requires its selected complete preservation/validation policy before execution.
 
 ### Consequences
 

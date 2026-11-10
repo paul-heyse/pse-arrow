@@ -13,12 +13,12 @@ review_sources: [docs/functional_reviews/surrealdb-functional-improvements-2026-
 
 ## Target and baseline
 
-**Proposed.** An operator previews an exact contract transition and its data effects, applies
-it to the intended issuer, observes stored-value/index readiness, and recovers the original
-operation after interruption. Use native migration and SurrealKit history where they remove
-application rewrite/coordination. Fresh reconstruction remains the selected route for disposable
-reproducible state when it is the simpler complete transition. No permanent compatibility path
-or universal arbitrary-SQL migration service is required.
+An operator previews exact transition effects and reconstructs explicitly disposable state
+into a clean v12 target under the original operation. The maintainer's execution clarification
+selects fresh empty reconstruction: existing scientific results need not survive this design-phase
+cutover. Fresh issuer/credentials, validated installation, original-operation recovery and explicit
+old-state disposal are the selected implementation. Authored inputs outside owned state remain
+untouched; reconstructing an empty database does not claim to import authored models.
 
 The [coordinator](72-surrealdb-functional-improvements.md) owns O03 and shared rule decisions.
 This companion owns B01–B03. Plan66 and Plan71 remain active independent owners; their files
@@ -38,11 +38,12 @@ publication contracts take their specific ADR/design route before dependent effe
 
 ## Complete transition design
 
-The native transition owner consumes exact effective inputs, source/target interpretation,
-data-effect class and the original operation/issuer. It selects reconstruction, native named
-conversion or explicit backfill; preview does not grant later execution authority. It produces
-an original transition receipt, truthful progress, and activation only after required data
-conformance and index readiness. Recovery reads the original receipt before repeating effects.
+The native transition owner consumes exact source/target identity, target schema/module inputs,
+explicit empty-state policy and the original operation. Synchronous preparation returns a
+caller-held controller before any asynchronous launch. Borrowed launch/reconciliation cannot
+discard the stopped source or target on cancellation. Validated readiness precedes the checked
+handoff; passive provenance binds the same target and prevents duplicate target creation.
+Preview remains observational and grants no later execution authority.
 
 SurrealKit rc.1 provides frozen SQL, chain lint, ordered catch-up, tracked seeds and repair;
 v4 supplies `MIGRATE EXISTING ROWS`, compatibility levels and read-time conversion with
@@ -52,12 +53,27 @@ different facts. [Migration adapter](https://github.com/surrealdb/surrealkit/blo
 [release notes](https://github.com/surrealdb/surrealkit/blob/v1.0.0-rc.1/MIGRATING.md),
 [field migration](https://surrealdb.com/docs/reference/query-language/statements/define/field).
 
-Native conversion is the direct target for transformations it can express faithfully. Its
+For a separately selected retained-state transition, native conversion is useful where it can
+express the transformation faithfully. Its
 removal/restoration of blocking indexes creates a real uniqueness interval; coordinate actual
 writers across that interval. A fallback value is declared domain policy. Cross-field or
 restricted transformations use a bounded explicit backfill rather than coercing unsupported
 logic into the native clause. Module/target partitions are useful where meanings evolve
-independently, without introducing cross-database atomicity.
+independently, without introducing cross-database atomicity. These retained-state alternatives
+are unselected for the current cutover. No frozen v11 reader, compatibility profile, backfill
+executor or second production transition path is retained merely to implement an unused option.
+
+### Execution amendment: selected acceptance
+
+The B02/B03 retained-value conversion, duplicate-index restoration and rewrite-interruption
+controls below describe alternatives from the original plan. They are superseded for this
+execution by the maintainer's explicit fresh-state selection. Current acceptance is the complete
+source-to-fresh-v12 physical lifecycle: nested-target/module mismatch refusal before creation,
+fresh identity and credentials, absence of a source-only row in the target, cancellation after
+real target launch, unknown acknowledgement, reconciliation without a second factory, checked
+ready handoff, original retention until explicit disposal, and provenance after target reopen.
+Native migration/cleanup/removal effects still receive bounded frozen parsing and barrier
+requirements in passive preview. There is no claim that retained-data migration executes.
 
 ## Packages
 

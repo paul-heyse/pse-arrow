@@ -347,6 +347,17 @@ interpreter or additional editable schema defines those native values. Admission
 input precedes nested owned decoding; exact native encoding and checked wire widening remain
 distinct obligations.
 
+The composing generator receives the semantic owner's projection graph; it does not import
+that model into its ordinary dependency closure. Generated source-layout/version guards
+protect both encoding and decoding. Native carriers for canonical storage may differ from
+portable Arrow rows without defining a second editable semantic model. The pinned engine
+cannot declare recursive named types: recursive diagnostic edges use native objects and a
+flexible outer field, with complete recursive shape/kind/range checking in generated Rust.
+Database constraints remain a useful partial backstop, not proof of that complete contract.
+Raw native-tree admission charges every node and payload before owned semantic decoding;
+opaque unsupported values refuse before cloning. Fixed typed policy needs no descriptor
+runtime, extension initialization cache, transaction-access capability or per-call bindings.
+
 > Decision: [ADR-0239](../../adr/0239-owner-derived-engineering-boundaries.md) (proposed; operator-selected planning target).
 
 Plan64i adds owner-derived protobuf projections: registry fields retain registry authority,
