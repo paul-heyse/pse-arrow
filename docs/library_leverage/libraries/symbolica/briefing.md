@@ -69,3 +69,14 @@ retains scheduling and acceptance. This discovery creates neither new CBO IDs no
 For a selected responsibility, deepen its codebase opportunity and applicability, then compare
 complete alternatives through the existing leverage routes. Reusable technical accounts remain
 separate from contextual hypotheses. No licence was used to exclude a direction.
+
+## Follow-up from the companion addenda
+
+The later [Numerica addendum assessment](../numerica/addendum-followup.md) identifies stable
+operations through the whole execution pipeline and precise SIMD eligibility as the strongest
+new depth. A bounded exact-arithmetic update inquiry is also credible; directed rational
+conversion and low-level polynomial kernels already have substantive supplier delegation.
+The [Graphica addendum assessment](../graphica/addendum-followup.md) sharpens mapped template
+reuse and bounded closed/open topology generation, including the missing edge-correspondence
+problem. It also corrects the earlier directed self-loop factor statement. These are research
+priorities, not new adoption or Plan66 execution decisions.

@@ -1,5 +1,7 @@
 # Graphica: discovery briefing
 
+The [advanced-addendum follow-up](addendum-followup.md), inspected at `924b0c3b2`, adds targeted research priorities and exact-source clarifications after the original discovery baseline.
+
 Inspected 2026-11-09 at `d9e82627feec6cea5470dbcf1974fd4e8dfe19df`, including the user-supplied untracked overview and unrelated concurrent Plan72 work. **Interface-checked:** representative repository reads and locked Graphica 3.0.1 source/tests. Directions below are **Proposed** research priorities, not adoption conclusions. No test, benchmark or generated companion reference census was run by this lane.
 
 ## Current role and opportunity

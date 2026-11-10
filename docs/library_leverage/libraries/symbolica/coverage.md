@@ -130,3 +130,17 @@ and whitespace check; no product qualification is claimed. The fresh-reader chal
 blocking omission or overclaim and corrected API-versus-census wording and ecosystem evidence scope.
 The earlier `just turn-end` finished successfully before the maintainer's request to omit
 repository-level health checks; no further such checks were run.
+
+## Companion addendum refresh
+
+At `924b0c3b28e749b9cd94ad06321b9547c6ff992c`, Numerica lines1492–2851
+(addendum sections1–15) and Graphica lines1290–1997 (sections1–9 and sources) were read
+end to end. Focused locked-source and representative-consumer checks produced the linked
+[Numerica](../numerica/addendum-followup.md) and [Graphica](../graphica/addendum-followup.md)
+assessments. This refresh claims no new generated census, runtime or performance evidence.
+It adds SIMD/default-method and stable-operation contracts, exact-update and supplier-kernel
+interpretation, vertex/edge correspondence and finite topology-family questions. The earlier
+Graphica technical page's directed self-loop doubling statement was erroneous and is corrected
+to undirected-only against the locked source. Earlier dates otherwise remain intact.
+No repository-level health checks were run for this documentation assessment, respecting
+parallel work and the maintainer's instruction.
