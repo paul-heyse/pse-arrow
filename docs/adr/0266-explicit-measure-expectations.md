@@ -25,6 +25,13 @@ F adds scientific measure and estimator meaning to existing study/source/member 
 
 Amend blueprint §19.3.1 within existing native workflows. A versioned expectation parent composes finite original child studies and typed case-solve or selected-observation members; no second worker service is introduced.
 
+Actual registered sample rows cross the native boundary with their source-owned result-selection
+roles and sort ordinals. Publish those existing meanings as typed registry field options, using
+the same closed role vocabulary and ordinal parser as the relation owner. Preserve their
+agreement with the original native field carrier. These annotations describe selection keys
+and ordering; they do not grant access to a result or replace run/attempt/manifest protection.
+Value-admission and identity policies for the facets remain unchanged.
+
 ## Drivers
 
 Preserve declared probability, physical outputs, member failures, affine representation and original recovery. Reuse library grids/statistics and protected original results instead of local VEGAS/statistical loops.

@@ -1185,6 +1185,16 @@ finite population completes. An undefined joint pushforward at a positive-mass b
 an invalid declared law and refuses before downstream child activation. Missing physical
 outputs in an admitted child remain missing, and cannot be renormalized into an expectation.
 
+A separately declared scientific-failure indicator can complete over a fulfilled finite
+population that contains physical failures. A scientific stop that leaves its requested
+population unfulfilled withholds indicator completion and its public estimate. Original
+issued counts and per-point classifications remain available.
+
+Public registered sample rows retain the relation owner's result-selection roles and sort
+ordinals through typed registry field options, checked against their original native field
+carrier. These annotations preserve the meaning of keys and ordering, and confer no result
+permission. Existing protected run, attempt and manifest selection remains authoritative.
+
 ### 19.4 Parameter estimation
 
 > Decision: [ADR-0218](../../adr/0218-scientific-research-workbench.md) (proposed; maintainer-authorized Plan51c target).
