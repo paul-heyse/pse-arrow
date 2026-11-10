@@ -111,17 +111,26 @@ async fn retained_prefix_limit_keeps_draining_and_observing() {
     let stdout = &b"abcdefgh"[..];
     let stderr = &b"12"[..];
     let report = start_with_limit(
-        stdout, stderr, sinks(), Collect::default(), None,
-        Duration::from_secs(1), Some(3),
+        stdout,
+        stderr,
+        sinks(),
+        Collect::default(),
+        None,
+        Duration::from_secs(1),
+        Some(3),
     )
     .finish(Instant::now() + Duration::from_secs(5))
-    .await.unwrap();
+    .await
+    .unwrap();
     assert_eq!(report.stdout.sink.bytes, b"abc");
     assert_eq!(report.stderr.sink.bytes, b"12");
     assert!(report.stdout.pipe.complete());
     assert!(!report.log_complete());
     assert!(report.observer_complete());
-    assert_eq!(observed(report.observer.as_ref().unwrap(), OutputStream::Stdout), b"abcdefgh");
+    assert_eq!(
+        observed(report.observer.as_ref().unwrap(), OutputStream::Stdout),
+        b"abcdefgh"
+    );
 }
 
 #[tokio::test]

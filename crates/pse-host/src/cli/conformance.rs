@@ -88,7 +88,9 @@ impl CampaignArgs {
         environment: &crate::environment::Environment,
     ) -> Result<PreparedNativeTool, PreparedNativeToolError> {
         match &self.selection {
-            Some(selection) => PreparedNativeTool::open_for(root, environment, selection, self.provider.target()),
+            Some(selection) => {
+                PreparedNativeTool::open_for(root, environment, selection, self.provider.target())
+            }
             None => PreparedNativeTool::current_for(root, environment, self.provider.target()),
         }
     }
@@ -236,10 +238,15 @@ pub(crate) fn read_progress(
     offset: usize,
 ) -> Result<Option<ConformancePage>, HostError> {
     const PAGE_ROWS: usize = 20;
-    let Some(bytes) = directory.conformance_checkpoint(terminal)? else { return Ok(None); };
-    let snapshot: ProgressSnapshot = serde_json::from_slice(&bytes).map_err(std::io::Error::other)?;
+    let Some(bytes) = directory.conformance_checkpoint(terminal)? else {
+        return Ok(None);
+    };
+    let snapshot: ProgressSnapshot =
+        serde_json::from_slice(&bytes).map_err(std::io::Error::other)?;
     if snapshot.version != 1 {
-        return Err(HostError::Ownership("unsupported conformance checkpoint version".into()));
+        return Err(HostError::Ownership(
+            "unsupported conformance checkpoint version".into(),
+        ));
     }
     let mut runs = Vec::new();
     let mut cases = Vec::new();
@@ -248,7 +255,11 @@ pub(crate) fn read_progress(
         let count = run.cases.len();
         for (fixture, progress) in run.cases {
             if index >= offset && cases.len() < PAGE_ROWS {
-                cases.push(CaseView { run: name.clone(), fixture, progress });
+                cases.push(CaseView {
+                    run: name.clone(),
+                    fixture,
+                    progress,
+                });
             }
             index += 1;
         }
@@ -269,7 +280,9 @@ pub(crate) fn read_progress(
         });
     }
     if offset > index {
-        return Err(HostError::Ownership("case page offset exceeds the observed snapshot".into()));
+        return Err(HostError::Ownership(
+            "case page offset exceeds the observed snapshot".into(),
+        ));
     }
     let end = offset + cases.len();
     Ok(Some(ConformancePage {
@@ -278,7 +291,10 @@ pub(crate) fn read_progress(
         historical_image: snapshot.historical_image,
         updated_at_ms: snapshot.updated_at_ms,
         selected_runs: snapshot.selected_runs,
-        requested_fixture_count: snapshot.requested_fixtures.len().saturating_add(snapshot.omitted_requested_fixtures),
+        requested_fixture_count: snapshot
+            .requested_fixtures
+            .len()
+            .saturating_add(snapshot.omitted_requested_fixtures),
         runs,
         cases,
         next_offset: (end < index).then_some(end),
@@ -296,7 +312,8 @@ pub(super) fn dispatch(
     match action {
         Action::Prepare { provider } => {
             let environment = provider.environment(&root, &environment)?;
-            let tool = prepared_xtask::prepare_for(&root, &environment, provider.target()).map_err(tool_error)?;
+            let tool = prepared_xtask::prepare_for(&root, &environment, provider.target())
+                .map_err(tool_error)?;
             Ok(output.emit(Envelope::response(
                 "conformance prepare",
                 "selected native campaign image prepared",
@@ -307,8 +324,7 @@ pub(super) fn dispatch(
             let profile = campaign.provider.target().name().into();
             let tool = match campaign.open(&root, &environment) {
                 Ok(tool) => tool,
-                Err(PreparedNativeToolError::CurrentSelection { source, .. })
-                    if matches!(*source, PreparedNativeToolError::Io(ref io) if io.kind() == ErrorKind::NotFound) =>
+                Err(PreparedNativeToolError::CurrentSelection { source, .. }) if matches!(*source, PreparedNativeToolError::Io(ref io) if io.kind() == ErrorKind::NotFound) =>
                 {
                     let mut envelope = Envelope::response(
                         "conformance readiness",
@@ -317,7 +333,10 @@ pub(super) fn dispatch(
                             profile,
                             selection: None,
                             campaign: None,
-                            preparation: Some(format!("pse conformance prepare --provider {}", campaign.provider.argument())),
+                            preparation: Some(format!(
+                                "pse conformance prepare --provider {}",
+                                campaign.provider.argument()
+                            )),
                         },
                     );
                     envelope.subject_state = SubjectState::Unprepared;
@@ -326,7 +345,9 @@ pub(super) fn dispatch(
                 Err(error) => return Err(tool_error(error)),
             };
             let environment = campaign.provider.environment(&root, &environment)?;
-            let readiness = tool.conformance_readiness(campaign.native_arguments(), environment).map_err(tool_error)?;
+            let readiness = tool
+                .conformance_readiness(campaign.native_arguments(), environment)
+                .map_err(tool_error)?;
             Ok(output.emit_observation(Envelope::response(
                 "conformance readiness",
                 "declared campaign inputs resolved; scientific admission remains execution-time",
@@ -338,7 +359,13 @@ pub(super) fn dispatch(
                 },
             ))?)
         }
-        Action::Run { campaign, historical, report_dir, detach, session } => {
+        Action::Run {
+            campaign,
+            historical,
+            report_dir,
+            detach,
+            session,
+        } => {
             let tool = campaign.open(&root, &environment).map_err(tool_error)?;
             let environment = campaign.provider.environment(&root, &environment)?;
             let mut args = campaign.native_arguments();
@@ -349,8 +376,12 @@ pub(super) fn dispatch(
                 args.extend([OsString::from("--report-dir"), directory.into()]);
             }
             let selection = selection_view(&tool)?;
-            let payload = tool.launch_conformance(args, environment, historical).map_err(tool_error)?;
-            let command = std::iter::once(payload.program.into_os_string()).chain(payload.arguments).collect();
+            let payload = tool
+                .launch_conformance(args, environment, historical)
+                .map_err(tool_error)?;
+            let command = std::iter::once(payload.program.into_os_string())
+                .chain(payload.arguments)
+                .collect();
             super::launch_managed(
                 ManagedCommand {
                     parent: None,
@@ -386,53 +417,82 @@ mod tests {
         invocation::{InvocationSpec, InvocationStore},
         paths::CheckoutState,
     };
-    use std::{fs::{self, OpenOptions}, io::Write as _, os::unix::fs::{OpenOptionsExt as _, symlink}};
+    use std::{
+        fs::{self, OpenOptions},
+        io::Write as _,
+        os::unix::fs::{OpenOptionsExt as _, symlink},
+    };
 
     #[test]
     fn campaign_checkpoint_pages_original_cases_and_refuses_replaced_member() {
         let root = tempfile::tempdir().unwrap();
-        let environment = BTreeMap::from([("XDG_STATE_HOME".into(), root.path().join("state").into_os_string())]);
+        let environment = BTreeMap::from([(
+            "XDG_STATE_HOME".into(),
+            root.path().join("state").into_os_string(),
+        )]);
         let state = CheckoutState::from_paths(
-            &root.path().join("checkout"), &root.path().join("common.git"), &environment,
-        ).unwrap();
-        let directory = InvocationStore::new(state).begin(InvocationSpec {
-            invocation_id: CliInvocationId::new(),
-            command: "conformance run".into(),
-            session: None,
-            parent: None,
-            operation: "fixture",
-            control: PreparedGeneration {
-                generation: "generation.fixture".into(),
-                protocol: 1,
-                manifest_digest: "a".repeat(64),
-            },
-            environment_digest: "b".repeat(64),
-            scientific: Vec::new(),
-        }).unwrap();
+            &root.path().join("checkout"),
+            &root.path().join("common.git"),
+            &environment,
+        )
+        .unwrap();
+        let directory = InvocationStore::new(state)
+            .begin(InvocationSpec {
+                invocation_id: CliInvocationId::new(),
+                command: "conformance run".into(),
+                session: None,
+                parent: None,
+                operation: "fixture",
+                control: PreparedGeneration {
+                    generation: "generation.fixture".into(),
+                    protocol: 1,
+                    manifest_digest: "a".repeat(64),
+                },
+                environment_digest: "b".repeat(64),
+                scientific: Vec::new(),
+            })
+            .unwrap();
         assert!(read_progress(&directory, None, 0).unwrap().is_none());
         let path = directory.path().join("conformance-progress.json");
-        let cases = (0..21).map(|index| {
-            (format!("fixture-{index:02}"), serde_json::json!({"phase":"returned","status":"Failed","finding":"original"}))
-        }).collect::<BTreeMap<_, _>>();
+        let cases = (0..21)
+            .map(|index| {
+                (
+                    format!("fixture-{index:02}"),
+                    serde_json::json!({"phase":"returned","status":"Failed","finding":"original"}),
+                )
+            })
+            .collect::<BTreeMap<_, _>>();
         let snapshot = serde_json::json!({
             "version": 1, "historical_image": false, "updated_at_ms": 123,
             "requested_fixtures": [], "selected_runs": 1, "omitted_requested_fixtures": 0,
             "runs": {"first": {"cases": cases, "total_fixtures": 25, "passed": false, "published_outputs":[]}},
         });
-        let mut file = OpenOptions::new().create_new(true).write(true).mode(0o600).open(&path).unwrap();
+        let mut file = OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .mode(0o600)
+            .open(&path)
+            .unwrap();
         writeln!(file, "{snapshot}").unwrap();
         let page = read_progress(&directory, None, 0).unwrap().unwrap();
         assert!(!page.committed_by_terminal);
         assert_eq!(page.cases.len(), 20);
         assert_eq!(page.runs[0].omitted_fixtures, Some(4));
         let commitments = directory.conformance_artifacts().unwrap();
-        let last = read_progress(&directory, Some(&commitments), page.next_offset.unwrap()).unwrap().unwrap();
+        let last = read_progress(&directory, Some(&commitments), page.next_offset.unwrap())
+            .unwrap()
+            .unwrap();
         assert!(last.committed_by_terminal);
         assert_eq!(last.cases[0].fixture, "fixture-20");
         assert!(last.next_offset.is_none());
         drop(file);
         let replacement = directory.path().join("replacement.json");
-        let mut file = OpenOptions::new().create_new(true).write(true).mode(0o600).open(&replacement).unwrap();
+        let mut file = OpenOptions::new()
+            .create_new(true)
+            .write(true)
+            .mode(0o600)
+            .open(&replacement)
+            .unwrap();
         writeln!(file, "{snapshot}").unwrap();
         drop(file);
         fs::rename(replacement, &path).unwrap();

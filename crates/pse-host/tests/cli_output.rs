@@ -790,7 +790,10 @@ fn missing_original_phase_stream_refuses_passively() {
         ])
         .output()
         .unwrap();
-    let assertion = Assert::new(output).failure().code(125).stdout(b"".as_slice());
+    let assertion = Assert::new(output)
+        .failure()
+        .code(125)
+        .stdout(b"".as_slice());
     let diagnostic: serde_json::Value =
         serde_json::from_slice(&assertion.get_output().stderr).unwrap();
     assert_eq!(diagnostic["outcome"], "boundary_failure");

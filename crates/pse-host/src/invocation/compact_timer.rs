@@ -135,8 +135,7 @@ fn prepare_unit(path: &Path, content: &str) -> Result<(), HostError> {
     }
     match publish_bytes(path, content.as_bytes(), Some(UNIT_LIMIT), 0o600) {
         Err(HostError::Io(error))
-            if error.kind() == ErrorKind::AlreadyExists
-                && unit_matches(path, content)? =>
+            if error.kind() == ErrorKind::AlreadyExists && unit_matches(path, content)? =>
         {
             Ok(())
         }
@@ -310,10 +309,18 @@ fn observe_selection(
     };
     let timer_state = match manager_unit(&selection.timer, &timer) {
         Some(ManagerUnit::NotFound) => {
-            return (ExpiryState::Inactive, "The user manager has not loaded the prepared timer");
+            return (
+                ExpiryState::Inactive,
+                "The user manager has not loaded the prepared timer",
+            );
         }
         Some(ManagerUnit::Exact(state)) => state,
-        None => return (ExpiryState::Unverified, "Cannot verify the user manager's timer owner"),
+        None => {
+            return (
+                ExpiryState::Unverified,
+                "Cannot verify the user manager's timer owner",
+            );
+        }
     };
     let Some(service) = show(&selection.service.name) else {
         return (
@@ -321,18 +328,35 @@ fn observe_selection(
             "Cannot read expiry service from the user manager",
         );
     };
-    if !matches!(manager_unit(&selection.service, &service), Some(ManagerUnit::Exact(_)))
-        || !selection.service.matches().unwrap_or(false)
+    if !matches!(
+        manager_unit(&selection.service, &service),
+        Some(ManagerUnit::Exact(_))
+    ) || !selection.service.matches().unwrap_or(false)
         || !selection.timer.matches().unwrap_or(false)
     {
-        return (ExpiryState::Unverified, "Cannot verify the user manager's current expiry units");
+        return (
+            ExpiryState::Unverified,
+            "Cannot verify the user manager's current expiry units",
+        );
     }
 
     match timer_state {
-        "active" => (ExpiryState::Active, "The exact prepared expiry timer is active"),
-        "inactive" => (ExpiryState::Inactive, "The exact prepared expiry timer is inactive"),
-        "failed" => (ExpiryState::Inactive, "The exact prepared expiry timer is in a failed state"),
-        _ => (ExpiryState::Unverified, "The exact timer has no confirmed active or inactive state"),
+        "active" => (
+            ExpiryState::Active,
+            "The exact prepared expiry timer is active",
+        ),
+        "inactive" => (
+            ExpiryState::Inactive,
+            "The exact prepared expiry timer is inactive",
+        ),
+        "failed" => (
+            ExpiryState::Inactive,
+            "The exact prepared expiry timer is in a failed state",
+        ),
+        _ => (
+            ExpiryState::Unverified,
+            "The exact timer has no confirmed active or inactive state",
+        ),
     }
 }
 
@@ -465,7 +489,10 @@ mod tests {
         ] {
             assert_eq!(state(&timer, &conflicting_service), ExpiryState::Unverified);
         }
-        assert_eq!(state("not systemctl properties", &service), ExpiryState::Unverified);
+        assert_eq!(
+            state("not systemctl properties", &service),
+            ExpiryState::Unverified
+        );
     }
 
     #[test]

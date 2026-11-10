@@ -175,7 +175,9 @@ pub(super) fn run(
         return Err(HostError::Ownership("compiler-analysis is a controlled compiler stage; use compiler generate --kind facts with an exact --body selection".into()));
     }
     if args.tool.is_conformance() {
-        return Err(HostError::Ownership("use pse conformance run for a prepared campaign image".into()));
+        return Err(HostError::Ownership(
+            "use pse conformance run for a prepared campaign image".into(),
+        ));
     }
     let root = checkout_root(selected)?;
     let environment = std::env::vars_os().collect();
@@ -274,8 +276,13 @@ pub(super) fn dispatch(
             let store = super::invocation_store(selected)?;
             if let Some(ordinal) = workflow_file {
                 let receipt = crate::invocation_view::export_workflow_file(
-                    &store, &invocation, session.as_deref(), ordinal, &root.join(destination),
-                    &crate::envelope::RedactionPolicy::from_inputs(&environment), &output.invocation_id,
+                    &store,
+                    &invocation,
+                    session.as_deref(),
+                    ordinal,
+                    &root.join(destination),
+                    &crate::envelope::RedactionPolicy::from_inputs(&environment),
+                    &output.invocation_id,
                 )?;
                 return Ok(output.emit_observation(receipt)?);
             }
@@ -348,7 +355,9 @@ pub(super) fn dispatch(
         }
         Action::Prepare { tool: target } => {
             if target.is_conformance() {
-                return Err(HostError::Ownership("use pse conformance prepare for a campaign image".into()));
+                return Err(HostError::Ownership(
+                    "use pse conformance prepare for a campaign image".into(),
+                ));
             }
             let tool =
                 prepared_xtask::prepare_for(&root, &environment, target).map_err(tool_error)?;

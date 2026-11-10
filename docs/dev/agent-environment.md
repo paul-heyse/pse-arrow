@@ -467,17 +467,22 @@ under their original owners.
 Use `pse tools retire-result ID` for the owner's release preview. Pass its exact
 `--release TOKEN` to release that selection. Use `pse tools hold-result ID` with
 `--consumer NAME --condition CONDITION` to record a hold. Omit the condition to clear
-that consumer's hold. `pse tools prepare-result-expiry --enable` installs and enables
-the repository's user timer for eligible records in its authenticated registered worktrees.
+that consumer's hold. `pse tools result-expiry-status` passively reports whether
+the repository's cleanup timer is prepared and active, or why the CLI cannot
+verify it. `pse tools prepare-result-expiry --enable` installs and enables that
+timer for eligible records in authenticated registered worktrees.
 Newly enrolled ordinary tests can release committed workflow files and enrolled
 outer streams with the summary after settlement and hold/reader checks. Preview
 their actual logical and allocated sizes with `pse tools retire-result ID`; the
 `observed_workflow_extent` field separates available from missing or replaced
 members. The preview neither reserves space nor extends expiry. Reusable build
-objects and campaign outer streams have separate custody. For campaign checkpoints use
-`pse tools retire-result ID --conformance` and `pse tools hold-result ID --conformance`.
-Campaign checkpoints have bounded reservations and can expire seven days after
-verified settlement; explicit Arrow exports remain caller-owned.
+objects retain their separate custody. For campaign checkpoints and enrolled outer
+streams, use `pse tools retire-result ID --conformance` and
+`pse tools hold-result ID --conformance`. The campaign preview reports verified
+allocated bytes and any reason the original members cannot be released. Campaign
+checkpoints have bounded reservations; enrolled campaign evidence can expire seven
+days after verified settlement. A campaign borrowed by a managed workload needs
+that workload's drain as well. Explicit Arrow exports remain caller-owned.
 
 ## Focused CLI output
 

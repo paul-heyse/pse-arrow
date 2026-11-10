@@ -3,8 +3,8 @@
 //! Release only the enrolled members of one authenticated, settled test workflow.
 
 use super::{
-    InvocationDirectory, InvocationEvidence, InvocationStore, META_LIMIT, directory, evidence_file, invalid, publish,
-    synchronize_publication_parent,
+    InvocationDirectory, InvocationEvidence, InvocationStore, META_LIMIT, directory, evidence_file,
+    invalid, publish, synchronize_publication_parent,
 };
 use crate::{
     HostError,
@@ -78,11 +78,15 @@ pub(crate) struct WorkflowStreams {
     pub(crate) stderr: Option<DescriptorIdentity>,
 }
 
-pub(super) fn streams(original: &InvocationDirectory) -> Result<Option<WorkflowStreams>, HostError> {
+pub(super) fn streams(
+    original: &InvocationDirectory,
+) -> Result<Option<WorkflowStreams>, HostError> {
     Ok(stream_receipt(original)?.map(|(record, _)| record))
 }
 
-pub(super) fn stream_receipt(original: &InvocationDirectory) -> Result<Option<(WorkflowStreams, DescriptorIdentity)>, HostError> {
+pub(super) fn stream_receipt(
+    original: &InvocationDirectory,
+) -> Result<Option<(WorkflowStreams, DescriptorIdentity)>, HostError> {
     let owner = private_root(original.path())?;
     let name = Path::new(InvocationEvidence::WorkflowStreams.filename());
     let file = match open_child(&owner, name) {
@@ -94,22 +98,31 @@ pub(super) fn stream_receipt(original: &InvocationDirectory) -> Result<Option<(W
     let mut bytes = Vec::new();
     (&file).take(4097).read_to_end(&mut bytes)?;
     if bytes.len() > 4096 || descriptor_identity(&file)? != receipt {
-        return Err(invalid("raw stream receipt is unbounded or changed while observed"));
+        return Err(invalid(
+            "raw stream receipt is unbounded or changed while observed",
+        ));
     }
     let record: WorkflowStreams = serde_json::from_slice(&bytes).map_err(io::Error::other)?;
     if &record.invocation != original.id()
-        || record.members().any(|(_, identity)| identity.bytes > crate::managed::streams::WORKFLOW_PIPE_BYTES)
+        || record
+            .members()
+            .any(|(_, identity)| identity.bytes > crate::managed::streams::WORKFLOW_PIPE_BYTES)
     {
-        return Err(invalid("raw stream commitments differ from the original bounded operation"));
+        return Err(invalid(
+            "raw stream commitments differ from the original bounded operation",
+        ));
     }
     Ok(Some((record, receipt)))
 }
 
 impl WorkflowStreams {
     pub(super) fn members(&self) -> impl Iterator<Item = (&'static str, &DescriptorIdentity)> {
-        [("stdout.raw", self.stdout.as_ref()), ("stderr.raw", self.stderr.as_ref())]
-            .into_iter()
-            .filter_map(|(name, identity)| identity.map(|identity| (name, identity)))
+        [
+            ("stdout.raw", self.stdout.as_ref()),
+            ("stderr.raw", self.stderr.as_ref()),
+        ]
+        .into_iter()
+        .filter_map(|(name, identity)| identity.map(|identity| (name, identity)))
     }
 
     pub(super) fn prepare_release(
@@ -133,7 +146,9 @@ impl WorkflowStreams {
         for (name, expected) in self.members() {
             let file = match open_child(parent, Path::new(name)) {
                 Ok(file) => file,
-                Err(HostError::Io(error)) if missing_ok && error.kind() == io::ErrorKind::NotFound => {
+                Err(HostError::Io(error))
+                    if missing_ok && error.kind() == io::ErrorKind::NotFound =>
+                {
                     continue;
                 }
                 Err(error) => return Err(error),
@@ -143,7 +158,11 @@ impl WorkflowStreams {
             {
                 return Err(invalid("bounded raw stream was replaced before release"));
             }
-            selected.push(RawRelease { name, original: file, identity: expected.clone() });
+            selected.push(RawRelease {
+                name,
+                original: file,
+                identity: expected.clone(),
+            });
         }
         Ok(selected)
     }
@@ -206,7 +225,9 @@ fn workflow_lock(original: &InvocationDirectory, mode: FlockOperation) -> Result
     let named = fs::symlink_metadata(&path)?;
     let opened = file.metadata()?;
     if (opened.dev(), opened.ino()) != (named.dev(), named.ino()) {
-        return Err(invalid("invocation root changed while fencing workflow evidence"));
+        return Err(invalid(
+            "invocation root changed while fencing workflow evidence",
+        ));
     }
     Ok(file)
 }
@@ -224,14 +245,18 @@ impl InvocationStore {
     ) -> Result<Option<String>, HostError> {
         let original = match self.directory(id) {
             Ok(original) => original,
-            Err(HostError::Io(error)) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+            Err(HostError::Io(error)) if error.kind() == io::ErrorKind::NotFound => {
+                return Ok(None);
+            }
             Err(error) => return Err(error),
         };
         let Some(retired) = read_retirement(&original)? else {
             return Ok(None);
         };
         if &retired.invocation != id {
-            return Err(invalid("workflow retirement witness names another invocation"));
+            return Err(invalid(
+                "workflow retirement witness names another invocation",
+            ));
         }
         Ok(Some(retired.report_sha256))
     }
@@ -245,15 +270,16 @@ impl InvocationDirectory {
 }
 
 pub(super) fn raw_stream_retired(
-    original: &InvocationDirectory, stream: crate::extraction::OutputStream,
+    original: &InvocationDirectory,
+    stream: crate::extraction::OutputStream,
 ) -> Result<bool, HostError> {
     Ok(read_retirement(original)?
         .filter(|record| &record.invocation == original.id())
         .and_then(|record| record.raw)
         .is_some_and(|record| match stream {
-        crate::extraction::OutputStream::Stdout => record.stdout,
-        crate::extraction::OutputStream::Stderr => record.stderr,
-    }))
+            crate::extraction::OutputStream::Stdout => record.stdout,
+            crate::extraction::OutputStream::Stderr => record.stderr,
+        }))
 }
 
 fn read_retirement(original: &InvocationDirectory) -> Result<Option<Retirement>, HostError> {
@@ -267,7 +293,9 @@ fn read_retirement(original: &InvocationDirectory) -> Result<Option<Retirement>,
     if bytes.len() > 1024 {
         return Err(invalid("workflow retirement witness exceeds its bound"));
     }
-    Ok(Some(serde_json::from_slice(&bytes).map_err(io::Error::other)?))
+    Ok(Some(
+        serde_json::from_slice(&bytes).map_err(io::Error::other)?,
+    ))
 }
 
 fn read_enrollment(
@@ -283,7 +311,9 @@ fn read_enrollment(
     let mut bytes = Vec::new();
     file.take(META_LIMIT + 1).read_to_end(&mut bytes)?;
     if bytes.len() as u64 > META_LIMIT {
-        return Err(invalid("workflow retention enrollment exceeds its metadata bound"));
+        return Err(invalid(
+            "workflow retention enrollment exceeds its metadata bound",
+        ));
     }
     let record: Enrollment = serde_json::from_slice(&bytes).map_err(io::Error::other)?;
     if &record.invocation != original.id()
@@ -296,7 +326,9 @@ fn read_enrollment(
                 && member.content.byte_length == report.byte_length
         })
     {
-        return Err(invalid("workflow retention enrollment differs from the original report"));
+        return Err(invalid(
+            "workflow retention enrollment differs from the original report",
+        ));
     }
     Ok(Some(record))
 }
@@ -321,19 +353,24 @@ fn open_member(root: &Path, path: &str) -> Result<(File, PathBuf, File), HostErr
 }
 
 pub(super) fn open_child(parent: &File, name: &Path) -> Result<File, HostError> {
-    let file = File::from(openat(
-        parent,
-        name,
-        OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
-        Mode::empty(),
-    ).map_err(io::Error::from)?);
+    let file = File::from(
+        openat(
+            parent,
+            name,
+            OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
+            Mode::empty(),
+        )
+        .map_err(io::Error::from)?,
+    );
     let metadata = file.metadata()?;
     if !metadata.is_file()
         || metadata.uid() != rustix::process::geteuid().as_raw()
         || metadata.mode() & 0o022 != 0
         || metadata.nlink() != 1
     {
-        return Err(invalid("enrolled workflow member has no private, unaliased file custody"));
+        return Err(invalid(
+            "enrolled workflow member has no private, unaliased file custody",
+        ));
     }
     Ok(file)
 }
@@ -342,9 +379,15 @@ fn observe(root: &Path, path: &str, content: &ContentIdentity) -> Result<Member,
     let (_, _, file) = open_member(root, path)?;
     let identity = descriptor_identity(&file)?;
     if identity.bytes != content.byte_length {
-        return Err(invalid("workflow member extent differs from original commitment"));
+        return Err(invalid(
+            "workflow member extent differs from original commitment",
+        ));
     }
-    Ok(Member { path: path.into(), content: content.clone(), identity })
+    Ok(Member {
+        path: path.into(),
+        content: content.clone(),
+        identity,
+    })
 }
 
 /// Only the current workflow classification calls enrollment, after original settlement.
@@ -364,14 +407,22 @@ pub(super) fn enroll(
         Err(HostError::Io(error)) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
         Err(error) => return Err(error),
     };
-    let admitted: CliInvocationId = serde_json::from_reader(admission.take(256)).map_err(io::Error::other)?;
+    let admitted: CliInvocationId =
+        serde_json::from_reader(admission.take(256)).map_err(io::Error::other)?;
     if &admitted != original.id() {
-        return Err(invalid("workflow retention admission differs from the original invocation"));
+        return Err(invalid(
+            "workflow retention admission differs from the original invocation",
+        ));
     }
     let report = captured_report_at_limit(
-        store, original.id().as_str(), None, Some(WORKFLOW_READ_LIMIT),
+        store,
+        original.id().as_str(),
+        None,
+        Some(WORKFLOW_READ_LIMIT),
     )?;
-    let commitments = report.observation.evidence()
+    let commitments = report
+        .observation
+        .evidence()
         .map_err(|error| HostError::Workflow(Box::new(error)))?;
     let mut members = Vec::new();
     for item in commitments {
@@ -386,8 +437,12 @@ pub(super) fn enroll(
         }
     }
     members.push(observe(
-        &report.parent, "report.json",
-        &ContentIdentity { sha256: reference.sha256.clone(), byte_length: reference.byte_length },
+        &report.parent,
+        "report.json",
+        &ContentIdentity {
+            sha256: reference.sha256.clone(),
+            byte_length: reference.byte_length,
+        },
     )?);
     let record = Enrollment {
         invocation: original.id().clone(),
@@ -409,19 +464,25 @@ pub(super) fn pending_extent(
         return Ok((0, None));
     };
     let mut bytes = record.members.iter().try_fold(0_u64, |total, member| {
-        total.checked_add(member.identity.bytes)
+        total
+            .checked_add(member.identity.bytes)
             .ok_or_else(|| invalid("enrolled workflow extent overflow"))
     })?;
     let mut digest = Sha256::new();
     digest.update(serde_json::to_vec(&record).map_err(io::Error::other)?);
     if let Some(raw) = streams(original)? {
         for (_, member) in raw.members() {
-            bytes = bytes.checked_add(member.bytes)
+            bytes = bytes
+                .checked_add(member.bytes)
                 .ok_or_else(|| invalid("enrolled workflow extent overflow"))?;
         }
         digest.update(serde_json::to_vec(&raw).map_err(io::Error::other)?);
     }
-    let digest = digest.finalize().iter().map(|byte| format!("{byte:02x}")).collect();
+    let digest = digest
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
     Ok((bytes, Some(digest)))
 }
 
@@ -439,7 +500,9 @@ impl ObservedExtent {
         let allocated = opened.and_then(|file| {
             let metadata = file.metadata()?;
             if descriptor_identity(&file)? != *expected {
-                return Err(invalid("workflow member no longer has its enrolled identity"));
+                return Err(invalid(
+                    "workflow member no longer has its enrolled identity",
+                ));
             }
             Ok(metadata.blocks().saturating_mul(512))
         });
@@ -482,29 +545,32 @@ pub(super) fn observe_extent(
 }
 
 fn save_release_intent(
-    original: &InvocationDirectory, enrollment: &Enrollment,
+    original: &InvocationDirectory,
+    enrollment: &Enrollment,
 ) -> Result<(), HostError> {
     let path = original.path().join(ENROLLMENT);
     let mut staged = tempfile::NamedTempFile::new_in(original.path())?;
     serde_json::to_writer(&mut staged, enrollment).map_err(io::Error::other)?;
     if staged.as_file().metadata()?.len() > META_LIMIT {
-        return Err(invalid("workflow release intent exceeds its metadata bound"));
+        return Err(invalid(
+            "workflow release intent exceeds its metadata bound",
+        ));
     }
     staged.as_file().sync_all()?;
     staged.persist(&path).map_err(|error| error.error)?;
     synchronize_publication_parent(original.path(), &path)
 }
 
-fn verify(
-    root: &Path,
-    expected: &Member,
-) -> Result<(File, PathBuf), HostError> {
+fn verify(root: &Path, expected: &Member) -> Result<(File, PathBuf), HostError> {
     let (parent, name, mut file) = open_member(root, &expected.path)?;
     if descriptor_identity(&file)? != expected.identity {
         return Err(invalid("enrolled workflow member changed before release"));
     }
     let mut hash = Sha256::new();
-    let limit = expected.identity.bytes.checked_add(1)
+    let limit = expected
+        .identity
+        .bytes
+        .checked_add(1)
         .ok_or_else(|| invalid("enrolled workflow extent overflow"))?;
     let mut bytes = 0u64;
     let mut observed = (&mut file).take(limit);
@@ -517,17 +583,26 @@ fn verify(
         hash.update(&buffer[..read]);
         bytes += read as u64;
     }
-    let digest: String = hash.finalize().iter().map(|byte| format!("{byte:02x}")).collect();
-    if bytes != expected.content.byte_length || digest != expected.content.sha256
+    let digest: String = hash
+        .finalize()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    if bytes != expected.content.byte_length
+        || digest != expected.content.sha256
         || descriptor_identity(&file)? != expected.identity
     {
-        return Err(invalid("enrolled workflow bytes differ from the original commitment"));
+        return Err(invalid(
+            "enrolled workflow bytes differ from the original commitment",
+        ));
     }
     Ok((parent, name))
 }
 
 fn authenticate_members(root: &Path, enrollment: &Enrollment) -> Result<(), HostError> {
-    let report = enrollment.members.last()
+    let report = enrollment
+        .members
+        .last()
         .ok_or_else(|| invalid("enrollment lacks its original report"))?;
     let (_, _, file) = open_member(root, &report.path)?;
     if descriptor_identity(&file)? != report.identity {
@@ -538,11 +613,16 @@ fn authenticate_members(root: &Path, enrollment: &Enrollment) -> Result<(), Host
         serde_json::from_reader::<_, crate::test_workflow::execute::ReportObservation>(input)
             .map_err(|error| io::Error::other(error).into())
     })?;
-    let mut expected = observation.evidence()
+    let mut expected = observation
+        .evidence()
         .map_err(|error| HostError::Workflow(Box::new(error)))?
         .iter()
         .filter(|item| item.root == EvidenceRoot::Workflow && item.role != EvidenceRole::Input)
-        .filter_map(|item| item.content.as_ref().map(|content| (item.path.as_str(), content)))
+        .filter_map(|item| {
+            item.content
+                .as_ref()
+                .map(|content| (item.path.as_str(), content))
+        })
         .collect::<BTreeMap<_, _>>();
     for member in &enrollment.members[..enrollment.members.len() - 1] {
         if expected.remove(member.path.as_str()) != Some(&member.content) {
@@ -568,7 +648,8 @@ pub(super) fn release(
     let workflow = original.path().join("workflow");
     let owner = private_root(original.path())?;
     let raw_receipt = stream_receipt(original)?;
-    let raw = raw_receipt.as_ref()
+    let raw = raw_receipt
+        .as_ref()
         .map(|(streams, _)| streams.prepare_release(&owner, record.releasing))
         .transpose()?
         .unwrap_or_default();
@@ -579,19 +660,26 @@ pub(super) fn release(
     });
     let original_report_present = match authenticate_members(&workflow, &record) {
         Ok(()) => true,
-        Err(HostError::Io(error)) if error.kind() == io::ErrorKind::NotFound && record.releasing => false,
+        Err(HostError::Io(error))
+            if error.kind() == io::ErrorKind::NotFound && record.releasing =>
+        {
+            false
+        }
         Err(error) => return Err(error),
     };
     let mut present = Vec::new();
     for member in &record.members {
         match verify(&workflow, member) {
             Ok((parent, name)) => present.push((parent, name, member)),
-            Err(HostError::Io(error)) if error.kind() == io::ErrorKind::NotFound && record.releasing => {}
+            Err(HostError::Io(error))
+                if error.kind() == io::ErrorKind::NotFound && record.releasing => {}
             Err(error) => return Err(error),
         }
     }
     if !original_report_present && (!present.is_empty() || !raw.is_empty()) {
-        return Err(invalid("cannot finish release of remaining members without the original report"));
+        return Err(invalid(
+            "cannot finish release of remaining members without the original report",
+        ));
     }
     if !record.releasing {
         record.releasing = true;
@@ -599,7 +687,8 @@ pub(super) fn release(
     }
     let mut released: u64 = 0;
     for member in raw {
-        released = released.checked_add(member.unlink(&owner)?)
+        released = released
+            .checked_add(member.unlink(&owner)?)
             .ok_or_else(|| invalid("released workflow extent overflow"))?;
     }
     for (parent, name, member) in present {
@@ -608,14 +697,18 @@ pub(super) fn release(
         }
         unlinkat(&parent, &name, AtFlags::empty()).map_err(io::Error::from)?;
         parent.sync_all()?;
-        released = released.checked_add(member.identity.bytes)
+        released = released
+            .checked_add(member.identity.bytes)
             .ok_or_else(|| invalid("released workflow extent overflow"))?;
     }
     if let Some(retired) = read_retirement(original)? {
-        if &retired.invocation != original.id() || retired.report_sha256 != report.sha256
+        if &retired.invocation != original.id()
+            || retired.report_sha256 != report.sha256
             || retired.raw != retired_raw
         {
-            return Err(invalid("workflow retirement witness differs from the released original"));
+            return Err(invalid(
+                "workflow retirement witness differs from the released original",
+            ));
         }
     } else {
         publish(
@@ -639,7 +732,9 @@ pub(super) fn forget(original: &InvocationDirectory) -> Result<(), HostError> {
     let path = original.path().join(RETIRED);
     if let Some(retired) = read_retirement(original)? {
         if &retired.invocation != original.id() {
-            return Err(invalid("workflow retirement witness names another invocation"));
+            return Err(invalid(
+                "workflow retirement witness names another invocation",
+            ));
         }
         if let Some(raw) = retired.raw {
             let parent = private_root(original.path())?;
@@ -649,7 +744,11 @@ pub(super) fn forget(original: &InvocationDirectory) -> Result<(), HostError> {
                     unlinkat(&parent, name, AtFlags::empty()).map_err(io::Error::from)?;
                     parent.sync_all()?;
                 }
-                Ok(_) => return Err(invalid("retired raw stream receipt was replaced before expiry")),
+                Ok(_) => {
+                    return Err(invalid(
+                        "retired raw stream receipt was replaced before expiry",
+                    ));
+                }
                 Err(HostError::Io(error)) if error.kind() == io::ErrorKind::NotFound => {}
                 Err(error) => return Err(error),
             }
@@ -696,13 +795,15 @@ mod tests {
             .tempdir()
             .unwrap();
         let environment = Environment::from([(
-            "XDG_STATE_HOME".into(), temporary.path().join("state").into_os_string(),
+            "XDG_STATE_HOME".into(),
+            temporary.path().join("state").into_os_string(),
         )]);
         let state = CheckoutState::from_paths(
             &temporary.path().join("checkout"),
             &temporary.path().join("common.git"),
             &environment,
-        ).unwrap();
+        )
+        .unwrap();
         let store = InvocationStore::new(state);
         let original = InvocationDirectory {
             path: temporary.path().to_owned(),
@@ -756,7 +857,14 @@ mod tests {
             releasing: false,
         };
         publish(original.path(), ENROLLMENT, &enrollment, Some(META_LIMIT)).unwrap();
-        (temporary, store, original, reference, member_path, unrelated)
+        (
+            temporary,
+            store,
+            original,
+            reference,
+            member_path,
+            unrelated,
+        )
     }
 
     #[test]
@@ -765,11 +873,16 @@ mod tests {
         let (_temporary, store, original, report, member, unrelated) = setup();
         let outer = original.path().join("stdout.raw");
         write_member(&outer, b"outer");
-        original.publish_evidence(InvocationEvidence::WorkflowStreams, &WorkflowStreams {
-            invocation: original.id().clone(),
-            stdout: Some(descriptor_identity(&evidence_file(&outer).unwrap()).unwrap()),
-            stderr: None,
-        }).unwrap();
+        original
+            .publish_evidence(
+                InvocationEvidence::WorkflowStreams,
+                &WorkflowStreams {
+                    invocation: original.id().clone(),
+                    stdout: Some(descriptor_identity(&evidence_file(&outer).unwrap()).unwrap()),
+                    stderr: None,
+                },
+            )
+            .unwrap();
         let reader = workflow_lock(&original, FlockOperation::LockShared).unwrap();
         assert!(matches!(
             release(&store, &original, &report),
@@ -783,13 +896,24 @@ mod tests {
         assert!(!member.exists());
         assert!(!original.path().join("workflow/report.json").exists());
         assert!(!outer.exists());
-        assert!(original.stream(OutputStream::Stdout).unwrap_err().to_string().contains("retired"));
+        assert!(
+            original
+                .stream(OutputStream::Stdout)
+                .unwrap_err()
+                .to_string()
+                .contains("retired")
+        );
         assert_eq!(fs::read(unrelated).unwrap(), b"foreign");
         assert!(read_retirement(&original).unwrap().is_some());
         assert_eq!(release(&store, &original, &report).unwrap(), 0);
         forget(&original).unwrap();
         assert!(read_retirement(&original).unwrap().is_none());
-        assert!(!original.path().join(InvocationEvidence::WorkflowStreams.filename()).exists());
+        assert!(
+            !original
+                .path()
+                .join(InvocationEvidence::WorkflowStreams.filename())
+                .exists()
+        );
     }
 
     #[test]
@@ -818,11 +942,16 @@ mod tests {
         write_member(&path, bytes);
         let captured = evidence_file(&path).unwrap();
         let original_identity = descriptor_identity(&captured).unwrap();
-        original.publish_evidence(InvocationEvidence::WorkflowStreams, &WorkflowStreams {
-            invocation: original.id().clone(),
-            stdout: Some(original_identity),
-            stderr: None,
-        }).unwrap();
+        original
+            .publish_evidence(
+                InvocationEvidence::WorkflowStreams,
+                &WorkflowStreams {
+                    invocation: original.id().clone(),
+                    stdout: Some(original_identity),
+                    stderr: None,
+                },
+            )
+            .unwrap();
         let reader = original.stream(OutputStream::Stdout).unwrap();
         assert!(matches!(
             release(&store, &original, &report),
@@ -846,13 +975,20 @@ mod tests {
         let (_temporary, store, original, report, _, _) = setup();
         let outer = original.path().join("stdout.raw");
         write_member(&outer, b"outer");
-        original.publish_evidence(InvocationEvidence::WorkflowStreams, &WorkflowStreams {
-            invocation: original.id().clone(),
-            stdout: Some(descriptor_identity(&evidence_file(&outer).unwrap()).unwrap()),
-            stderr: None,
-        }).unwrap();
+        original
+            .publish_evidence(
+                InvocationEvidence::WorkflowStreams,
+                &WorkflowStreams {
+                    invocation: original.id().clone(),
+                    stdout: Some(descriptor_identity(&evidence_file(&outer).unwrap()).unwrap()),
+                    stderr: None,
+                },
+            )
+            .unwrap();
         release(&store, &original, &report).unwrap();
-        let path = original.path().join(InvocationEvidence::WorkflowStreams.filename());
+        let path = original
+            .path()
+            .join(InvocationEvidence::WorkflowStreams.filename());
         let replacement = path.with_extension("replacement");
         write_member(&replacement, &fs::read(&path).unwrap());
         fs::rename(&replacement, &path).unwrap();

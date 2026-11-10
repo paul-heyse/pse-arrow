@@ -457,133 +457,154 @@ fn conformance_command(
     }
     let mut consumed = 0;
     let outcome = (|| -> Result<()> {
-    let mut passed = true;
-    for (index, run) in campaign.runs().enumerate() {
-        if cancel.token().is_cancelled() {
-            break;
-        }
-        consumed = index + 1;
-        if let Some(progress) = &progress {
-            progress.phase(&run.name, "preparation");
-        }
-        let spill = tempfile::tempdir()?;
-        let perform = |result: Result<xtask::development::conformance::RunReport>| {
+        let mut passed = true;
+        for (index, run) in campaign.runs().enumerate() {
+            if cancel.token().is_cancelled() {
+                break;
+            }
+            consumed = index + 1;
             if let Some(progress) = &progress {
-                match &result {
-                    Ok(report) => progress.report(report),
-                    Err(error) => progress.execution_error(&run.name, error),
-                }
+                progress.phase(&run.name, "preparation");
             }
-            result
-        };
-        let report = match run.execution {
-            ConformanceExecution::Pure => {
-                let result = executor.block_on(observe_campaign_run(
-                    &progress, &run.name, Box::pin(campaign.run_pure(run, spill.path(), &cancel)),
-                ));
+            let spill = tempfile::tempdir()?;
+            let perform = |result: Result<xtask::development::conformance::RunReport>| {
                 if let Some(progress) = &progress {
-                    progress.settlement(&run.name, "no_native_lanes", None);
+                    match &result {
+                        Ok(report) => progress.report(report),
+                        Err(error) => progress.execution_error(&run.name, error),
+                    }
                 }
-                perform(result)?
-            }
-            ConformanceExecution::Native => {
-                let _entered = executor.enter();
-                let shared =
-                    pse_runtime::SharedRuntime::build(budget(campaign.settings(), spill.path())?)?;
-                let mut active = None;
-                let result = catch_unwind(AssertUnwindSafe(|| {
-                    let factory =
-                        Arc::new(shared.session_factory(pse_engine::session::native_engine_profile())?);
-                    let runtime = active.insert(pse_runtime::workflow::Runtime::from_shared_local(
-                        shared.clone(),
-                        factory.bind_model(pse_schema::shared_registry()?)?,
-                    )?);
-                    executor.block_on(observe_campaign_run(
-                        &progress, &run.name, Box::pin(campaign.run_native(run, runtime, providers, &cancel)),
-                    ))
-                }));
-                let result = result.map(perform);
-                if let Some(progress) = &progress {
-                    progress.phase(&run.name, "draining_native_lanes");
-                }
-                if let Some(runtime) = active {
-                    runtime.close();
-                    runtime.clear_program_cache();
-                }
-                let cleanup = executor.block_on(shared.math().shutdown_native_lanes());
-                if let Some(progress) = &progress {
-                    progress.settlement(
+                result
+            };
+            let report = match run.execution {
+                ConformanceExecution::Pure => {
+                    let result = executor.block_on(observe_campaign_run(
+                        &progress,
                         &run.name,
-                        if cleanup.is_ok() { "drained" } else { "unresolved" },
-                        cleanup.as_ref().err().map(ToString::to_string).as_deref(),
+                        Box::pin(campaign.run_pure(run, spill.path(), &cancel)),
+                    ));
+                    if let Some(progress) = &progress {
+                        progress.settlement(&run.name, "no_native_lanes", None);
+                    }
+                    perform(result)?
+                }
+                ConformanceExecution::Native => {
+                    let _entered = executor.enter();
+                    let shared = pse_runtime::SharedRuntime::build(budget(
+                        campaign.settings(),
+                        spill.path(),
+                    )?)?;
+                    let mut active = None;
+                    let result = catch_unwind(AssertUnwindSafe(|| {
+                        let factory = Arc::new(
+                            shared.session_factory(pse_engine::session::native_engine_profile())?,
+                        );
+                        let runtime =
+                            active.insert(pse_runtime::workflow::Runtime::from_shared_local(
+                                shared.clone(),
+                                factory.bind_model(pse_schema::shared_registry()?)?,
+                            )?);
+                        executor.block_on(observe_campaign_run(
+                            &progress,
+                            &run.name,
+                            Box::pin(campaign.run_native(run, runtime, providers, &cancel)),
+                        ))
+                    }));
+                    let result = result.map(perform);
+                    if let Some(progress) = &progress {
+                        progress.phase(&run.name, "draining_native_lanes");
+                    }
+                    if let Some(runtime) = active {
+                        runtime.close();
+                        runtime.clear_program_cache();
+                    }
+                    let cleanup = executor.block_on(shared.math().shutdown_native_lanes());
+                    if let Some(progress) = &progress {
+                        progress.settlement(
+                            &run.name,
+                            if cleanup.is_ok() {
+                                "drained"
+                            } else {
+                                "unresolved"
+                            },
+                            cleanup.as_ref().err().map(ToString::to_string).as_deref(),
+                        );
+                    }
+                    match (result, cleanup) {
+                        (Ok(result), Ok(())) => result?,
+                        (Ok(Err(error)), Err(cleanup)) => {
+                            return Err(error.context(format!(
+                                "native conformance cleanup also failed: {cleanup}"
+                            )));
+                        }
+                        (Ok(Ok(_)), Err(cleanup)) => return Err(cleanup.into()),
+                        (Err(panic), Ok(())) => std::panic::resume_unwind(panic),
+                        (Err(panic), Err(cleanup)) => {
+                            std::panic::resume_unwind(Box::new((panic, cleanup)))
+                        }
+                    }
+                }
+            };
+            if let Some(directory) = report_dir {
+                if let Some(progress) = &progress {
+                    progress.export(&run.name, "publishing", None);
+                }
+                let export = (|| -> Result<_> {
+                    std::fs::create_dir_all(directory)?;
+                    report.export_observed(
+                        &directory.join(format!("{}.arrow", report.name)),
+                        |path| {
+                            if let Some(progress) = &progress {
+                                progress.published_output(&run.name, path);
+                            }
+                        },
+                    )
+                })();
+                if let Some(progress) = &progress {
+                    progress.export(
+                        &run.name,
+                        if export.is_ok() {
+                            "published"
+                        } else {
+                            "failed"
+                        },
+                        export.as_ref().err().map(ToString::to_string).as_deref(),
                     );
                 }
-                match (result, cleanup) {
-                    (Ok(result), Ok(())) => result?,
-                    (Ok(Err(error)), Err(cleanup)) => {
-                        return Err(error.context(format!(
-                            "native conformance cleanup also failed: {cleanup}"
-                        )));
-                    }
-                    (Ok(Ok(_)), Err(cleanup)) => return Err(cleanup.into()),
-                    (Err(panic), Ok(())) => std::panic::resume_unwind(panic),
-                    (Err(panic), Err(cleanup)) => {
-                        std::panic::resume_unwind(Box::new((panic, cleanup)))
-                    }
-                }
+                export?;
             }
-        };
-        if let Some(directory) = report_dir {
             if let Some(progress) = &progress {
-                progress.export(&run.name, "publishing", None);
+                progress.phase(&run.name, "returned");
             }
-            let export = (|| -> Result<_> {
-                std::fs::create_dir_all(directory)?;
-                report.export_observed(&directory.join(format!("{}.arrow", report.name)), |path| {
-                    if let Some(progress) = &progress {
-                        progress.published_output(&run.name, path);
-                    }
-                })
-            })();
-            if let Some(progress) = &progress {
-                progress.export(
-                    &run.name,
-                    if export.is_ok() { "published" } else { "failed" },
-                    export.as_ref().err().map(ToString::to_string).as_deref(),
-                );
+            let mut statuses = BTreeMap::<String, usize>::new();
+            for status in report.report.fixture_statuses.values() {
+                *statuses.entry(format!("{status:?}")).or_default() += 1;
             }
-            export?;
+            let coverage = match &report.report.selection {
+                pse_runtime::workflow::ModelingFixtureSelection::Package => "package",
+                pse_runtime::workflow::ModelingFixtureSelection::Selected(_) => "selected",
+            };
+            println!(
+                "{}: passed={} complete={} coverage={} checks={} fixtures={} {:?}",
+                report.name,
+                report.report.passed(),
+                report.report.complete,
+                coverage,
+                report.report.checks.len(),
+                report.report.fixture_statuses.len(),
+                statuses
+            );
+            passed &= report.passed_completely();
         }
-        if let Some(progress) = &progress {
-            progress.phase(&run.name, "returned");
-        }
-        let mut statuses = BTreeMap::<String, usize>::new();
-        for status in report.report.fixture_statuses.values() {
-            *statuses.entry(format!("{status:?}")).or_default() += 1;
-        }
-        let coverage = match &report.report.selection {
-            pse_runtime::workflow::ModelingFixtureSelection::Package => "package",
-            pse_runtime::workflow::ModelingFixtureSelection::Selected(_) => "selected",
-        };
-        println!(
-            "{}: passed={} complete={} coverage={} checks={} fixtures={} {:?}",
-            report.name,
-            report.report.passed(),
-            report.report.complete,
-            coverage,
-            report.report.checks.len(),
-            report.report.fixture_statuses.len(),
-            statuses
+        ensure!(
+            passed && !cancel.token().is_cancelled(),
+            "conformance campaign contains failed or incomplete runs"
         );
-        passed &= report.passed_completely();
-    }
-    ensure!(
-        passed && !cancel.token().is_cancelled(),
-        "conformance campaign contains failed or incomplete runs"
-    );
-    Ok(())
+        Ok(())
     })();
-    if outcome.is_err() && let Some(progress) = &progress {
+    if outcome.is_err()
+        && let Some(progress) = &progress
+    {
         progress.unattempted(campaign.runs().skip(consumed).map(|run| run.name.as_str()));
     }
     executor.block_on(signals.finish());

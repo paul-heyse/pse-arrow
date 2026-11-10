@@ -1,6 +1,6 @@
 ---
 title: "Plan71: Workflow and simulation test feedback"
-status: in-progress
+status: complete
 date: 2026-11-09
 adrs: []
 doc_role: plan
@@ -70,19 +70,18 @@ to 71a and coordinate edits to the same surfaces before integration.
 
 ## Opportunity dispositions
 
-This table owns adoption; the companions hold package progress. `Scheduled` means
-proposed for execution when this draft is approved. A conditional route is investigated
+This table owns adoption; the companions hold package progress. A conditional route is investigated
 only under its named trigger; rejection of an alternative does not leave the opportunity open.
 
 | Opportunity | Disposition | Work owner | Evidence or revisit trigger |
 | --- | --- | --- | --- |
-| [O01](../functional_reviews/workflow-simulation-test-execution-and-diagnostics-2026-11-09.md#O01) | Scheduled | [A01–A03](71a-cli-inspection-and-evidence-lifecycle.md#packages), [D03](71d-fixture-efficiency-and-selected-diagnostics.md#d03) | Owner-derived progress and bounded retrieval; opt-in future metrics only for a remaining attribution gap. |
-| [O02](../functional_reviews/workflow-simulation-test-execution-and-diagnostics-2026-11-09.md#O02) | Scheduled | [C02–C03](71c-conformance-readiness-execution-and-recovery.md#packages) | Partial evidence survives published boundaries, separates export and drain, and does not reissue effects. |
-| [O03](../functional_reviews/workflow-simulation-test-execution-and-diagnostics-2026-11-09.md#O03) | Scheduled | [C01](71c-conformance-readiness-execution-and-recovery.md#c01), [B03](71b-nextest-execution-and-original-attempt-evidence.md#b03) | Passive readiness and valid image reuse; no speculative crate split or second build cache. |
-| [O04](../functional_reviews/workflow-simulation-test-execution-and-diagnostics-2026-11-09.md#O04) | Scheduled | [B01](71b-nextest-execution-and-original-attempt-evidence.md#b01), [D01](71d-fixture-efficiency-and-selected-diagnostics.md#d01) | Native round trip on 0.9.151, actual group/fixture ownership, guarded narrowing where independence is established. |
-| [O05](../functional_reviews/workflow-simulation-test-execution-and-diagnostics-2026-11-09.md#O05) | Scheduled | [B02–B03](71b-nextest-execution-and-original-attempt-evidence.md#packages) | Exact attempt detail and comparison; recordings only for a specific scheduling question that existing facts cannot answer. |
-| [O06](../functional_reviews/workflow-simulation-test-execution-and-diagnostics-2026-11-09.md#O06) | Scheduled | [D02](71d-fixture-efficiency-and-selected-diagnostics.md#d02) | One bounded identity pilot and review of actual reuse seams; no speculative cross-run runtime pool. |
-| [O07](../functional_reviews/workflow-simulation-test-execution-and-diagnostics-2026-11-09.md#O07) | Scheduled | [D03](71d-fixture-efficiency-and-selected-diagnostics.md#d03) | Extend existing diagnosis and assertions first; retain conditional escalation and rejected alternatives with rationale. |
+| [O01](../functional_reviews/workflow-simulation-test-execution-and-diagnostics-2026-11-09.md#O01) | Resolved | [A01–A03](71a-cli-inspection-and-evidence-lifecycle.md#packages), [D03](71d-fixture-efficiency-and-selected-diagnostics.md#d03) | Owner-derived progress and bounded retrieval; opt-in future metrics only for a remaining attribution gap. |
+| [O02](../functional_reviews/workflow-simulation-test-execution-and-diagnostics-2026-11-09.md#O02) | Resolved | [C02–C03](71c-conformance-readiness-execution-and-recovery.md#packages) | Partial evidence survives published boundaries, separates export and drain, and does not reissue effects. |
+| [O03](../functional_reviews/workflow-simulation-test-execution-and-diagnostics-2026-11-09.md#O03) | Resolved | [C01](71c-conformance-readiness-execution-and-recovery.md#c01), [B03](71b-nextest-execution-and-original-attempt-evidence.md#b03) | Passive readiness and valid image reuse; no speculative crate split or second build cache. |
+| [O04](../functional_reviews/workflow-simulation-test-execution-and-diagnostics-2026-11-09.md#O04) | Resolved | [B01](71b-nextest-execution-and-original-attempt-evidence.md#b01), [D01](71d-fixture-efficiency-and-selected-diagnostics.md#d01) | Native round trip on 0.9.151, actual group/fixture ownership, guarded narrowing where independence is established. |
+| [O05](../functional_reviews/workflow-simulation-test-execution-and-diagnostics-2026-11-09.md#O05) | Resolved | [B02–B03](71b-nextest-execution-and-original-attempt-evidence.md#packages) | Exact attempt detail and comparison; recordings only for a specific scheduling question that existing facts cannot answer. |
+| [O06](../functional_reviews/workflow-simulation-test-execution-and-diagnostics-2026-11-09.md#O06) | Resolved | [D02](71d-fixture-efficiency-and-selected-diagnostics.md#d02) | One bounded identity pilot and review of actual reuse seams; no speculative cross-run runtime pool. |
+| [O07](../functional_reviews/workflow-simulation-test-execution-and-diagnostics-2026-11-09.md#O07) | Resolved | [D03](71d-fixture-efficiency-and-selected-diagnostics.md#d03) | Extend existing diagnosis and assertions first; retain conditional escalation and rejected alternatives with rationale. |
 
 ## Acceptance and closeout
 
@@ -109,8 +108,8 @@ when it is part of the operation. Quantified performance claims require measurem
 absence of such a claim is not an incomplete package.
 
 Retire replaced paths when their consumers move. At closure, move enduring contract and
-operator guidance to the architecture and developer documentation owners. This draft
-records no implementation or qualification, and no other plan status changes on publication.
+operator guidance to the architecture and developer documentation owners. This series
+does not change another plan's status or acceptance obligations.
 
 ## Execution checkpoint — November 9
 
@@ -167,12 +166,112 @@ native caller and abrupt exit before/after checkpoint publication. The
 named cases (`01a1c27e-9e62-74d9-a47f-c99a61de7dc7`); zero failures against
 the zero baseline in each case.
 
-Remaining qualification includes the managed campaign signal/export journey, the selected fixture and exchanger journey, and scope-end
-checks. The ordinary capture path has bounded stream prefixes and
+**Tested:** On `main`, `pse test pse-runtime --lib -F
+solver-ipopt,solver-kinsol,solver-root-isolation -E …` selected the independent
+exchanger rating comparison, the costed exchanger protected view, and the
+controlled conformance cancellation and fatal-fixture drain cases. With the
+locked reference interpreter selected explicitly, all four passed with zero
+failures against the zero baseline and complete settlement
+(`01a1c291-6979-75ed-821c-512df4a99322`). The runtime controls establish issued
+native work drain and returned versus unattempted status at the runtime boundary.
+
+**Tested:** `pse test pse-operations:pse_operations --target-kind lib
+-F pse-operations/native-service -E 'test(=native_fixture::logical::canonical_server_unit::fixture_explicit_drain_retains_database_for_runner_disposition)'`
+passed the single selected case with zero failures against the zero baseline
+and complete settlement (`01a1c297-9fb2-75ab-b50f-b04045fd5815`). It exercised
+two independent databases on one runner-owned service and preserved final
+database disposition with that owner. The terminal output projection rejected
+an invalid field; inspection recovered the original successful test verdict.
+The same package/target and native-service feature with `--ignored only`
+then passed the three selected rollback/recovery, exclusive expiry and
+cancelled-apply controls using the exact prepared module receipts and the
+four-controller fixture (`01a1c2a0-8494-72ed-b410-48003161438c`, zero failures
+against the zero baseline, complete settlement).
+
+**Tested:** `pse test pse-host --lib -E …` passed all 16 selected controls after
+the timer fixtures were corrected to use private unit directories
+(`01a1c29f-1d30-7389-9cc4-ba4da5859406`, zero failures against the zero baseline,
+complete settlement). The selection covered exact campaign release, held and
+unsettled extents, interrupted release replay, replaced members, enclosing drain,
+cooperative stop, timer ownership, CLI help, and current native-tool identity.
+`pse tools result-expiry-status` reported the exact local timer active without
+creating a result artifact.
+
+The first managed campaign preparation compiled successfully but refused its own
+binary: the requested feature roots and the compiler's resolved feature set were
+compared as if they were the same. The owner now verifies the exact profile
+request and independently binds the full resolved feature set to the compiler
+artifact and its manifest. `pse test pse-host --lib -E
+'test(prepared_xtask::tests::)'` passed all 14 controls with zero failures against
+the zero baseline and complete settlement (`01a1c2af-a758-7324-821a-4c22f095f998`).
+The live retry also exposed the old 1 MiB tool-manifest ceiling. The complete
+campaign source fingerprint fit the existing compiler-document bound; preparation
+published and reopened a 1,607,197-byte manifest. The two unpublished capture
+directories were removed after the replacement became current. The managed pure
+case then passed and, with only an authored expectation changed, returned the
+intended scientific failure under the same executable selection
+(`01a1c2b6-51e8-7027-a4e7-55ea300d5afe`,
+`01a1c2b6-6eb8-7279-a0c4-118afd5998a3`).
+The original passing scratch result previewed 12,288 allocated bytes. Its hold
+refused release; clearing the hold allowed exact retirement. The CLI then
+reported retired checkpoint and raw streams while preserving the original verdict.
+The campaign nested under `pse run` became eligible only after its enclosing
+workload drained (`01a1c2ba-7f18-7770-9503-e736d54806dd`); the CLI then previewed
+the original allocated extent.
+The selected native density case passed and drained, and its deliberate export
+published six Arrow relations (`01a1c2b7-24b0-703c-9895-013706720af1`).
+Two detached selections were stopped through `pse cancel` after a case had
+entered `solve`. The mixed run retained its original findings and reported the
+native shutdown error separately from the host's completed drain
+(`01a1c2b7-4aec-7159-963f-4a4986592840`). The single-case control retained
+`Cancelled` and an incomplete scientific result, reported the native runtime
+drained without error, and `pse wait` confirmed process settlement
+(`01a1c2b9-555c-74a8-80ac-4a3645657946`).
+The final focused `pse test pse-host --lib -E …` selection passed nine runner,
+attempt, phase and effect controls with zero failures against the zero baseline
+and complete settlement (`01a1c2c5-b3ce-7308-9c6c-3155f52413cd`). It covered
+zero match, profile and platform/ignored selection, weighted wakeup, retry and
+flaky policy, and original fixture and phase-stream custody.
+
+The ordinary capture path has bounded stream prefixes and
 release of newly enrolled, authenticated workflow members. Aggregate pre-admission
 accounting is deferred for ordinary uncapped writers pending a review of observed
 sizes. The temporary JUnit byte cap and related admission proposal were withdrawn.
-The campaign checkpoint reservation is a separate existing bound. Ordinary raw
-stream retirement has been integrated; campaign raw streams retain separate custody. The live owner
-projection is not yet complete across all test, fixture and scientific phases.
-No plan closure or measured speedup is claimed.
+The ordinary release preview for the four-case native run showed 8,155,530
+apparent bytes and 8,200,192 allocated bytes across 21 verified workflow members;
+this is one retained selection, not an aggregate usage estimate.
+The campaign checkpoint reservation is a separate existing bound. Ordinary and
+campaign raw stream retirement are integrated under their respective owners.
+The live owner projection reports bounded, owner-observed phases and keeps
+unavailable runner and scientific detail explicit.
+
+## Outcome
+
+**Implemented:** The adopted scope is on `main`. Nextest 0.9.151 is the normal
+runner. The CLI reads original observations and releases settled ordinary and
+campaign evidence through the owners that captured it. Explicit exports and
+reusable native images keep their own custody. Independent fixture preparation
+and selected case evidence are available without broadening the scientific suite.
+
+**Tested:** The selected runner, custody, campaign and scientific controls are
+recorded above. After the final source edits, passive `pse conformance readiness`
+refused the stale image without preparing or writing a result artifact
+(`01a1c2c8-92e3-77ea-b8df-7052e2ff1f43`). An explicit preparation is needed before
+the next campaign on these bytes. `just turn-end` passed both stages with zero
+failures against the zero baseline.
+`just codegen` published all 16 schema targets; `just codegen-check` passed
+with zero differences against the zero baseline
+(`01a1c2d0-01d5-72f7-a25b-82e0f2736fe1`).
+
+The original repository-wide `pse run-all hygiene governance-tests` bundle
+settled with failures (`01a1c2bb-79e5-71a7-83f8-1f65663f12c4`). Governance ran
+25 tests: 23 passed and two failed against the zero baseline on the existing
+`pse-quantity` unsafe-code fixture. Unrelated repository hygiene findings in
+spelling, licensing, Python lint/type checks and dependency checks are deferred
+to the maintainer's next pivot. Plan71 addressed its own strict Clippy findings,
+the Rustix flag spelling, and affected generated outputs without changing those
+other areas. The maintainer directed that Clippy not be rerun before the next scope.
+
+Ordinary writer caps and aggregate admission remain deferred pending a later
+review of actual result sizes. Conditional diagnostic recording was not needed
+by the selected cases. No full scientific campaign or measured speedup is claimed.

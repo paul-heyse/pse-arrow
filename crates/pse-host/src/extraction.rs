@@ -557,8 +557,8 @@ impl NextestSummary {
     }
 }
 mod completed;
-pub use completed::{CompletedReport, NativeFailure, RetrySummary};
 pub(crate) use completed::qualified_writer;
+pub use completed::{CompletedReport, NativeFailure, RetrySummary};
 
 #[cfg(test)]
 mod tests;

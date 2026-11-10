@@ -16,7 +16,10 @@ fn build(checkout: &Path, executable: Executable) -> BuildCapture {
     BuildCapture {
         version: 1,
         resolution: correctness::Resolution {
-            arguments: vec!["build".into(), "--no-default-features".into()],
+            arguments: source_build_arguments_for(NativeToolTarget::Xtask)
+                .into_iter()
+                .map(OsString::from)
+                .collect(),
             packages: vec!["xtask".into()],
             units: vec![correctness::CompilerUnit {
                 package_id: cargo.package_id.repr.clone(),
@@ -454,6 +457,10 @@ fn native_analysis_profile_cannot_accept_an_xtask_or_other_feature_artifact() {
     );
     let mut native = original;
     let profile = NativeToolTarget::NativeAnalysis.profile();
+    native.resolution.arguments = source_build_arguments_for(NativeToolTarget::NativeAnalysis)
+        .into_iter()
+        .map(OsString::from)
+        .collect();
     native.artifacts[0].cargo.target.name = profile.binary.into();
     native.artifacts[0].cargo.target.src_path =
         root.path().join(profile.source).try_into().unwrap();
@@ -465,7 +472,8 @@ fn native_analysis_profile_cannot_accept_an_xtask_or_other_feature_artifact() {
     native.resolution.units[0].package_name = profile.package.into();
     native.resolution.units[0].target_name = profile.binary.into();
     native.resolution.units[0].source_path = native.artifacts[0].cargo.target.src_path.to_string();
-    native.resolution.units[0].features = NativeToolTarget::NativeAnalysis.features();
+    native.resolution.units[0].features =
+        native.artifacts[0].cargo.features.iter().cloned().collect();
     assert!(
         select_executable_for(
             &native,
@@ -509,6 +517,70 @@ fn native_analysis_profile_cannot_accept_an_xtask_or_other_feature_artifact() {
             "native-hir",
             "--message-format=json-render-diagnostics"
         ]
+    );
+}
+
+#[test]
+fn conformance_profile_binds_requested_and_resolved_features_separately() {
+    let (root, _, selected) = fixture();
+    let mut build: BuildCapture = serde_json::from_slice(
+        &read(&selected.directory.join("build/build.json"), MAX_DOCUMENT).unwrap(),
+    )
+    .unwrap();
+    let profile = NativeToolTarget::Conformance;
+    build.resolution.arguments = source_build_arguments_for(profile)
+        .into_iter()
+        .map(OsString::from)
+        .collect();
+    build.artifacts[0].cargo.features.extend([
+        "native-solvers".into(),
+        "package-fixtures".into(),
+        "solver-kinsol".into(),
+    ]);
+    build.resolution.units[0].features =
+        build.artifacts[0].cargo.features.iter().cloned().collect();
+    let select = |build: &BuildCapture| {
+        select_executable_for(build, &selected.directory, root.path(), profile)
+            .map(|(_, features)| features)
+    };
+    let features = select(&build).unwrap();
+    assert!(features.contains("package-fixtures"));
+
+    build.artifacts[0]
+        .cargo
+        .features
+        .retain(|feature| feature != "native-solvers");
+    build.resolution.units[0].features.remove("native-solvers");
+    assert!(select(&build).is_err());
+    build.artifacts[0]
+        .cargo
+        .features
+        .push("native-solvers".into());
+    build.resolution.units[0]
+        .features
+        .insert("native-solvers".into());
+
+    build.artifacts[0]
+        .cargo
+        .features
+        .push("property-coolprop".into());
+    assert!(select(&build).is_err());
+    build.resolution.units[0]
+        .features
+        .insert("property-coolprop".into());
+    build.resolution.arguments = source_build_arguments_for(NativeToolTarget::ConformanceCoolprop)
+        .into_iter()
+        .map(OsString::from)
+        .collect();
+    assert!(select(&build).is_err());
+    assert!(
+        select_executable_for(
+            &build,
+            &selected.directory,
+            root.path(),
+            NativeToolTarget::ConformanceCoolprop
+        )
+        .is_ok()
     );
 }
 

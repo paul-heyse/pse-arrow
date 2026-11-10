@@ -252,7 +252,8 @@ impl TerminalResult<ManagedSummary> {
         policy: &RedactionPolicy,
     ) -> Self {
         let campaign = directory.is_conformance();
-        if !campaign && directory.workflow_action() != Some(crate::test_workflow::execute::Action::Test)
+        if !campaign
+            && directory.workflow_action() != Some(crate::test_workflow::execute::Action::Test)
         {
             return self;
         }
@@ -264,10 +265,14 @@ impl TerminalResult<ManagedSummary> {
                 if summary.io_unresolved {
                     return Ok(None);
                 }
-                let descriptor = rustix::io::fcntl_dupfd_cloexec(file, 0).map_err(std::io::Error::from)?;
-                let identity = crate::artifacts::descriptor_identity(&std::fs::File::from(descriptor))?;
+                let descriptor =
+                    rustix::io::fcntl_dupfd_cloexec(file, 0).map_err(std::io::Error::from)?;
+                let identity =
+                    crate::artifacts::descriptor_identity(&std::fs::File::from(descriptor))?;
                 if identity.bytes != summary.bytes_retained {
-                    return Err(HostError::Ownership("original raw stream differs from its retained extent".into()));
+                    return Err(HostError::Ownership(
+                        "original raw stream differs from its retained extent".into(),
+                    ));
                 }
                 Ok(Some(identity))
             };
@@ -277,12 +282,25 @@ impl TerminalResult<ManagedSummary> {
                 stderr: observe(self._streams.get(1), self.response.payload.stderr.as_ref())?,
             };
             if streams.stdout.is_some() || streams.stderr.is_some() {
-                directory.publish_evidence(crate::invocation::InvocationEvidence::WorkflowStreams, &streams)?;
+                directory.publish_evidence(
+                    crate::invocation::InvocationEvidence::WorkflowStreams,
+                    &streams,
+                )?;
                 if campaign {
-                    self.response.artifacts.push(directory.conformance_raw_artifact()?);
-                    for (name, present) in [("stdout", streams.stdout.is_some()), ("stderr", streams.stderr.is_some())] {
+                    self.response
+                        .artifacts
+                        .push(directory.conformance_raw_artifact()?);
+                    for (name, present) in [
+                        ("stdout", streams.stdout.is_some()),
+                        ("stderr", streams.stderr.is_some()),
+                    ] {
                         if present {
-                            let mut argv = vec!["pse".into(), "inspect".into(), "log".into(), directory.id().to_string()];
+                            let mut argv = vec![
+                                "pse".into(),
+                                "inspect".into(),
+                                "log".into(),
+                                directory.id().to_string(),
+                            ];
                             if name == "stderr" {
                                 argv.push("--stderr".into());
                             }
@@ -297,9 +315,12 @@ impl TerminalResult<ManagedSummary> {
             Ok(())
         })();
         if let Err(error) = capture {
-            self.response.observation.limitations.push(policy.redact(&format!(
-                "bounded raw stream retirement could not be enrolled: {error}"
-            )));
+            self.response
+                .observation
+                .limitations
+                .push(policy.redact(&format!(
+                    "bounded raw stream retirement could not be enrolled: {error}"
+                )));
         }
         self
     }

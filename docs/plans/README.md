@@ -77,7 +77,8 @@ verification. Plan66 owns configured scientific acceptance.
 - [70g · Developer verification](70g-developer-verification.md)
 
 [Plan71: Workflow and simulation test feedback](71-workflow-and-simulation-test-feedback.md)
-is a draft series for faster test feedback, CLI diagnostics and evidence lifecycle.
+is complete for its adopted scope. Its [execution checkpoint](71-workflow-and-simulation-test-feedback.md#execution-checkpoint--november-9)
+records the runner cutover, CLI diagnostics, evidence lifecycle, and selected qualification.
 It does not supersede any plan or change Plan66 scientific acceptance.
 
 Use the [architecture](../authoritative_design/README.md) for enduring contracts.

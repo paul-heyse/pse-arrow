@@ -76,7 +76,11 @@ pub struct LiveProgress {
 impl LiveProgress {
     pub(crate) fn entered_groups(&self) -> impl Iterator<Item = usize> + '_ {
         self.groups.iter().filter_map(|(&group, progress)| {
-            matches!(progress, LiveGroup::EnteredCommand | LiveGroup::CommandReturned).then_some(group)
+            matches!(
+                progress,
+                LiveGroup::EnteredCommand | LiveGroup::CommandReturned
+            )
+            .then_some(group)
         })
     }
 }
@@ -92,7 +96,9 @@ fn open_workflow(path: &Path) -> Result<File, HostError> {
         .open(path)?;
     let metadata = directory.metadata()?;
     if metadata.uid() != rustix::process::geteuid().as_raw() || metadata.mode() & 0o777 != 0o700 {
-        return Err(invalid("live progress directory is not private original custody"));
+        return Err(invalid(
+            "live progress directory is not private original custody",
+        ));
     }
     Ok(directory)
 }
@@ -120,7 +126,9 @@ fn read_snapshot(
         || metadata.nlink() != 1
         || metadata.len() > MAX_BYTES as u64
     {
-        return Err(invalid("live progress is not a bounded private original file"));
+        return Err(invalid(
+            "live progress is not a bounded private original file",
+        ));
     }
     let mut bytes = Vec::new();
     file.take((MAX_BYTES + 1) as u64).read_to_end(&mut bytes)?;
@@ -128,14 +136,22 @@ fn read_snapshot(
         return Err(invalid("live progress exceeded its read allowance"));
     }
     let snapshot: LiveProgress = serde_json::from_slice(&bytes).map_err(io::Error::other)?;
-    if &snapshot.invocation != invocation || snapshot.action != action || snapshot.groups.len() > MAX_GROUPS {
-        return Err(invalid("live progress does not match the original workflow"));
+    if &snapshot.invocation != invocation
+        || snapshot.action != action
+        || snapshot.groups.len() > MAX_GROUPS
+    {
+        return Err(invalid(
+            "live progress does not match the original workflow",
+        ));
     }
     Ok(Some(snapshot))
 }
 
 /// Observe the original owner's current snapshot without preparing or starting anything.
-pub(crate) fn read(directory: &InvocationDirectory, action: Action) -> Result<Option<LiveProgress>, HostError> {
+pub(crate) fn read(
+    directory: &InvocationDirectory,
+    action: Action,
+) -> Result<Option<LiveProgress>, HostError> {
     let workflow = match open_workflow(&directory.path().join("workflow")) {
         Ok(workflow) => workflow,
         Err(HostError::Io(error)) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
@@ -145,7 +161,11 @@ pub(crate) fn read(directory: &InvocationDirectory, action: Action) -> Result<Op
 }
 
 /// After committed report publication, release only this original optional snapshot.
-pub(crate) fn clear(path: &Path, invocation: &CliInvocationId, action: Action) -> Result<(), HostError> {
+pub(crate) fn clear(
+    path: &Path,
+    invocation: &CliInvocationId,
+    action: Action,
+) -> Result<(), HostError> {
     let directory = open_workflow(path)?;
     if read_snapshot(&directory, invocation, action)?.is_some() {
         match unlinkat(&directory, NAME, AtFlags::empty()) {
@@ -162,7 +182,11 @@ pub(super) struct Writer {
 }
 
 impl Writer {
-    pub(super) fn new(path: &Path, invocation: CliInvocationId, action: Action) -> Result<Self, HostError> {
+    pub(super) fn new(
+        path: &Path,
+        invocation: CliInvocationId,
+        action: Action,
+    ) -> Result<Self, HostError> {
         Ok(Self {
             directory: open_workflow(path)?,
             snapshot: Mutex::new(LiveProgress {
@@ -195,19 +219,31 @@ impl Writer {
     }
 
     fn update(&self, update: impl FnOnce(&mut LiveProgress)) {
-        let Ok(mut snapshot) = self.snapshot.lock() else { return; };
-        let Ok(now) = SystemTime::now().duration_since(UNIX_EPOCH) else { return; };
-        let Ok(now) = u64::try_from(now.as_millis()) else { return; };
+        let Ok(mut snapshot) = self.snapshot.lock() else {
+            return;
+        };
+        let Ok(now) = SystemTime::now().duration_since(UNIX_EPOCH) else {
+            return;
+        };
+        let Ok(now) = u64::try_from(now.as_millis()) else {
+            return;
+        };
         snapshot.updated_unix_ms = now;
         update(&mut snapshot);
-        let Ok(bytes) = serde_json::to_vec(&*snapshot) else { return; };
-        if bytes.len() > MAX_BYTES { return; }
+        let Ok(bytes) = serde_json::to_vec(&*snapshot) else {
+            return;
+        };
+        if bytes.len() > MAX_BYTES {
+            return;
+        }
         let Ok(fd) = openat(
             &self.directory,
             STAGING,
             OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::NOFOLLOW | OFlags::CLOEXEC,
             Mode::RUSR | Mode::WUSR,
-        ) else { return; };
+        ) else {
+            return;
+        };
         if File::from(fd).write_all(&bytes).is_err()
             || renameat(&self.directory, STAGING, &self.directory, NAME).is_err()
         {
@@ -228,20 +264,37 @@ mod tests {
         let invocation = CliInvocationId::new();
         let writer = Writer::new(directory.path(), invocation.clone(), Action::Test).unwrap();
         writer.phase(LivePhase::ExecutingGroups);
-        writer.group(1, LiveGroup::WaitingForPredecessor { native_group: "native".into(), predecessor: 0 });
-        let before = read_snapshot(&writer.directory, &invocation, Action::Test).unwrap().unwrap();
-        assert!(matches!(before.groups[&1], LiveGroup::WaitingForPredecessor { predecessor: 0, .. }));
+        writer.group(
+            1,
+            LiveGroup::WaitingForPredecessor {
+                native_group: "native".into(),
+                predecessor: 0,
+            },
+        );
+        let before = read_snapshot(&writer.directory, &invocation, Action::Test)
+            .unwrap()
+            .unwrap();
+        assert!(matches!(
+            before.groups[&1],
+            LiveGroup::WaitingForPredecessor { predecessor: 0, .. }
+        ));
         writer.group(1, LiveGroup::EnteredCommand);
         for group in 2..=MAX_GROUPS + 1 {
             writer.group(group, LiveGroup::CommandReturned);
         }
-        let after = read_snapshot(&writer.directory, &invocation, Action::Test).unwrap().unwrap();
+        let after = read_snapshot(&writer.directory, &invocation, Action::Test)
+            .unwrap()
+            .unwrap();
         assert!(matches!(after.groups[&1], LiveGroup::EnteredCommand));
         assert_eq!(after.groups.len(), MAX_GROUPS);
         assert!(after.omitted_groups);
         assert!(clear(directory.path(), &CliInvocationId::new(), Action::Test).is_err());
         clear(directory.path(), &invocation, Action::Test).unwrap();
-        assert!(read_snapshot(&writer.directory, &invocation, Action::Test).unwrap().is_none());
+        assert!(
+            read_snapshot(&writer.directory, &invocation, Action::Test)
+                .unwrap()
+                .is_none()
+        );
         assert!(!directory.path().join(STAGING).exists());
     }
 }

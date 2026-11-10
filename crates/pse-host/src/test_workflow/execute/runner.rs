@@ -387,9 +387,18 @@ async fn perform(
             let serialized = (0..report.admission.len())
                 .map(|group| (group, BTreeSet::from(["cargo output".to_owned()])))
                 .collect();
-            execute_groups_observed(input, destination, groups, report, &serialized, progress).await?;
+            execute_groups_observed(input, destination, groups, report, &serialized, progress)
+                .await?;
         } else {
-            execute_groups_observed(input, destination, groups, report, &BTreeMap::new(), progress).await?;
+            execute_groups_observed(
+                input,
+                destination,
+                groups,
+                report,
+                &BTreeMap::new(),
+                progress,
+            )
+            .await?;
         }
         // Check's original callback publishes its exact compiler-unit context too. Admission
         // alone cannot claim that later compilation used the same capability/feature closure.
@@ -1201,7 +1210,9 @@ async fn execute_groups_observed(
         let mut done = Vec::new();
         for name in serialized.get(&group).into_iter().flatten() {
             let (sender, next) = tokio::sync::oneshot::channel::<()>();
-            if let Some((previous_group, previous)) = predecessors.insert(name.clone(), (group, next)) {
+            if let Some((previous_group, previous)) =
+                predecessors.insert(name.clone(), (group, next))
+            {
                 wait.push((name.clone(), previous_group, previous));
             }
             done.push(sender);
@@ -1211,18 +1222,26 @@ async fn execute_groups_observed(
             let started = std::time::Instant::now();
             let mut groups = BTreeMap::new();
             for (name, previous_group, mut previous) in wait {
-                if matches!(previous.try_recv(), Err(tokio::sync::oneshot::error::TryRecvError::Empty)) {
+                if matches!(
+                    previous.try_recv(),
+                    Err(tokio::sync::oneshot::error::TryRecvError::Empty)
+                ) {
                     if let Some(progress) = &progress {
-                        progress.group(group, LiveGroup::WaitingForPredecessor {
-                            native_group: name.clone(), predecessor: previous_group,
-                        });
+                        progress.group(
+                            group,
+                            LiveGroup::WaitingForPredecessor {
+                                native_group: name.clone(),
+                                predecessor: previous_group,
+                            },
+                        );
                     }
                     let _ = previous.await;
                 }
                 groups.insert(name, previous_group);
             }
             let predecessor_wait = (!groups.is_empty()).then(|| super::report::PredecessorWait {
-                elapsed_seconds: started.elapsed().as_secs_f64(), groups,
+                elapsed_seconds: started.elapsed().as_secs_f64(),
+                groups,
             });
             if let Some(progress) = &progress {
                 progress.group(group, LiveGroup::EnteredCommand);

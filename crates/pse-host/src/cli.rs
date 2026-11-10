@@ -21,6 +21,7 @@ pub mod bundle;
 mod changes;
 mod code;
 mod compiler;
+pub(crate) mod conformance;
 mod control;
 mod dependency;
 mod docs;
@@ -36,7 +37,6 @@ mod source_change;
 mod terminal;
 mod testing;
 mod tools;
-pub(crate) mod conformance;
 mod worktree;
 
 /// Selects the fixed executable protocol, never inferred from an executable filename.
@@ -1135,7 +1135,9 @@ fn dispatch(cli: Cli, presentation: &OutputOptions, entry: &EntryGuard) -> Resul
             presentation,
         ),
         Command::Tools { action } => tools::dispatch(action, selected, presentation, entry),
-        Command::Conformance { action } => conformance::dispatch(action, selected, presentation, entry),
+        Command::Conformance { action } => {
+            conformance::dispatch(action, selected, presentation, entry)
+        }
         Command::Wait(args) => control::dispatch(args, false, selected, presentation),
         Command::Cancel(args) => control::dispatch(args, true, selected, presentation),
         Command::Observe { action } => product::dispatch(action, selected, presentation),
@@ -1529,9 +1531,9 @@ fn launch_managed_finalize(
         workflow,
     } = request;
     let cooperative = verb == "conformance run"
-        && tool.as_ref().is_some_and(|tool| {
-            matches!(tool.kind, "conformance" | "conformance-coolprop")
-        });
+        && tool
+            .as_ref()
+            .is_some_and(|tool| matches!(tool.kind, "conformance" | "conformance-coolprop"));
     environment.remove(std::ffi::OsStr::new("PSE_CONFORMANCE_PROGRESS"));
     let session = crate::invocation::select_session(session, &environment)?;
     let control = entry.prepared().cloned().ok_or_else(|| HostError::Ownership("managed run requires an explicitly prepared native generation; run scripts/bootstrap-host".into()))?;
@@ -1562,10 +1564,17 @@ fn launch_managed_finalize(
         store.reserve_conformance(&directory)?;
         environment.insert(
             "PSE_CONFORMANCE_PROGRESS".into(),
-            directory.path().join(crate::invocation::CONFORMANCE_SNAPSHOT).into_os_string(),
+            directory
+                .path()
+                .join(crate::invocation::CONFORMANCE_SNAPSHOT)
+                .into_os_string(),
         );
         if !detach {
-            writeln!(io::stderr(), "pse: managed conformance invocation {}", directory.id())?;
+            writeln!(
+                io::stderr(),
+                "pse: managed conformance invocation {}",
+                directory.id()
+            )?;
         }
     }
     if let Some((_, input)) = workflow {

@@ -833,13 +833,14 @@ pub async fn supervise(root: PathBuf, id: CliInvocationId) -> Result<i32, HostEr
     if context.directory.is_conformance() && terminal.response().child_exit.is_some() {
         match context.directory.conformance_artifacts() {
             Ok(artifacts) => terminal = terminal.with_artifacts(artifacts),
-            Err(error) => terminal = terminal.with_owner_failures(vec![error], &RedactionPolicy::from_environment()),
+            Err(error) => {
+                terminal =
+                    terminal.with_owner_failures(vec![error], &RedactionPolicy::from_environment())
+            }
         }
     }
-    terminal = terminal.with_workflow_stream_identities(
-        &context.directory,
-        &RedactionPolicy::from_environment(),
-    );
+    terminal = terminal
+        .with_workflow_stream_identities(&context.directory, &RedactionPolicy::from_environment());
     if let Err(error) = context
         .directory
         .publish_evidence(InvocationEvidence::Settlement, terminal.response())

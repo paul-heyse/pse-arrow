@@ -162,9 +162,11 @@ pub struct EffectObservations {
     omitted: usize,
 }
 
+type OriginalAttempts<'a> = (Uuid, &'a BTreeSet<(String, String, usize)>);
+
 pub(crate) fn observe(
     directory: &Path,
-    original: Option<(Uuid, &BTreeSet<(String, String, usize)>)>,
+    original: Option<OriginalAttempts<'_>>,
 ) -> io::Result<(bool, EffectObservations)> {
     const MAX_VIEW_ROWS: usize = 8;
     private_directory(directory)?;
@@ -176,7 +178,9 @@ pub(crate) fn observe(
     let mut omitted = 0;
     for (index, entry) in fs::read_dir(directory)?.enumerate() {
         if index >= MAX_RECORDS {
-            return Err(io::Error::other("original target effect account exceeds its record bound"));
+            return Err(io::Error::other(
+                "original target effect account exceeds its record bound",
+            ));
         }
         let path = entry?.path();
         let Some(stage) = path.extension().and_then(|stage| stage.to_str()) else {
@@ -190,32 +194,59 @@ pub(crate) fn observe(
             return Err(io::Error::other("invalid target effect stage"));
         }
         let started = read_effect(&path)?;
-        let attempt = (started.binary.clone(), started.test.clone(), started.attempt);
-        if started.version != 1 || started.attempt == 0
-            || path.file_stem().and_then(|stem| stem.to_str())
-                .and_then(|stem| stem.parse::<Uuid>().ok()) != Some(started.owner)
-            || original.is_some_and(|(run, attempts)| started.run != run || !attempts.contains(&attempt))
+        let attempt = (
+            started.binary.clone(),
+            started.test.clone(),
+            started.attempt,
+        );
+        if started.version != 1
+            || started.attempt == 0
+            || path
+                .file_stem()
+                .and_then(|stem| stem.to_str())
+                .and_then(|stem| stem.parse::<Uuid>().ok())
+                != Some(started.owner)
+            || original
+                .is_some_and(|(run, attempts)| started.run != run || !attempts.contains(&attempt))
         {
-            return Err(io::Error::other("target effect differs from its original address or attempt"));
+            return Err(io::Error::other(
+                "target effect differs from its original address or attempt",
+            ));
         }
         starts += 1;
         let is_drained = match read_effect(&path.with_extension("settled")) {
             Ok(terminal) if terminal == started => true,
-            Ok(_) => return Err(io::Error::other("target effect terminal differs from its original intent")),
+            Ok(_) => {
+                return Err(io::Error::other(
+                    "target effect terminal differs from its original intent",
+                ));
+            }
             Err(error) if error.kind() == io::ErrorKind::NotFound => false,
             Err(error) => return Err(error),
         };
-        if is_drained { drained += 1; }
-        if original.is_some() { covered.insert(attempt); }
+        if is_drained {
+            drained += 1;
+        }
+        if original.is_some() {
+            covered.insert(attempt);
+        }
         if records.len() < MAX_VIEW_ROWS {
             records.push(EffectObservation {
-                run: started.run, binary: started.binary, test: started.test,
-                attempt: started.attempt, owner: started.owner, drained: is_drained,
+                run: started.run,
+                binary: started.binary,
+                test: started.test,
+                attempt: started.attempt,
+                owner: started.owner,
+                drained: is_drained,
             });
-        } else { omitted += 1; }
+        } else {
+            omitted += 1;
+        }
     }
-    let settled = original.is_some_and(|(_, attempts)| !attempts.is_empty() && &covered == attempts)
-        && starts == finishes && starts == drained;
+    let settled = original
+        .is_some_and(|(_, attempts)| !attempts.is_empty() && &covered == attempts)
+        && starts == finishes
+        && starts == drained;
     Ok((settled, EffectObservations { records, omitted }))
 }
 
@@ -247,7 +278,8 @@ mod tests {
         };
         let selected = |attempt| ("pkg::target".into(), "selected::case".into(), attempt);
         let attempts = BTreeSet::from([selected(1), selected(2)]);
-        let check = || observe(root.path(), Some((run, &attempts))).is_ok_and(|(settled, _)| settled);
+        let check =
+            || observe(root.path(), Some((run, &attempts))).is_ok_and(|(settled, _)| settled);
 
         assert!(!check(), "missing owner");
         effect(1).settle().unwrap();
@@ -259,8 +291,15 @@ mod tests {
             "one unsettled effect keeps its attempt in custody"
         );
         let (settled, live) = observe(root.path(), None).unwrap();
-        assert!(!settled, "live physical facts cannot establish runner settlement");
-        assert!(live.records.iter().any(|row| row.owner == sibling.effect.owner && !row.drained));
+        assert!(
+            !settled,
+            "live physical facts cannot establish runner settlement"
+        );
+        assert!(
+            live.records
+                .iter()
+                .any(|row| row.owner == sibling.effect.owner && !row.drained)
+        );
         sibling.settle().unwrap();
         let (settled, exact) = observe(root.path(), Some((run, &attempts))).unwrap();
         assert!(settled);

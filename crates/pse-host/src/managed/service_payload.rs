@@ -154,7 +154,8 @@ pub(super) async fn run<O: ChunkObserver>(
         )),
     };
     drop(gate);
-    let deadline = cancellation_started.unwrap_or_else(Instant::now)
+    let deadline = cancellation_started
+        .unwrap_or_else(Instant::now)
         .checked_add(policy.drain)
         .ok_or_else(|| HostError::Ownership("managed drain horizon overflow".into()))?;
     let kill = if matches!(execution, Ok(Some(_))) {

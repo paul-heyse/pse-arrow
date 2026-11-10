@@ -13,6 +13,8 @@ pub use descriptor::identity as descriptor_identity;
 pub(crate) use descriptor::read_descriptor_borrowed;
 pub use descriptor::{DescriptorIdentity, DescriptorRead, read_descriptor};
 
+pub(crate) const DEFAULT_READ_LENGTH: NonZeroU64 = NonZeroU64::MIN.saturating_add(4095);
+
 /// Explicit selected byte extent. `None` length requests all bytes from the offset.
 #[derive(Clone, Debug)]
 pub struct ReadRequest {
@@ -27,7 +29,7 @@ impl Default for ReadRequest {
     fn default() -> Self {
         Self {
             offset: 0,
-            length: NonZeroU64::new(4096),
+            length: Some(DEFAULT_READ_LENGTH),
             expected_etag: None,
         }
     }

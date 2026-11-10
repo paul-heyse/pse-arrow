@@ -168,17 +168,25 @@ impl Source {
     fn case(&self, address: &str) -> Result<(ResultReference, TestIdentity), HostError> {
         let reference = ResultReference::decode(address)?;
         let Locator::FrozenTest {
-            invocation, report_sha256, inventory_sha256,
+            invocation,
+            report_sha256,
+            inventory_sha256,
             selection: FrozenTestSelection::Test { identity },
-        } = &reference.locator else {
+        } = &reference.locator
+        else {
             return Err(invalid("expected an original selected-test reference"));
         };
         if invocation != &self.original.id.to_string()
             || report_sha256 != &self.report_sha256
             || inventory_sha256.as_ref() != Some(&self.inventory_sha256)
-            || !self.inventory.selected_tests_iter().any(|test| &test == identity)
+            || !self
+                .inventory
+                .selected_tests_iter()
+                .any(|test| &test == identity)
         {
-            return Err(invalid("case reference differs from this original test and inventory"));
+            return Err(invalid(
+                "case reference differs from this original test and inventory",
+            ));
         }
         let identity = identity.clone();
         Ok((reference, identity))
@@ -189,7 +197,10 @@ impl Source {
             return Ok(self.empty(CaseState::UnsupportedWriter));
         }
         let mut outcome = self.empty(CaseState::NotCaptured);
-        let commitments = self.original.observation.evidence()
+        let commitments = self
+            .original
+            .observation
+            .evidence()
             .map_err(|error| HostError::Workflow(Box::new(error)))?;
         let mut group_reports = commitments.iter().filter(|file| {
             file.root == EvidenceRoot::Workflow
@@ -200,7 +211,9 @@ impl Source {
             return Ok(outcome);
         };
         if group_reports.next().is_some() {
-            return Err(invalid("original compiler group has multiple JUnit commitments"));
+            return Err(invalid(
+                "original compiler group has multiple JUnit commitments",
+            ));
         }
         let Some(content) = &commitment.content else {
             return Ok(outcome);
@@ -210,7 +223,9 @@ impl Source {
         }
         outcome.junit_sha256 = Some(content.sha256.clone());
         let mut files = match evidence::acquire(
-            &self.original.parent, std::slice::from_ref(commitment), |_, _| Ok(()),
+            &self.original.parent,
+            std::slice::from_ref(commitment),
+            |_, _| Ok(()),
         ) {
             Ok(files) => files,
             Err(HostError::Io(error)) if error.kind() == io::ErrorKind::NotFound => {
@@ -219,21 +234,30 @@ impl Source {
             }
             Err(error) => return Err(error),
         };
-        let member = files.first_mut().ok_or_else(|| invalid("original JUnit descriptor is absent"))?;
+        let member = files
+            .first_mut()
+            .ok_or_else(|| invalid("original JUnit descriptor is absent"))?;
         let ((state, rows, policy_failure), _) = member.with_reader(|input| {
             let report = quick_junit::Report::deserialize(BufReader::new(input))
                 .map_err(io::Error::other)?;
-            let mut cases = report.test_suites.into_iter()
+            let mut cases = report
+                .test_suites
+                .into_iter()
                 .filter(|suite| suite.name.as_str() == identity.binary_id)
                 .flat_map(|suite| suite.test_cases)
                 .filter(|case| case.name.as_str() == identity.test_name);
             let Some(case) = cases.next() else {
                 return Ok((CaseState::SelectedWithoutRecordedAttempt, Vec::new(), false));
             };
-            if cases.next().is_some() || case.classname.as_ref()
-                .is_some_and(|class| class.as_str() != identity.binary_id)
+            if cases.next().is_some()
+                || case
+                    .classname
+                    .as_ref()
+                    .is_some_and(|class| class.as_str() != identity.binary_id)
             {
-                return Err(invalid("original JUnit repeats or misattributes the selected identity"));
+                return Err(invalid(
+                    "original JUnit repeats or misattributes the selected identity",
+                ));
             }
             Ok(observe_case(case))
         })?;
@@ -246,7 +270,10 @@ impl Source {
     }
 
     fn empty(&self, state: CaseState) -> ObservedCase {
-        ObservedCase::empty(state, self.original.original.subject_state == SubjectState::Cancelled)
+        ObservedCase::empty(
+            state,
+            self.original.original.subject_state == SubjectState::Cancelled,
+        )
     }
 
     fn comparison(&self, case: ObservedCase) -> ComparisonSide {
@@ -305,11 +332,27 @@ fn non_success(kind: NonSuccessKind) -> AttemptOutcome {
 fn observe_case(case: TestCase) -> (CaseState, Vec<AttemptRow>, bool) {
     let (outcome, ty, reruns, prior, policy_failure) = match case.status {
         TestCaseStatus::Skipped { .. } => return (CaseState::Unattempted, Vec::new(), false),
-        TestCaseStatus::Success { flaky_runs } => (AttemptOutcome::Passed, None, flaky_runs, true, false),
-        TestCaseStatus::NonSuccess { kind, ty, reruns, .. } => {
+        TestCaseStatus::Success { flaky_runs } => {
+            (AttemptOutcome::Passed, None, flaky_runs, true, false)
+        }
+        TestCaseStatus::NonSuccess {
+            kind, ty, reruns, ..
+        } => {
             let flaky = matches!(reruns.kind, FlakyOrRerun::Flaky)
-                && ty.as_ref().is_some_and(|value| value.as_str() == "flaky failure");
-            (if flaky { AttemptOutcome::Passed } else { non_success(kind) }, ty, reruns.runs, flaky, flaky)
+                && ty
+                    .as_ref()
+                    .is_some_and(|value| value.as_str() == "flaky failure");
+            (
+                if flaky {
+                    AttemptOutcome::Passed
+                } else {
+                    non_success(kind)
+                },
+                ty,
+                reruns.runs,
+                flaky,
+                flaky,
+            )
         }
     };
     let primary = AttemptRow {
@@ -344,9 +387,12 @@ fn observe_case(case: TestCase) -> (CaseState, Vec<AttemptRow>, bool) {
 }
 
 fn selected_invocation(
-    store: &InvocationStore, selector: &str, session: Option<&str>,
+    store: &InvocationStore,
+    selector: &str,
+    session: Option<&str>,
 ) -> Result<CliInvocationId, HostError> {
-    store.resolve(selector, session)?
+    store
+        .resolve(selector, session)?
         .ok_or_else(|| invalid("original invocation is absent"))
 }
 
@@ -367,10 +413,14 @@ pub fn attempts(
             invocation, report_sha256, selection: FrozenTestSelection::Test { .. }, ..
         } if invocation == id.as_str() && report_sha256 == &digest)
         {
-            return Err(invalid("case reference does not name the retired original report"));
+            return Err(invalid(
+                "case reference does not name the retired original report",
+            ));
         }
         if cursor.is_some() {
-            return Err(invalid("original attempt continuation expired with its report"));
+            return Err(invalid(
+                "original attempt continuation expired with its report",
+            ));
         }
         let retired = expired(store, &id, &digest)?;
         let mut response = Envelope::response(
@@ -396,12 +446,20 @@ pub fn attempts(
     let observed = source.observe(&identity)?;
     let offset = match cursor {
         None => 0,
-        Some(cursor) if cursor.invocation == source.original.id
-            && cursor.report_sha256 == source.report_sha256
-            && cursor.case == identity
-            && Some(&cursor.junit_sha256) == observed.junit_sha256.as_ref()
-            && cursor.offset <= observed.rows.len() => cursor.offset,
-        Some(_) => return Err(invalid("attempt continuation no longer names this original case and evidence")),
+        Some(cursor)
+            if cursor.invocation == source.original.id
+                && cursor.report_sha256 == source.report_sha256
+                && cursor.case == identity
+                && Some(&cursor.junit_sha256) == observed.junit_sha256.as_ref()
+                && cursor.offset <= observed.rows.len() =>
+        {
+            cursor.offset
+        }
+        Some(_) => {
+            return Err(invalid(
+                "attempt continuation no longer names this original case and evidence",
+            ));
+        }
     };
     let total = observed.rows.len();
     let mut records = Vec::new();
@@ -417,13 +475,17 @@ pub fn attempts(
         records.push(row);
     }
     let next_offset = offset + records.len();
-    let next = observed.junit_sha256.as_ref().filter(|_| next_offset < total).map(|sha| AttemptCursor {
-        invocation: source.original.id.clone(),
-        report_sha256: source.report_sha256.clone(),
-        case: identity,
-        junit_sha256: sha.clone(),
-        offset: next_offset,
-    });
+    let next = observed
+        .junit_sha256
+        .as_ref()
+        .filter(|_| next_offset < total)
+        .map(|sha| AttemptCursor {
+            invocation: source.original.id.clone(),
+            report_sha256: source.report_sha256.clone(),
+            case: identity,
+            junit_sha256: sha.clone(),
+            offset: next_offset,
+        });
     let mut response = Envelope::response(
         "inspect tests attempts",
         format!("{} of {total} recorded native attempts", records.len()),
@@ -439,7 +501,12 @@ pub fn attempts(
         },
     );
     response.observation.scope = "retained_native_test_attempts".into();
-    if response.payload.case_observation.state.has_incomplete_evidence() {
+    if response
+        .payload
+        .case_observation
+        .state
+        .has_incomplete_evidence()
+    {
         response.observation.completeness = Completeness::Partial;
     }
     response.observation.limitations.push(
@@ -453,27 +520,37 @@ fn expired(
     id: &CliInvocationId,
     digest: &str,
 ) -> Result<ComparisonSide, HostError> {
-    let retained = store.result::<serde::de::IgnoredAny, crate::managed::result::ManagedSummary>(id)?;
-    let original_verdict = retained.as_ref()
+    let retained =
+        store.result::<serde::de::IgnoredAny, crate::managed::result::ManagedSummary>(id)?;
+    let original_verdict = retained
+        .as_ref()
         .and_then(|result| result.payload.workflow.as_ref())
         .map(|workflow| &workflow.terminal)
-        .filter(|terminal| terminal.action == crate::test_workflow::execute::Action::Test
-            && terminal.invocation == *id
-            && terminal.report.sha256 == digest)
+        .filter(|terminal| {
+            terminal.action == crate::test_workflow::execute::Action::Test
+                && terminal.invocation == *id
+                && terminal.report.sha256 == digest
+        })
         .map_or_else(
-            || Information::Unavailable { reason: "the original test verdict is unavailable".into() },
-            |terminal| Information::Available(OriginalVerdict {
-                invocation: id.clone(),
-                outcome: terminal.outcome,
-                required_capture_complete: terminal.required_capture_complete,
-            }),
+            || Information::Unavailable {
+                reason: "the original test verdict is unavailable".into(),
+            },
+            |terminal| {
+                Information::Available(OriginalVerdict {
+                    invocation: id.clone(),
+                    outcome: terminal.outcome,
+                    required_capture_complete: terminal.required_capture_complete,
+                })
+            },
         );
     Ok(ComparisonSide {
         invocation: id.clone(),
         original_verdict,
         observation: ObservedCase::empty(
-            CaseState::Expired, retained.is_some_and(|result| result.subject_state == SubjectState::Cancelled),
-        ).observation,
+            CaseState::Expired,
+            retained.is_some_and(|result| result.subject_state == SubjectState::Cancelled),
+        )
+        .observation,
         junit_sha256: None,
     })
 }
@@ -496,7 +573,10 @@ fn same_compiler_context(
         if matching.next().is_some() {
             return None;
         }
-        Some((&artifact.cargo, artifact.cargo.features.iter().map(String::as_str).collect()))
+        Some((
+            &artifact.cargo,
+            artifact.cargo.features.iter().map(String::as_str).collect(),
+        ))
     }
     let Some((left_artifact, left_features)) = artifact(left, left_group) else {
         return false;
@@ -515,36 +595,60 @@ fn same_compiler_context(
         && left_artifact.target.kind == right_artifact.target.kind
         && left_artifact.profile == right_artifact.profile
         && left_features == right_features
-        && left_group.build.resolution.native_capabilities == right_group.build.resolution.native_capabilities
+        && left_group.build.resolution.native_capabilities
+            == right_group.build.resolution.native_capabilities
         && left_platforms.host.platform == right_platforms.host.platform
-        && left_platforms.targets.iter().map(|target| &target.platform)
-            .eq(right_platforms.targets.iter().map(|target| &target.platform))
+        && left_platforms
+            .targets
+            .iter()
+            .map(|target| &target.platform)
+            .eq(right_platforms
+                .targets
+                .iter()
+                .map(|target| &target.platform))
 }
 
-fn comparable_case(source: &Source, identity: &TestIdentity, against: &Source) -> Result<ObservedCase, HostError> {
+fn comparable_case(
+    source: &Source,
+    identity: &TestIdentity,
+    against: &Source,
+) -> Result<ObservedCase, HostError> {
     let binary = nextest_metadata::RustBinaryId::new(&identity.binary_id);
     let name = nextest_metadata::TestCaseName::new(&identity.test_name);
     let original_group = &source.inventory.groups[identity.group];
-    let original_suite = original_group.listing.rust_suites.get(&binary)
+    let original_suite = original_group
+        .listing
+        .rust_suites
+        .get(&binary)
         .ok_or_else(|| invalid("original binary disappeared"))?;
     let mut matching = None;
     let mut incompatible = false;
     for (group, entry) in against.inventory.groups.iter().enumerate() {
-        let Some(suite) = entry.listing.rust_suites.get(&binary) else { continue; };
+        let Some(suite) = entry.listing.rust_suites.get(&binary) else {
+            continue;
+        };
         if suite.binary.package_id != identity.package_id {
             continue;
         }
-        let Some(case) = suite.test_cases.get(&name) else { continue; };
+        let Some(case) = suite.test_cases.get(&name) else {
+            continue;
+        };
         if !same_compiler_context(original_suite, original_group, suite, entry) {
             incompatible = true;
             continue;
         }
-        if matching.replace((group, case.filter_match.is_match())).is_some() {
+        if matching
+            .replace((group, case.filter_match.is_match()))
+            .is_some()
+        {
             return Ok(against.empty(CaseState::AmbiguousCompilerContext));
         }
     }
     match matching {
-        Some((group, true)) => against.observe(&TestIdentity { group, ..identity.clone() }),
+        Some((group, true)) => against.observe(&TestIdentity {
+            group,
+            ..identity.clone()
+        }),
         Some((_, false)) => Ok(against.empty(CaseState::NotSelected)),
         None if incompatible => Ok(against.empty(CaseState::DifferentCompilerContext)),
         None => Ok(against.empty(CaseState::NotListed)),
@@ -563,31 +667,51 @@ pub fn compare_case(
     let (case, identity) = source.case(address)?;
     let other_id = match store.resolve(against, session)? {
         Some(id) => id,
-        None => CliInvocationId::try_from(against.to_owned())
-            .map_err(|_| invalid("comparison requires a known selector or an exact invocation UUID"))?,
+        None => CliInvocationId::try_from(against.to_owned()).map_err(|_| {
+            invalid("comparison requires a known selector or an exact invocation UUID")
+        })?,
     };
     let other = if let Some(digest) = store.workflow_retirement_digest(&other_id)? {
         expired(store, &other_id, &digest)?
     } else {
         match Source::open(store, &other_id) {
-        Ok(other) => other.comparison(comparable_case(&source, &identity, &other)?),
-        Err(HostError::Io(error)) if error.kind() == io::ErrorKind::NotFound => ComparisonSide {
-            invocation: other_id,
-            original_verdict: Information::Unavailable { reason: "original report or inventory is no longer available".into() },
-            observation: ObservedCase::empty(CaseState::Unavailable, false).observation,
-            junit_sha256: None,
-        },
-        Err(error) => return Err(error),
+            Ok(other) => other.comparison(comparable_case(&source, &identity, &other)?),
+            Err(HostError::Io(error)) if error.kind() == io::ErrorKind::NotFound => {
+                ComparisonSide {
+                    invocation: other_id,
+                    original_verdict: Information::Unavailable {
+                        reason: "original report or inventory is no longer available".into(),
+                    },
+                    observation: ObservedCase::empty(CaseState::Unavailable, false).observation,
+                    junit_sha256: None,
+                }
+            }
+            Err(error) => return Err(error),
         }
     };
     let original = source.comparison(source.observe(&identity)?);
     let mut response = Envelope::response(
-        "inspect tests compare", "comparison of two original case observations",
-        CaseComparison { case, original, against: other },
+        "inspect tests compare",
+        "comparison of two original case observations",
+        CaseComparison {
+            case,
+            original,
+            against: other,
+        },
     );
     response.observation.scope = "retained_native_test_case_comparison".into();
-    if response.payload.original.observation.state.has_incomplete_evidence()
-        || response.payload.against.observation.state.has_incomplete_evidence()
+    if response
+        .payload
+        .original
+        .observation
+        .state
+        .has_incomplete_evidence()
+        || response
+            .payload
+            .against
+            .observation
+            .state
+            .has_incomplete_evidence()
     {
         response.observation.completeness = Completeness::Partial;
     }

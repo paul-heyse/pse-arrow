@@ -310,7 +310,9 @@ impl CompletedReport {
             crate::fixtures::target_settlement::observe(directory, Some((run, &attempts))).ok()
         });
         let target_fixture_settled = self.target_settlement.as_ref().map(|_| {
-            target_effect_account.as_ref().is_some_and(|(settled, _)| *settled)
+            target_effect_account
+                .as_ref()
+                .is_some_and(|(settled, _)| *settled)
         });
         let target_fixture_effects = target_effect_account.map(|(_, effects)| effects);
         let (native_child_exit, fixture_settled) = match self.fixture_outcome {

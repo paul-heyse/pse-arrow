@@ -79,7 +79,12 @@ impl Pending {
                     capture.cargo_run_id = Some(id);
                     let observed = if target.is_absolute() {
                         timing_directory(target).and_then(|directory| {
-                            read_report(&directory, Path::new(&name), started, MAX_TIMING_BYTES - self.used)
+                            read_report(
+                                &directory,
+                                Path::new(&name),
+                                started,
+                                MAX_TIMING_BYTES - self.used,
+                            )
                         })
                     } else {
                         Err(CargoTimingStatus::Unavailable)
@@ -101,30 +106,44 @@ impl Pending {
     }
 
     pub(super) fn publish(self, inventory: &Path) -> Vec<CargoTimingCapture> {
-        self.captures.into_iter().map(|(mut capture, bytes)| {
-            if let Some(bytes) = bytes {
-                let name = format!("group-{}/cargo-timing.html", capture.group);
-                let path = inventory.join(&name);
-                if crate::invocation::publish_bytes(&path, &bytes, Some(MAX_TIMING_BYTES), 0o400).is_ok() {
-                    capture.file = Some(format!("inventory/{name}"));
-                } else {
-                    capture.observation = CargoTimingStatus::Unavailable;
+        self.captures
+            .into_iter()
+            .map(|(mut capture, bytes)| {
+                if let Some(bytes) = bytes {
+                    let name = format!("group-{}/cargo-timing.html", capture.group);
+                    let path = inventory.join(&name);
+                    if crate::invocation::publish_bytes(
+                        &path,
+                        &bytes,
+                        Some(MAX_TIMING_BYTES),
+                        0o400,
+                    )
+                    .is_ok()
+                    {
+                        capture.file = Some(format!("inventory/{name}"));
+                    } else {
+                        capture.observation = CargoTimingStatus::Unavailable;
+                    }
                 }
-            }
-            capture
-        }).collect()
+                capture
+            })
+            .collect()
     }
 }
 
 fn run_id(stream: &Path) -> Result<Option<String>, crate::HostError> {
     let original = crate::test_inventory::open_private(stream)?;
     let mut line = Vec::new();
-    BufReader::new(original).take(513).read_until(b'\n', &mut line)?;
+    BufReader::new(original)
+        .take(513)
+        .read_until(b'\n', &mut line)?;
     if line.len() > 512 || line.last() != Some(&b'\n') {
         return Ok(None);
     }
     Ok(match serde_json::from_slice(&line) {
-        Ok(CargoTimingMarker::BuildStarted { run_id }) if valid_run_id(run_id.as_bytes()) => Some(run_id),
+        Ok(CargoTimingMarker::BuildStarted { run_id }) if valid_run_id(run_id.as_bytes()) => {
+            Some(run_id)
+        }
         _ => None,
     })
 }
@@ -136,7 +155,9 @@ fn valid_run_id(id: &[u8]) -> bool {
         && id[8] == b'T'
         && id[9..18].iter().all(u8::is_ascii_digit)
         && id[18..20] == *b"Z-"
-        && id[20..].iter().all(|byte| matches!(*byte, b'0'..=b'9' | b'a'..=b'f'))
+        && id[20..]
+            .iter()
+            .all(|byte| matches!(*byte, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 fn timing_directory(target: &Path) -> Result<File, CargoTimingStatus> {
@@ -144,46 +165,71 @@ fn timing_directory(target: &Path) -> Result<File, CargoTimingStatus> {
     let root = OpenOptions::new()
         .read(true)
         .custom_flags((OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC).bits() as i32)
-        .open(target).map_err(|_| CargoTimingStatus::Unavailable)?;
-    let opened = root.metadata().map_err(|_| CargoTimingStatus::Unavailable)?;
+        .open(target)
+        .map_err(|_| CargoTimingStatus::Unavailable)?;
+    let opened = root
+        .metadata()
+        .map_err(|_| CargoTimingStatus::Unavailable)?;
     let named = fs::symlink_metadata(target).map_err(|_| CargoTimingStatus::Unavailable)?;
     let user = rustix::process::geteuid().as_raw();
-    if opened.uid() != user || opened.mode() & 0o777 != 0o700
+    if opened.uid() != user
+        || opened.mode() & 0o777 != 0o700
         || (opened.dev(), opened.ino()) != (named.dev(), named.ino())
     {
         return Err(CargoTimingStatus::StaleOrChanged);
     }
-    let child = File::from(openat(
-        &root,
-        "cargo-timings",
-        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
-        Mode::empty(),
-    ).map_err(|_| CargoTimingStatus::Unavailable)?);
-    if child.metadata().map_err(|_| CargoTimingStatus::Unavailable)?.uid() != user {
+    let child = File::from(
+        openat(
+            &root,
+            "cargo-timings",
+            OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::empty(),
+        )
+        .map_err(|_| CargoTimingStatus::Unavailable)?,
+    );
+    if child
+        .metadata()
+        .map_err(|_| CargoTimingStatus::Unavailable)?
+        .uid()
+        != user
+    {
         return Err(CargoTimingStatus::Unavailable);
     }
     Ok(child)
 }
 
 fn read_report(
-    directory: &File, name: &Path, started: SystemTime, budget: usize,
+    directory: &File,
+    name: &Path,
+    started: SystemTime,
+    budget: usize,
 ) -> Result<Vec<u8>, CargoTimingStatus> {
     // Cargo uses the process umask for this mutable original. The private,
     // descriptor-bound target root above is its write boundary; the retained copy is 0400.
     let open = || {
-        let file = File::from(openat(
-            directory, name, OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
-            Mode::empty(),
-        ).map_err(|_| CargoTimingStatus::Unavailable)?);
-        let metadata = file.metadata().map_err(|_| CargoTimingStatus::Unavailable)?;
+        let file = File::from(
+            openat(
+                directory,
+                name,
+                OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
+                Mode::empty(),
+            )
+            .map_err(|_| CargoTimingStatus::Unavailable)?,
+        );
+        let metadata = file
+            .metadata()
+            .map_err(|_| CargoTimingStatus::Unavailable)?;
         if !metadata.is_file() || metadata.uid() != rustix::process::geteuid().as_raw() {
             return Err(CargoTimingStatus::Unavailable);
         }
         Ok(file)
     };
     let mut file = open()?;
-    let before = crate::artifacts::descriptor_identity(&file).map_err(|_| CargoTimingStatus::Unavailable)?;
-    let modified = file.metadata().and_then(|metadata| metadata.modified())
+    let before =
+        crate::artifacts::descriptor_identity(&file).map_err(|_| CargoTimingStatus::Unavailable)?;
+    let modified = file
+        .metadata()
+        .and_then(|metadata| metadata.modified())
         .map_err(|_: io::Error| CargoTimingStatus::Unavailable)?;
     if modified < started {
         return Err(CargoTimingStatus::StaleOrChanged);
@@ -192,7 +238,9 @@ fn read_report(
         return Err(CargoTimingStatus::ExtentExceeded);
     }
     let mut bytes = Vec::new();
-    (&mut file).take(budget as u64 + 1).read_to_end(&mut bytes)
+    (&mut file)
+        .take(budget as u64 + 1)
+        .read_to_end(&mut bytes)
         .map_err(|_| CargoTimingStatus::Unavailable)?;
     if bytes.len() > budget {
         return Err(CargoTimingStatus::ExtentExceeded);
@@ -216,10 +264,21 @@ mod tests {
     fn original_timing_marker_cannot_address_alias_or_another_path() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("cargo-artifacts.jsonl");
-        fs::write(&path, b"{\"reason\":\"build-started\",\"run_id\":\"20060724T012128000Z-b0fd440798ab3cfb\"}\n").unwrap();
+        fs::write(
+            &path,
+            b"{\"reason\":\"build-started\",\"run_id\":\"20060724T012128000Z-b0fd440798ab3cfb\"}\n",
+        )
+        .unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o600)).unwrap();
-        assert_eq!(run_id(&path).unwrap().as_deref(), Some("20060724T012128000Z-b0fd440798ab3cfb"));
-        fs::write(&path, b"{\"reason\":\"build-started\",\"run_id\":\"../cargo-timing.html\"}\n").unwrap();
+        assert_eq!(
+            run_id(&path).unwrap().as_deref(),
+            Some("20060724T012128000Z-b0fd440798ab3cfb")
+        );
+        fs::write(
+            &path,
+            b"{\"reason\":\"build-started\",\"run_id\":\"../cargo-timing.html\"}\n",
+        )
+        .unwrap();
         assert!(run_id(&path).unwrap().is_none());
     }
 
@@ -232,8 +291,17 @@ mod tests {
         let parent = File::open(directory.path()).unwrap();
         let name = Path::new("cargo-timing-stamped.html");
         let after = SystemTime::now() + std::time::Duration::from_secs(1);
-        assert!(matches!(read_report(&parent, name, after, 64), Err(CargoTimingStatus::StaleOrChanged)));
-        assert!(matches!(read_report(&parent, name, std::time::UNIX_EPOCH, 1), Err(CargoTimingStatus::ExtentExceeded)));
-        assert_eq!(read_report(&parent, name, std::time::UNIX_EPOCH, 64).unwrap(), b"original report");
+        assert!(matches!(
+            read_report(&parent, name, after, 64),
+            Err(CargoTimingStatus::StaleOrChanged)
+        ));
+        assert!(matches!(
+            read_report(&parent, name, std::time::UNIX_EPOCH, 1),
+            Err(CargoTimingStatus::ExtentExceeded)
+        ));
+        assert_eq!(
+            read_report(&parent, name, std::time::UNIX_EPOCH, 64).unwrap(),
+            b"original report"
+        );
     }
 }

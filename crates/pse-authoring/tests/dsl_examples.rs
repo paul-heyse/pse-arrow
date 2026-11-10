@@ -174,7 +174,10 @@ fn power_distinguishes_explicit_negative_base_and_negative_power() {
     };
     assert!(matches!(
         operand.kind,
-        ExprKind::Binary { op: BinaryOp::Pow, .. }
+        ExprKind::Binary {
+            op: BinaryOp::Pow,
+            ..
+        }
     ));
 }
 

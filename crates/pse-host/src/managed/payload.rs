@@ -162,7 +162,9 @@ pub(super) async fn captured_child<O: ChunkObserver>(
             },
         });
     };
-    let maximum = directory.has_bounded_workflow_streams().then_some(streams::WORKFLOW_PIPE_BYTES);
+    let maximum = directory
+        .has_bounded_workflow_streams()
+        .then_some(streams::WORKFLOW_PIPE_BYTES);
     let capture = streams::start_with_limit(stdout, stderr, sinks, observer, None, write, maximum);
     Ok((child, gate_write, capture))
 }

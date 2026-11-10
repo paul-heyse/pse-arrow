@@ -174,7 +174,8 @@ pub fn sweep_registered_compact_results(
         result.released_conformance += sweep.released_conformance;
         result.blocked_conformance += sweep.blocked_conformance;
         result.blocked_workflows += sweep.blocked_workflows;
-        result.released_workflow_bytes = result.released_workflow_bytes
+        result.released_workflow_bytes = result
+            .released_workflow_bytes
             .saturating_add(sweep.released_workflow_bytes);
     }
     Ok(result)
@@ -660,7 +661,8 @@ impl InvocationStore {
                 }
                 result.disposition = "eligible";
                 result.release = Some(
-                    digest.finalize()
+                    digest
+                        .finalize()
                         .iter()
                         .map(|byte| format!("{byte:02x}"))
                         .collect(),
@@ -691,7 +693,9 @@ impl InvocationStore {
         let now = unix_millis(SystemTime::now())?;
         let mut preview = self.preview_record(&record, now)?;
         if release.is_none()
-            && let RecordState::Active { original_report, .. } = &record.state
+            && let RecordState::Active {
+                original_report, ..
+            } = &record.state
         {
             let original = self.require_compact_class(id)?;
             preview.observed_workflow_extent =
@@ -714,7 +718,10 @@ impl InvocationStore {
     }
 
     fn release_record(&self, record: &mut Record, now: u64) -> Result<u64, HostError> {
-        let RecordState::Active { original_report, .. } = &record.state else {
+        let RecordState::Active {
+            original_report, ..
+        } = &record.state
+        else {
             return Err(invalid("compact retirement requires an active record"));
         };
         let original = self.require_compact_class(&record.invocation)?;
@@ -783,7 +790,11 @@ impl InvocationStore {
             result => result?,
         };
         let Some(_guard) = lock else {
-            return Ok(CompactSweep { released_conformance, blocked_conformance, ..CompactSweep::default() });
+            return Ok(CompactSweep {
+                released_conformance,
+                blocked_conformance,
+                ..CompactSweep::default()
+            });
         };
         let mut result = CompactSweep {
             checkouts: 1,
@@ -813,25 +824,29 @@ impl InvocationStore {
                 result.limited = true;
                 break;
             }
-            let release = (|| -> Result<(), HostError> { match &record.state {
-                RecordState::Retired { released_unix_ms }
-                    if now >= released_unix_ms.saturating_add(WEEK_MS) =>
-                {
-                    let original = self.require_compact_class(&id)?;
-                    workflow_evidence::forget(&original)?;
-                    fs::remove_file(&path)?;
-                    synchronize_publication_parent(&root, &path)?;
-                    result.forgotten += 1;
-                }
-                RecordState::Active { .. }
-                    if self.preview_record(&record, now)?.release.is_some() =>
-                {
-                    let bytes = self.release_record(&mut record, now)?;
-                    result.released_workflow_bytes = result.released_workflow_bytes.saturating_add(bytes);
-                    result.released += 1;
-                }
-                _ => {}
-            }; Ok(()) })();
+            let release = (|| -> Result<(), HostError> {
+                match &record.state {
+                    RecordState::Retired { released_unix_ms }
+                        if now >= released_unix_ms.saturating_add(WEEK_MS) =>
+                    {
+                        let original = self.require_compact_class(&id)?;
+                        workflow_evidence::forget(&original)?;
+                        fs::remove_file(&path)?;
+                        synchronize_publication_parent(&root, &path)?;
+                        result.forgotten += 1;
+                    }
+                    RecordState::Active { .. }
+                        if self.preview_record(&record, now)?.release.is_some() =>
+                    {
+                        let bytes = self.release_record(&mut record, now)?;
+                        result.released_workflow_bytes =
+                            result.released_workflow_bytes.saturating_add(bytes);
+                        result.released += 1;
+                    }
+                    _ => {}
+                };
+                Ok(())
+            })();
             match release {
                 Ok(()) => {}
                 Err(HostError::Io(error)) if error.kind() == std::io::ErrorKind::WouldBlock => {

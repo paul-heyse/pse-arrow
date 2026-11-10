@@ -879,7 +879,9 @@ async fn actual_weighted_nextest_waiter_wakes_when_another_group_releases_capaci
     let inventory: discovery::Inventory =
         serde_json::from_slice(&fs::read(destination.join("inventory/inventory.json")).unwrap())
             .unwrap();
-    assert!(crate::extraction::qualified_writer(&inventory.nextest_version));
+    assert!(crate::extraction::qualified_writer(
+        &inventory.nextest_version
+    ));
 }
 
 #[tokio::test]

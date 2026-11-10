@@ -347,8 +347,19 @@ pub(crate) fn inspect_at(
     policy: &RedactionPolicy,
     file_offset: usize,
 ) -> Result<Envelope<InvocationInspection>, HostError> {
-    if file_offset != 0 && !matches!(detail, Some(ResultDetail::WorkflowFiles | ResultDetail::WorkflowPhases | ResultDetail::Conformance)) {
-        return Err(HostError::Ownership("--file-offset requires workflow-files, workflow-phases, or conformance detail".into()));
+    if file_offset != 0
+        && !matches!(
+            detail,
+            Some(
+                ResultDetail::WorkflowFiles
+                    | ResultDetail::WorkflowPhases
+                    | ResultDetail::Conformance
+            )
+        )
+    {
+        return Err(HostError::Ownership(
+            "--file-offset requires workflow-files, workflow-phases, or conformance detail".into(),
+        ));
     }
     let mut original_invocation = store.resolve(selector, session)?;
     let (compact, _borrower) = match &original_invocation {
@@ -394,7 +405,10 @@ pub(crate) fn inspect_at(
             scientific: DetailPage::from_original(terminal.scientific)?,
         }),
         (Some(ResultDetail::WorkflowFiles), Some(terminal), Some(id))
-            if terminal.artifacts.iter().any(|artifact| artifact.kind == "workflow_report") =>
+            if terminal
+                .artifacts
+                .iter()
+                .any(|artifact| artifact.kind == "workflow_report") =>
         {
             #[derive(serde::Deserialize)]
             struct RecordedTimings {
@@ -402,16 +416,28 @@ pub(crate) fn inspect_at(
                 cargo_timings: Vec<crate::discovery::CargoTimingCapture>,
             }
             let original = workflow_report(store, id.as_str(), session)?;
-            let timings: RecordedTimings = serde_json::from_slice(&original.report)
-                .map_err(std::io::Error::other)?;
-            let commitments = original.observation.evidence()
+            let timings: RecordedTimings =
+                serde_json::from_slice(&original.report).map_err(std::io::Error::other)?;
+            let commitments = original
+                .observation
+                .evidence()
                 .map_err(|error| HostError::Workflow(Box::new(error)))?;
             if file_offset > commitments.len() {
-                return Err(HostError::Ownership("file offset exceeds original commitments".into()));
+                return Err(HostError::Ownership(
+                    "file offset exceeds original commitments".into(),
+                ));
             }
-            let files = DetailPage::from_original(commitments.iter().enumerate().skip(file_offset)
-                .map(|(ordinal, commitment)| WorkflowFile { ordinal, commitment: commitment.clone() })
-                .collect())?;
+            let files = DetailPage::from_original(
+                commitments
+                    .iter()
+                    .enumerate()
+                    .skip(file_offset)
+                    .map(|(ordinal, commitment)| WorkflowFile {
+                        ordinal,
+                        commitment: commitment.clone(),
+                    })
+                    .collect(),
+            )?;
             let next_offset = (!files.records.is_empty() && files.omitted != 0)
                 .then_some(file_offset + files.records.len());
             Some(InspectionDetail::WorkflowFiles {
@@ -421,7 +447,10 @@ pub(crate) fn inspect_at(
             })
         }
         (Some(ResultDetail::WorkflowPhases), Some(terminal), Some(id))
-            if terminal.artifacts.iter().any(|artifact| artifact.kind == "workflow_report") =>
+            if terminal
+                .artifacts
+                .iter()
+                .any(|artifact| artifact.kind == "workflow_report") =>
         {
             #[derive(serde::Deserialize)]
             struct RecordedPhases {
@@ -440,35 +469,55 @@ pub(crate) fn inspect_at(
             }
             #[derive(serde::Deserialize)]
             struct RecordedSummary {
-                target_fixture_effects: Option<crate::fixtures::target_settlement::EffectObservations>,
+                target_fixture_effects:
+                    Option<crate::fixtures::target_settlement::EffectObservations>,
             }
             let original = workflow_report(store, id.as_str(), session)?;
-            let recorded: RecordedPhases = serde_json::from_slice(&original.report)
-                .map_err(std::io::Error::other)?;
+            let recorded: RecordedPhases =
+                serde_json::from_slice(&original.report).map_err(std::io::Error::other)?;
             if file_offset > recorded.phases.len() {
-                return Err(HostError::Ownership("phase offset exceeds original report".into()));
+                return Err(HostError::Ownership(
+                    "phase offset exceeds original report".into(),
+                ));
             }
-            let phases = DetailPage::from_original(recorded.phases.into_iter().skip(file_offset).collect())?;
+            let phases =
+                DetailPage::from_original(recorded.phases.into_iter().skip(file_offset).collect())?;
             let next_offset = (!phases.records.is_empty() && phases.omitted != 0)
                 .then_some(file_offset + phases.records.len());
-            let fixture_effects = DetailPage::from_original(recorded.observations.into_iter().filter_map(|row| {
-                Some(GroupFixtureEffects {
-                    group: row.group,
-                    provisional: false,
-                    effects: row.observation.summary?.target_fixture_effects?,
-                })
-            }).collect())?;
-            Some(InspectionDetail::WorkflowPhases { phases, fixture_effects, next_offset })
+            let fixture_effects = DetailPage::from_original(
+                recorded
+                    .observations
+                    .into_iter()
+                    .filter_map(|row| {
+                        Some(GroupFixtureEffects {
+                            group: row.group,
+                            provisional: false,
+                            effects: row.observation.summary?.target_fixture_effects?,
+                        })
+                    })
+                    .collect(),
+            )?;
+            Some(InspectionDetail::WorkflowPhases {
+                phases,
+                fixture_effects,
+                next_offset,
+            })
         }
         (Some(ResultDetail::Conformance), terminal, Some(id)) => {
             let directory = store.directory(id)?;
             let page = crate::cli::conformance::read_progress(
-                &directory, terminal.as_ref().map(|record| record.artifacts.as_slice()), file_offset,
+                &directory,
+                terminal.as_ref().map(|record| record.artifacts.as_slice()),
+                file_offset,
             )?;
             match page {
                 Some(page) => Some(InspectionDetail::Conformance { page }),
-                None if directory.conformance_checkpoint_retired()? => Some(InspectionDetail::ConformanceRetired),
-                None => Some(InspectionDetail::Unavailable { detail: ResultDetail::Conformance }),
+                None if directory.conformance_checkpoint_retired()? => {
+                    Some(InspectionDetail::ConformanceRetired)
+                }
+                None => Some(InspectionDetail::Unavailable {
+                    detail: ResultDetail::Conformance,
+                }),
             }
         }
         (Some(detail), _, _) => Some(InspectionDetail::Unavailable { detail }),
@@ -511,25 +560,39 @@ pub(crate) fn inspect_at(
                 if read_fixture_effects && let Some(live) = &progress {
                     let mut records = Vec::new();
                     for group in live.entered_groups() {
-                        let path = directory.path().join("workflow").join(format!("target-settlement-{group}"));
+                        let path = directory
+                            .path()
+                            .join("workflow")
+                            .join(format!("target-settlement-{group}"));
                         match crate::fixtures::target_settlement::observe(&path, None) {
-                            Ok((_, effects)) => records.push(GroupFixtureEffects { group, provisional: true, effects }),
+                            Ok((_, effects)) => records.push(GroupFixtureEffects {
+                                group,
+                                provisional: true,
+                                effects,
+                            }),
                             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
                             Err(error) => {
                                 observed.observation.completeness = Completeness::Partial;
-                                observed.observation.limitations.push(policy.redact(&error.to_string()));
+                                observed
+                                    .observation
+                                    .limitations
+                                    .push(policy.redact(&error.to_string()));
                             }
                         }
                     }
                     if !records.is_empty() {
-                        observed.payload.live_fixture_effects = Some(DetailPage::from_original(records)?);
+                        observed.payload.live_fixture_effects =
+                            Some(DetailPage::from_original(records)?);
                     }
                 }
                 observed.payload.live_workflow = progress;
-            },
+            }
             Err(error) => {
                 observed.observation.completeness = Completeness::Partial;
-                observed.observation.limitations.push(policy.redact(&error.to_string()));
+                observed
+                    .observation
+                    .limitations
+                    .push(policy.redact(&error.to_string()));
             }
         }
     }
@@ -634,7 +697,9 @@ pub(crate) fn export_workflow_file(
 ) -> Result<Envelope<ResultExport>, HostError> {
     use crate::test_workflow::execute::evidence::select_workflow_file;
     let report = workflow_report(store, selector, session)?;
-    let commitments = report.observation.evidence()
+    let commitments = report
+        .observation
+        .evidence()
         .map_err(|error| HostError::Workflow(Box::new(error)))?;
     let (mut member, identity) = select_workflow_file(&report.parent, commitments, ordinal, None)?;
     let bytes = usize::try_from(identity.byte_length)
@@ -653,7 +718,11 @@ pub(crate) fn export_workflow_file(
         }),
         workflow_file: Some(ordinal),
     };
-    let mut response = Envelope::response("tools export-result", "original workflow file exported", receipt);
+    let mut response = Envelope::response(
+        "tools export-result",
+        "original workflow file exported",
+        receipt,
+    );
     response.invocation_id = receipt_id.clone();
     response.subject_state = SubjectState::Available;
     response.settlement = Settlement::Complete;
@@ -688,7 +757,10 @@ fn workflow_report(
     session: Option<&str>,
 ) -> Result<crate::test_inventory::CapturedReport, HostError> {
     crate::test_inventory::captured_report_at_limit(
-        store, selector, session, Some(crate::developer_evidence::MAX_INPUT_BYTES),
+        store,
+        selector,
+        session,
+        Some(crate::developer_evidence::MAX_INPUT_BYTES),
     )
 }
 
@@ -701,13 +773,23 @@ pub(crate) fn workflow_member(
     length: NonZeroU64,
 ) -> Result<crate::artifacts::DescriptorRead, HostError> {
     if length.get() > 256 * 1024 {
-        return Err(HostError::Ownership("workflow member reads support at most 262144 bytes per range".into()));
+        return Err(HostError::Ownership(
+            "workflow member reads support at most 262144 bytes per range".into(),
+        ));
     }
     let report = workflow_report(store, invocation, None)?;
-    let commitments = report.observation.evidence()
+    let commitments = report
+        .observation
+        .evidence()
         .map_err(|error| HostError::Workflow(Box::new(error)))?;
     crate::test_workflow::execute::evidence::file_window(
-        &report.parent, commitments, ordinal, None, offset, length, false,
+        &report.parent,
+        commitments,
+        ordinal,
+        None,
+        offset,
+        length,
+        false,
     )
 }
 /// Select a bounded range in one original stream.
@@ -727,7 +809,12 @@ pub(crate) fn log(
     stream: OutputStream,
     window: LogWindow,
 ) -> Result<Envelope<LogView>, HostError> {
-    let LogWindow { phase_file, offset, length, tail } = window;
+    let LogWindow {
+        phase_file,
+        offset,
+        length,
+        tail,
+    } = window;
     if length.get() > 256 * 1024 {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
@@ -738,23 +825,37 @@ pub(crate) fn log(
     if let Some(ordinal) = phase_file {
         use crate::test_workflow::execute::{EvidenceRole, evidence};
         let report = workflow_report(store, selector, session)?;
-        let commitments = report.observation.evidence()
+        let commitments = report
+            .observation
+            .evidence()
             .map_err(|error| HostError::Workflow(Box::new(error)))?;
         let role = match stream {
             OutputStream::Stdout => EvidenceRole::Stdout,
             OutputStream::Stderr => EvidenceRole::Stderr,
         };
-        let observed = evidence::phase_window(&report.parent, commitments, ordinal, role, offset, length, tail)?;
-        let mut response = Envelope::response("inspect log", "original committed phase stream observed", LogView {
-            original_invocation: report.id,
-            stream,
-            phase_file,
-            observed_bytes: observed.identity.bytes,
-            byte_range: observed.byte_range,
-            content: observed.content,
-            next_offset: observed.next_offset,
-            atomic_snapshot: observed.atomic_snapshot,
-        });
+        let observed = evidence::phase_window(
+            &report.parent,
+            commitments,
+            ordinal,
+            role,
+            offset,
+            length,
+            tail,
+        )?;
+        let mut response = Envelope::response(
+            "inspect log",
+            "original committed phase stream observed",
+            LogView {
+                original_invocation: report.id,
+                stream,
+                phase_file,
+                observed_bytes: observed.identity.bytes,
+                byte_range: observed.byte_range,
+                content: observed.content,
+                next_offset: observed.next_offset,
+                atomic_snapshot: observed.atomic_snapshot,
+            },
+        );
         response.observation.scope = "original_committed_workflow_stream".into();
         return Ok(response);
     }

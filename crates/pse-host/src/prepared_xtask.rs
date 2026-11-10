@@ -19,14 +19,16 @@ use std::{
     ffi::{OsStr, OsString},
     fs::{self, OpenOptions},
     io::{Read as _, Write as _},
-    os::unix::{ffi::OsStrExt as _, fs::{DirBuilderExt as _, MetadataExt as _, OpenOptionsExt as _}},
+    os::unix::{
+        ffi::OsStrExt as _,
+        fs::{DirBuilderExt as _, MetadataExt as _, OpenOptionsExt as _},
+    },
     path::{Path, PathBuf},
     process::Command,
     time::Duration,
 };
 
 const MAX_DOCUMENT: usize = 8 * 1024 * 1024;
-const MAX_MANIFEST: usize = 1024 * 1024;
 const READ_TIMEOUT: Duration = Duration::from_secs(30);
 const SHARED_INPUTS: &[&str] = &[
     "scripts/workspace.rs",
@@ -85,7 +87,11 @@ impl NativeToolTarget {
                 features: &["force-validate"],
             },
             Self::Conformance | Self::ConformanceCoolprop => ToolProfile {
-                name: if self == Self::Conformance { "conformance" } else { "conformance-coolprop" },
+                name: if self == Self::Conformance {
+                    "conformance"
+                } else {
+                    "conformance-coolprop"
+                },
                 package: "xtask",
                 binary: "xtask",
                 source: "xtask/src/main.rs",
@@ -114,13 +120,6 @@ impl NativeToolTarget {
     /// Fixed preparation namespace, also used by the command grammar.
     pub fn name(self) -> &'static str {
         self.profile().name
-    }
-    fn features(self) -> BTreeSet<String> {
-        self.profile()
-            .features
-            .iter()
-            .map(|f| (*f).into())
-            .collect()
     }
     fn manifest(self) -> String {
         format!("{}.json", self.name())
@@ -372,7 +371,14 @@ fn conformance_environment(environment: &Environment) -> BTreeMap<String, Option
         "COOLPROP_DIR",
     ]
     .into_iter()
-    .map(|key| (key.to_owned(), environment.get(OsStr::new(key)).map(|value| hash(value.as_bytes()))))
+    .map(|key| {
+        (
+            key.to_owned(),
+            environment
+                .get(OsStr::new(key))
+                .map(|value| hash(value.as_bytes())),
+        )
+    })
     .collect()
 }
 #[derive(Debug, Serialize, Deserialize)]
@@ -570,7 +576,7 @@ impl PreparedNativeTool {
         let directory = state.root.join("tools").join(target.name()).join(id);
         private_directory(&directory, false)?;
         let manifest: Manifest =
-            serde_json::from_slice(&read(&directory.join(target.manifest()), MAX_MANIFEST)?)?;
+            serde_json::from_slice(&read(&directory.join(target.manifest()), MAX_DOCUMENT)?)?;
         if manifest.version != 1
             || manifest.checkout_id != state.checkout_id.as_str()
             || manifest.selection_id != id
@@ -617,7 +623,7 @@ impl PreparedNativeTool {
             "build/build.json",
             MAX_DOCUMENT,
         )?)?;
-        let executable = select_executable_for(
+        let (executable, features) = select_executable_for(
             &build,
             &self.directory,
             &self.checkout,
@@ -628,15 +634,22 @@ impl PreparedNativeTool {
                 "selected executable differs from original compiler capture",
             ));
         }
-        if self.manifest.features != self.manifest.target.features() {
-            return Err(invalid("unsupported captured native tool feature profile"));
+        if self.manifest.features != features {
+            return Err(invalid(
+                "selected features differ from original compiler capture",
+            ));
         }
-        if self.manifest.target.is_conformance() != self.manifest.conformance_environment.is_some() {
-            return Err(invalid("conformance image is missing its native loader selection"));
+        if self.manifest.target.is_conformance() != self.manifest.conformance_environment.is_some()
+        {
+            return Err(invalid(
+                "conformance image is missing its native loader selection",
+            ));
         }
         executable.verify()?;
         match self.manifest.target {
-            NativeToolTarget::CompilerAnalysis | NativeToolTarget::Conformance | NativeToolTarget::ConformanceCoolprop => {
+            NativeToolTarget::CompilerAnalysis
+            | NativeToolTarget::Conformance
+            | NativeToolTarget::ConformanceCoolprop => {
                 if self.manifest.catalog.is_some()
                     || self.manifest.owner_schema.is_some()
                     || self.manifest.protocol.is_some()
@@ -767,13 +780,21 @@ impl PreparedNativeTool {
         historical: bool,
     ) -> Result<PayloadCommand, PreparedNativeToolError> {
         if !self.target().is_conformance()
-            || arguments.first().is_none_or(|argument| argument != "conformance")
+            || arguments
+                .first()
+                .is_none_or(|argument| argument != "conformance")
         {
-            return Err(invalid("conformance requires a matching prepared campaign image"));
+            return Err(invalid(
+                "conformance requires a matching prepared campaign image",
+            ));
         }
         self.verify()?;
-        if self.manifest.conformance_environment.as_ref() != Some(&conformance_environment(&environment)) {
-            return Err(invalid("native loader selection differs from the captured campaign profile"));
+        if self.manifest.conformance_environment.as_ref()
+            != Some(&conformance_environment(&environment))
+        {
+            return Err(invalid(
+                "native loader selection differs from the captured campaign profile",
+            ));
         }
         if !historical {
             self.require_current_sources()?;
@@ -796,9 +817,17 @@ impl PreparedNativeTool {
         arguments.push("--readiness".into());
         let payload = self.launch_conformance(arguments, environment, false)?;
         let mut command = Command::new(payload.program);
-        command.args(payload.arguments).current_dir(payload.cwd).env_clear().envs(payload.environment);
+        command
+            .args(payload.arguments)
+            .current_dir(payload.cwd)
+            .env_clear()
+            .envs(payload.environment);
         let output = process::run(command, MAX_DOCUMENT, Some(READ_TIMEOUT))?;
-        Ok(serde_json::from_slice(&successful(output, "conformance-readiness", true)?)?)
+        Ok(serde_json::from_slice(&successful(
+            output,
+            "conformance-readiness",
+            true,
+        )?)?)
     }
     /// Bounded typed read of the existing native document-owner protocol only.
     pub fn document_owner(
@@ -954,16 +983,29 @@ fn select_executable<'a>(
     checkout: &Path,
 ) -> Result<&'a Executable, PreparedNativeToolError> {
     select_executable_for(build, directory, checkout, NativeToolTarget::Xtask)
+        .map(|(executable, _)| executable)
 }
 fn select_executable_for<'a>(
     build: &'a BuildCapture,
     directory: &Path,
     checkout: &Path,
     target: NativeToolTarget,
-) -> Result<&'a Executable, PreparedNativeToolError> {
+) -> Result<(&'a Executable, BTreeSet<String>), PreparedNativeToolError> {
     let profile = target.profile();
     if build.version != 1 || build.cargo_exit != 0 || !build.incomplete.is_empty() {
         return Err(invalid("compiler capture is failed or incomplete"));
+    }
+    let arguments = source_build_arguments_for(target);
+    if !build
+        .resolution
+        .arguments
+        .iter()
+        .map(OsString::as_os_str)
+        .eq(arguments.iter().map(OsStr::new))
+    {
+        return Err(invalid(
+            "compiler capture did not request the selected native tool profile",
+        ));
     }
     let artifacts: Vec<_> = build
         .artifacts
@@ -989,14 +1031,28 @@ fn select_executable_for<'a>(
     let original = artifact.cargo.executable.as_ref().ok_or_else(|| {
         invalid("selected native tool compiler artifact has no original executable")
     })?;
-    if features != target.features()
-        || artifact.executable.original != original.as_std_path()
-        || artifact.executable.captured
-            != capture::artifact_path(&directory.join("build"), *index, original.as_std_path())?
-        || artifact.cargo.target.src_path.as_std_path() != checkout.join(profile.source)
+    // The request selects profile roots; Cargo adds local features reached from them.
+    // The admitted root below must bind the complete effective artifact feature set.
+    if profile
+        .features
+        .iter()
+        .any(|feature| !features.contains(*feature))
     {
         return Err(invalid(
-            "compiler artifact differs from the selected native tool source/feature/capture profile",
+            "compiler artifact is missing a requested native tool feature",
+        ));
+    }
+    if artifact.cargo.target.src_path.as_std_path() != checkout.join(profile.source) {
+        return Err(invalid(
+            "compiler artifact differs from the selected native tool source",
+        ));
+    }
+    if artifact.executable.original != original.as_std_path()
+        || artifact.executable.captured
+            != capture::artifact_path(&directory.join("build"), *index, original.as_std_path())?
+    {
+        return Err(invalid(
+            "compiler artifact differs from the original native tool capture path",
         ));
     }
     if !build.resolution.units.iter().any(|unit| {
@@ -1012,7 +1068,7 @@ fn select_executable_for<'a>(
             "admitted compiler units do not bind the same native tool artifact",
         ));
     }
-    Ok(&artifact.executable)
+    Ok((&artifact.executable, features))
 }
 fn successful(
     output: process::Output,
@@ -1204,7 +1260,9 @@ pub fn prepare_for(
     target: NativeToolTarget,
 ) -> Result<PreparedNativeTool, PreparedNativeToolError> {
     let checkout = checkout.canonicalize()?;
-    let conformance_environment = target.is_conformance().then(|| conformance_environment(environment));
+    let conformance_environment = target
+        .is_conformance()
+        .then(|| conformance_environment(environment));
     let state = CheckoutState::resolve(&checkout, environment)?;
     fs::DirBuilder::new()
         .recursive(true)
@@ -1239,7 +1297,12 @@ pub fn prepare_for(
     successful(process::run(command, 65536, None)?, "source-build", false)?;
     let (build_bytes, build) = build_evidence(&build_dir)?;
     require_same_compiler_context(&admission, &build.resolution)?;
-    let executable = select_executable_for(&build, &selected_dir, &checkout, target)?.clone();
+    let (executable, features) = select_executable_for(&build, &selected_dir, &checkout, target)
+        .map_err(|source| PreparedNativeToolError::BuildEvidence {
+            path: build_dir.join("build.json"),
+            source: Box::new(source),
+        })?;
+    let executable = executable.clone();
     executable.verify()?;
     environment.remove(OsStr::new("PSE_CORRECTNESS_BUILD_CAPTURE"));
     let query = |args: &[&str], name: &str, phase| -> Result<Vec<u8>, PreparedNativeToolError> {
@@ -1286,7 +1349,7 @@ pub fn prepare_for(
             control,
             source: before,
             context,
-            features: target.features(),
+            features,
             build: Evidence::new("build/build.json", &build_bytes),
             catalog: catalog
                 .as_ref()
@@ -1302,10 +1365,13 @@ pub fn prepare_for(
     };
     selected.verify()?;
     let bytes = serde_json::to_vec(&selected.manifest)?;
-    if bytes.len() > MAX_MANIFEST {
-        return Err(invalid(
-            "selection manifest exceeds supported decoding extent",
-        ));
+    // Like the compiler receipt, the manifest contains an admitted graph's evidence:
+    // its complete checkout-relative source fingerprint can exceed a compact response.
+    if bytes.len() > MAX_DOCUMENT {
+        return Err(invalid(format!(
+            "selection manifest is {} bytes; maximum supported decoding extent is {MAX_DOCUMENT}",
+            bytes.len()
+        )));
     }
     publish(&selected.directory.join(target.manifest()), &bytes)?;
     selected.select_current()?;

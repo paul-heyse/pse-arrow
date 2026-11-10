@@ -12,6 +12,7 @@ Native host capabilities; explicit preparation: scripts/bootstrap-host
 Usage: pse [OPTIONS] [COMMAND]
 
 Commands:
+  conformance        Inspect, prepare, or execute the original conformance campaign
   prepare            Explicitly prepare the independent native host
   project            Read or change project data through its prepared product owner
   source-change      Preview or publish generated consequences of an authored source-model change
@@ -74,6 +75,195 @@ Options:
           Limit whole payload records; producer pages retain their omission and continuation facts
 
       --version
+
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse conformance`
+
+~~~~text
+Inspect, prepare, or execute the original conformance campaign
+
+Usage: pse conformance [OPTIONS] <COMMAND>
+
+Commands:
+  readiness  Resolve declared campaign inputs without building, starting providers or writing outputs
+  prepare    Explicitly prepare the selected native conformance image
+  run        Execute the selected campaign with the original managed owner
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse conformance readiness`
+
+~~~~text
+Resolve declared campaign inputs without building, starting providers or writing outputs
+
+Usage: pse conformance readiness [OPTIONS] --manifest <MANIFEST>
+
+Options:
+  -C <checkout>
+
+
+      --manifest <MANIFEST>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --run <RUN>
+
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --fixture <FIXTURES>
+
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --provider <PROVIDER>
+          [default: none]
+          [possible values: none, coolprop8-water]
+
+      --selection <SELECTION>
+
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse conformance prepare`
+
+~~~~text
+Explicitly prepare the selected native conformance image
+
+Usage: pse conformance prepare [OPTIONS]
+
+Options:
+  -C <checkout>
+
+
+      --provider <PROVIDER>
+          [default: none]
+          [possible values: none, coolprop8-water]
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
+## `pse conformance run`
+
+~~~~text
+Execute the selected campaign with the original managed owner
+
+Usage: pse conformance run [OPTIONS] --manifest <MANIFEST>
+
+Options:
+  -C <checkout>
+
+
+      --manifest <MANIFEST>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --run <RUN>
+
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --fixture <FIXTURES>
+
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --provider <PROVIDER>
+          [default: none]
+          [possible values: none, coolprop8-water]
+
+      --selection <SELECTION>
+
+
+      --historical
+
+
+      --report-dir <REPORT_DIR>
+
+
+      --detach
+
+
+      --session <SESSION>
 
 
   -h, --help
@@ -5235,10 +5425,11 @@ Usage: pse tools [OPTIONS] <COMMAND>
 Commands:
   retire-host            Preview or release one completed checkout-local host tool generation
   retire-result          Preview or release one settled compact developer result
-  export-result          Export the selected compact result as bounded JSON to a fresh file
+  export-result          Export a compact result or one committed workflow file to a fresh destination
   hold-result            Set a named compact-result hold or clear it by omitting the condition
   sweep-results          Sweep eligible compact results under the selected checkout's owner guards
   prepare-result-expiry  Prepare the fixed checkout-scoped compact-result expiry timer
+  result-expiry-status   Read the compact-result expiry timer's current ownership and activity
   prepare                Build/capture the declared native tool; passive queries never invoke this operation
   catalog                Read the selected native parser's retained catalogue, with captured-source limits
   owner-schema           Read the actual retained native document-owner response schema
@@ -5328,8 +5519,8 @@ Options:
   -C <checkout>
 
 
-      --release <RELEASE>
-          Exact token returned by the current owner preview
+      --conformance
+          Select the original campaign checkpoint instead of an ordinary test result
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -5342,6 +5533,9 @@ Options:
 
           [env: PSE_FORMAT]
           [default: auto]
+
+      --release <RELEASE>
+          Exact token returned by the current owner preview
 
       --fields <FIELDS>
           Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
@@ -5357,7 +5551,7 @@ Options:
 ## `pse tools export-result`
 
 ~~~~text
-Export the selected compact result as bounded JSON to a fresh file
+Export a compact result or one committed workflow file to a fresh destination
 
 Usage: pse tools export-result [OPTIONS] --output <OUTPUT> <INVOCATION>
 
@@ -5376,9 +5570,12 @@ Options:
           Include this bounded detail from the original owner
 
           Possible values:
-          - failures:   Bounded original diagnostic trees
-          - provenance: Originally captured environment and provider provenance
-          - outputs:    References to owner-managed artifacts and scientific outputs
+          - failures:        Bounded original diagnostic trees
+          - provenance:      Originally captured environment and provider provenance
+          - outputs:         References to owner-managed artifacts and scientific outputs
+          - workflow-files:  Original workflow dependency ordinals for phase streams and other captured files
+          - workflow-phases: Original discovery and execution phases, including elapsed and capture facts
+          - conformance:     Bounded original campaign progress and case outcomes
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -5395,11 +5592,14 @@ Options:
       --fields <FIELDS>
           Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
-      --output <OUTPUT>
-          Fresh destination file, relative to the selected checkout if not absolute
+      --workflow-file <WORKFLOW_FILE>
+          Export this exact ordinal from the original workflow-files view
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --output <OUTPUT>
+          Fresh destination file, relative to the selected checkout if not absolute
 
   -h, --help
           Print help (see a summary with '-h')
@@ -5421,10 +5621,10 @@ Options:
   -C <checkout>
 
 
+      --conformance
+          Select the original campaign checkpoint instead of an ordinary test result
+
       --consumer <CONSUMER>
-
-
-      --condition <CONDITION>
 
 
       --format <FORMAT>
@@ -5438,6 +5638,9 @@ Options:
 
           [env: PSE_FORMAT]
           [default: auto]
+
+      --condition <CONDITION>
+
 
       --fields <FIELDS>
           Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
@@ -5524,6 +5727,40 @@ Options:
 
 ~~~~
 
+## `pse tools result-expiry-status`
+
+~~~~text
+Read the compact-result expiry timer's current ownership and activity
+
+Usage: pse tools result-expiry-status [OPTIONS]
+
+Options:
+  -C <checkout>
+
+
+      --format <FORMAT>
+          Human output on terminals, JSON on pipes, or compact NDJSON observations
+
+          Possible values:
+          - auto:   Human for a terminal, JSON for pipes
+          - human:  Concise summary and pretty structured detail
+          - json:   One JSON envelope
+          - ndjson: Compact normalized records followed by an observation summary
+
+          [env: PSE_FORMAT]
+          [default: auto]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --budget <BUDGET>
+          Limit whole payload records; producer pages retain their omission and continuation facts
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+~~~~
+
 ## `pse tools prepare`
 
 ~~~~text
@@ -5534,9 +5771,11 @@ Usage: pse tools prepare [OPTIONS] <TOOL>
 Arguments:
   <TOOL>
           Possible values:
-          - xtask:             Existing development composition and document owner
-          - native-analysis:   Explicitly prepared native HIR/IDE semantic service
-          - compiler-analysis: Explicitly prepared, one-shot pinned compiler observation wrapper
+          - xtask:                Existing development composition and document owner
+          - conformance:          Native conformance campaign with built-in providers
+          - conformance-coolprop: Native conformance campaign with the explicit CoolProp water capability
+          - native-analysis:      Explicitly prepared native HIR/IDE semantic service
+          - compiler-analysis:    Explicitly prepared, one-shot pinned compiler observation wrapper
 
 Options:
   -C <checkout>
@@ -5578,9 +5817,11 @@ Options:
 
       --tool <TOOL>
           Possible values:
-          - xtask:             Existing development composition and document owner
-          - native-analysis:   Explicitly prepared native HIR/IDE semantic service
-          - compiler-analysis: Explicitly prepared, one-shot pinned compiler observation wrapper
+          - xtask:                Existing development composition and document owner
+          - conformance:          Native conformance campaign with built-in providers
+          - conformance-coolprop: Native conformance campaign with the explicit CoolProp water capability
+          - native-analysis:      Explicitly prepared native HIR/IDE semantic service
+          - compiler-analysis:    Explicitly prepared, one-shot pinned compiler observation wrapper
 
           [default: xtask]
 
@@ -5623,9 +5864,11 @@ Options:
 
       --tool <TOOL>
           Possible values:
-          - xtask:             Existing development composition and document owner
-          - native-analysis:   Explicitly prepared native HIR/IDE semantic service
-          - compiler-analysis: Explicitly prepared, one-shot pinned compiler observation wrapper
+          - xtask:                Existing development composition and document owner
+          - conformance:          Native conformance campaign with built-in providers
+          - conformance-coolprop: Native conformance campaign with the explicit CoolProp water capability
+          - native-analysis:      Explicitly prepared native HIR/IDE semantic service
+          - compiler-analysis:    Explicitly prepared, one-shot pinned compiler observation wrapper
 
           [default: xtask]
 
@@ -5672,9 +5915,11 @@ Options:
 
       --tool <TOOL>
           Possible values:
-          - xtask:             Existing development composition and document owner
-          - native-analysis:   Explicitly prepared native HIR/IDE semantic service
-          - compiler-analysis: Explicitly prepared, one-shot pinned compiler observation wrapper
+          - xtask:                Existing development composition and document owner
+          - conformance:          Native conformance campaign with built-in providers
+          - conformance-coolprop: Native conformance campaign with the explicit CoolProp water capability
+          - native-analysis:      Explicitly prepared native HIR/IDE semantic service
+          - compiler-analysis:    Explicitly prepared, one-shot pinned compiler observation wrapper
 
           [default: xtask]
 
@@ -5723,9 +5968,11 @@ Options:
 
       --tool <TOOL>
           Possible values:
-          - xtask:             Existing development composition and document owner
-          - native-analysis:   Explicitly prepared native HIR/IDE semantic service
-          - compiler-analysis: Explicitly prepared, one-shot pinned compiler observation wrapper
+          - xtask:                Existing development composition and document owner
+          - conformance:          Native conformance campaign with built-in providers
+          - conformance-coolprop: Native conformance campaign with the explicit CoolProp water capability
+          - native-analysis:      Explicitly prepared native HIR/IDE semantic service
+          - compiler-analysis:    Explicitly prepared, one-shot pinned compiler observation wrapper
 
           [default: native-analysis]
 
@@ -8980,14 +9227,14 @@ Usage: pse inspect artifact [OPTIONS] <FILE>
 
 Arguments:
   <FILE>
-
+          Filesystem path, or an original workflow file ordinal with --from-result
 
 Options:
   -C <checkout>
 
 
-      --offset <OFFSET>
-          [default: 0]
+      --from-result <FROM_RESULT>
+          Original invocation owning the selected workflow file commitment
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -9001,14 +9248,17 @@ Options:
           [env: PSE_FORMAT]
           [default: auto]
 
+      --offset <OFFSET>
+          [default: 0]
+
+      --fields <FIELDS>
+          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
       --length <LENGTH>
 
 
       --all
 
-
-      --fields <FIELDS>
-          Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -9325,9 +9575,12 @@ Options:
           Inspect a bounded detail retained by the original owner
 
           Possible values:
-          - failures:   Bounded original diagnostic trees
-          - provenance: Originally captured environment and provider provenance
-          - outputs:    References to owner-managed artifacts and scientific outputs
+          - failures:        Bounded original diagnostic trees
+          - provenance:      Originally captured environment and provider provenance
+          - outputs:         References to owner-managed artifacts and scientific outputs
+          - workflow-files:  Original workflow dependency ordinals for phase streams and other captured files
+          - workflow-phases: Original discovery and execution phases, including elapsed and capture facts
+          - conformance:     Bounded original campaign progress and case outcomes
 
       --format <FORMAT>
           Human output on terminals, JSON on pipes, or compact NDJSON observations
@@ -9343,6 +9596,9 @@ Options:
 
       --fields <FIELDS>
           Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
+
+      --file-offset <FILE_OFFSET>
+          Original commitment ordinal for the next workflow-files page
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
@@ -9388,11 +9644,14 @@ Options:
       --fields <FIELDS>
           Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
-      --offset <OFFSET>
-          [default: 0]
+      --phase-file <PHASE_FILE>
+          Exact original phase-stream ordinal from inspect invocation --detail workflow-files
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --offset <OFFSET>
+          [default: 0]
 
       --length <LENGTH>
           Select at most 262144 original bytes in this window
@@ -9440,14 +9699,20 @@ Options:
           [env: PSE_FORMAT]
           [default: auto]
 
-      --cursor <CURSOR>
-
+      --case <CASE>
+          Exact case address from the original test population
 
       --fields <FIELDS>
           Select comma-separated literal top-level payload names (for example records). Dots and slashes do not navigate nested data; schema shows valid choices
 
       --budget <BUDGET>
           Limit whole payload records; producer pages retain their omission and continuation facts
+
+      --compare <COMPARE>
+          Compare the selected case with a second original invocation
+
+      --cursor <CURSOR>
+
 
       --limit <LIMIT>
           [default: 20]

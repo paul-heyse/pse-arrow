@@ -141,7 +141,8 @@ pub async fn finalize(root: PathBuf, id: CliInvocationId) -> Result<(), HostErro
         && let Err(error) = async {
             require_worker_drain(&context, controller.as_ref(), &process).await?;
             context.directory.record_conformance_worker_drain()
-        }.await
+        }
+        .await
     {
         errors.push(error);
     }

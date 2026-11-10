@@ -418,7 +418,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/descriptor-runtime.bin",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -434,7 +434,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/descriptor.bin",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -450,7 +450,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/dispatch.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -466,7 +466,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/mod.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -482,7 +482,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/native-adapters.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -498,7 +498,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/native-policy.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -514,7 +514,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.compiler_facts.__view.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -530,7 +530,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.compiler_facts.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -546,7 +546,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.contracts.__oneof.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -562,7 +562,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.contracts.__view.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -578,7 +578,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.contracts.__view_oneof.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -594,7 +594,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.contracts.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -610,7 +610,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.mod.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -626,7 +626,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.native_usage.__oneof.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -642,7 +642,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.native_usage.__view.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -658,7 +658,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.native_usage.__view_oneof.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -674,7 +674,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.native_usage.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -690,7 +690,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/services/pse.code_intelligence.v1.contracts.__connect.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -706,7 +706,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/services/pse.code_intelligence.v1.mod.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -722,7 +722,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/shared-root.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -738,7 +738,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/validation/mod.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -754,7 +754,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/validation/pse.code_intelligence.v1.compiler_facts.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -770,7 +770,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/validation/pse.code_intelligence.v1.contracts.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -786,7 +786,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/validation/pse.code_intelligence.v1.mod.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -802,7 +802,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/validation/pse.code_intelligence.v1.native_usage.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::AnalysisContext"
@@ -818,7 +818,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/descriptor-runtime.bin",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -834,7 +834,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/descriptor.bin",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -850,7 +850,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/dispatch.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -866,7 +866,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/mod.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -882,7 +882,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/native-adapters.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -898,7 +898,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/native-policy.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -914,7 +914,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.compiler_facts.__view.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -930,7 +930,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.compiler_facts.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -946,7 +946,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.contracts.__oneof.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -962,7 +962,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.contracts.__view.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -978,7 +978,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.contracts.__view_oneof.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -994,7 +994,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.contracts.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -1010,7 +1010,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.mod.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -1026,7 +1026,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.native_usage.__oneof.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -1042,7 +1042,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.native_usage.__view.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -1058,7 +1058,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.native_usage.__view_oneof.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -1074,7 +1074,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/pse.code_intelligence.v1.native_usage.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -1090,7 +1090,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/services/pse.code_intelligence.v1.contracts.__connect.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -1106,7 +1106,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/services/pse.code_intelligence.v1.mod.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -1122,7 +1122,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/shared-root.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -1138,7 +1138,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/validation/mod.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -1154,7 +1154,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/validation/pse.code_intelligence.v1.compiler_facts.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -1170,7 +1170,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/validation/pse.code_intelligence.v1.contracts.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -1186,7 +1186,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/validation/pse.code_intelligence.v1.mod.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"
@@ -1202,7 +1202,7 @@
       "generator_path": "xtask/src/codegen/code_intelligence/native_usage.rs",
       "generator_symbol": "publish",
       "output_path": "crates/pse-host/src/generated/code-intelligence/validation/pse.code_intelligence.v1.native_usage.rs",
-      "source_identity": "sha256:291cdfae017bd582392d59dc0441a444c3d31ae2e0b754571883dc1a40e80056",
+      "source_identity": "sha256:8401359e3466835104ae379e322c10b13e1994b6b08ffee26db28826ac6cd16d",
       "source_path": "crates/pse-host/src/semantic/native_usage_contract.rs",
       "source_role": "typed_owner",
       "source_symbol": "pse_host::semantic::facts::NativeLocation"

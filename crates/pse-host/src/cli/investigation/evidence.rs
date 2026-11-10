@@ -320,7 +320,9 @@ pub(super) fn inspect(
     let schema = match &action {
         Action::Dependency { .. } => Some("inspect dependency"),
         Action::Owner { .. } => Some("inspect owner"),
-        Action::Tests { compare: Some(_), .. } => Some("inspect tests compare"),
+        Action::Tests {
+            compare: Some(_), ..
+        } => Some("inspect tests compare"),
         Action::Tests { case: Some(_), .. } => Some("inspect tests attempts"),
         Action::Tests { failures: true, .. } => Some("inspect tests failures"),
         Action::Tests { .. } => Some("inspect tests"),
@@ -633,19 +635,44 @@ pub(super) fn inspect(
             if_match,
         } => {
             if let Some(id) = from_result {
-                let ordinal = file.to_str().and_then(|value| value.parse::<usize>().ok())
-                    .ok_or_else(|| HostError::Ownership("--from-result requires a workflow file ordinal".into()))?;
+                let ordinal = file
+                    .to_str()
+                    .and_then(|value| value.parse::<usize>().ok())
+                    .ok_or_else(|| {
+                        HostError::Ownership(
+                            "--from-result requires a workflow file ordinal".into(),
+                        )
+                    })?;
                 let store = super::super::invocation_store(selected)?;
-                let length = length.unwrap_or(NonZeroU64::new(4096).expect("nonzero default range"));
-                let payload = crate::invocation_view::workflow_member(&store, id.as_str(), ordinal, offset, length)?;
-                let mut response = Envelope::response("inspect artifact", "original workflow file range observed", payload);
+                let length = length.unwrap_or(crate::artifacts::DEFAULT_READ_LENGTH);
+                let payload = crate::invocation_view::workflow_member(
+                    &store,
+                    id.as_str(),
+                    ordinal,
+                    offset,
+                    length,
+                )?;
+                let mut response = Envelope::response(
+                    "inspect artifact",
+                    "original workflow file range observed",
+                    payload,
+                );
                 response.observation.scope = "original_committed_workflow_member".into();
                 response.observation.reference = Some(id.to_string());
                 if let Some(next_offset) = response.payload.next_offset {
                     response.next.push(crate::envelope::NextAction::Command {
-                        argv: vec!["pse".into(), "inspect".into(), "artifact".into(), ordinal.to_string(),
-                            "--from-result".into(), id.to_string(), "--offset".into(), next_offset.to_string(),
-                            "--length".into(), length.to_string()],
+                        argv: vec![
+                            "pse".into(),
+                            "inspect".into(),
+                            "artifact".into(),
+                            ordinal.to_string(),
+                            "--from-result".into(),
+                            id.to_string(),
+                            "--offset".into(),
+                            next_offset.to_string(),
+                            "--length".into(),
+                            length.to_string(),
+                        ],
                         reason: "continue the same original workflow file".into(),
                     });
                 }
@@ -817,15 +844,28 @@ pub(super) fn inspect(
             if let Some(case) = case {
                 if let Some(against) = compare {
                     let mut response = crate::test_inventory::compare_case(
-                        &store, &invocation, session.as_deref(), &case, &against,
+                        &store,
+                        &invocation,
+                        session.as_deref(),
+                        &case,
+                        &against,
                     )?;
                     response.command = "inspect tests compare".into();
                     return Ok(output.emit_observation(response)?);
                 }
-                let cursor = cursor.as_deref().map(serde_json::from_str).transpose()
+                let cursor = cursor
+                    .as_deref()
+                    .map(serde_json::from_str)
+                    .transpose()
                     .map_err(std::io::Error::other)?;
                 let mut response = crate::test_inventory::attempts(
-                    &store, &invocation, session.as_deref(), &case, cursor.as_ref(), limit, page_bytes,
+                    &store,
+                    &invocation,
+                    session.as_deref(),
+                    &case,
+                    cursor.as_ref(),
+                    limit,
+                    page_bytes,
                 )?;
                 response.command = "inspect tests attempts".into();
                 Ok(output.emit_observation(response)?)
@@ -1066,7 +1106,12 @@ pub(super) fn inspect(
                 &invocation,
                 session.as_deref(),
                 stream,
-                crate::invocation_view::LogWindow { phase_file, offset, length, tail },
+                crate::invocation_view::LogWindow {
+                    phase_file,
+                    offset,
+                    length,
+                    tail,
+                },
             )?;
             response.command = "inspect log".into();
             Ok(output.emit_observation(response)?)

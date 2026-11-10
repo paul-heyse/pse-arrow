@@ -24,13 +24,15 @@ mod compact;
 mod conformance_evidence;
 mod session;
 mod workflow_evidence;
-pub(crate) use workflow_evidence::WorkflowStreams;
 pub(crate) use compact::{CompactObservation, DeferredTestDrain};
 pub use compact::{CompactRetirement, CompactSweep, sweep_registered_compact_results};
 pub use conformance_evidence::ConformanceRetirement;
 pub(crate) use conformance_evidence::SNAPSHOT as CONFORMANCE_SNAPSHOT;
+pub(crate) use workflow_evidence::WorkflowStreams;
 mod compact_timer;
-pub use compact_timer::{CompactTimer, CompactTimerStatus, compact_timer_status, prepare_compact_timer};
+pub use compact_timer::{
+    CompactTimer, CompactTimerStatus, compact_timer_status, prepare_compact_timer,
+};
 pub use session::select_session;
 
 fn invalid(message: impl Into<String>) -> HostError {
@@ -770,7 +772,8 @@ impl InvocationDirectory {
     }
 
     pub(crate) fn has_bounded_workflow_streams(&self) -> bool {
-        self.is_conformance() || crate::test_workflow::execute::Action::from_command(&self.command).is_some()
+        self.is_conformance()
+            || crate::test_workflow::execute::Action::from_command(&self.command).is_some()
     }
 
     /// Original ledger identity.
@@ -790,7 +793,10 @@ impl InvocationDirectory {
             crate::extraction::OutputStream::Stderr => "stderr.raw",
         };
         let path = self.path.join(name);
-        let campaign = self.is_conformance().then(|| self.borrow_conformance()).transpose()?;
+        let campaign = self
+            .is_conformance()
+            .then(|| self.borrow_conformance())
+            .transpose()?;
         let mut identity = None;
         let file = if let Some(owner) = &campaign {
             if self.conformance_raw_retired(owner, stream)? {
@@ -829,7 +835,9 @@ impl InvocationDirectory {
             if let Some(identity) = identity
                 && crate::artifacts::descriptor_identity(&file)? != identity
             {
-                return Err(invalid("bounded raw stream differs from the original writer identity"));
+                return Err(invalid(
+                    "bounded raw stream differs from the original writer identity",
+                ));
             }
         }
         Ok(file)
@@ -946,11 +954,16 @@ impl InvocationDirectory {
         directory(&self.path, false)?;
         publish(&self.path, "result.json", result, None)?;
         if let Some(action) = self.workflow_action()
-            && result.artifacts.iter().any(|artifact| artifact.kind == "workflow_report")
+            && result
+                .artifacts
+                .iter()
+                .any(|artifact| artifact.kind == "workflow_report")
         {
             // Only the published outer report can replace this diagnostic snapshot.
             let _cleanup = crate::test_workflow::execute::progress::clear(
-                &self.path.join("workflow"), self.id(), action,
+                &self.path.join("workflow"),
+                self.id(),
+                action,
             );
         }
         Ok(())

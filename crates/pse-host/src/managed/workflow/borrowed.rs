@@ -115,7 +115,9 @@ fn release_recorded(
         .ok_or_else(|| host(invalid("original foreground result is absent")))?;
     if directory.is_conformance() {
         if !borrowed || !result.payload.borrowed_reservation {
-            return Err(host(invalid("original campaign did not borrow this enclosing workload")));
+            return Err(host(invalid(
+                "original campaign did not borrow this enclosing workload",
+            )));
         }
         return directory.record_conformance_enclosing_drain(authenticated_custody);
     }
@@ -288,7 +290,12 @@ pub(crate) async fn reconcile_foreground(
     {
         return Ok(false);
     }
-    release_recorded(store, directory, borrowed_runtime.is_some(), &authenticated_custody)?;
+    release_recorded(
+        store,
+        directory,
+        borrowed_runtime.is_some(),
+        &authenticated_custody,
+    )?;
     let Some(runtime) = borrowed_runtime else {
         return Ok(true);
     };

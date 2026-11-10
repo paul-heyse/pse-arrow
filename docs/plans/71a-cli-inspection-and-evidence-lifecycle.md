@@ -1,6 +1,6 @@
 ---
 title: "Plan71a: CLI inspection and evidence lifecycle"
-status: in-progress
+status: complete
 date: 2026-11-09
 adrs: []
 doc_role: plan
@@ -23,15 +23,15 @@ and adds lifecycle coverage where the new workflow depends on it.
 
 ## Current status
 
-Exact phase-stream, phase, attempt and campaign read routes are integrated. The live helper publishes bounded owner phases. Workflow member and campaign retirement have separate exact custody checks. Ordinary outer streams now use exact original-writer custody and expiry. The retirement preview reports actual enrolled bytes. Original target effects appear provisionally live and with authenticated attempt identities in completed reports. Campaign outer-stream release and selected native owner qualification remain open; new ordinary writer limits are deferred.
+Exact phase-stream, phase, attempt and campaign read routes are integrated. The live helper publishes bounded owner phases. Original target effects appear provisionally live and with authenticated attempt identities in completed reports. Ordinary and campaign outer streams now use original-writer custody and expiry through their respective owners. Campaign retirement binds the reservation at admission and verifies the enclosing drain for borrowed work. The selected custody and timer controls passed, and the passive CLI reported the exact local timer active without creating an artifact. New ordinary writer limits are deferred.
 
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| [A01](#a01) | Open | Existing invocation and observation owners | Exact, bounded CLI references and evidence-class contracts work in first producer and reader. |
-| [A02](#a02) | Open | A01 reference contract | Host phases and owner joins are readable live and after completion. |
-| [A03](#a03) | Open | A01; each receiving producer as introduced | Each managed class has a working limit and release path; supported commands and retention are documented. |
+| [A01](#a01) | Complete | Existing invocation and observation owners | Exact, bounded CLI references and evidence-class contracts work in first producer and reader. |
+| [A02](#a02) | Complete | A01 reference contract | Host phases and owner joins are readable live and after completion. |
+| [A03](#a03) | Complete | A01; each receiving producer as introduced | Supported managed evidence has a release path and documented retention; ordinary writer limits are deferred. |
 
 <a id="a01"></a>
 ## A01 — Use the original owner as the retrieval boundary

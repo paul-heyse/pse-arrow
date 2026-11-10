@@ -155,7 +155,10 @@ pub async fn conform_pure_documents(
             if let Some(publish) = &observer {
                 publish(ConformanceObservation::Selected {
                     run: report.run_id,
-                    fixtures: fixtures.iter().map(|fixture| fixture.declaration_id).collect(),
+                    fixtures: fixtures
+                        .iter()
+                        .map(|fixture| fixture.declaration_id)
+                        .collect(),
                 });
             }
             let mut covered = BTreeSet::new();
@@ -176,7 +179,10 @@ pub async fn conform_pure_documents(
                         maximum_checks,
                     );
                     if let Some(publish) = &observer {
-                        publish(ConformanceObservation::Unattempted { run: report.run_id, fixture });
+                        publish(ConformanceObservation::Unattempted {
+                            run: report.run_id,
+                            fixture,
+                        });
                     }
                     continue;
                 }
@@ -222,7 +228,11 @@ pub async fn conform_pure_documents(
                             maximum_checks,
                         );
                         if let Some(publish) = &observer {
-                            publish(report.returned_observation(report.run_id, fixture, check_start));
+                            publish(report.returned_observation(
+                                report.run_id,
+                                fixture,
+                                check_start,
+                            ));
                         }
                         continue;
                     }

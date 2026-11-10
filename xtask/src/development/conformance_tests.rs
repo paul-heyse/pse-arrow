@@ -95,7 +95,10 @@ fn campaign_preflight_refuses_a_retargeted_admitted_root() -> Result<()> {
     let replacement = directory.path().join("replacement");
     std::fs::rename(&model, &original)?;
     std::fs::create_dir(&replacement)?;
-    std::fs::copy(original.join("package.toml"), replacement.join("package.toml"))?;
+    std::fs::copy(
+        original.join("package.toml"),
+        replacement.join("package.toml"),
+    )?;
     std::os::unix::fs::symlink(&original, &model)?;
     let campaign = Campaign::load(&path, Some("first"), None)?;
     campaign.preflight(NativeProviders::None)?;
@@ -104,7 +107,11 @@ fn campaign_preflight_refuses_a_retargeted_admitted_root() -> Result<()> {
     std::fs::remove_file(&model)?;
     std::os::unix::fs::symlink(&replacement, &model)?;
     let error = campaign.preflight(NativeProviders::None).unwrap_err();
-    assert!(error.to_string().contains("roots changed after campaign admission"));
+    assert!(
+        error
+            .to_string()
+            .contains("roots changed after campaign admission")
+    );
     Ok(())
 }
 

@@ -111,7 +111,9 @@ pub(crate) async fn cooperative_child_exit(
     if let Some(exit) = child.try_wait()? {
         return Ok(Some(exit));
     }
-    let id = child.id().ok_or_else(|| HostError::Ownership("original child is unavailable".into()))?;
+    let id = child
+        .id()
+        .ok_or_else(|| HostError::Ownership("original child is unavailable".into()))?;
     let fd = pidfd(id)?;
     match rustix::process::pidfd_send_signal(&fd, signal) {
         Ok(()) | Err(rustix::io::Errno::SRCH) => {}
@@ -415,7 +417,13 @@ impl<O: ChunkObserver> OutputCapture<O> {
             ));
         };
         self.tee = Some(streams::start_with_limit(
-            stdout, stderr, sinks, observer, None, self.write, self.stream_limit,
+            stdout,
+            stderr,
+            sinks,
+            observer,
+            None,
+            self.write,
+            self.stream_limit,
         ));
         Ok(child)
     }
@@ -432,7 +440,9 @@ pub(crate) async fn run_captured<O: ChunkObserver>(
 ) -> CapturedForeground<O> {
     let drain = request.drain_timeout;
     let cooperative = directory.is_conformance();
-    let stream_limit = directory.has_bounded_workflow_streams().then_some(streams::WORKFLOW_PIPE_BYTES);
+    let stream_limit = directory
+        .has_bounded_workflow_streams()
+        .then_some(streams::WORKFLOW_PIPE_BYTES);
     let mut state = OutputCapture {
         directory: directory.path().to_owned(),
         custody: Some(directory),
@@ -570,7 +580,9 @@ async fn run_owned<O: ChunkObserver>(
                 }
             }.await;
             drop(gate_write);
-            let deadline = capture.drain_deadline.unwrap_or_else(|| Instant::now() + request.drain_timeout);
+            let deadline = capture
+                .drain_deadline
+                .unwrap_or_else(|| Instant::now() + request.drain_timeout);
             capture.drain_deadline = Some(deadline);
             let killed = match child.try_wait() {
                 Ok(None) => child.start_kill().map_err(HostError::from),
@@ -761,7 +773,9 @@ async fn run_owned<O: ChunkObserver>(
         }
     }.await;
     drop(gate_write);
-    let drain_deadline = capture.as_ref().and_then(|capture| capture.drain_deadline)
+    let drain_deadline = capture
+        .as_ref()
+        .and_then(|capture| capture.drain_deadline)
         .unwrap_or_else(|| Instant::now() + request.drain_timeout);
     if let Some(capture) = capture.as_deref_mut() {
         capture.drain_deadline = Some(drain_deadline);
@@ -865,7 +879,10 @@ mod tests {
     async fn cooperative_stop_keeps_the_original_child_exit() {
         use tokio::io::AsyncBufReadExt as _;
         let mut child = tokio::process::Command::new("/bin/sh")
-            .args(["-c", "trap 'exit 42' TERM; echo ready; while :; do sleep 0.01; done"])
+            .args([
+                "-c",
+                "trap 'exit 42' TERM; echo ready; while :; do sleep 0.01; done",
+            ])
             .stdout(Stdio::piped())
             .kill_on_drop(true)
             .spawn()
@@ -873,10 +890,18 @@ mod tests {
         let mut output = tokio::io::BufReader::new(child.stdout.take().unwrap());
         let mut ready = String::new();
         tokio::time::timeout(Duration::from_secs(3), output.read_line(&mut ready))
-            .await.unwrap().unwrap();
+            .await
+            .unwrap()
+            .unwrap();
         assert_eq!(ready, "ready\n");
-        let status = cooperative_child_exit(&mut child, rustix::process::Signal::TERM, Duration::from_secs(4))
-            .await.unwrap().unwrap();
+        let status = cooperative_child_exit(
+            &mut child,
+            rustix::process::Signal::TERM,
+            Duration::from_secs(4),
+        )
+        .await
+        .unwrap()
+        .unwrap();
         assert_eq!(status.code(), Some(42));
     }
 

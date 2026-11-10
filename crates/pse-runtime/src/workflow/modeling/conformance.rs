@@ -348,14 +348,28 @@ fn reserve_report_slot<T>(
 }
 
 impl ModelingConformanceReport {
-    pub(super) fn returned_observation(&self, run: RunId, fixture: DeclarationId, check_start: usize) -> ConformanceObservation {
+    pub(super) fn returned_observation(
+        &self,
+        run: RunId,
+        fixture: DeclarationId,
+        check_start: usize,
+    ) -> ConformanceObservation {
         ConformanceObservation::Returned {
             run,
             fixture,
             status: self.fixture_statuses.get(&fixture).copied(),
-            finding: self.checks.iter().skip(check_start).find(|check| {
-                check.fixture_id == fixture && matches!(check.status, Status::Failed | Status::Inconclusive | Status::Cancelled)
-            }).map(|check| check.message.chars().take(128).collect()),
+            finding: self
+                .checks
+                .iter()
+                .skip(check_start)
+                .find(|check| {
+                    check.fixture_id == fixture
+                        && matches!(
+                            check.status,
+                            Status::Failed | Status::Inconclusive | Status::Cancelled
+                        )
+                })
+                .map(|check| check.message.chars().take(128).collect()),
         }
     }
     pub(super) fn new(
@@ -1558,7 +1572,13 @@ impl ModelingPackage {
         let mut covered = BTreeSet::new();
         'fixture: {
             let fixture = row.declaration_id;
-            let phase = |phase| observe(|| ConformanceObservation::Phase { run: run_id, fixture, phase });
+            let phase = |phase| {
+                observe(|| ConformanceObservation::Phase {
+                    run: run_id,
+                    fixture,
+                    phase,
+                })
+            };
             phase("source_admission");
             #[cfg(test)]
             probe_phase(fixture, "selected source");
@@ -3387,18 +3407,34 @@ mod tests {
         let report = run.await.unwrap();
         assert!(!report.complete && !report.passed());
         let observations = observations.lock().unwrap();
-        assert!(matches!(observations.first(), Some(ConformanceObservation::Selected { run, fixtures })
-            if *run == report.run_id && *fixtures == order));
-        assert!(observations.iter().all(|event| event.run_id() == report.run_id));
-        let returned: BTreeSet<_> = observations.iter().filter_map(|event| match event {
-            ConformanceObservation::Returned { fixture, status: Some(Status::Cancelled), .. } => Some(*fixture),
-            _ => None,
-        }).collect();
+        assert!(
+            matches!(observations.first(), Some(ConformanceObservation::Selected { run, fixtures })
+            if *run == report.run_id && *fixtures == order)
+        );
+        assert!(
+            observations
+                .iter()
+                .all(|event| event.run_id() == report.run_id)
+        );
+        let returned: BTreeSet<_> = observations
+            .iter()
+            .filter_map(|event| match event {
+                ConformanceObservation::Returned {
+                    fixture,
+                    status: Some(Status::Cancelled),
+                    ..
+                } => Some(*fixture),
+                _ => None,
+            })
+            .collect();
         assert_eq!(returned, initial);
-        let unattempted: Vec<_> = observations.iter().filter_map(|event| match event {
-            ConformanceObservation::Unattempted { fixture, .. } => Some(*fixture),
-            _ => None,
-        }).collect();
+        let unattempted: Vec<_> = observations
+            .iter()
+            .filter_map(|event| match event {
+                ConformanceObservation::Unattempted { fixture, .. } => Some(*fixture),
+                _ => None,
+            })
+            .collect();
         assert_eq!(unattempted, order[16..]);
         assert_eq!(probe.state_snapshot().active, 0);
         assert_eq!(

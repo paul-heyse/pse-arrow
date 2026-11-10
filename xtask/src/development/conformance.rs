@@ -101,7 +101,12 @@ impl Campaign {
         let parent = path.parent().unwrap_or_else(|| Path::new(".")).to_owned();
         let runs = runs
             .into_iter()
-            .map(|index| Ok((index, NativeSourceSelection::resolve(&parent, &manifest.runs[index])?)))
+            .map(|index| {
+                Ok((
+                    index,
+                    NativeSourceSelection::resolve(&parent, &manifest.runs[index])?,
+                ))
+            })
             .collect::<Result<Vec<_>>>()?;
         Ok(Self {
             manifest,
@@ -118,11 +123,15 @@ impl Campaign {
 
     /// Selected runs in authored manifest order.
     pub fn runs(&self) -> impl Iterator<Item = &ConformanceRun> {
-        self.runs.iter().map(|(index, _)| &self.manifest.runs[*index])
+        self.runs
+            .iter()
+            .map(|(index, _)| &self.manifest.runs[*index])
     }
 
     fn roots(&self, run: &ConformanceRun) -> Result<&NativeSourceSelection> {
-        let admitted = self.runs.iter()
+        let admitted = self
+            .runs
+            .iter()
             .find(|(index, _)| std::ptr::eq(&self.manifest.runs[*index], run))
             .map(|(_, sources)| sources)
             .context("run must be borrowed from this admitted campaign selection")?;
@@ -146,15 +155,18 @@ impl Campaign {
     /// Fixture binding and provider registration remain execution-time decisions.
     pub fn readiness(&self, providers: NativeProviders) -> Result<serde_json::Value> {
         providers.validate()?;
-        let runs = self.runs().map(|run| {
-            let roots = self.roots(run)?;
-            Ok(serde_json::json!({
-                "run": run.name,
-                "execution": run.execution,
-                "physical": roots.physical,
-                "modeling": roots.modeling,
-            }))
-        }).collect::<Result<Vec<_>>>()?;
+        let runs = self
+            .runs()
+            .map(|run| {
+                let roots = self.roots(run)?;
+                Ok(serde_json::json!({
+                    "run": run.name,
+                    "execution": run.execution,
+                    "physical": roots.physical,
+                    "modeling": roots.modeling,
+                }))
+            })
+            .collect::<Result<Vec<_>>>()?;
         Ok(serde_json::json!({
             "version": 1,
             "runs": runs,
@@ -290,7 +302,9 @@ impl Campaign {
     ) -> Result<RunReport> {
         self.require_selected(run, ConformanceExecution::Pure)?;
         let selection = self.roots(run)?;
-        let documents = selection.modeling.iter()
+        let documents = selection
+            .modeling
+            .iter()
             .map(|path| {
                 cancel.checkpoint()?;
                 documents(path)

@@ -195,13 +195,12 @@ fn rerun_controlled_helper_failure_probe() {
         // Make the tiny runner fixture independent of the developer's ordinary lane count.
         self.environment
             .insert("NEXTEST_TEST_THREADS".into(), "4".into());
-        writeln!(
-            fs::OpenOptions::new()
-                .append(true)
-                .open(self.root.join(".config/nextest.toml"))
-                .unwrap(),
-            "{}",
-            r#"
+        fs::OpenOptions::new()
+            .append(true)
+            .open(self.root.join(".config/nextest.toml"))
+            .unwrap()
+            .write_all(
+                br#"
 [test-groups.weighted]
 max-threads = 1
 
@@ -224,9 +223,10 @@ priority = 80
 [[profile.local.overrides]]
 filter = "test(=weighted_witness)"
 priority = 70
+
 "#,
-        )
-        .unwrap();
+            )
+            .unwrap();
         fs::write(
             self.root.join("src/lib.rs"),
             r#"

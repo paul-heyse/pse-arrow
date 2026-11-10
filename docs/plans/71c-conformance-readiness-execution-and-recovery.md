@@ -1,6 +1,6 @@
 ---
 title: "Plan71c: Conformance readiness, execution, and recovery"
-status: in-progress
+status: complete
 date: 2026-11-09
 adrs: []
 doc_role: plan
@@ -22,15 +22,15 @@ cancellation. Extend those owners rather than introducing a new campaign runner.
 
 ## Current status
 
-Readiness, prepared profiles, case observations and cooperative stop are implemented on the integration branch. The five focused conformance CLI tests passed, including missing-root refusal before output, scientific failure, and export collision. Passive host readiness also returned an explicit preparation action without constructing a campaign. The focused campaign unit batch on `main` passed source retarget refusal, abrupt exit before and after checkpoint publication, bounded owner observations, and a small native caller's settlement and export. Managed prepared-image reuse, foreground and detached signal handling, and the selected integrated journey still need verification.
+Readiness, prepared profiles, case observations and cooperative stop are implemented on `main`. Focused controls covered missing-root and retarget refusal, scientific failure, export collision, and abrupt exit before and after checkpoint publication. Managed preparation published the exact native profile. A model-only edit reused its executable and produced a fresh scientific verdict. The selected native density case passed, drained and deliberately exported all six relations. The runtime controls preserved unattempted inventory and drained issued workers. Live `pse cancel` reached a case during solve; the single-case control drained cleanly, and a separate mixed run retained the native shutdown error and original findings independently of host process settlement.
 
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| [C01](#c01) | Open | Existing campaign and prepared-tool admission | One manifest owner backs passive readiness, explicit preparation and current or historical execution. |
-| [C02](#c02) | Open | A01; admitted selection from C01 | Original case progress and findings are bounded, recoverable after published checkpoints and readable through the CLI. |
-| [C03](#c03) | Open | C02 producer and CLI route | Cooperative interruption, independent settlement and deliberate export are usable without obscuring the original outcome. |
+| [C01](#c01) | Complete | Existing campaign and prepared-tool admission | One manifest owner backs passive readiness, explicit preparation and current or historical execution. |
+| [C02](#c02) | Complete | A01; admitted selection from C01 | Original case progress and findings are bounded, recoverable after published checkpoints and readable through the CLI. |
+| [C03](#c03) | Complete | C02 producer and CLI route | Cooperative interruption, independent settlement and deliberate export are usable without obscuring the original outcome. |
 
 <a id="c01"></a>
 ## C01 — Assess the selected campaign before constructing its runtime

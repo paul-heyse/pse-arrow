@@ -447,7 +447,11 @@ pub(crate) fn file_window(
     tail: bool,
 ) -> Result<crate::artifacts::DescriptorRead, HostError> {
     let (mut member, identity) = select_workflow_file(workflow, files, ordinal, role)?;
-    let start = if tail { identity.byte_length.saturating_sub(length.get()) } else { offset };
+    let start = if tail {
+        identity.byte_length.saturating_sub(length.get())
+    } else {
+        offset
+    };
     member.read_range(start, length)
 }
 
@@ -460,10 +464,17 @@ pub(crate) fn select_workflow_file(
 ) -> Result<(OpenedFile, ContentIdentity), HostError> {
     let commitment = files
         .get(ordinal)
-        .filter(|file| file.root == EvidenceRoot::Workflow && file.role != EvidenceRole::Input
-            && role.is_none_or(|role| file.role == role))
-        .ok_or_else(|| invalid("selector does not name an original workflow member of the requested kind"))?;
-    let identity = commitment.content.as_ref()
+        .filter(|file| {
+            file.root == EvidenceRoot::Workflow
+                && file.role != EvidenceRole::Input
+                && role.is_none_or(|role| file.role == role)
+        })
+        .ok_or_else(|| {
+            invalid("selector does not name an original workflow member of the requested kind")
+        })?;
+    let identity = commitment
+        .content
+        .as_ref()
         .ok_or_else(|| invalid("selected member was not captured by the original owner"))?;
     let member = opened::open_member(workflow, ordinal, commitment)?
         .ok_or_else(|| invalid("selected member has no original descriptor"))?;
@@ -527,10 +538,30 @@ mod tests {
         let (files, causes) = seal(root.path(), vec![source("run-0.stdout", true)]);
         assert!(causes.is_empty());
         let length = std::num::NonZeroU64::new(3).unwrap();
-        let read = phase_window(root.path(), &files, 0, EvidenceRole::Stdout, 0, length, true).unwrap();
+        let read = phase_window(
+            root.path(),
+            &files,
+            0,
+            EvidenceRole::Stdout,
+            0,
+            length,
+            true,
+        )
+        .unwrap();
         assert_eq!(read.byte_range, 5..8);
         assert!(matches!(read.content, crate::artifacts::Content::Utf8(value) if value == "nal"));
-        assert!(phase_window(root.path(), &files, 0, EvidenceRole::Stderr, 0, length, false).is_err());
+        assert!(
+            phase_window(
+                root.path(),
+                &files,
+                0,
+                EvidenceRole::Stderr,
+                0,
+                length,
+                false
+            )
+            .is_err()
+        );
         let (mut member, identity) = select_workflow_file(root.path(), &files, 0, None).unwrap();
         let destination = root.path().join("export");
         let publish = |member: &mut OpenedFile, destination: &Path| {
@@ -545,7 +576,18 @@ mod tests {
         fs::remove_file(&path).unwrap();
         fs::write(&path, b"replaced").unwrap();
         fs::set_permissions(&path, fs::Permissions::from_mode(0o400)).unwrap();
-        assert!(phase_window(root.path(), &files, 0, EvidenceRole::Stdout, 0, length, false).is_err());
+        assert!(
+            phase_window(
+                root.path(),
+                &files,
+                0,
+                EvidenceRole::Stdout,
+                0,
+                length,
+                false
+            )
+            .is_err()
+        );
     }
     #[test]
     fn sealed_original_dependencies_refuse_same_shape_mutation_missing_and_truncated_portable_closure()

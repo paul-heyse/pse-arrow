@@ -105,6 +105,8 @@ thr = "thr"                             # Thread-count column abbreviation in ca
 clonable = "clonable"                   # Exact dyn-clonable package spelling in Cargo graph evidence.
 
 [default.extend-identifiers]
+# Exact Rustix file-open flag used by bounded original evidence writers.
+WRONLY = "WRONLY"
 # Exact molecular formula in the retained CRC vaporization source artifact.
 ClFO3 = "ClFO3"
 # Exact commit identifiers in retained review evidence.

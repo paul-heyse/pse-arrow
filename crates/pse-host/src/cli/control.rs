@@ -86,8 +86,10 @@ pub(super) fn dispatch(
                 .and_then(serde_json::Value::as_bool)
                 == Some(false)
                 && (directory.is_conformance()
-                    || crate::test_workflow::execute::Action::from_command(&metadata.selection.command)
-                        .is_some())
+                    || crate::test_workflow::execute::Action::from_command(
+                        &metadata.selection.command,
+                    )
+                    .is_some())
         };
     if foreground && cancel && directory.is_conformance() {
         return Err(HostError::Ownership(
@@ -136,7 +138,9 @@ pub(super) fn dispatch(
         }
     }
     if foreground && directory.is_conformance() {
-        let result = result.ok_or_else(|| HostError::Ownership("foreground campaign result is unavailable".into()))?;
+        let result = result.ok_or_else(|| {
+            HostError::Ownership("foreground campaign result is unavailable".into())
+        })?;
         let original: crate::managed::result::ManagedSummary =
             serde_json::from_str(result.payload.get()).map_err(std::io::Error::other)?;
         let borrowed_drain = original.borrowed_reservation.then(|| {
@@ -144,7 +148,11 @@ pub(super) fn dispatch(
             runtime()?.block_on(async {
                 tokio::time::timeout_at(
                     deadline.into(),
-                    crate::managed::workflow::borrowed::reconcile_foreground(&store, &directory, Some(&base)),
+                    crate::managed::workflow::borrowed::reconcile_foreground(
+                        &store,
+                        &directory,
+                        Some(&base),
+                    ),
                 )
                 .await
                 .map_err(|_| HostError::Deadline("borrowed campaign drain observation".into()))?
@@ -153,7 +161,12 @@ pub(super) fn dispatch(
         let mut response = Envelope::response(
             "wait",
             "original foreground campaign result observed",
-            ControlView { original_invocation: id, service: None, service_gone: false, result: Some(result) },
+            ControlView {
+                original_invocation: id,
+                service: None,
+                service_gone: false,
+                result: Some(result),
+            },
         );
         if let Some(original) = &response.payload.result {
             response.settlement = original.settlement;
@@ -166,9 +179,10 @@ pub(super) fn dispatch(
         if let Some(drain) = borrowed_drain {
             match drain {
                 Ok(true) => {}
-                Ok(false) => response.observation.limitations.push(
-                    "original borrowed campaign's enclosing workload has not drained".into(),
-                ),
+                Ok(false) => response
+                    .observation
+                    .limitations
+                    .push("original borrowed campaign's enclosing workload has not drained".into()),
                 Err(error) => response.observation.limitations.push(
                     envelope::RedactionPolicy::from_environment().redact(&format!(
                         "original borrowed campaign drain could not be reconciled: {error}"

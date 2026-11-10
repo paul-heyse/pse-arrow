@@ -187,7 +187,10 @@ fn conformance_command_reports_failed_science_and_returns_nonzero() -> Result<()
     assert_eq!(run["settlement"], "no_native_lanes");
     assert_eq!(run["export"], "published");
     assert_eq!(run["published_outputs"].as_array().map(Vec::len), Some(6));
-    let case = run["cases"].as_object().and_then(|cases| cases.values().next()).context("original case")?;
+    let case = run["cases"]
+        .as_object()
+        .and_then(|cases| cases.values().next())
+        .context("original case")?;
     assert_eq!(case["phase"], "returned");
     assert_eq!(case["status"], "Failed");
     Ok(())
@@ -197,10 +200,15 @@ fn conformance_command_reports_failed_science_and_returns_nonzero() -> Result<()
 fn conformance_reports_science_and_partial_export_after_collision() -> Result<()> {
     let (directory, manifest) = fixture(4)?;
     let source = std::fs::read_to_string(&manifest)?;
-    let (_, run) = source.split_once("[[runs]]").context("original campaign run")?;
+    let (_, run) = source
+        .split_once("[[runs]]")
+        .context("original campaign run")?;
     std::fs::write(
         &manifest,
-        format!("{source}\n[[runs]]{}", run.replace("name=\"first\"", "name=\"second\"")),
+        format!(
+            "{source}\n[[runs]]{}",
+            run.replace("name=\"first\"", "name=\"second\"")
+        ),
     )?;
     let reports = directory.path().join("partial-reports");
     let progress = directory.path().join("conformance-progress.json");
@@ -218,9 +226,16 @@ fn conformance_reports_science_and_partial_export_after_collision() -> Result<()
     assert_eq!(std::fs::read(&existing)?, b"earlier result");
     let progress: serde_json::Value = serde_json::from_slice(&std::fs::read(progress)?)?;
     let run = &progress["runs"]["first"];
-    assert_eq!(run["passed"], true, "original science completed before export failed");
+    assert_eq!(
+        run["passed"], true,
+        "original science completed before export failed"
+    );
     assert_eq!(run["export"], "failed");
-    assert!(run["export_error"].as_str().is_some_and(|error| !error.is_empty()));
+    assert!(
+        run["export_error"]
+            .as_str()
+            .is_some_and(|error| !error.is_empty())
+    );
     assert_eq!(run["published_outputs"], serde_json::json!(["first.arrow"]));
     let skipped = &progress["runs"]["second"];
     assert_eq!(skipped["phase"], "unattempted");
@@ -232,7 +247,12 @@ fn conformance_reports_science_and_partial_export_after_collision() -> Result<()
 #[test]
 fn conformance_same_executable_admits_changed_model_source() -> Result<()> {
     let (directory, manifest) = fixture(4)?;
-    let run = || command().args(["conformance", "--manifest"]).arg(&manifest).output();
+    let run = || {
+        command()
+            .args(["conformance", "--manifest"])
+            .arg(&manifest)
+            .output()
+    };
     let first = run()?;
     assert!(first.status.success(), "{first:?}");
     let model = directory.path().join("model/models/pure.pse");

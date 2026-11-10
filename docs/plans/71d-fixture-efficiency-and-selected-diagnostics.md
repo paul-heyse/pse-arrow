@@ -1,6 +1,6 @@
 ---
 title: "Plan71d: Fixture efficiency and selected diagnostics"
-status: in-progress
+status: complete
 date: 2026-11-09
 adrs: []
 doc_role: plan
@@ -18,15 +18,15 @@ source and runtime owners. No general cache, scheduler or diagnostic platform.
 
 ## Current status
 
-The selected fixture loads immutable physical inputs before borrowing its database and reuses the same authored document bundle. Five independently selectable DSL cases passed on main after inserting the new negative-exponent case. Typed diagnostics and an independent borrower control were added. The selected exchanger and fixture journeys remain to be verified; no optional diagnostic tool was needed by these changes.
+The selected fixture loads immutable physical inputs before borrowing its database and reuses the same authored document bundle. Five independently selectable DSL cases passed on `main` after inserting the new negative-exponent case. The selected exchanger rating passed comparison to the independent reference, and the costed exchanger preserved its support period and protected view. Independent databases survived each other's drain on the same runner-owned service. The server-wide controls passed for rollback and recovery, exclusive expiry, and a cancelled apply that settles its original receipt. No optional diagnostic tool was needed by these changes.
 
 ## Packages
 
 | ID | Status | Prerequisites | Completion |
 | --- | --- | --- | --- |
-| [D01](#d01) | Open | B01 runner; A02 owner-attributed evidence | Retain necessary exclusion and move demonstrated independent work outside it. |
-| [D02](#d02) | Open | A01 references; current selected science and fixture owners | Account for reusable work in two representative workflows; exact case pilot preserves evidence. |
-| [D03](#d03) | Open | A01/A03; named gap for any optional escalation | Existing diagnostic consumers cover selected cases; deeper tools have explicit triggers, CLI retrieval and release. |
+| [D01](#d01) | Complete | B01 runner; A02 owner-attributed evidence | Retain necessary exclusion and move demonstrated independent work outside it. |
+| [D02](#d02) | Complete | A01 references; current selected science and fixture owners | Account for reusable work in two representative workflows; exact case pilot preserves evidence. |
+| [D03](#d03) | Complete | A01/A03; named gap for any optional escalation | Existing diagnostic consumers cover selected cases; deeper tools have explicit triggers, CLI retrieval and release. |
 
 <a id="d01"></a>
 ## D01 — Limit exclusion to the effect it protects

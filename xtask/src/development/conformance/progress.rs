@@ -64,7 +64,10 @@ impl State {
     fn publish(&mut self, force: bool) {
         if self.unavailable
             || !self.dirty
-            || (!force && self.last_publication.is_some_and(|last| last.elapsed() < REFRESH))
+            || (!force
+                && self
+                    .last_publication
+                    .is_some_and(|last| last.elapsed() < REFRESH))
         {
             return;
         }
@@ -74,7 +77,9 @@ impl State {
         let operation = (|| -> io::Result<()> {
             let bytes = serde_json::to_vec(&self.snapshot).map_err(io::Error::other)?;
             if bytes.len() > FILE_BYTES {
-                return Err(io::Error::other("conformance progress exceeds its reserved extent"));
+                return Err(io::Error::other(
+                    "conformance progress exceeds its reserved extent",
+                ));
             }
             let staging = self.path.with_extension("pending");
             let mut file = OpenOptions::new()
@@ -123,17 +128,41 @@ impl CampaignProgress {
                 version: 1,
                 historical_image,
                 updated_at_ms: 0,
-                requested_fixtures: requested.iter().take(MAX_CASES).map(ToString::to_string).collect(),
+                requested_fixtures: requested
+                    .iter()
+                    .take(MAX_CASES)
+                    .map(ToString::to_string)
+                    .collect(),
                 selected_runs: campaign.runs.len(),
                 omitted_requested_fixtures: requested.len().saturating_sub(MAX_CASES),
-                runs: campaign.runs().take(MAX_RUNS).map(|run| {
-                    // A fixture request is constrained to one manifest run. The runtime
-                    // replaces these requested rows with its admitted selection.
-                    let cases = requested.iter().take(MAX_CASES)
-                        .map(|id| (*id, Case { phase: Some("requested"), ..Case::default() }))
-                        .collect();
-                    (run.name.clone(), Run { cases, ..Run::default() })
-                }).collect(),
+                runs: campaign
+                    .runs()
+                    .take(MAX_RUNS)
+                    .map(|run| {
+                        // A fixture request is constrained to one manifest run. The runtime
+                        // replaces these requested rows with its admitted selection.
+                        let cases = requested
+                            .iter()
+                            .take(MAX_CASES)
+                            .map(|id| {
+                                (
+                                    *id,
+                                    Case {
+                                        phase: Some("requested"),
+                                        ..Case::default()
+                                    },
+                                )
+                            })
+                            .collect();
+                        (
+                            run.name.clone(),
+                            Run {
+                                cases,
+                                ..Run::default()
+                            },
+                        )
+                    })
+                    .collect(),
             },
             last_publication: None,
             unavailable: false,
@@ -166,7 +195,9 @@ impl CampaignProgress {
         }
         let mut changed = false;
         for run in runs {
-            let Some(entry) = state.snapshot.runs.get_mut(run) else { continue };
+            let Some(entry) = state.snapshot.runs.get_mut(run) else {
+                continue;
+            };
             changed = true;
             entry.phase = Some("unattempted");
             for case in entry.cases.values_mut() {
@@ -193,7 +224,9 @@ impl CampaignProgress {
             return;
         }
         let case_limit = MAX_CASES / state.snapshot.runs.len().max(1);
-        let Some(entry) = state.snapshot.runs.get_mut(name) else { return };
+        let Some(entry) = state.snapshot.runs.get_mut(name) else {
+            return;
+        };
         let run_id = event.run_id();
         match event {
             ConformanceObservation::Selected { run, fixtures } => {
@@ -202,26 +235,53 @@ impl CampaignProgress {
                 }
                 entry.runtime_run = Some(run);
                 entry.total_fixtures = Some(fixtures.len());
-                entry.cases = fixtures.into_iter().take(case_limit).map(|id| {
-                    (id, Case { phase: Some("selected"), ..Case::default() })
-                }).collect();
+                entry.cases = fixtures
+                    .into_iter()
+                    .take(case_limit)
+                    .map(|id| {
+                        (
+                            id,
+                            Case {
+                                phase: Some("selected"),
+                                ..Case::default()
+                            },
+                        )
+                    })
+                    .collect();
             }
             _ if entry.runtime_run != Some(run_id) => return,
             ConformanceObservation::Phase { fixture, phase, .. } => {
-                let Some(case) = entry.cases.get_mut(&fixture) else { return };
-                if matches!(case.phase, Some("returned" | "unattempted")) { return; }
+                let Some(case) = entry.cases.get_mut(&fixture) else {
+                    return;
+                };
+                if matches!(case.phase, Some("returned" | "unattempted")) {
+                    return;
+                }
                 case.phase = Some(phase);
             }
-            ConformanceObservation::Returned { fixture, status, finding, .. } => {
-                let Some(case) = entry.cases.get_mut(&fixture) else { return };
-                if matches!(case.phase, Some("returned" | "unattempted")) { return; }
+            ConformanceObservation::Returned {
+                fixture,
+                status,
+                finding,
+                ..
+            } => {
+                let Some(case) = entry.cases.get_mut(&fixture) else {
+                    return;
+                };
+                if matches!(case.phase, Some("returned" | "unattempted")) {
+                    return;
+                }
                 case.phase = Some("returned");
                 case.status = status.map(|status| format!("{status:?}"));
                 case.finding = finding.as_deref().map(bounded_finding);
             }
             ConformanceObservation::Unattempted { fixture, .. } => {
-                let Some(case) = entry.cases.get_mut(&fixture) else { return };
-                if case.phase != Some("selected") { return; }
+                let Some(case) = entry.cases.get_mut(&fixture) else {
+                    return;
+                };
+                if case.phase != Some("selected") {
+                    return;
+                }
                 case.phase = Some("unattempted");
                 case.status = Some("Unattempted".into());
             }
@@ -246,7 +306,9 @@ impl CampaignProgress {
     }
     /// Keep an execution error even if scientific completion is unavailable.
     pub fn execution_error(&self, run: &str, error: &anyhow::Error) {
-        self.update(run, true, |entry| entry.execution_error = Some(bounded_finding(&error.to_string())));
+        self.update(run, true, |entry| {
+            entry.execution_error = Some(bounded_finding(&error.to_string()))
+        });
     }
     /// Record the native owner result independently of original process exit.
     pub fn settlement(&self, run: &str, state: &'static str, error: Option<&str>) {
@@ -265,7 +327,11 @@ impl CampaignProgress {
     /// Record one actual file publication, including partial exports.
     pub fn published_output(&self, run: &str, output: &std::path::Path) {
         if let Some(name) = output.file_name() {
-            self.update(run, true, |entry| entry.published_outputs.push(name.to_string_lossy().into_owned()));
+            self.update(run, true, |entry| {
+                entry
+                    .published_outputs
+                    .push(name.to_string_lossy().into_owned())
+            });
         }
     }
 }
@@ -311,7 +377,11 @@ impl Drop for ProcessInterrupt {
 mod tests {
     use super::*;
     use pse_model::generated::enums::ModelingConformanceStatus as Status;
-    use std::{io::{BufRead, BufReader}, process::{Child, Command, Stdio}, sync::mpsc};
+    use std::{
+        io::{BufRead, BufReader},
+        process::{Child, Command, Stdio},
+        sync::mpsc,
+    };
 
     // The same test binary is the original publisher in the controlled subprocess.
     // The parent may kill it only after the child's pipe acknowledges the boundary.
@@ -322,13 +392,20 @@ mod tests {
         const PUBLISH: &str = "PSE_CONFORMANCE_CONTROL_PUBLISH";
         const READY: &str = "checkpoint control reached";
         if let Some(manifest) = std::env::var_os(MANIFEST) {
-            let campaign = super::super::Campaign::load(std::path::Path::new(&manifest), Some("first"), None)?;
+            let campaign =
+                super::super::Campaign::load(std::path::Path::new(&manifest), Some("first"), None)?;
             let checkpoint = PathBuf::from(std::env::var_os(CHECKPOINT).expect("child checkpoint"));
             if std::env::var_os(PUBLISH).as_deref() == Some(std::ffi::OsStr::new("yes")) {
                 let progress = CampaignProgress::new(checkpoint, &campaign, false);
                 let run = RunId::from_bytes([42; 16]);
                 let fixture = DeclarationId::from_bytes([7; 16]);
-                progress.observation("first", ConformanceObservation::Selected { run, fixtures: vec![fixture] });
+                progress.observation(
+                    "first",
+                    ConformanceObservation::Selected {
+                        run,
+                        fixtures: vec![fixture],
+                    },
+                );
             }
             let mut out = io::stdout().lock();
             writeln!(out, "{READY}")?;
@@ -348,35 +425,53 @@ mod tests {
         let test = format!("{module}::abrupt_publisher_exit_preserves_only_observed_checkpoint");
         for publish in ["no", "yes"] {
             let checkpoint = dir.path().join(format!("{publish}.json"));
-            let mut owner = Owner(Command::new(std::env::current_exe()?)
-                .args(["--exact", &test, "--nocapture"])
-                .env(MANIFEST, &manifest).env(CHECKPOINT, &checkpoint).env(PUBLISH, publish)
-                .stdin(Stdio::piped()).stdout(Stdio::piped()).spawn()?);
+            let mut owner = Owner(
+                Command::new(std::env::current_exe()?)
+                    .args(["--exact", &test, "--nocapture"])
+                    .env(MANIFEST, &manifest)
+                    .env(CHECKPOINT, &checkpoint)
+                    .env(PUBLISH, publish)
+                    .stdin(Stdio::piped())
+                    .stdout(Stdio::piped())
+                    .spawn()?,
+            );
             let stdout = owner.0.stdout.take().expect("child stdout");
             let (send, recv) = mpsc::sync_channel(1);
             let reader = std::thread::spawn(move || {
-                let seen = BufReader::new(stdout).lines().map_while(Result::ok).any(|line| line.contains(READY));
+                let seen = BufReader::new(stdout)
+                    .lines()
+                    .map_while(Result::ok)
+                    .any(|line| line.contains(READY));
                 let _ = send.send(seen);
             });
             let seen = recv.recv_timeout(Duration::from_secs(10));
             owner.0.kill()?;
             assert!(!owner.0.wait()?.success());
             reader.join().expect("child output reader");
-            assert!(seen?, "original process did not reach the selected boundary");
+            assert!(
+                seen?,
+                "original process did not reach the selected boundary"
+            );
             if publish == "no" {
                 assert!(!checkpoint.exists());
             } else {
-                let observation: serde_json::Value = serde_json::from_slice(&std::fs::read(checkpoint)?)?;
+                let observation: serde_json::Value =
+                    serde_json::from_slice(&std::fs::read(checkpoint)?)?;
                 let run = &observation["runs"]["first"];
                 assert_eq!(run["total_fixtures"], 1);
-                assert!(run["passed"].is_null() && run["settlement"].is_null() && run["export"].is_null());
+                assert!(
+                    run["passed"].is_null()
+                        && run["settlement"].is_null()
+                        && run["export"].is_null()
+                );
             }
         }
         Ok(())
     }
 
     #[test]
-    fn checkpoint_binds_original_run_and_bounds_cases_without_inventing_completion() -> anyhow::Result<()> {
+    fn checkpoint_binds_original_run_and_bounds_cases_without_inventing_completion()
+    -> anyhow::Result<()> {
         let (dir, manifest) = super::super::tests::fixture()?;
         let campaign = super::super::Campaign::load(&manifest, Some("first"), None)?;
         let path = dir.path().join("conformance-progress.json");
@@ -384,39 +479,75 @@ mod tests {
         let read = || -> anyhow::Result<serde_json::Value> {
             Ok(serde_json::from_slice(&std::fs::read(&path)?)?)
         };
-        assert_eq!(read()?["runs"]["first"]["runtime_run"], serde_json::Value::Null);
+        assert_eq!(
+            read()?["runs"]["first"]["runtime_run"],
+            serde_json::Value::Null
+        );
         let run = RunId::from_bytes([1; 16]);
         let foreign = RunId::from_bytes([2; 16]);
         let fixture_id = |index: usize| DeclarationId::from_bytes((index as u128).to_be_bytes());
         let fixture = fixture_id(0);
         let unattempted = fixture_id(1);
-        progress.observation("first", ConformanceObservation::Selected {
-            run,
-            fixtures: (0..=MAX_CASES).map(fixture_id).collect(),
-        });
+        progress.observation(
+            "first",
+            ConformanceObservation::Selected {
+                run,
+                fixtures: (0..=MAX_CASES).map(fixture_id).collect(),
+            },
+        );
         let admitted = read()?;
         let original = &admitted["runs"]["first"];
         assert_eq!(original["total_fixtures"], MAX_CASES + 1);
-        assert_eq!(original["cases"].as_object().map(serde_json::Map::len), Some(MAX_CASES));
+        assert_eq!(
+            original["cases"].as_object().map(serde_json::Map::len),
+            Some(MAX_CASES)
+        );
         assert_eq!(original["cases"][fixture.to_string()]["phase"], "selected");
         assert!(original["passed"].is_null());
-        progress.observation("first", ConformanceObservation::Returned {
-            run: foreign, fixture, status: Some(Status::Passed), finding: None,
-        });
-        progress.observation("first", ConformanceObservation::Returned {
-            run, fixture, status: Some(Status::Failed), finding: Some("first failure".into()),
-        });
-        progress.observation("first", ConformanceObservation::Returned {
-            run, fixture, status: Some(Status::Passed), finding: None,
-        });
-        progress.observation("first", ConformanceObservation::Unattempted { run, fixture: unattempted });
+        progress.observation(
+            "first",
+            ConformanceObservation::Returned {
+                run: foreign,
+                fixture,
+                status: Some(Status::Passed),
+                finding: None,
+            },
+        );
+        progress.observation(
+            "first",
+            ConformanceObservation::Returned {
+                run,
+                fixture,
+                status: Some(Status::Failed),
+                finding: Some("first failure".into()),
+            },
+        );
+        progress.observation(
+            "first",
+            ConformanceObservation::Returned {
+                run,
+                fixture,
+                status: Some(Status::Passed),
+                finding: None,
+            },
+        );
+        progress.observation(
+            "first",
+            ConformanceObservation::Unattempted {
+                run,
+                fixture: unattempted,
+            },
+        );
         progress.settlement("first", "unresolved", Some("cleanup failure"));
         let final_observation = read()?;
         let original = &final_observation["runs"]["first"];
         let case = &original["cases"][fixture.to_string()];
         assert_eq!(case["status"], "Failed");
         assert_eq!(case["finding"], "first failure");
-        assert_eq!(original["cases"][unattempted.to_string()]["status"], "Unattempted");
+        assert_eq!(
+            original["cases"][unattempted.to_string()]["status"],
+            "Unattempted"
+        );
         assert_eq!(original["settlement_error"], "cleanup failure");
         assert!(original["passed"].is_null());
         Ok(())

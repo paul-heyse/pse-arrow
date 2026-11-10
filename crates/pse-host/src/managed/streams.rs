@@ -169,7 +169,9 @@ impl<W: LogSink> StreamState<W> {
             }
         }
         if limited {
-            self.write_error = Some(io::Error::other("original stream exceeded its retained byte allowance"));
+            self.write_error = Some(io::Error::other(
+                "original stream exceeded its retained byte allowance",
+            ));
         }
     }
 
@@ -370,7 +372,15 @@ where
     W2: LogSink,
     O: ChunkObserver,
 {
-    start_with_limit(stdout, stderr, sinks, observer, presentation, write_timeout, None)
+    start_with_limit(
+        stdout,
+        stderr,
+        sinks,
+        observer,
+        presentation,
+        write_timeout,
+        None,
+    )
 }
 
 /// Bound the retained prefix without stopping pipe drain or semantic observation.

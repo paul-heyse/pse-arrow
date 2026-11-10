@@ -273,6 +273,8 @@ a terminal, scientific-coverage or drain claim.
 Use `pse wait ID` to observe the original verdict. Interrupt a foreground campaign
 in its original terminal. For cancellation by invocation ID, start with `--detach`
 and use `pse cancel ID`.
+Use the [campaign custody controls](agent-environment.md#reading-and-expiring-ordinary-test-summaries)
+to preview, hold or release that invocation's checkpoint and enrolled streams.
 `python -m pse.conformance --manifest <toml> --report-dir <dir>` remains a retiring developer
 adapter for generic manifest execution; Plan58f F05 owns its cutover independently of the
 callable native scientific operations.
