@@ -337,6 +337,16 @@ establish their stated facts, not application correctness. The failure codes bel
 
 ### 4.7 Owner-derived boundary contracts
 
+> Decision: [ADR-0262](../../adr/0262-canonical-operations-and-owned-transitions.md)
+> (proposed), maintainer-authorized Plan72c target.
+
+The source-owned projection graph also supplies direct native readiness shapes/adapters.
+The existing study module library shares transport wrappers between native and WASI callers;
+semantic policy stays in the pure model owner. No Proto intermediate, runtime descriptor
+interpreter or additional editable schema defines those native values. Admission of aggregate
+input precedes nested owned decoding; exact native encoding and checked wire widening remain
+distinct obligations.
+
 > Decision: [ADR-0239](../../adr/0239-owner-derived-engineering-boundaries.md) (proposed; operator-selected planning target).
 
 Plan64i adds owner-derived protobuf projections: registry fields retain registry authority,

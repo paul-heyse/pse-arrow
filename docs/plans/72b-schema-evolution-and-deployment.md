@@ -1,8 +1,8 @@
 ---
 title: "Plan72b: Schema evolution and deployment"
-status: draft
+status: active
 date: 2026-11-09
-adrs: []
+adrs: [ADR-0262]
 doc_role: plan
 doc_owner: docs/plans/72-surrealdb-functional-improvements.md
 doc_topics: [current-work, deployment, design, storage, validation]

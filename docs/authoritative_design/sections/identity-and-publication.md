@@ -863,6 +863,16 @@ bytes and is not an exported database lease or another publication catalog.
 
 ### 20.5 Current contracts and schema evolution
 
+> Decision: [ADR-0262](../../adr/0262-canonical-operations-and-owned-transitions.md)
+> (proposed), maintainer-authorized Plan72b/72c target.
+
+Effect-bearing transitions bind exact predecessor, original operation and issuer, frozen
+effective inputs, original/target module artifacts and explicit preservation policy. Native
+named conversion and bounded backfill run under the actual lifecycle owner's physical
+exclusion; supplier history is distinct from independent data conformance, ready indexes
+and native activation. Ordinary readmission follows complete physical handoff. No implicit
+upgrade or arbitrary configured-store reset follows from this target.
+
 > Decision: [ADR-0261](../../adr/0261-native-operation-contracts.md) (proposed),
 > maintainer-authorized Plan72a target.
 
@@ -1457,6 +1467,17 @@ implicitly define missing namespaces/databases or enumerate unbounded catalogs.
 Service setup/readmission owns account provisioning; schema installation remains explicit.
 
 #### 20.6.11 Transaction authority and physical lifecycle
+
+> Decision: [ADR-0262](../../adr/0262-canonical-operations-and-owned-transitions.md)
+> (proposed), Plan72c explicit operation target.
+
+Typed operations select serializable mutation or read-only snapshot observation explicitly;
+installation retains its deliberate snapshot exception. Custody acquisition is a mutation.
+Concurrency-only blanket guards may retire after actual positive/negative/range races
+establish complete SSI coverage. Cross-transaction freshness, lease/issuer authority and
+original-request settlement remain separate obligations. SQL acquisition/publication stays
+visible around the shared pure Rust policy; runtime rollback and physical custody controls
+remain necessary.
 
 **Authority and client.** Short native transactions establish source roots, immutable
 operation identity and current cancellation/generation premises under named conflict guards,
