@@ -1,6 +1,6 @@
 ---
 title: "Plan72d: Query, graph and ranked discovery"
-status: active
+status: complete
 date: 2026-11-09
 adrs: [ADR-0267]
 doc_role: plan

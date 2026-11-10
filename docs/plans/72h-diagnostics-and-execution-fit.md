@@ -1,6 +1,6 @@
 ---
 title: "Plan72h: Diagnostics and execution fit"
-status: active
+status: complete
 date: 2026-11-09
 adrs: [ADR-0267]
 doc_role: plan
@@ -217,6 +217,12 @@ disables the unrelated default internal port already occupied on this workstatio
 MX prefix and plan-slot consumption order were corrected from real receiving/source evidence.
 The first source rebuild encountered a kernel exit/artifact-lock residual; recovery used
 existing isolated preparation and verified release import, with unchanged source pins/resources.
+The earlier Cargo process remains in kernel D-state (PID 1657160 observed at closeout);
+its locked build cache is retained for settlement. Successful replacement preparation and
+receiving do not establish that this original failed preparation physically drained.
+One read-only process observer from this turn is also blocked in the kernel's remote-memory
+read (PID 2651671); TERM is pending. Remaining observations use the fixed native activity
+route and bounded original-invocation reads.
 
 **Deliberate deviations.** No custom receiver, progress ledger, GQL-only spill claim or
 scheduler tuning programme is introduced. Actual lifecycle controls resolve the changed

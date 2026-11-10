@@ -7785,7 +7785,7 @@ status_column = 1
 [[scope_tables]]
 path = "docs/plans/72b-schema-evolution-and-deployment.md"
 name = "packages"
-heading = "Packages"
+heading = "Execution checkpoint — 2026-11-10"
 headers = ["ID", "Status", "Prerequisites", "Completion"]
 kind = "packet"
 id_column = 0
@@ -7796,7 +7796,7 @@ status_column = 1
 [[scope_tables]]
 path = "docs/plans/72c-canonical-operations-and-policy.md"
 name = "packages"
-heading = "Packages"
+heading = "Execution checkpoint — 2026-11-10"
 headers = ["ID", "Status", "Prerequisites", "Completion"]
 kind = "packet"
 id_column = 0
@@ -7807,7 +7807,7 @@ status_column = 1
 [[scope_tables]]
 path = "docs/plans/72d-query-graph-and-ranked-discovery.md"
 name = "packages"
-heading = "Packages"
+heading = "Execution checkpoint — 2026-11-10"
 headers = ["ID", "Status", "Prerequisites", "Completion"]
 kind = "packet"
 id_column = 0
@@ -7818,7 +7818,7 @@ status_column = 1
 [[scope_tables]]
 path = "docs/plans/72e-observation-and-derived-state.md"
 name = "packages"
-heading = "Packages"
+heading = "Execution checkpoint — 2026-11-10"
 headers = ["ID", "Status", "Prerequisites", "Completion"]
 kind = "packet"
 id_column = 0
@@ -7829,7 +7829,7 @@ status_column = 1
 [[scope_tables]]
 path = "docs/plans/72f-persistence-and-protected-delivery.md"
 name = "packages"
-heading = "Packages"
+heading = "Execution checkpoint — 2026-11-10"
 headers = ["ID", "Status", "Prerequisites", "Completion"]
 kind = "packet"
 id_column = 0
@@ -7840,7 +7840,7 @@ status_column = 1
 [[scope_tables]]
 path = "docs/plans/72g-developer-and-operator-workflows.md"
 name = "packages"
-heading = "Packages"
+heading = "Execution checkpoint — 2026-11-10"
 headers = ["ID", "Status", "Prerequisites", "Completion"]
 kind = "packet"
 id_column = 0
@@ -7851,7 +7851,7 @@ status_column = 1
 [[scope_tables]]
 path = "docs/plans/72h-diagnostics-and-execution-fit.md"
 name = "packages"
-heading = "Packages"
+heading = "Execution checkpoint — 2026-11-10"
 headers = ["ID", "Status", "Prerequisites", "Completion"]
 kind = "packet"
 id_column = 0

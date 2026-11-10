@@ -260,13 +260,36 @@ telemetry/explanation/memory selection passed 7/7. Actual native sort/spill, can
 scratch refusal/cleanup and delivered Collector metrics also passed in the joined 80-case
 selection. These are concrete delivery and lifecycle controls, not measured throughput.
 
+**Tested:** a final complete SurrealKit confirmation also passed 1/1 after publication and
+formatting. Its first additional attempt was refused before test discovery completed when
+the filesystem filled; no fixture started and that invocation settled. For this named
+space-recovery need, `scripts/pse run -- cargo clean -p pse-runtime` released reproducible
+package build objects under Cargo's owner. The full confirmation and `just ready` then
+passed. Managed result retention and the original kernel-stuck supplier build keep their
+existing owners.
+
 ### Scope-end corrections
 
 **Implemented.** The initial aggregate hygiene/governance run failed against the zero target:
 stale ADR index, Python lint/type findings, outdated Tokio ceiling, unused dependencies,
 new-code Clippy findings and two quantity fixture governance failures. Those failures were
-repaired rather than accepted as a baseline. Final aggregate results are recorded below
-when the current repaired selection settles.
+repaired rather than accepted as a baseline. Final acceptance uses the original passing
+unchanged recipes and the successful affected reruns below; the initially failed aggregate
+is not relabeled as a pass.
+
+Unused dependency edges and six unused native-policy publications were removed at their
+declarations/generator. Thirteen exact, actually consumed parent-relative generated paths
+retain documented exceptions for the pinned cargo-shear path-normalization defect; no
+audit output is filtered and no generated tree is exempted wholesale.
+
+Independent Python references now use precise Pyomo/component protocols and descriptor-backed
+protobuf access, with exact `types-protobuf==7.35.1.20260906` in the isolated parity group.
+The scoped unittest/driver lint policy matches their existing independent process role.
+Formulas, cases, tolerances and deliberately infeasible controls retain their original
+meaning. **Tested:** `just lint-py` passed, `just typecheck` passed both Python 3.13 and
+the separate Python 3.12 selection with zero diagnostics; `just reference-unit` passed
+25/25 and `just reference-solver-unit` passed 7/7 with prepared Ipopt, against zero
+failures. These receive the changed reference boundaries, not Plan66 scientific acceptance.
 
 Proposed ADR-0268 aligns the ceiling with the maintainer's explicit semantic/runtime
 clarification. It excludes product execution owners while permitting concurrency libraries.
@@ -283,11 +306,44 @@ selection `scripts/pse test pse-quantity --lib -E 'test(~resolved::receipts::rep
 passed 2/2 against zero failures. The added Miri declarations are inspected coverage;
 Miri has not been run here and is not claimed as semantic-admission proof.
 
+**Tested:** the runtime repair selection below passed 7/7 against zero failures, including
+actual expectation/replay wire round trips and cross-process numerical restoration. Byte
+accounting retains eight words; missing decode leases now return typed refusals. Boxing
+the large expectation replay request preserves its serialized representation.
+
+```bash
+scripts/pse test pse-runtime --lib -E 'test(expectation_local_selected_population_preserves_original_science_and_reader) | test(adaptive_expectation_affine_point_reference_keeps_finite_population_covariant) | test(fixed_expectation_matches_independent_finite_contributions_and_original_replay) | test(replay_constructor_tag_is_exclusive_and_round_trips) | test(replay_constructor_all_families_preserve_their_owned_payloads) | test(numerical_wire_nesting_refuses_before_unreadable_publication) | test(canonical_numerical_observation_survives_producer_exit_without_source_reconstruction)'
+```
+
+Document lifecycle bindings now select the actual checkpoint headings without changing
+72b/72c's parked native scope. **Tested:** `target/debug/xtask lifecycle validate` passes
+with zero metadata/scope errors; `just docs` builds the complete HTML/scoped-search site.
+The prepared binary route performs this metadata read without another implicit build.
+The pure generator isolation control also passed 1/1 with
+`scripts/pse test xtask:xtask --target-kind bin --no-default-features -E 'test(=codegen::private_store::tests::knowledge_schema_is_tooling_only_with_declared_fulltext_and_native_graph)'`.
+It checks the canonical registry boundary directly, without referencing an unselected
+optional model dependency from the default generator test closure.
+
 ### Scope-end qualification
 
-**Tested:** `just codegen` passed all 16 generators; `just ready` passed skill sync and
-doctor after the selected supplier patch/preparation change. The all-target check
+**Tested**, zero failure baseline. `just codegen` passed all 16 generators, including the
+six unused policy removals and their provenance. The final `just ready` passed skill sync
+and doctor after the dependency and prepared-source changes. The all-target check
 `scripts/pse check pse-runtime pse-host xtask --all-targets --features pse-runtime/product-reader,pse-runtime/engineering-service,xtask/canonical-tools,xtask/evidence-tools`
 passed with zero compiler diagnostics. Later focused tests compiled their final changed
-closures. Aggregate hygiene/governance and the final turn-end result remain to be recorded
-after the scope-end repairs settle.
+closures. Required scope-end results are:
+
+| Command/selection | Final result and scope |
+| --- | --- |
+| `scripts/pse run-all clippy-default clippy-no-default` | Both workspace/all-target configurations passed with `-D warnings`, under the correctness adapter. |
+| `governance-tests` in the affected follow-up bundle | 25/25 passed; original unsafe/reason failures repaired. The earlier accompanying Clippy failures have the separate passing rerun above. |
+| `scripts/pse run-all adr-frontmatter-check adr-index-check family-check audit-shear codegen-check lint-actions docs-rust` | All 7 recipes passed after publication and formatting; shear reports 0 errors/0 warnings, generation compares all 16 targets without drift. |
+| `just lint-py`, `just typecheck` | Passed; both isolated typing environments report 0 diagnostics. |
+| `just turn-end` | ADR index and the pinned source formatting/safe-fix recipe passed. Formatting of existing integrated Plan73 sources is a separate commit with no behavior edits. |
+| Original unchanged hygiene recipes | Agent wiring, register, spelling, licensing, shell/AST, engine boundary and solver pins passed in the original selection. |
+
+No required 72d–72h implementation or selected qualification remains. Source-built server,
+module, external consumer and runtime fixtures settled through their original owners.
+The earlier failed supplier-build kernel residual and retained cache are explicitly recorded
+in [72h](72h-diagnostics-and-execution-fit.md#outcome); replacement receiving is not evidence
+of that residual's physical drain. No whole-series or scientific qualification is inferred.
