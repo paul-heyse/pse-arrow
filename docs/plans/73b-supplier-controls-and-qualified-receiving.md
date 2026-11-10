@@ -98,6 +98,16 @@ framework. Return either a complete product with realized facts or a typed unsup
 overflow, admission, allocation, cancellation or interrupted/truncated outcome. Preserve the
 caller's original admission error rather than flattening it into a supplier string.
 
+The controlled extents include supplier-visible integer/MPFR capacities, unreduced and
+cross-product/rational/complex temporaries, atom/workspace buffers and optimizer staging.
+Preserve the existing separate conservative foreign allowance for GMP/MPFR private algorithm
+scratch through actual drain and retained ownership, following blueprint §14.3/§18.8 and
+ADR-0263. Report that opaque part explicitly. A coefficient-height recurrence alone does not
+prove GMP's internal scratch bound; do not replace that allowance with an arbitrary multiplier
+or label native algorithm scratch as allocator bookkeeping. This scope replaces the applicable
+application algorithm mirrors with actual supplier control while preserving the established
+native allowance contract.
+
 Readiness is the agreed A01 demand/layout and C01 stable-head descriptors, not completed A02
 or C02. B01/A01/C01 may design these shared inputs together; B02/B03 supply the implementation
 needed by later consumers. The concrete application boundaries are

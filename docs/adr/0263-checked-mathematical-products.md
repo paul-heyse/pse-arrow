@@ -39,6 +39,15 @@ Retaining mirrors preserves behavior but couples admission to supplier internals
 
 Checked supplier operations receive the immutable input, operation settings and borrowed per-call cancellation/admission. They report incremental work and input-live/temporary/output extents before corresponding growth, preserve typed caller refusal, and return a complete product or typed failure. Observed cancellation/truncation cannot publish success. Returned immutable evaluators retain no producer control. Delete covered application formulas/rebinding with actual caller cutover; keep the scoped construction owner.
 
+The reported extents cover supplier-visible mathematical backing: integer and MPFR capacities,
+unreduced coefficient/cross-product and rational/complex temporaries, atom/workspace buffers,
+optimizer staging and returned products. GMP/MPFR private algorithm scratch remains under the
+existing separately admitted conservative foreign allowance in blueprint §14.3 and §18.8.
+That allowance stays live through actual native completion and the applicable retained owner.
+Its opaque coverage is recorded explicitly; coefficient-height recurrences establish managed
+mathematical sizes, without claiming an allocator interception or a proven bound on GMP's
+unexposed internal scratch. No arbitrary limb multiplier supplies that missing proof.
+
 The admitted primitives include dimensionless `log1p` with original x > -1, positive `log_ratio(x, reference)` and magnitude over compatible linear/difference quantities. `log_ratio` retains both original arguments: near reference it uses the stable relative increment, elsewhere a qualified logarithmic ratio realization preserves the full positive domain without forcing subtraction to round to -1. Its selected first/second local partials use the original positive arguments; the mixed second partial is zero. The physical registry admits the actual ratio/logarithm kind rather than erasing it to a generic scalar. This operation supports the authored caloric migration where a global `log1p((T-T0)/T0)` replacement would otherwise fail far from reference. Magnitude Value permits joint zero; First/Second refuse it. Deterministic separate known heads and local partial heads preserve stable evaluation through requested order; Symbolica owns chain/Taylor composition. Initial required realizations are scalar interpretation and explicit conservative scalar/x4 C++ profiles. Fixed x4 ISA/ABI selection, source admission and worker ownership precede native use; no host-native target, fast math or contraction is inherited.
 
 ### Compensating controls
@@ -61,3 +70,4 @@ Supplier-owned operations remove duplicate algorithm knowledge and keep local sc
 
 - 2026-11-10 — Proposed before new checked-operation and stable-primitive implementation under maintainer-authorized Plan73 execution. Formal ADR acceptance and actual implementation qualification remain separate.
 - 2026-11-10 — Refined before the caloric correction to include positive `log_ratio` with original-argument partials. Actual consumer review exposed the far-from-reference subtraction/domain failure and the named temperature-ratio physical contract; Plan73c C02 retains its acceptance obligations.
+- 2026-11-10 — Clarified supplier-visible backing versus the existing opaque foreign allowance after inspecting the actual native coefficient/normalizer path. Original before-growth control of visible inputs, outputs and temporaries remains required; no GMP allocator interception or process-RSS guarantee is introduced.
