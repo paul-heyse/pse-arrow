@@ -2124,76 +2124,229 @@ mod test {
 /// Checked selected affine extraction. Native conversion is bounded by a conservative
 /// source expansion envelope and interrupted between original rows. Parameters retain
 /// rational-function meaning; functions and noninteger powers are outside this profile.
-pub fn system_to_matrix_with<E: PositiveExponent, T1: AtomCore, T2: AtomCore, C: crate::evaluate::OperationControl>(
-    system: &[T1], vars: &[T2], control: &mut C,
-) -> Result<(Matrix<RationalPolynomialField<Z, E>>, Matrix<RationalPolynomialField<Z, E>>), crate::evaluate::OperationError<C::Error>> {
+pub fn system_to_matrix_with<
+    E: PositiveExponent,
+    T1: AtomCore,
+    T2: AtomCore,
+    C: crate::evaluate::OperationControl,
+>(
+    system: &[T1],
+    vars: &[T2],
+    control: &mut C,
+) -> Result<
+    (
+        Matrix<RationalPolynomialField<Z, E>>,
+        Matrix<RationalPolynomialField<Z, E>>,
+    ),
+    crate::evaluate::OperationError<C::Error>,
+> {
     use crate::evaluate::{OperationError, OperationExtent, OperationStage};
-    fn envelope<C: crate::evaluate::OperationControl>(atom: AtomView<'_>, depth: usize,
-        work: &mut usize, control: &mut C) -> Result<(usize, usize), OperationError<C::Error>> {
-        if depth > 128 { return Err(OperationError::Unsupported("exact matrix source depth")); }
+    fn envelope<E: PositiveExponent, C: crate::evaluate::OperationControl>(
+        atom: AtomView<'_>,
+        depth: usize,
+        work: &mut usize,
+        control: &mut C,
+    ) -> Result<(usize, usize, usize), OperationError<C::Error>> {
+        if depth > 128 {
+            return Err(OperationError::Unsupported("exact matrix source depth"));
+        }
         *work = work.checked_add(1).ok_or(OperationError::Overflow)?;
-        control.check(OperationExtent { work: *work, ..OperationExtent::default() }).map_err(OperationError::Control)?;
-        let (terms, bits) = match atom {
+        control
+            .check(OperationExtent {
+                work: *work,
+                ..OperationExtent::default()
+            })
+            .map_err(OperationError::Control)?;
+        let (terms, bits, degree) = match atom {
             AtomView::Num(number) => {
                 let value = match number.get_coeff_view() {
-                    crate::coefficient::CoefficientView::Natural(n, d, 0, _) if d != 0 => Rational::new(n, d),
-                    crate::coefficient::CoefficientView::Large(real, imaginary) if imaginary.is_zero() => real.to_rat(),
-                    _ => return Err(OperationError::Unsupported("nonrational exact matrix coefficient")),
+                    crate::coefficient::CoefficientView::Natural(n, d, 0, _) if d != 0 => {
+                        Rational::new(n, d)
+                    }
+                    crate::coefficient::CoefficientView::Large(real, imaginary)
+                        if imaginary.is_zero() =>
+                    {
+                        real.to_rat()
+                    }
+                    _ => {
+                        return Err(OperationError::Unsupported(
+                            "nonrational exact matrix coefficient",
+                        ));
+                    }
                 };
-                (1, value.numerator_ref().significant_bits().checked_add(value.denominator_ref().significant_bits())
-                    .and_then(|n| usize::try_from(n).ok()).ok_or(OperationError::Overflow)?.max(1))
+                (
+                    1,
+                    value
+                        .numerator_ref()
+                        .significant_bits()
+                        .checked_add(value.denominator_ref().significant_bits())
+                        .and_then(|n| usize::try_from(n).ok())
+                        .ok_or(OperationError::Overflow)?
+                        .max(1),
+                    0,
+                )
             }
-            AtomView::Var(_) => (1, 1),
+            AtomView::Var(_) => (1, 1, 1),
             AtomView::Add(add) => {
                 // Rational addition may multiply all denominators before cancellation.
-                let mut terms = 1usize; let mut bits = 1usize; let mut count = 0usize;
-                for argument in add.iter() { let (t, b) = envelope(argument, depth + 1, work, control)?;
+                let mut terms = 1usize;
+                let mut bits = 1usize;
+                let mut count = 0usize;
+                let mut degree = 0usize;
+                for argument in add.iter() {
+                    let (t, b, d) = envelope::<E, C>(argument, depth + 1, work, control)?;
                     terms = terms.checked_mul(t).ok_or(OperationError::Overflow)?;
                     bits = bits.checked_add(b).ok_or(OperationError::Overflow)?;
-                    count = count.checked_add(1).ok_or(OperationError::Overflow)?; }
-                let terms = terms.checked_mul(count.max(1)).ok_or(OperationError::Overflow)?;
-                (terms, bits.checked_add(terms.max(1).ilog2() as usize + 1).ok_or(OperationError::Overflow)?)
+                    degree = degree.checked_add(d).ok_or(OperationError::Overflow)?;
+                    count = count.checked_add(1).ok_or(OperationError::Overflow)?;
+                }
+                let terms = terms
+                    .checked_mul(count.max(1))
+                    .ok_or(OperationError::Overflow)?;
+                (
+                    terms,
+                    bits.checked_add(terms.max(1).ilog2() as usize + 1)
+                        .ok_or(OperationError::Overflow)?,
+                    degree,
+                )
             }
             AtomView::Mul(mul) => {
-                let mut terms = 1usize; let mut bits = 1usize;
-                for argument in mul.iter() { let (t, b) = envelope(argument, depth + 1, work, control)?;
+                let mut terms = 1usize;
+                let mut bits = 1usize;
+                let mut degree = 0usize;
+                for argument in mul.iter() {
+                    let (t, b, d) = envelope::<E, C>(argument, depth + 1, work, control)?;
                     terms = terms.checked_mul(t).ok_or(OperationError::Overflow)?;
-                    bits = bits.checked_add(b).ok_or(OperationError::Overflow)?; }
-                (terms, bits)
+                    bits = bits.checked_add(b).ok_or(OperationError::Overflow)?;
+                    degree = degree.checked_add(d).ok_or(OperationError::Overflow)?;
+                }
+                (terms, bits, degree)
             }
             AtomView::Pow(power) => {
-                let exponent = i64::try_from(power.get_exp()).map_err(|_| OperationError::Unsupported("noninteger exact matrix power"))?;
-                let (terms, bits) = envelope(power.get_base(), depth + 1, work, control)?;
-                let exponent = u32::try_from(exponent.unsigned_abs()).map_err(|_| OperationError::Overflow)?;
-                (terms.checked_pow(exponent).ok_or(OperationError::Overflow)?,
-                 bits.checked_mul(exponent as usize).ok_or(OperationError::Overflow)?.max(1))
+                let exponent = i64::try_from(power.get_exp())
+                    .map_err(|_| OperationError::Unsupported("noninteger exact matrix power"))?;
+                let (terms, bits, degree) =
+                    envelope::<E, C>(power.get_base(), depth + 1, work, control)?;
+                let exponent =
+                    u32::try_from(exponent.unsigned_abs()).map_err(|_| OperationError::Overflow)?;
+                (
+                    terms
+                        .checked_pow(exponent)
+                        .ok_or(OperationError::Overflow)?,
+                    bits.checked_mul(exponent as usize)
+                        .ok_or(OperationError::Overflow)?
+                        .max(1),
+                    degree
+                        .checked_mul(exponent as usize)
+                        .ok_or(OperationError::Overflow)?,
+                )
             }
-            _ => return Err(OperationError::Unsupported("nonrational exact matrix operation")),
+            _ => {
+                return Err(OperationError::Unsupported(
+                    "nonrational exact matrix operation",
+                ));
+            }
         };
-        let bytes = terms.checked_mul(bits.div_ceil(8).checked_add(64).ok_or(OperationError::Overflow)?)
-            .and_then(|bytes| bytes.checked_mul(64)).ok_or(OperationError::Overflow)?;
-        control.check(OperationExtent { stage: OperationStage::Construction,
-            work: (*work).checked_add(terms).ok_or(OperationError::Overflow)?, input_bytes: atom.get_byte_size(),
-            temporary_bytes: bytes, output_bytes: bytes, output_entries: terms }).map_err(OperationError::Control)?;
-        Ok((terms, bits))
+        let exponent = i32::try_from(degree).map_err(|_| OperationError::Overflow)?;
+        E::try_from(exponent)
+            .map_err(|_| OperationError::Unsupported("exact matrix exponent extent"))?;
+        let bytes = terms
+            .checked_mul(
+                bits.div_ceil(8)
+                    .checked_add(64)
+                    .ok_or(OperationError::Overflow)?,
+            )
+            .and_then(|bytes| bytes.checked_mul(64))
+            .ok_or(OperationError::Overflow)?;
+        control
+            .check(OperationExtent {
+                stage: OperationStage::Construction,
+                work: (*work).checked_add(terms).ok_or(OperationError::Overflow)?,
+                input_bytes: atom.get_byte_size(),
+                temporary_bytes: bytes,
+                output_bytes: bytes,
+                output_entries: terms,
+            })
+            .map_err(OperationError::Control)?;
+        Ok((terms, bits, degree))
     }
-    if system.is_empty() || vars.is_empty() { return Err(OperationError::Unsupported("empty exact matrix selection")); }
+    if system.is_empty() || vars.is_empty() {
+        return Err(OperationError::Unsupported("empty exact matrix selection"));
+    }
     let mut work = 0;
-    for expression in system { envelope(expression.as_atom_view(), 0, &mut work, control)?; }
-    let mut rows = Vec::new(); let mut rhs = Vec::new();
+    let mut input_bytes = 0usize;
+    let mut total_terms = 0usize;
+    let mut maximum_bits = 1usize;
     for expression in system {
-        control.check(OperationExtent { work, ..OperationExtent::default() }).map_err(OperationError::Control)?;
-        let (matrix, right) = Atom::system_to_matrix::<E, _, _>(std::slice::from_ref(expression), vars)
-            .map_err(|error| OperationError::InvalidProgram(error.to_string()))?;
-        rows.extend(matrix.into_vec()); rhs.extend(right.into_vec());
+        let atom = expression.as_atom_view();
+        let (terms, bits, _) = envelope::<E, C>(atom, 0, &mut work, control)?;
+        total_terms = total_terms
+            .checked_add(terms)
+            .ok_or(OperationError::Overflow)?;
+        maximum_bits = maximum_bits.max(bits);
+        input_bytes = input_bytes
+            .checked_add(atom.get_byte_size())
+            .ok_or(OperationError::Overflow)?;
+    }
+    // The coefficient field may contain many parameter variables besides the
+    // selected unknowns. Original source visits conservatively bound their union
+    // before extraction and native variable-map unification allocate exponent rows.
+    let width = work
+        .max(vars.len())
+        .checked_mul(size_of::<E>())
+        .and_then(|n| n.checked_add(maximum_bits.div_ceil(8)))
+        .and_then(|n| n.checked_add(128))
+        .ok_or(OperationError::Overflow)?;
+    let output_bytes = total_terms
+        .checked_mul(width)
+        .and_then(|n| n.checked_mul(64))
+        .ok_or(OperationError::Overflow)?;
+    control
+        .check(OperationExtent {
+            stage: OperationStage::Construction,
+            work,
+            input_bytes,
+            temporary_bytes: output_bytes,
+            output_bytes,
+            output_entries: total_terms,
+        })
+        .map_err(OperationError::Control)?;
+    let mut rows = Vec::new();
+    let mut rhs = Vec::new();
+    for expression in system {
+        control
+            .check(OperationExtent {
+                work,
+                ..OperationExtent::default()
+            })
+            .map_err(OperationError::Control)?;
+        let (matrix, right) =
+            Atom::system_to_matrix::<E, _, _>(std::slice::from_ref(expression), vars)
+                .map_err(|error| OperationError::InvalidProgram(error.to_string()))?;
+        rows.extend(matrix.into_vec());
+        rhs.extend(right.into_vec());
     }
     if let Some((first, rest)) = rows.split_first_mut() {
-        for _ in 0..2 { for value in rest.iter_mut().chain(rhs.iter_mut()) { first.unify_variables(value); } }
+        for _ in 0..2 {
+            for value in rest.iter_mut().chain(rhs.iter_mut()) {
+                first.unify_variables(value);
+            }
+        }
     }
     let field = RationalPolynomialField::new(Z);
-    let rows = Matrix::from_linear(rows, u32::try_from(system.len()).map_err(|_| OperationError::Overflow)?,
-        u32::try_from(vars.len()).map_err(|_| OperationError::Overflow)?, field.clone())
-        .map_err(|error| OperationError::InvalidProgram(error.to_string()))?;
-    control.check(OperationExtent { stage: OperationStage::Finalization, work, ..OperationExtent::default() }).map_err(OperationError::Control)?;
+    let rows = Matrix::from_linear(
+        rows,
+        u32::try_from(system.len()).map_err(|_| OperationError::Overflow)?,
+        u32::try_from(vars.len()).map_err(|_| OperationError::Overflow)?,
+        field.clone(),
+    )
+    .map_err(|error| OperationError::InvalidProgram(error.to_string()))?;
+    control
+        .check(OperationExtent {
+            stage: OperationStage::Finalization,
+            work,
+            ..OperationExtent::default()
+        })
+        .map_err(OperationError::Control)?;
     Ok((rows, Matrix::new_vec(rhs, field)))
 }

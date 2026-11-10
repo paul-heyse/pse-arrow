@@ -707,8 +707,44 @@ impl CasePlan {
                         ));
                     }
                 }
+                let stages = body.demanded_stages(&[output])?;
+                // Retain exactly this original output/effect closure. Unrelated
+                // multi-output inputs must not become required fixed assumptions.
+                let mut needed_inputs = BTreeSet::new();
+                for stage in &stages {
+                    match stage {
+                        Stage::Block { expressions, .. } => {
+                            for expression in expressions {
+                                needed_inputs.extend(
+                                    expression
+                                        .get_all_symbols(true)
+                                        .into_iter()
+                                        .filter_map(|symbol| body.input_slot(symbol)),
+                                );
+                            }
+                        }
+                        Stage::Require {
+                            argument,
+                            order: minimum_order,
+                            ..
+                        } => {
+                            if *minimum_order <= order && *argument < binding.slots.len() {
+                                needed_inputs.insert(*argument);
+                            }
+                        }
+                        _ => {
+                            return Err(MathError::Contract(
+                                "unsupported diagnostic original branch/provider/domain stage"
+                                    .into(),
+                            ));
+                        }
+                    }
+                }
                 let mut slots = BTreeMap::<usize, Atom>::new();
-                for (slot, binding) in binding.slots.iter().enumerate() {
+                for slot in needed_inputs {
+                    let binding = binding.slots.get(slot).ok_or_else(|| {
+                        MathError::Contract("diagnostic original input layout".into())
+                    })?;
                     let value = if let Some(&index) = coordinate_map.get(&binding.source()) {
                         formals[index].clone()
                     } else {
@@ -727,7 +763,7 @@ impl CasePlan {
                         value * Atom::num(binding.scale()) + Atom::num(binding.offset()),
                     );
                 }
-                for stage in body.demanded_stages(&[output])? {
+                for stage in stages {
                     check(scope)?;
                     match stage {
                         Stage::Block {
@@ -1294,13 +1330,46 @@ impl PreparedDiagnostic {
         let original_rhs = (0..rhs.nrows())
             .map(|row| rhs[(row as u32, 0)].to_string())
             .collect();
+        // The witness augmentation is a new owned native population. Admit its
+        // backing before identity/augment allocate, then widen only at safe points.
+        let augmented_entries = matrix
+            .nrows()
+            .checked_mul(
+                unknown_count
+                    .checked_add(1)
+                    .and_then(|columns| columns.checked_add(matrix.nrows()))
+                    .ok_or(MathError::Limit("exact witness columns"))?,
+            )
+            .ok_or(MathError::Limit("exact witness entries"))?;
+        let variables = matrix
+            .row_iter()
+            .flatten()
+            .chain(rhs.row_iter().flatten())
+            .map(|value| value.numerator.nvars().max(value.denominator.nvars()))
+            .max()
+            .unwrap_or(0);
+        let entry_bytes = variables
+            .checked_mul(2 * size_of::<u16>())
+            .and_then(|bytes| {
+                bytes.checked_add(
+                    size_of::<RationalPolynomial<Z, u16>>() + 2 * size_of::<Integer>() + 128,
+                )
+            })
+            .ok_or(MathError::Limit("exact witness entry backing"))?;
+        let augmented_bytes = augmented_entries
+            .checked_mul(entry_bytes)
+            .ok_or(MathError::Limit("exact witness backing"))?;
+        if augmented_bytes > self.request.limits.bytes {
+            return Err(MathError::Limit("exact witness bytes"));
+        }
+        crate::construction::additional(augmented_bytes)?;
         let identity = Matrix::identity(matrix.nrows() as u32, matrix.field().clone());
         let mut reduced = matrix
             .augment(&rhs)
             .and_then(|matrix| matrix.augment(&identity))
             .map_err(|error| MathError::Library(error.to_string()))?;
         let limits = self.request.limits;
-        let mut matrix_peak = 0usize;
+        let mut matrix_peak = augmented_bytes;
         let witness = reduced.row_reduce_with(
             unknown_count as u32,
             &mut |current: &ExactMatrix, pivots, work, operation| {
@@ -1312,6 +1381,30 @@ impl PreparedDiagnostic {
                 let mut terms = 0usize;
                 let mut bytes = 0usize;
                 for value in current.row_iter().flatten().chain(pivots) {
+                    bytes = bytes
+                        .checked_add(size_of::<RationalPolynomial<Z, u16>>())
+                        .ok_or(MathError::Limit("exact block value backing"))?;
+                    for polynomial in [&value.numerator, &value.denominator] {
+                        bytes = polynomial
+                            .coefficients
+                            .capacity()
+                            .checked_mul(size_of::<Integer>())
+                            .and_then(|n| {
+                                polynomial
+                                    .exponents
+                                    .capacity()
+                                    .checked_mul(size_of::<u16>())
+                                    .and_then(|e| n.checked_add(e))
+                            })
+                            .and_then(|n| {
+                                polynomial
+                                    .nvars()
+                                    .checked_mul(128)
+                                    .and_then(|v| n.checked_add(v))
+                            })
+                            .and_then(|n| bytes.checked_add(n))
+                            .ok_or(MathError::Limit("exact block polynomial backing"))?;
+                    }
                     terms = terms
                         .checked_add(value.numerator.nterms())
                         .and_then(|n| n.checked_add(value.denominator.nterms()))
@@ -1745,7 +1838,21 @@ fn exact_arithmetic_admission(
     if terms > limits.terms || bits > limits.coefficient_bits {
         return Err(MathError::Limit("exact arithmetic predicted growth"));
     }
-    let bytes = mul(mul(terms, add(bits.div_ceil(8), 128)?)?, 64)?;
+    let variables =
+        |value: &RationalPolynomial<Z, u16>| value.numerator.nvars().max(value.denominator.nvars());
+    let variables = match operation {
+        RowReductionOperation::Inspect => 0,
+        RowReductionOperation::Inverse(value) => variables(value),
+        RowReductionOperation::Multiply(a, b) => variables(a).max(variables(b)),
+        RowReductionOperation::SubtractProduct(a, b, c) => {
+            variables(a).max(variables(b)).max(variables(c))
+        }
+    };
+    let term_bytes = add(
+        add(bits.div_ceil(8), 128)?,
+        mul(variables, size_of::<u16>())?,
+    )?;
+    let bytes = mul(mul(terms, term_bytes)?, 64)?;
     if bytes > limits.bytes {
         return Err(MathError::Limit("exact arithmetic predicted bytes"));
     }
@@ -2137,12 +2244,15 @@ mod tests {
     }
     #[test]
     fn diagnostic_delivers_original_rows_and_ordered_native_partials() {
-        let plan = plan(1, |_, input| {
-            vec![expression(
-                input[0].atom.as_ref().unwrap().pow(2)
-                    + input[0].atom.as_ref().unwrap() * Atom::num(2),
-                &input[0],
-            )]
+        let plan = plan(2, |_, input| {
+            vec![
+                expression(
+                    input[0].atom.as_ref().unwrap().pow(2)
+                        + input[0].atom.as_ref().unwrap() * Atom::num(2),
+                    &input[0],
+                ),
+                input[1].clone(),
+            ]
         });
         let mut request = request(DiagnosticClaim::ChosenPrecision, 1, 1, 0);
         request.inputs = vec![point(1, 3)];
@@ -2392,6 +2502,16 @@ mod tests {
             )
             .unwrap();
         assert!(!out[0].is_finite());
+        evaluator
+            .try_evaluate_with(
+                &[RealBall::from(2.0)],
+                &mut out,
+                &mut control(&scope(), DiagnosticLimits::default()),
+            )
+            .unwrap();
+        assert_eq!(out[0].lower_bound().to_rational(), Rational::from((1, 2)));
+        assert_eq!(out[0].upper_bound().to_rational(), Rational::from((1, 2)));
+        out[0] = RealBall::from(73.0);
         let cancelled = scope();
         cancelled.cancellation_control().cancel();
         assert!(
@@ -2403,5 +2523,7 @@ mod tests {
                 )
                 .is_err()
         );
+        assert_eq!(out[0].lower_bound().to_rational(), Rational::from(73));
+        assert_eq!(out[0].upper_bound().to_rational(), Rational::from(73));
     }
 }
