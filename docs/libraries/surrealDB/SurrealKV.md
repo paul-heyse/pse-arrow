@@ -1,768 +1,998 @@
-# SurrealKV 1.0 — Comprehensive Rust Library Overview
+# SurrealKV (Rust): Comprehensive Technical Reference
 
-Version: 1.0.0 · Research date: October 22, 2026 · Language: Rust · License: Apache-2.0
+Research date: November 10, 2026 | Target release: SurrealKV 1.3.0 (November 6, 2026) | Language: Rust | License: Apache 2.0
+
+SurrealKV is a high-performance, embedded, transactional key-value storage engine developed by SurrealDB. Its architecture combines a log-structured merge tree (LSM), multi-version concurrency control (MVCC), an asynchronous commit pipeline, optional historical version retention, and a configurable storage subsystem.
+
+The 1.0 release on October 13, 2026 represented an important transition: SurrealKV became a standalone, production-oriented storage engine intended to replace RocksDB as SurrealDB's persistent storage foundation. Subsequent 1.2 and 1.3 releases improved recovery, concurrency, write stalls, and batched reads.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://surrealdb.com\&sz=32)
+
+SurrealDB+1
+
+
+
+Upstream repository: `https://github.com/surrealdb/surrealkv`
+
+Rust crate: `https://crates.io/crates/surrealkv`
+
+Release history: `https://github.com/surrealdb/surrealkv/releases`
 
 ## 1. Executive orientation
 
-SurrealKV is an embedded, transactional, persistent key-value storage engine implemented in Rust, combining a log-structured merge tree (LSM), multi-version concurrency control (MVCC), snapshot isolation, optimistic concurrency control, and an asynchronous commit pipeline.
+SurrealKV is best understood as a transactional storage kernel, rather than a complete database management system.
 
-Version 1.0 was announced on October 13, 2026, as the successor to RocksDB for persistent storage within SurrealDB. It is also independently usable as a Rust library, without requiring SurrealDB itself.&#x20;
+It manages durable byte-oriented records, concurrency, transaction isolation, historical versions, on-disk indexing, compaction, and recovery. Higher-level facilities such as schemas, declarative queries, relationships, secondary indexes, and application-specific validation belong to software built above it.
+
+| Capability family    | What SurrealKV provides                                                               |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| Storage engine       | Persistent LSM tree, sorted immutable SSTables, memtables, write-ahead logging        |
+| Transactions         | Atomic multi-key updates, snapshot isolation, optimistic concurrency control          |
+| Reads                | Point lookups, ordered key-range iteration, batched point reads                       |
+| Concurrency          | Multiple concurrent readers and writers, asynchronous commit processing               |
+| Temporal storage     | Timestamped versions, point-in-time reads, historical iteration, retention policies   |
+| Durability           | WAL-based recovery, immediate/eventual durability, integrity checks                   |
+| Storage optimization | Compression, Bloom filters, block caching, compaction, optional value separation      |
+| Operations           | Checkpointing, restoration, storage inspection, migration utilities                   |
+| Deployment           | Native embedded Rust applications, SurrealDB storage backend, browser OPFS            |
+| Extensibility        | Storage configuration, comparison and filtering policies, lower-level instrumentation |
+
+The most consequential architectural distinction is that SurrealKV provides both concurrency isolation and optional persistent historical data, but these are different mechanisms. Snapshot isolation protects active transactions; persistent versioning enables historical queries after those transactions have completed.
+
+Similarly, the asynchronous commit pipeline does not make every database operation asynchronous: ordinary point reads and range iterators remain synchronous, while an opt-in asynchronous point-read API exists.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+2
+
+
+
+## 2. Architecture and execution model
+
+### 2.1 Storage architecture
+
+SurrealKV uses a leveled LSM architecture with several cooperating components:
+
+Rust application / SurrealDB
+
+Transaction API · Key/value reads and writes · Ordered scans
+
+Transaction and commit coordination
+
+MVCC snapshots · OCC validation · Commit ring · Group commit
+
+Write-ahead log
+
+Recovery · Durability · Ordered commits
+
+Adaptive radix memtable
+
+Concurrent mutable state · Snapshot-visible versions
+
+Leveled LSM storage
+
+Immutable SSTables · Sorted keys · Block indexes · Filters · Compaction
+
+Optional value log
+
+Large-value separation
+
+Manifest and files
+
+Level metadata · Recovery state
+
+Conceptual data path; reads combine relevant memtables, SSTables, and value-log references rather than traversing every layer sequentially.
+
+The key architectural elements are:
+
+Adaptive radix tree memtables. Incoming writes are accumulated in memory using an adaptive radix tree backed by arena allocation. Compared with pointer-heavy skiplist approaches, this design can improve key locality and reduce allocation overhead. It is particularly relevant to high-frequency mutation workloads.
+
+Write-ahead logging. WAL records provide a durable recovery source independently of SSTable flushes. The engine can acknowledge a transaction before its records have been incorporated into immutable SSTables.
+
+Immutable SSTables. When memtables are flushed, their records become sorted disk-resident tables. Point lookups use table indexes and membership filters to avoid unnecessary disk reads.
+
+Leveled compaction. Background operations merge overlapping tables, control read amplification, and eventually reclaim overwritten values and tombstones. Compaction also enforces historical retention policies.
+
+Block caching. A unified cache serves SSTable data and index blocks and, when value separation is enabled, value-log data.
+
+Manifest management. Persistent metadata records the active organization of tables, supporting recovery and atomic changes to the storage structure.
+
+SurrealDB's engineering explanation specifically identifies the radix-tree memtable, commit ring, and inexpensive snapshot reads as principal performance mechanisms.&#x20;
 
 [image](https://www.google.com/s2/favicons?domain=https://surrealdb.com\&sz=32)
 
-SurrealDB
+SurrealDB+1
 
-+1
 
 
+### 2.2 The asynchronous commit pipeline
 
-SurrealKV's architectural distinction is its combination of:
+A distinctive part of SurrealKV 1.x is its commit-ring architecture.
 
-- Concurrent transactions: snapshot-isolated reads, optimistic write-conflict detection, and batched durable commits.
-- High-performance storage: concurrent radix-tree memtables, SSTables, leveled compaction, caching, and optional value-log separation.
-- Temporal data: optional timestamped key versions, historical lookups, version iteration, and retention-aware compaction.
-- Operational capabilities: crash recovery, durability controls, integrity verification, diagnostics, and storage migration.
-- Integration: a native Rust API, standalone embedding, browser persistence through WebAssembly/OPFS, and use as SurrealDB's underlying persistent engine.
+A simplified commit sequence is:
 
-The most important conceptual distinction is that SurrealKV is a storage kernel, not a complete database management system. It stores ordered binary keys and values and implements storage-level transactional guarantees. Schema management, secondary indexes, relational/graph semantics, query optimization, access control, and distributed coordination belong to higher layers or applications using the engine.
+1. A transaction assembles its pending mutations.
+2. Optimistic concurrency validation checks for conflicts with relevant committed or in-flight writes.
+3. The commit pipeline orders accepted transactions and assigns sequence numbers.
+4. A flusher groups multiple commits into WAL operations.
+5. Data is applied to the mutable storage structure and becomes visible according to the pipeline's publication ordering.
+6. Each transaction receives its result once the required commit and durability conditions have been met.
 
-### Capability map
+The design combines parallel validation with ordered publication and group commit. Multiple transactions can therefore share the cost of WAL operations and, where requested, synchronization to persistent storage.
 
-| Functional area        | Principal mechanisms                                        | Architectural significance                                   |
-| ---------------------- | ----------------------------------------------------------- | ------------------------------------------------------------ |
-| Storage                | LSM tree, radix-tree memtable, SSTables, WAL                | Persistent, write-oriented KV storage                        |
-| Transactions           | MVCC, snapshots, optimistic conflict detection              | Concurrent, atomic multi-key operations                      |
-| Commit processing      | Concurrent commit ring, group commit                        | Amortizes synchronization and WAL I/O                        |
-| Temporal storage       | Timestamped versions, `get_at`, history, retention          | Native historical state access                               |
-| Large values           | Optional value separation                                   | Reduces large-value rewriting during compaction              |
-| Reads and scans        | Point reads, ordered iterators, range and key-only scans    | Supports application-defined indexes and ordered data access |
-| Persistence            | Durability policies, WAL recovery, checkpoints              | Explicit crash-survival and recovery behavior                |
-| Efficiency             | Compression, filters, caching, memory budgeting, autotuning | Configurable read/write/memory tradeoffs                     |
-| Security and integrity | Authenticated encryption, checksums, scrubbing              | Storage protection and corruption detection                  |
-| Operations             | Telemetry, inspection, `skv` CLI, migration utilities       | Diagnostics, maintenance, and format transition              |
+The important distinction is between asynchronous coordination and asynchronous disk I/O. SurrealKV does not universally use nonblocking kernel I/O. Its current implementation routes selected operations through `affinitypool` and otherwise uses synchronous file access.
 
-Primary entry points
+In particular:
 
-- Repository: `https://github.com/surrealdb/surrealkv`
-- Rust API documentation (1.0.0): `https://docs.rs/surrealkv/1.0.0/surrealkv/`
-- Crate registry: `https://crates.io/crates/surrealkv`
-- SurrealKV 1.0 announcement: `https://surrealdb.com/blog/we-are-replacing-rocksdb-with-surrealkv-1-0`
+- WAL append/synchronization, asynchronous point reads, and parallel WAL recovery can use an application-installed worker pool.
+- Ordinary `get` calls and iterators use synchronous reads.
+- Without an installed worker pool, the relevant work may execute inline.
+- The upstream implementation explicitly does not use Linux `io_uring`.&#x20;
 
-The remaining discussion targets the published 1.0.0 API, rather than assuming older 0.x examples or development-branch APIs are interchangeable.
+  [image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
 
-## 2. Storage architecture and execution model
+  GitHub
 
-SurrealKV is organized around a `Tree`, representing an independently configured persistent keyspace. A `TreeBuilder` opens or creates the storage engine; transactions operate against that tree, and background work manages memtable flushing, SSTable compaction, and persistence.
 
-The architecture is described in detail in the official October 2026 whitepaper, A Versioned LSM Engine with Radix-Tree Memtables and a Commit Ring:
 
-`https://surrealdb.com/static/whitepapers/surrealkv.pdf`
+This gives callers a useful distinction between avoiding caller-side coordination overhead and avoiding blocking execution threads.
 
-### 2.1 End-to-end storage path
+### 2.3 Snapshot management and MVCC
 
-Conceptual write/storage path, simplified from the SurrealKV 1.0 whitepaper. Reads combine visible versions across memory and on-disk tables.
+MVCC associates stored changes with internal sequence numbers and retains sufficient versions for currently active readers.
 
-### 2.2 Concurrent adaptive radix-tree memtable
+A transaction reads against a consistent snapshot, rather than continually observing the latest committed state. This allows writers to continue while older read transactions retain their logical view.
 
-SurrealKV uses a concurrent adaptive radix tree rather than the skiplist-based memtables characteristic of RocksDB and Pebble.
+SurrealKV also distinguishes between:
 
-The memtable stores lexicographically ordered keys in an arena-backed, prefix-oriented structure. Its relevant properties include compact representation of shared key prefixes, adaptive child representations, and efficient lookup and ordered traversal.
+- Sequence-number visibility: which committed writes belong to a transaction's snapshot.
+- Application-visible timestamps: which historical value applies to a particular requested time.
+- Physical retention: which versions must remain on disk for active snapshots or configured history.
 
-The design separates the structure of the tree from the byte payloads held by its entries. A fixed-size arena provides predictable structural allocation, although this does not impose a hard bound on total value memory.
+These mechanisms interact during compaction but are not interchangeable.
 
-When a memtable reaches capacity, it becomes immutable and a new active memtable replaces it. A background flush converts the immutable memtable into an L0 SSTable. An oversized batch can be written directly as an L0 table rather than requiring the active memtable to expand indefinitely.
+An old snapshot can require retaining data that an ordinary current read would no longer return. Conversely, enabling persistent historical retention does not make an active transaction read every historical version.
 
-The default memtable capacity described by the 1.0 whitepaper is 100 MiB.
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/snapshot.rs`
 
-Why this matters: The radix tree is designed to reduce pointer chasing, allocation overhead, and contention on the memory-resident write/read path. The fixed arena also makes the structural memory cost more controllable. However, relative performance depends on key distribution, prefix sharing, allocator behavior, and read/write patterns. The published benchmarks do not isolate the radix tree's individual contribution.&#x20;
+## 3. Transactions, isolation, and concurrency control
 
-[image](https://www.google.com/s2/favicons?domain=https://surrealdb.com\&sz=32)
+### 3.1 Transaction modes
 
-surrealdb.com
+SurrealKV exposes three transaction modes through `Mode` and `TransactionOptions`.
 
-+1
+| Mode        | Behavior                                   | Important distinction                                                                                         |
+| ----------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| `ReadWrite` | Reads and writes within a transaction      | Default mode; permits read-dependent updates and explicit conflict-tracked reads                              |
+| `ReadOnly`  | Consistent snapshot reads without mutation | Does not enter the writable commit path                                                                       |
+| `WriteOnly` | Mutations without reads                    | Avoids constructing a read snapshot and suits data ingestion where decisions do not depend on existing values |
 
+The principal entry points are `Tree::begin`, `begin_with_mode`, and `begin_with_opts`.
 
+`Tree::view` also provides a closure-based convenience method for a read-only snapshot operation.
 
-### 2.3 Leveled LSM storage
+### 3.2 Optimistic concurrency and conflict detection
 
-Persistent data is organized into immutable sorted-string tables (SSTables), grouped by level.
+SurrealKV uses optimistic concurrency control rather than a general-purpose pessimistic locking system.
 
-An SSTable combines compressed key blocks, index partitions, probabilistic filters, checksums, and metadata. SurrealKV uses a two-level table index, with a top-level index held in memory and subordinate partitions fetched as needed.
+Transactions can construct their updates concurrently. At commit, the storage engine checks whether relevant intervening transactions have changed keys that require validation.
 
-The default configuration described in the whitepaper is:
+A conflict can produce `Error::TransactionWriteConflict`. An old transaction whose necessary conflict history has been retired can produce `Error::TransactionRetry`.
 
-| Mechanism                | 1.0 default                           |
-| ------------------------ | ------------------------------------- |
-| LSM levels               | 6                                     |
-| Memtable                 | 100 MiB                               |
-| Data block size          | 64 KiB                                |
-| Unified block cache      | 32 MiB                                |
-| L0 compaction trigger    | 4 tables or 256 MiB                   |
-| Level 1 target           | 256 MiB                               |
-| Level size multiplier    | 10×                                   |
-| Compaction output target | 64 MiB                                |
-| Write stall              | 12 L0 tables or 2 immutable memtables |
+This is a meaningful distinction from simply serializing all writers through a global lock: transactions can perform useful work concurrently, with conflicts resolved at the commit boundary.
 
-Compaction selects work according to level pressure and file priority, merges overlapping sorted runs, and discards obsolete versions when snapshot and history-retention rules permit.
+Snapshot isolation is not equivalent to full serializability.
 
-SurrealKV's 1.0 design uses a single active compaction operation, so scaling is not simply a matter of raising the number of background workers.
+Consider an invariant that depends on two separate keys. Two transactions may read the same old state and write different keys, each preserving the invariant according to its own snapshot, but violating it in combination. This is the classic write-skew problem.
 
-Consequential tradeoff: Leveled compaction improves lookup efficiency by reducing overlapping files in lower levels, but entails rewriting data. The frequency and cost of rewriting depend on level sizing, overwrite patterns, tombstone density, the amount of retained history, and whether large values are stored inline.
+SurrealKV does not automatically prevent every such anomaly.
 
-### 2.4 SSTable indexing, caching, and read costs
+### 3.3 `get_for_update`: conflict-tracked reads
 
-A point lookup may search the active memtable, immutable memtables, and relevant on-disk tables. It uses metadata and filters to avoid unnecessary data-block reads.
+The API includes an especially useful operation:
 
-The primary mechanisms are:
+`Transaction::get_for_update(key)`
 
-- Prefix-compressed data blocks with restart points for reconstruction and seeking.
-- Two-level partitioned indexes for reducing resident index memory.
-- Partitioned Bloom filters to exclude SSTables or partitions that cannot contain a requested key.
-- A sharded, byte-weighted block cache shared by index blocks, filter blocks, data blocks, and value-log values.
+It returns the same value as `get`, but records the key for validation at commit. If another transaction has committed a write to that key since the transaction's snapshot, the commit fails.
 
-These structures can reduce disk accesses for point reads and working sets with locality.
+This is valuable for read-modify-write operations and conditional updates, especially where the key being read is not otherwise part of the transaction's write set.
 
-However, the whitepaper identifies several implementation costs: synchronous reads can perform positional file I/O on the calling thread; the implementation does not depend on memory mapping or kernel asynchronous I/O; scan cursors combine multiple sources; and reverse traversal can require reconstruction from block restart points.
+However, its semantics are precise:
 
-Consequently, a fast point-lookup path does not imply that long range scans or reverse scans have the same relative advantage.
+- It does not obtain an exclusive lock on the key.
+- Multiple transactions can read the same key for update concurrently.
+- A read-only transaction cannot use it.
+- Transactions that only perform tracked reads do not necessarily conflict with each other.
+- A caller requiring competing transactions to conflict over an invariant may need a common record that they actually write.
 
-Source: `https://surrealdb.com/static/whitepapers/surrealkv.pdf`, §§5–7.
+Thus `get_for_update` provides snapshot conflict validation, not a general serializable predicate-locking mechanism.
 
-## 3. Transactions, isolation, and concurrency
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/transaction.rs`
 
-The transaction model is one of SurrealKV's most significant capabilities, particularly when used independently of SurrealDB.
+### 3.4 Read-your-own-writes
 
-### 3.1 Snapshot isolation and MVCC
+Within a transaction, pending mutations are consulted before the stored snapshot.
 
-Each transaction observes a consistent snapshot identified by a published sequence number. Reads select the newest visible version at or below that sequence.
+For example, a transaction that changes a value and then reads the same key sees its pending value rather than the value at the transaction's original snapshot.
 
-A transaction can perform multiple reads and writes while preserving a consistent view of committed data. Local pending writes are included in the transaction's own reads.
+The same principle applies to deletions and range tombstones, subject to their ordering within the transaction.
 
-SurrealKV's concurrency model is:
+This removes the need for a separate application-side overlay of uncommitted changes.
 
-| Property               | Semantics                                                |
-| ---------------------- | -------------------------------------------------------- |
-| Atomic writes          | A committed transaction's writes become visible together |
-| Read consistency       | Snapshot isolation                                       |
-| Concurrent readers     | Do not block ordinary writes                             |
-| Write conflicts        | First-committer-wins for overlapping written keys        |
-| Plain reads            | Not validated for conflicts at commit                    |
-| Locked reads           | `get_for_update` registers a key for conflict validation |
-| Serializable isolation | Not generally guaranteed                                 |
-| Failed commit          | Transaction becomes closed; retry in a new transaction   |
+### 3.5 Savepoints and partial rollback
 
-The distinction between snapshot isolation and serializability is essential.
+SurrealKV supports:
 
-Two transactions can read the same snapshot, make decisions based on different keys, and commit disjoint writes that jointly violate an application-level invariant. This is the classic write-skew anomaly.
+- `set_savepoint()`
+- `rollback_to_savepoint()`
+- `rollback()`
 
-`get_for_update` helps by registering a read key for conflict validation, but does not acquire an exclusive mutex. Two transactions can both register the same key and succeed if neither writes it. Range scans also do not provide general predicate-conflict validation.
+Savepoints are stackable and allow a transaction to discard changes made since a particular savepoint without abandoning its earlier operations.
 
-Accordingly, serializable application behavior may require explicit contention keys or additional invariant enforcement.
+Rollback to a savepoint also releases conflict-tracked reads first acquired after that savepoint.
 
-### 3.2 Commit ring and group commit
+This can simplify atomic multi-step operations that need to revise provisional changes before commit.
 
-SurrealKV distinguishes itself from more conventional transaction pipelines by separating concurrent validation from ordered persistence.
+Savepoints are local transaction state. They are not independent durable subtransactions.
 
-Its pipeline has three important stages:
+### 3.6 Transaction lifecycle and retry behavior
 
-1. Concurrent validation: writers enter a bounded commit ring, publish their write sets, and detect possible conflicts using Bloom-filter prechecks followed by exact key comparison.
-2. Grouped persistence: a single flusher collects ready commits in ring order, assigns sequence numbers, and appends the group to the WAL.
-3. Ordered publication: the flusher applies the group to the memtable, advances the published sequence number, and completes waiting commits.
+A successful or failed commit attempt terminates the transaction.
 
-The reference architecture uses a 65,536-slot ring, permits up to 32,768 admitted commits, and gathers commit groups up to 4 MiB. A group requires at most one WAL synchronization when any member requests immediate durability.
+That matters operationally: a transaction returning a conflict cannot simply call `commit()` again. Its reads and mutations must be reconstructed in a new transaction.
 
-This design reduces the number of expensive synchronization operations relative to processing every concurrent transaction through an independent synchronous WAL append.
+An application retry loop should distinguish conflicts from failures involving uncertain durability or partial pipeline application.
 
-It also preserves ordered visibility: readers cannot observe a partially applied commit group.
+In particular, certain serious commit-group failures can poison the database. The error types distinguish operations known not to have started from operations whose final committed outcome must be resolved during recovery.
 
-There are important tradeoffs. The single flusher serializes application to the active memtable, and conservative conflict detection can reject a transaction that would not ultimately have conflicted. The system is optimized for throughput under concurrency rather than guaranteeing a conflict-free or fully parallel commit path.&#x20;
+This makes blind retrying of non-idempotent external operations unsafe without additional application-level safeguards.
 
-[image](https://www.google.com/s2/favicons?domain=https://surrealdb.com\&sz=32)
+## 4. Key-value operations and mutation semantics
 
-surrealdb.com
+SurrealKV stores byte-oriented keys and values. It does not impose a schema or typed record format.
 
-+1
+### 4.1 Core mutation operations
 
+| Operation                       | Semantics                                                        |
+| ------------------------------- | ---------------------------------------------------------------- |
+| `set(key, value)`               | Insert or update a key                                           |
+| `set_at(key, value, timestamp)` | Write a version with an explicitly supplied timestamp            |
+| `set_with_options`              | Write with operation-specific options                            |
+| `delete(key)`                   | Hard delete, logically removing all prior versions of the key    |
+| `soft_delete(key)`              | Add a timestamped deletion marker, retaining eligible history    |
+| `replace(key, value)`           | Replace a value while discarding prior version history logically |
+| `delete_range(start, end)`      | Delete keys within a half-open range using a range tombstone     |
 
+The distinction between ordinary, soft, and hard deletion is particularly important when historical retention is enabled.
 
-### 3.3 Transaction API and modes
+Soft deletion preserves a meaningful historical state: a query for an earlier time can still find a value, provided its version remains retained.
 
-The principal entry points are `Tree::begin`, `begin_with_mode`, `begin_with_opts`, and `view`.
+Hard deletion defines a history-erasing boundary. The application should not expect earlier values to remain queryable after the deletion.
 
-The 1.0 transaction interface supports the following operation families:
+Replacement similarly establishes a new value while invalidating earlier history, unlike an ordinary versioned `set`.
 
-| Family               | Key methods                                                    |
-| -------------------- | -------------------------------------------------------------- |
-| Read                 | `get`, `get_async`, `get_for_update`, `get_at`                 |
-| Write                | `set`, `set_at`, `replace`, `delete`, `soft_delete`            |
-| Range modification   | `delete_range`                                                 |
-| Iteration            | `iter`, `scan`, `range`, `range_with_options`                  |
-| Historical iteration | `history`, `history_with_options`                              |
-| Transaction control  | `commit`, `rollback`, `set_savepoint`, `rollback_to_savepoint` |
-| Durability control   | `set_durability`, `with_durability`                            |
+Physical reclamation still depends on compaction and active-reader visibility; these operations should not be interpreted as guarantees of immediate secure erasure of every storage copy.
 
-`Mode` and transaction options distinguish read-only, read-write, and write-only behaviors. A write-only transaction does not need to establish a read snapshot; a read-only transaction cannot perform writes or commit-time locked-read validation.
+### 4.2 Range deletion
 
-Savepoints provide stackable local rollback points without committing the enclosing transaction. A failed commit attempt terminates the transaction, so retries require reconstructing the intended operation in a fresh transaction.
+`delete_range(start, end)` is implemented as an O(1) logical range-tombstone insertion, rather than individually enumerating and deleting every matching key.
 
-The implementation exposes both ordinary key reads and conflict-tracked reads rather than silently treating every read as a potential write dependency.
+This is a consequential feature for deleting whole namespaces, partitions, or ranges identified by a key prefix.
 
-### 3.4 Deletes and version visibility
+For example, a key schema that groups records under `session:<escape><id></escape>:` can make a whole session removable through an ordered range operation.
 
-SurrealKV provides several semantically different forms of modification:
+The O(1) claim concerns creation of the logical deletion marker. Subsequent reads and compaction still have work to perform, and actual disk reclamation is deferred.
 
-- `delete`: hard deletion, hiding all earlier versions of a key.
-- `soft_delete`: adds a timestamped tombstone, retaining temporal deletion information where versioning is enabled.
-- `replace`: writes a new value while establishing a barrier against earlier versions.
-- `delete_range`: creates a range tombstone over `[start, end)` without individually rewriting every key at deletion time.
+### 4.3 Key ordering and encoding
 
-The last distinction is useful for clearing ordered subspaces, such as a collection represented by a shared key prefix.
+The default comparator is `BytewiseComparator`, which orders keys lexicographically.
 
-An O(1) range-tombstone insertion should not be confused with O(1) total deletion cost. Reads and compaction still need to interpret the tombstone, and physical reclamation occurs later.
+Consequently, key serialization is part of database design.
 
-Under snapshot isolation, range-delete conflict detection does not amount to general phantom prevention; the whitepaper specifies that only the range's start key participates in its commit-conflict check.
+A key consisting of multiple components can support efficient prefix and range queries, but only if its byte encoding preserves the desired ordering. Fixed-width or order-preserving encodings may be appropriate for numeric identifiers, timestamps, and composite keys.
 
-Sources
+SurrealKV also exposes a `Comparator` abstraction, permitting alternative key-ordering behavior.
 
-- Transaction API: `https://docs.rs/surrealkv/1.0.0/surrealkv/struct.Transaction.html`
-- Tree API: `https://docs.rs/surrealkv/1.0.0/surrealkv/struct.Tree.html`
-- Commit architecture and isolation: `https://surrealdb.com/static/whitepapers/surrealkv.pdf`, §4.
+This can eliminate some application-side sorting, but custom comparison behavior should be treated as a persistent storage-format decision rather than an interchangeable runtime preference.
 
-## 4. Temporal versioning and historical state
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/comparator.rs`
 
-SurrealKV's optional temporal versioning is more than conventional MVCC. Ordinary MVCC retains versions needed by active transactions; SurrealKV can deliberately preserve historical versions beyond transaction lifetimes and expose them to callers.
+## 5. Reading, scanning, and historical queries
 
-### 4.1 Two independent notions of time
+### 5.1 Point reads and batched retrieval
 
-SurrealKV distinguishes:
+The ordinary point-read API is `Transaction::get(key)`, returning `Result<Option<Value>>`.
 
-1. Commit sequence number: establishes transactional visibility and write ordering.
-2. Version timestamp: represents the time associated with a stored value, supplied by the caller or assigned at commit.
+SurrealKV 1.3.0 added two particularly useful batch operations:
 
-A transaction sees only versions permitted by its snapshot sequence. Within that visible set, `get_at(key, timestamp)` selects the version with the greatest timestamp not exceeding the requested time. If timestamps tie, the newer write wins.
+- `get_many(keys)` — reads multiple keys using one captured view of the memtables and SSTables.
+- `get_many_at(keys, timestamp)` — performs the equivalent batched lookup against historical versions.
 
-This means an application can insert a historical correction after newer data has already been committed. The correction becomes visible to later transactions but can affect what those transactions observe when querying an earlier point in time.
+Both preserve the input key order and return one optional value per requested key.
 
-A later commit does not necessarily have a later version timestamp.
+The optimization is not a database-side relational join or a general bulk query planner. It avoids repeatedly acquiring tree-state information for individual point lookups, while still performing the necessary searches for each key.
 
-### 4.2 Versioning configuration and operations
+For workloads that repeatedly retrieve a known set of related records, this can reduce storage coordination overhead without requiring an application-defined batching layer.
 
-Versioning is disabled by default. It is enabled through `with_versioning(true, retention_ns)`.
+### 5.2 Borrowed-value callbacks
 
-| Operation or setting           | Function                                                                               |
-| ------------------------------ | -------------------------------------------------------------------------------------- |
-| `set_at(key, value, ts)`       | Write a version carrying an explicit timestamp                                         |
-| `set(...)` in a versioned tree | Timestamp at commit                                                                    |
-| `get_at(key, ts)`              | Retrieve the visible version as of a timestamp                                         |
-| `history(start, end)`          | Iterate historical versions over a key range                                           |
-| `history_with_options(...)`    | Filter history by timestamp interval, tombstone inclusion, and result limit            |
-| `soft_delete(...)`             | Record a time-bearing deletion event                                                   |
-| `retention_ns = 0`             | Retain all history not hidden by hard barriers                                         |
-| `retention_ns > 0`             | Retain recent history and the boundary versions necessary for correct historical reads |
+The 1.3 API additionally exposes `get_with` and `get_many_with`.
 
-These mechanisms do not require enabling the separate value log. The 1.0 implementation stores timestamps within value records and reuses the existing LSM structures for history retention and retrieval.&#x20;
+These invoke a caller-provided callback with a borrowed value slice:
 
-[image](https://www.google.com/s2/favicons?domain=https://surrealdb.com\&sz=32)
+```
+tx.get_many_with(&keys, |index, value| {
+    // The borrowed value is valid only during this callback.
+})?;
+```
 
-surrealdb.com
+This can avoid copying values into a newly allocated `Vec<u8>` when the engine can supply them from its underlying storage representation.
 
-+1
+There are two important limitations. The borrowed slice cannot safely be retained beyond the callback, and reading a value from disk or resolving a compressed or value-log-backed representation can still require internal buffers or allocations.
 
+Historical callback variants (`get_at_with`, `get_many_at_with`) exist, but the upstream implementation notes that historical iterators already produce owned values in some paths, so they do not offer the same copy-avoidance guarantee.
 
+### 5.3 Ordered scans and bidirectional cursors
 
-### 4.3 Historical reads and historical iteration
+SurrealKV provides `iter`, `scan`, `range`, and `range_with_options`.
 
-`get_at` inspects visible versions of the requested key and selects by timestamp. It is not a direct timestamp-index lookup.
+The iterator contract supports:
 
-`history` iterates across keys in the requested range and returns versions for each key in descending timestamp order. It can include tombstones and can traverse in either direction.
+| Operation                      | Purpose                                                |
+| ------------------------------ | ------------------------------------------------------ |
+| `seek_first()` / `seek_last()` | Begin a forward or reverse traversal                   |
+| `next()` / `prev()`            | Advance or reverse a cursor                            |
+| `valid()`                      | Determine whether the cursor references an entry       |
+| `key()`                        | Access the current key and internal version metadata   |
+| `value()`                      | Retrieve the current value                             |
+| `value_ref()` / `value_into()` | Control value copying and buffer reuse where supported |
 
-This provides two different operations:
+`scan` accepts Rust range expressions, including inclusive and exclusive bounds. `range(start, end)` uses an inclusive lower bound and exclusive upper bound.
 
-- State reconstruction: determine the value that applied at a specified logical time.
-- Change examination: enumerate past values and deletions, including multiple versions of the same key.
+The engine merges the relevant in-memory and persistent data sources into a logical ordered view. A caller does not need to merge memtable and SSTable iterators independently.
 
-These are useful primitives for temporal records, historical configuration, change reconstruction, and audit-oriented data models. They do not automatically produce cross-key audit events, transaction-level change feeds, or materialized snapshots of an entire application state.
+Prefix scanning is a consequence of key ordering, not a separate full-text indexing mechanism. For a prefix namespace, correctly constructed lower and upper byte boundaries allow the scan to be restricted to that namespace.
 
-A point-in-time transaction's snapshot sequence and a `get_at` historical timestamp should not be conflated. The former determines which writes the transaction is allowed to see; the latter determines which timestamped version to select from those writes.
+A consequential subtlety is that the lower-level `LSMIterator::seek` contract refers to encoded internal keys. Callers should use the appropriate key-encoding helpers or start with the documented range/seek-first patterns rather than assuming an arbitrary user-key byte slice is always a valid internal seek target.
 
-### 4.4 Retention and compaction
+### 5.4 Persistent historical versioning
 
-Temporal retention is enforced during compaction.
+Historical queries are enabled explicitly:
 
-With a nonzero retention horizon, the engine preserves versions within the retention window and boundary versions required to answer reads correctly at the cutoff. Open snapshots can retain additional versions.
+```
+let options = surrealkv::Options::new()
+    .with_versioning(true, 0);
+```
 
-This is not a time-based deletion service that immediately removes data when a clock reaches a deadline. Versions are reclaimed as compactions process their keys, subject to snapshot visibility and deletion barriers.
+The second argument is a retention duration in nanoseconds. Zero means that historical versions have no configured age-based expiry.
 
-There are three particularly consequential limits:
+A versioned tree stamps writes with either their explicitly supplied timestamp or the commit timestamp.
 
-- A `get_at` read examines every visible version of its key. Its cost therefore increases with retained history.
-- A history iterator buffers the versions of one key while processing them, so a single exceptionally version-heavy key can increase memory consumption.
-- A hard delete, replace, or range delete hides prior history rather than merely adding another time-stamped event. Soft deletion is the mechanism for preserving a deletion event as historical data.
+Relevant APIs are:
 
-The 1.0 whitepaper states explicitly that it does not contain measurements for temporal read overhead or versioned compaction overhead.
+| API                      | Role                                                         |
+| ------------------------ | ------------------------------------------------------------ |
+| `set_at(key, value, ts)` | Insert a version with an explicit timestamp                  |
+| `get_at(key, ts)`        | Return the value applicable at a given timestamp             |
+| `get_many_at(keys, ts)`  | Retrieve several historical values                           |
+| `history(start, end)`    | Iterate stored versions within a key range                   |
+| `history_with_options`   | Add timestamp bounds, tombstone inclusion, and result limits |
 
-Source: `https://surrealdb.com/static/whitepapers/surrealkv.pdf`, §8.
+Historical iteration orders keys by key order and versions within each key by descending timestamp.
 
-## 5. WAL durability, recovery, checkpoints, and integrity
+`HistoryOptions` can filter to an inclusive timestamp interval, include soft-deletion tombstones, and limit the number of results.
 
-### 5.1 Durability is a transaction-level choice
+For a simple key with versions written at times 100, 200, and 300, a lookup at 250 returns the version from 200, assuming that version has been retained and is visible to the transaction.
 
-SurrealKV exposes two durability policies:
+Backdated inserts are supported. A value may be written with a timestamp earlier than already recorded versions. Consequently, timestamp order and commit order need not match.
 
-| Policy                  | Meaning                                                                                     | Principal tradeoff                                                                                  |
-| ----------------------- | ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| `Durability::Eventual`  | Commit without waiting for an `fsync`; default                                              | Lower synchronization cost, but an OS crash or power failure can lose recently acknowledged commits |
-| `Durability::Immediate` | Wait for the WAL and required value-log data to be synchronized before acknowledging commit | Stronger crash-survival guarantee at the cost of synchronization                                    |
+This enables temporal correction and late-arriving observations, but applications must define whether an explicit timestamp means event time, validity time, or something else. SurrealKV supplies timestamped storage, not a complete bitemporal database model.
 
-Because transactions are group-committed, one immediately durable transaction can cause the entire group to be synchronized, including other transactions requesting eventual durability.
+### 5.5 Retention is not simply a TTL
 
-`Tree::flush_wal(true)` provides a separate synchronization boundary for preceding WAL writes, while `flush_wal(false)` flushes without requesting the same disk synchronization guarantee.
+Historical retention is enforced through compaction. When old versions become eligible for removal, the engine also needs to preserve sufficient preceding state for a query at the beginning of the retained interval.
 
-This permits a deliberate distinction between transactional atomicity and isolation and persistence through a power failure. Both modes use the transaction machinery; the difference is when the engine acknowledges the requested durability.&#x20;
+Retention is therefore better understood as a compaction policy over historical visibility, rather than as a promise that every expired version disappears immediately.
 
-[image](https://www.google.com/s2/favicons?domain=https://surrealdb.com\&sz=32)
+Active snapshots can additionally prevent reclamation of otherwise obsolete versions.
 
-surrealdb.com
+The resulting distinctions are important:
 
-+1
+- Setting retention to zero retains history indefinitely, potentially increasing persistent storage.
+- Setting finite retention does not guarantee immediate physical deletion when the duration expires.
+- A historical value outside the retained interval may no longer be available.
+- A hard delete or replacement can invalidate historical versions independently of age-based retention.
 
+Unlike SurrealKV 0.21, SurrealKV 1.3 does not require an enabled value log or a separate versioned B+tree index to support versioning. Version metadata is stored with values in the LSM representation.
 
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/transaction.rs`
 
-### 5.2 Crash recovery and explicit salvage behavior
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/lib.rs`
 
-SurrealKV associates WAL segments with memtable generations. On restart, it loads the manifest and referenced table metadata, replays the relevant WAL segments, and resumes logging in a new segment.
+## 6. Durability, write-ahead logging, and recovery
 
-The 1.0 implementation does not treat arbitrary WAL corruption as a reason to silently discard data.
+### 6.1 Transaction durability options
 
-| Recovery policy       | Behavior                                                                                                         |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Default recovery      | Repair a provable torn tail of the newest WAL segment; reject corruption that would discard known intact records |
-| `AbsoluteConsistency` | Reject a damaged log without modifying it                                                                        |
-| `SalvageValidPrefix`  | Explicitly retain a valid log prefix and discard later records, accepting potential data loss                    |
+The `Durability` enum defines two public durability levels.
 
-The default repair path quarantines copies of affected log segments and exposes recovery reporting. `Tree::recovery_report()` supplies information about replayed, trimmed, or discarded records and related repair actions.
+| Mode                 | Commit behavior                                         | Consequence                                                                 |
+| -------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `Eventual` (default) | Does not require an `fsync` before returning            | Recent committed data can be lost following a power failure                 |
+| `Immediate`          | Waits for required WAL synchronization before returning | Stronger persistence guarantee, subject to filesystem and hardware behavior |
 
-Recovery also verifies relevant references to values stored in the separate value log. Depending on recovery policy and the location of the damage, a missing referenced value can prevent the database from opening.
+These modes do not change transaction isolation. They change what the commit promises about persistence.
 
-A directory containing database data but lacking a usable manifest is rejected rather than silently reinitialized as an empty database. This matters for preventing accidental apparent data loss when a file or metadata operation fails.&#x20;
+In particular, an atomic transaction with eventual durability is still atomic in the storage engine's logical commit model, but an acknowledged commit may not survive a system crash.
 
-[image](https://www.google.com/s2/favicons?domain=https://surrealdb.com\&sz=32)
+The API allows per-transaction selection:
 
-surrealdb.com
+```
+let mut tx = tree.begin()?;
+tx.set_durability(surrealkv::Durability::Immediate);
+tx.set(b"critical:key", b"value")?;
+tx.commit().await?;
+```
 
-+1
+`Tree::flush_wal(sync)` can also flush previously committed WAL and value-log data, optionally forcing synchronization when `sync = true`.
 
+This provides a mechanism for separating transaction-level acknowledgment policy from explicit storage synchronization.
 
+### 6.2 WAL segment management
 
-### 5.3 Checkpoint and restore
+The write-ahead log is segmented and supports rotation, replay, and recovery of changes not yet incorporated into persistent SSTables.
 
-The engine provides native `Tree::create_checkpoint` and `Tree::restore_from_checkpoint` operations.
+Because SurrealKV may use a separate value log, recovery must consider references to values as well as the WAL record itself.
 
-A checkpoint establishes a consistent on-disk representation by flushing memtables, hard-linking immutable SSTables into the checkpoint, copying the manifest and value-log contents, and creating an empty WAL directory. Completion metadata is written last so incomplete checkpoints are detectable.
+An otherwise valid WAL record referencing a value that was not durably written to the value log cannot simply be replayed as if it were complete.
 
-A restore validates its source before modifying the destination, coordinates with compaction, and fences in-flight commits from entering the restored state.
+SurrealKV 1.x contains recovery logic that evaluates these dependencies and can reject inconsistent states rather than returning incomplete values.
 
-Important constraints:
+### 6.3 Recovery modes
 
-- Checkpoints are not merely an unflushed snapshot of process memory; creating one entails storage work.
-- Hard-linking SSTables can reduce local copy cost, but does not itself create an independent off-host backup.
-- Restore is not atomic. An interrupted restore leaves a detectable marker and prevents an ordinary open until the interruption is addressed.
-- Checkpoint directories cannot overlap the live database directory.
-- Encrypted checkpoints require access to the corresponding historical encryption keys.
+The current `WalRecoveryMode` enum has three substantive policies:
 
-The resulting capability is a coordinated storage-level backup/restore primitive, not a general incremental backup protocol or cross-machine replication service.&#x20;
+| Mode                  | Behavior                                                                                                          |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `TolerateTornTail`    | Default. Repairs a provably torn final-log tail, but refuses corruption that cannot safely be classified that way |
+| `AbsoluteConsistency` | Fails recovery on WAL corruption rather than trimming or repairing it                                             |
+| `SalvageValidPrefix`  | Salvages the valid prefix before corruption, potentially discarding subsequent records                            |
 
-[image](https://www.google.com/s2/favicons?domain=https://surrealdb.com\&sz=32)
+`TolerateCorruptedWithRepair` remains available as a backward-compatible alias for `SalvageValidPrefix`.
 
-surrealdb.com
+This distinction matters because a permissive recovery policy can trade data completeness for availability. A valid prefix is not necessarily the full set of acknowledged operations.
 
-+1
+Applications with strict recovery requirements should distinguish the default torn-tail policy from deliberate prefix salvage.
 
+### 6.4 WAL preallocation
 
+Version 1.2 introduced `with_wal_preallocation(true)`.
 
-### 5.4 Data integrity and corruption detection
+On supported native filesystems, this writes zero-filled capacity ahead of the active WAL's logical end. Subsequent appended records can overwrite that space rather than continually extending the file.
 
-SurrealKV applies checksums to SSTable blocks, WAL records, and manifest metadata. SSTable blocks use the IEEE CRC-32 polynomial, not CRC-32C, and are verified when loaded from disk rather than on every hit in the block cache.
+The intended benefit is to reduce filesystem metadata work associated with durable appends. On filesystems such as ext4 or XFS, avoiding repeated size updates can reduce the cost of synchronization.
 
-Value-log checksum verification is separately configurable. The default does not perform full value-log checksum verification, which matters when enabling value separation for data requiring stronger end-to-end integrity checking.
+This optimization is opt-in, disabled by default, and restricted to the supported native plaintext WAL path.
 
-The operator tool includes an offline `skv scrub` facility for checking SSTable data blocks. Continuous online background scrubbing is not implemented in 1.0.
+It should not be interpreted as a universal write-performance optimization across encrypted databases, browser storage, or every filesystem.
 
-These mechanisms detect several classes of corruption, but should not be interpreted as comprehensive protection against every hardware, filesystem, or application-level integrity failure.
+### 6.5 File integrity and corruption detection
 
-Sources: `https://surrealdb.com/static/whitepapers/surrealkv.pdf`, §§12–13; `https://github.com/surrealdb/surrealkv`.
+SurrealKV implements integrity checks at several layers:
 
-## 6. Value separation, compression, filters, and ordered access
+- WAL records have checksums and recovery validation.
+- SSTable blocks have checksums checked during reads.
+- Value-log checksum verification can be configured.
+- Encrypted files use authenticated encryption, which detects tampering or incorrect keys.
+- Offline scrubbing can explicitly examine SSTable blocks that normal workloads may not read.
 
-### 6.1 Optional WiscKey-style value log
+The distinction between checksums and authenticated encryption is important. CRC verification detects corruption but is not a security mechanism against deliberate modification. Authenticated encryption provides stronger tamper detection for data protected by the relevant keys.
 
-With `with_enable_vlog(true)`, SurrealKV separates sufficiently large values from the primary LSM tree.
+The `VLogChecksumLevel` options are `Disabled` and `Full`; checksum verification for the value log is not enabled by default.
 
-By default, values larger than 1 KiB are appended to a value log; the LSM retains a 25-byte pointer identifying their location. Value-log files rotate at approximately 256 MiB by default.
+Continuous background integrity scrubbing is not implemented in the examined release, despite the presence of some scrubber-related internal structures and counters.
 
-This changes the cost structure of writes and compaction:
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/wal/recovery.rs`
 
-- The LSM continues to compact keys, sequence metadata, and pointers without repeatedly rewriting large payloads.
-- Reads of separated values require an additional lookup to the value log unless the value is cached.
-- Value-log writes require coordination with WAL durability and recovery.
-- Physical space reclamation is governed by references from surviving tables and memtables.
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/error.rs`
 
-A critical 1.0 limitation is that value-log garbage collection is prefix-only. It does not rewrite live values from partially obsolete files into newer files.
+Release details: `https://github.com/surrealdb/surrealkv/releases/tag/v1.2.0`
 
-Consequently, a single live value in an old value-log file can prevent deletion of that file and every subsequent file, even if most other values have been overwritten or deleted.
+## 7. Storage layout, compaction, and performance controls
 
-This is a material distinction from value-log systems with rewriting garbage collectors. Value separation can reduce compaction bandwidth while increasing persistent space amplification under certain update and retention patterns.
+### 7.1 Memtable sizing and write stalls
 
-It is most attractive when large values dominate write amplification and their lifetimes permit effective reclamation. It is less clearly beneficial when values are small, reads are latency-sensitive, or old large values remain live for long periods.&#x20;
+Incoming writes accumulate in a mutable memtable. When a memtable reaches its configured threshold, it is rotated into an immutable memtable pending disk flush.
 
-[image](https://www.google.com/s2/favicons?domain=https://surrealdb.com\&sz=32)
+If background flushing or compaction cannot keep up with incoming writes, SurrealKV applies backpressure.
 
-surrealdb.com
+The default native settings in version 1.3 are:
 
-+1
+| Parameter                                | Default |
+| ---------------------------------------- | ------- |
+| Memtable arena target                    | 100 MiB |
+| Maximum immutable memtables before stall | 2       |
+| L0 tables triggering compaction          | 4       |
+| L0 tables triggering write stall         | 12      |
+| SSTable target file size                 | 64 MiB  |
+| Number of levels                         | 6       |
+| Base level size                          | 256 MiB |
+| Level size multiplier                    | 10×     |
 
+These are default configuration values, not guaranteed memory or disk utilization bounds.
 
+In particular, the memtable arena limit counts its internal key structures; heap-resident values are not necessarily included in that limit. Workloads with large values can therefore consume substantially more memory than their nominal memtable target suggests.
 
-### 6.2 Compression by LSM level
+### 7.2 Manual compaction
 
-The engine offers configurable block compression, including Snappy, Zstd, and LZ4 codecs.
+`Tree::compact_range` allows a caller to request compaction over a particular key interval.
 
-Its `Options` API exposes:
+`CompactRangeOptions` controls whether to flush memtables first, the target LSM level, and whether to rewrite the bottommost level.
 
-- `with_compression_per_level(...)`
-- `with_l0_no_compression()`
-- `without_compression()`
+Manual compaction can be useful when a large namespace has been deleted, when a historical retention policy has made old versions eligible for removal, or when an operation would benefit from consolidating a known range.
 
-Compression is disabled by default. A per-level configuration can preserve inexpensive writes and fast reads for recent L0 data while compressing colder data in deeper levels.
+The engine preserves versions still needed by active snapshots. Manual compaction does not override transaction visibility rules.
 
-Because compression happens at the block level, its effectiveness depends on key/value representation, block size, restart intervals, and data similarity. Compression may reduce persistent bytes and physical I/O while adding CPU work on block construction and cache misses.
+It is a blocking I/O operation and should be kept off latency-sensitive asynchronous executor threads.
 
-The engine also exposes `with_block_size`, `with_block_restart_interval`, `with_index_partition_size`, and `with_block_cache_capacity`, allowing tuning of the balance between lookup granularity, index overhead, compression, and caching.
+### 7.3 Value separation with the value log
 
-### 6.3 Configurable comparators and probabilistic filters
+SurrealKV optionally supports WiscKey-style value separation.
 
-Beyond a fixed bytewise key ordering, the public 1.0 API includes `Comparator` and `FilterPolicy` extension traits, along with a `BytewiseComparator` and an exported `RibbonFilter`.
+When enabled, sufficiently large values are placed in a value log and the LSM records hold references to them.
 
-These are more consequential than conventional performance settings:
+The relevant options are:
 
-| Extension point | Purpose                                              | Important constraint                                                                                                |
-| --------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `Comparator`    | Define user-key ordering                             | The same ordering must be preserved across storage creation, reopening, and interpretation of SSTables              |
-| `FilterPolicy`  | Customize probabilistic membership filtering         | False negatives would violate correctness; format and compatibility matter                                          |
-| `RibbonFilter`  | Alternative compact membership-filter implementation | Its tradeoff concerns construction cost, memory, and false positives; it is not the 1.0 default Bloom configuration |
+- `with_enable_vlog(true)`
+- `with_vlog_value_threshold(bytes)`
+- `with_vlog_max_file_size(bytes)`
+- `with_vlog_checksum_verification(level)`
 
-A custom comparator can make particular encoded key types naturally sortable, but changes persistent ordering semantics. Applications should treat it as part of the database format rather than merely a runtime convenience.
+The default threshold is 1 KiB, but value separation itself is disabled by default.
 
-By contrast, filters determine which negative lookups can avoid reading blocks. A filter can reject absent keys but cannot establish their presence without checking the underlying data.
+Why it matters: A leveled LSM may rewrite the same value repeatedly as keys move between SSTables. Separating large values allows many compaction operations to move comparatively small references instead.
 
-These extension points make SurrealKV more adaptable as a storage kernel, although they also introduce persistence-format compatibility responsibilities.&#x20;
+This can reduce write amplification for substantial record payloads.
+
+However, it adds value-log reads, reference management, and garbage-collection obligations. For small values, or workloads dominated by random reads where values are not resident in cache, the additional indirection can outweigh some compaction benefits.
+
+Value-log garbage collection is coordinated with the oldest referenced files in memtables, SSTables, and in-flight commit groups. This prevents reclamation of segments still needed by live data.
+
+### 7.4 Compression by LSM level
+
+SurrealKV's public `CompressionType` supports:
+
+- `None`
+- `SnappyCompression`
+- `ZstdCompression`
+
+Compression can be selected by level through `with_compression_per_level`. A convenience option, `with_l0_no_compression`, disables compression at level zero and uses Snappy at higher levels.
+
+This makes it possible to apply different CPU-versus-space tradeoffs to freshly written data and longer-lived compacted data.
+
+Compression affects storage footprint, disk movement, and decompression cost. It does not replace an application-level decision about how to serialize or compress logical records.
+
+### 7.5 Bloom and cache-line filters
+
+SurrealKV uses membership filters to rule out SSTables that cannot contain a requested key.
+
+The default policy is a LevelDB-style Bloom filter. The code also exposes `RibbonFilter`, implemented as a cache-line-oriented blocked filter.
+
+The intent of the blocked design is to concentrate probes in a small region of memory rather than performing numerous unrelated cache-line accesses.
+
+The public `FilterPolicy` trait permits alternative membership-filter implementations.
+
+A custom filter must preserve the essential property that false negatives are not allowed. A filter may report that a missing key might exist, but it must not rule out a key that is actually present.
+
+Despite its name, the exposed `RibbonFilter` should not automatically be treated as equivalent to RocksDB's particular Ribbon-filter implementation. The verified source implements a cache-line-blocked bit-probe approach.
+
+### 7.6 Block caching and indexes
+
+The engine maintains a unified block cache for SSTable data and index blocks, and value-log data when enabled.
+
+The cache is capacity-limited and sharded. The default native allocation is 32 MiB, with a smaller browser default.
+
+The SSTable format supports partitioned indexes and filters, avoiding the need to load an entire large table index into memory.
+
+`with_index_partition_size`, `with_block_size`, and `with_block_cache_capacity` provide useful control over index granularity, block I/O, and memory use.
+
+Larger blocks can improve sequential access efficiency but increase wasted read/decompression work for small random lookups. Smaller blocks can reduce point-read amplification while increasing index metadata and lookup overhead.
+
+### 7.7 Hardware-aware auto-tuning
+
+The public `autotune` module offers:
+
+- `HardwareProfile::detect()`
+- `HardwareProfile::tune_options(options)`
+- `auto_tune_options(options)`
+
+It estimates an engine memory budget, then distributes capacity between memtables and block caching.
+
+A significant caveat: the native hardware profile does not currently measure actual available RAM. It estimates memory from the number of available CPU cores, using a minimum estimate of 4 GiB.
+
+The tuning algorithm then derives its memory allocations from that estimate.
+
+As a result, this is a heuristic configuration helper, not an adaptive resource controller that continuously discovers the machine's actual free memory.
+
+The separate `memory` module provides atomic memory accounting and budget calculations, but the presence of those APIs should not be taken as a guarantee of strict process-wide memory containment.
+
+Configuration source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/lib.rs`
+
+Compaction source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/compaction/manual.rs`
+
+Auto-tuning source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/autotune.rs`
+
+A version-specific clarification to §7.1: SurrealKV 1.2 added value-size accounting to memtable capacity enforcement. In 1.3, `MemTable::used()` includes both arena allocation and heap-held values, and batches are capacity-checked before insertion. Thus large values do not simply accumulate without regard to the configured limit, although total process memory can still exceed one memtable's target because of other caches, buffers, immutable memtables, and in-flight work. Oversized batches have a separate direct-to-L0 path.&#x20;
 
 [image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
 
 GitHub
 
-+1
 
 
+## 8. Transparent encryption at rest
 
-### 6.4 Ordered iteration and key encoding
+SurrealKV 1.x includes encryption at the storage-engine level rather than requiring callers to encrypt individual record values.
 
-`Transaction::range`, `scan`, and `iter` expose ordered data access through the `LSMIterator` trait.
+### 8.1 Supported encryption mechanisms
 
-The iterator supports seek-first, seek-last, arbitrary seek, forward movement, backward movement, key inspection, and value retrieval. Range boundaries use half-open `[start, end)` semantics.
+The two supported cipher suites are:
 
-SurrealKV also exposes borrowed internal key references and optimized byte representations, including `ByteSlice` and `IntoBytes`. Iteration can avoid retrieving or decoding values when only keys are needed.
+- AES-256-GCM
+- XChaCha20-Poly1305
 
-These features are useful for representing application-defined indexes directly as ordered keyspaces.
+`CipherPreference::Auto` selects AES-256-GCM where the processor has suitable AES support, otherwise XChaCha20-Poly1305.
 
-For example, an application can store:
+The choice is made when an encrypted database is created and persisted as part of its storage identity.
 
-- Primary values under one key prefix.
-- Secondary index entries under a different prefix, ordered by an encoded attribute.
-- A mapping from those index entries to the primary keys.
+Encryption covers the manifest, SSTables, WAL, and value log. Checkpoints of encrypted databases likewise contain encrypted storage files.
 
-A range scan then becomes an ordered index traversal.
+Per-file encryption keys are derived from a root key, a random salt, and file-specific identity information. Authenticated encryption binds blocks to their database, file, and position, preventing incorrectly substituted blocks from being returned as valid data.
 
-This is an architectural possibility, not a native secondary-index feature. The caller remains responsible for canonical key encoding, index maintenance, consistent multi-key updates, and any uniqueness constraints. SurrealKV supplies the transactional ordered storage operations underneath those structures.
+The Rust crate includes the `encryption` Cargo feature by default, but databases are not encrypted by default. Encryption must be configured explicitly when the database is created.
 
-Sources:
+### 8.2 `KeyManager` extension point
 
-- Tagged 1.0 API definitions: `https://github.com/surrealdb/surrealkv/blob/v1.0.0/src/lib.rs`
-- Iterator API: `https://docs.rs/surrealkv/1.0.0/surrealkv/trait.LSMIterator.html`
-- Whitepaper: `https://surrealdb.com/static/whitepapers/surrealkv.pdf`, §§6–8.
+The important extension mechanism is `KeyManager`, which separates storage encryption from the source and lifecycle of encryption keys.
 
-## 7. Transparent encryption and key management
+Its principal operations are:
 
-SurrealKV 1.0 includes transparent encryption at rest for native storage. It covers the WAL, SSTables, manifest, value log, and checkpoints without changing the key/value transaction API.
+| Method            | Responsibility                                                      |
+| ----------------- | ------------------------------------------------------------------- |
+| `active_key_id()` | Identify the root key for new files                                 |
+| `key_state(id)`   | Indicate whether a key is active, decrypt-only, retired, or unknown |
+| `root_key(id)`    | Return the required 32-byte root key                                |
+| `prepare(ids)`    | Make required keys available before storage operations need them    |
 
-### 7.1 Encryption model
+SurrealKV supplies `SoftwareKeyManager`, including support for reading root keys from protected files.
 
-An encrypted database uses either AES-256-GCM or XChaCha20-Poly1305.
+Custom implementations can integrate key-management services or hardware security modules.
 
-`CipherPreference::Auto` selects a cipher based on hardware capabilities when the database is created; an explicit `CipherSuite` can also be supplied. The cipher choice is persisted and does not silently change on subsequent openings.
+A critical performance requirement is that `root_key`, `active_key_id`, and `key_state` must not perform slow remote operations. The engine can call them on its storage write path. Remote key retrieval belongs in `prepare`, with the results cached for subsequent use.
 
-Instead of storing one encryption key for all file contents, the engine derives individual file keys from application-supplied root-key material, file identity, and random salts.
+This lets an application integrate external key custody without putting network round trips into individual SSTable or WAL file creation.
 
-Authenticated encryption binds content to its database, file, and position. This protects against undetected modification or inappropriate relocation of encrypted blocks.
+### 8.3 Rotation and immutable-file lifecycle
 
-The distinction between encrypted data and encrypted metadata is also explicit: SurrealKV does not hide directory names, file sizes, or file-access timing.&#x20;
+Rotation changes which root key is active for newly created storage files.
 
-[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+Previously generated files remain encrypted under keys derived from the roots that were active when they were created. Therefore an old root key must remain available in decrypt-only state for as long as relevant files or checkpoints need it.
 
-GitHub
+The engine exposes encryption-status reporting that identifies which key IDs cover which files and quantities of stored data.
 
-+1
+There is no general promise that changing the active key immediately re-encrypts the complete existing database.
 
+Two further constraints materially affect use:
 
+- Encryption status is fixed at database creation. An existing plaintext database cannot simply be opened with encryption enabled, and the reverse is also prohibited.
+- The encryption API is present in the public exports, but several related types and inspection methods are marked `#[doc(hidden)]` because their shape is not yet settled. They warrant additional compatibility scrutiny.
 
-### 7.2 `KeyManager` as an extension point
+Finally, encryption at rest does not hide filenames, file sizes, or timing of filesystem activity.
 
-The library does not persist root keys itself.
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/tde/keys.rs`
 
-It provides `SoftwareKeyManager` and a `KeyManager` trait for integrating external key management.
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/tde/context.rs`
 
-The trait separates the slow operation of obtaining keys from fast operations used by the engine:
+## 9. Checkpointing, restoration, and lifecycle management
 
-- `prepare(...)`: obtain or initialize required roots before normal operation.
-- `active_key_id()`: identify the key for new encrypted files.
-- `key_state(...)`: determine whether an ID is active, decrypt-only, or unavailable.
-- `root_key(...)`: provide the root material needed to derive a file key.
+### 9.1 Consistent checkpoints
 
-An implementation backed by a KMS or HSM can fetch or unwrap keys during preparation and retain appropriate key material in memory for operations on the commit path.
+`Tree::create_checkpoint(path)` creates a consistent storage checkpoint.
 
-The native extension is therefore external key authority with local hot-path key availability, not necessarily remote HSM participation in every encrypt/decrypt operation.
+The operation captures the required persistent structure, including SSTables, level metadata, WAL state, and value-log files when enabled.
 
-### 7.3 Rotation and lifecycle semantics
+It returns `CheckpointMetadata` describing the checkpoint.
 
-Rotation is implemented through key IDs.
+Unlike merely copying a directory while commits are occurring, the engine coordinates checkpoint creation with mutable storage and background processing to produce a coherent snapshot.
 
-A newly active root key is used for newly created files. Earlier files remain encrypted under their original key IDs and remain readable as long as those keys are available in decrypt-only state.
+This can eliminate substantial custom machinery for making internally consistent local backup copies.
 
-Rotation does not immediately re-encrypt all existing SSTables, WAL segments, checkpoints, or backups.
+However, a checkpoint is not a remote backup service or incremental replication protocol. Retaining, transferring, validating, and recovering independent backup copies remains a separate responsibility.
 
-This has several implications:
+### 9.2 Restoring a checkpoint
 
-- Historical keys must be retained while any required artifact references them.
-- Key inventory and backup retention become coupled.
-- Removing a key too early makes affected files permanently unreadable.
-- A database cannot be retroactively switched from unencrypted to encrypted simply by supplying a key manager.
+`restore_from_checkpoint(path)` restores an existing tree to a checkpoint's state.
 
-Missing or incorrect keys produce explicit encryption errors rather than causing the engine to initialize a replacement database.
+The implementation coordinates with commits, compaction, file rotation, active readers, and checkpoint activity, replacing the persistent and in-memory state.
 
-The `encryption` Cargo feature is enabled by default and can be disabled with `default-features = false`. A build lacking the feature refuses encrypted configuration rather than writing unencrypted files unexpectedly.
+This is deliberately more invasive than simply opening a historical read transaction. Restore changes the database's active state, potentially discarding changes that occurred after the checkpoint.
 
-Source: `https://github.com/surrealdb/surrealkv`, Transparent Data Encryption section.
+Checkpoint and restore operations use blocking filesystem I/O. Both are supported through the native filesystem path rather than the browser OPFS backend.
 
-## 8. Diagnostics, tuning, and operational integration
+Checkpoint directories also cannot overlap the live database directory through direct or resolved paths.
 
-### 8.1 Built-in inspection surfaces
+### 9.3 Shutdown and error visibility
 
-The `surrealkv-cli` companion crate supplies the `skv` executable for examining the engine without writing a custom storage inspector.
+`Tree::close().await` provides a coordinated shutdown path.
+
+The shutdown logic completes admitted commits and relevant ongoing maintenance before finishing. It is preferable to relying on the object being dropped, where graceful asynchronous close may not be possible.
+
+SurrealKV exposes several operational health methods:
+
+- `recovery_report()` — information about recovery performed when opening the database.
+- `background_error()` — the latest reported background error.
+- `background_error_count()` — number of background errors.
+- `is_stopped()` — whether a fatal background failure has stopped the database.
+
+These can be integrated into application-level health and fault-reporting facilities.
+
+A serious storage failure may mean the database must be closed and reopened to establish the results of in-flight operations. Merely retrying a failed call on the same `Tree` is not always sufficient.
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/lsm.rs`
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/checkpoint.rs`
+
+## 10. Inspection, diagnostics, telemetry, and tooling
+
+### 10.1 Programmatic inspection
+
+The `surrealkv::inspect` module exposes native filesystem inspection functions.
+
+| Function family                          | Information available                                                                                   |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `inspect_db` / `inspect_db_with_options` | Storage layout, manifest version, last sequence, table counts and sizes, level distribution, lock state |
+| `dump_manifest`                          | Level hierarchy, SSTable metadata, recorded snapshot information                                        |
+| `dump_sst`                               | Table format, keys, blocks, sizes, checksums, and optional entry details                                |
+| `dump_wal`                               | WAL segment information and decoded content where supported                                             |
+| `scrub_db`                               | Integrity verification across SSTable blocks                                                            |
+| `encryption_report`                      | File-level encryption identities, suites, and key usage                                                 |
+
+The `_with_options` variants allow relevant configuration, including key managers, for inspecting protected databases.
+
+Scrubbing distinguishes damaged blocks from blocks that could not be verified, for instance because an encrypted table could not be authenticated without the required key.
+
+This is a meaningful capability for building storage diagnostics without manually decoding the on-disk structures.
+
+### 10.2 `skv` command-line utility
+
+The companion `surrealkv-cli` crate installs the `skv` executable.
 
 ```
 cargo install surrealkv-cli
 
 skv inspect path/to/db
 skv manifest path/to/db
-skv sst path/to/db/sstables/example.sst --dump-keys --verify-checksum
+skv wal path/to/db
+
+skv sst path/to/table.sst --verify-checksum
 skv scrub path/to/db
+
 skv get path/to/db "user:001"
 skv scan path/to/db --prefix "user:"
+
 skv enc-info path/to/db
+skv migrate path/to/old-db path/to/new-db
+skv bench path/to/test-db --keys 50000 --concurrency 8
 ```
 
-These cover different operational layers: overall file/storage composition, the level manifest, SSTable contents and checksums, key-level inspection, and encryption metadata.
+The executable also supports `put` and `delete`, hexadecimal key and value representation, scan boundaries, keys-only scans, and limits.
 
-The Rust API additionally exposes the `inspect` module and explicit recovery and background-error reporting.
+For encrypted databases, `--key-file` or the `SKV_KEY_FILE` environment variable can supply the path to a key file. `enc-info` can report key coverage from storage headers without possessing the keys themselves.
 
-For programmatic integration, the distinction between storage metadata and application semantic metadata matters. SurrealKV can expose level structure, file health, WAL recovery, and storage-related failures; it cannot infer whether the serialized value of a key satisfies a higher-level business schema.
+These functions are useful for debugging data layout, diagnosing unexpected storage growth, checking corruption, and inspecting migration outcomes.
 
-### 8.2 Memory and background execution
+They are storage-engine tools, not a SurrealQL client, relational query debugger, or general SurrealDB administrative interface.
 
-The public 1.0 crate also exports `autotune`, `memory`, and `telemetry` modules. These are worth examining for hardware-aware configuration, memory accounting/budget coordination, and lower-level operational instrumentation.
+### 10.3 Telemetry and memory accounting
 
-They should be distinguished from the engine's fixed structural characteristics. Exposing configuration and telemetry does not eliminate bottlenecks caused by a single commit flusher or a single compaction task.
+The public `telemetry` module contains `LatencyHistogram` and `FlightRecorder`.
 
-Several details are especially relevant to memory behavior:
+Its primitives use atomic counters and exponential latency buckets for lightweight recording of events such as:
 
-- The memtable's arena limit does not impose a bound on all transaction write buffers, heap-resident values, cached blocks, or background-work allocations.
-- The block cache is byte-budgeted, but is only one component of total process memory.
-- Large values held inline can cause transient memory use to exceed the nominal memtable capacity.
-- Long-lived snapshots keep MVCC versions eligible for later reads and therefore can delay reclamation.
+- Commit and point-read latency.
+- WAL flush latency.
+- WAL bytes written and SSTable bytes read.
+- Block-cache hits and misses.
 
-SurrealKV uses write stalls and increasing delays as L0 or immutable-memtable pressure accumulates. These prevent indefinite front-end write progress when the storage-maintenance pipeline is falling behind, but can introduce substantial latency variability.
+These are lower-level instrumentation primitives. Their presence should not be interpreted as a complete automatically integrated metrics service with an exporter, dashboards, or Prometheus endpoint.
 
-The source-level API includes `BackgroundError`, `BackgroundErrorHandler`, `BackgroundErrorReason`, `WriteStallReason`, and `WriteStallInfo`, permitting callers to distinguish storage-health failures and write-pressure conditions from ordinary transaction conflicts.
+Similarly, the `memory` module provides `MemoryController` for tracking portions of memory consumed by active and immutable memtables, caching, and ring buffers.
 
-A significant additional limitation is that a long-open mutating transaction can hold back commit-ring retirement. The 1.0 whitepaper notes that the resulting overflow is not bounded. Long-running read-only snapshots have different retention implications and do not pin the same conflict window.
+Operational integrations can use these structures or the library's `tracing` instrumentation, but the degree of automatic collection and externally accessible engine state is not uniform across all structures.
 
-### 8.3 Testing and verification evidence
+### 10.4 Deterministic simulation testing
 
-SurrealKV's testing infrastructure is unusually relevant to the engine's claims.
+SurrealKV includes a companion `surrealkv-sim` crate used for deterministic simulation and differential testing.
 
-The project maintains:
+Its purpose is to compare storage-engine behavior with a simpler in-memory reference model under generated sequences of operations.
 
-- A seeded differential reference-model test, exercising 500 seeds of 5,000 steps per CI run.
-- Separate randomized verification of versioned operations, including historical reads and retention behavior.
-- Tests that emulate file synchronization failure, truncated WAL records, partial grouped commits, interrupted compactions and restores, and corruption of manifest bytes.
-- Property-based tests of encryption behavior.
+The upstream project reports a CI run involving 500 seeds and 5,000 steps per seed: 2.5 million modeled operations.
 
-However, the 1.0 whitepaper explicitly distinguishes the principal differential harness from full deterministic simulation testing: it does not control time, scheduler interleavings, or the filesystem for that test, and its reference-model commits are not concurrent.
+Combined with crash simulation of the in-memory filesystem, this testing approach can reveal concurrency, recovery, and state-transition errors that ordinary CRUD tests might miss.
 
-The project also reports no coverage-guided fuzzing in the evaluated test suite.
+It is an important indication of engineering methodology, but not proof that every crash, power-loss, filesystem, or concurrency failure mode has been exhaustively verified.&#x20;
 
-The appropriate interpretation is therefore substantial targeted crash and state-model verification, rather than a claim that every concurrent execution or storage-failure schedule has been exhaustively explored.&#x20;
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
 
-[image](https://www.google.com/s2/favicons?domain=https://surrealdb.com\&sz=32)
-
-surrealdb.com
-
-+1
+GitHub
 
 
 
 Sources:
 
-- CLI, verification, and related crates: `https://github.com/surrealdb/surrealkv`
-- 1.0 module exports and operational error types: `https://github.com/surrealdb/surrealkv/blob/v1.0.0/src/lib.rs`
-- Verification and stated limitations: `https://surrealdb.com/static/whitepapers/surrealkv.pdf`, §§13 and 16.
+`https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/inspect.rs`
 
-## 9. Browser persistence: WebAssembly and OPFS
+`https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/telemetry.rs`
 
-SurrealKV 1.0 has a browser-oriented execution mode that is substantially different from its native server mode.
+`https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/memory.rs`
 
-It can be compiled for `wasm32-unknown-unknown` and store database files using the browser's Origin Private File System (OPFS).
+`https://github.com/surrealdb/surrealkv/tree/v1.3.0/crates/surrealkv-sim`
 
-The API uses `FileSystem::opfs(...)` and `TreeBuilder::with_file_system(...)`, with asynchronous initialization through `build_async()`.
+## 11. Migration and compatibility
 
-### 9.1 Runtime architecture
+SurrealKV 1.0 introduced a substantially redesigned storage engine, making migration a consequential part of the current library.
 
-OPFS persistence operates inside a dedicated Web Worker because the implementation depends on synchronous access handles that are not available in the page's main thread.
+### 11.1 SurrealKV 0.20/0.21 migration
 
-The browser implementation is single-threaded. It does not start a native Tokio runtime or the native background-thread infrastructure, and building with WebAssembly atomics/threads is explicitly refused.
+The modern engine supports conversion of older SurrealKV databases, including versions through 0.21.4.
 
-It supports opening and closing a tree, committing, reading, WAL replay, flushing, compaction, and value-log storage. `FileSystem::memory()` also provides a volatile backend that can run without OPFS persistence.
+Migration preserves eligible key/value records, historical versions and timestamps, and data represented in unflushed WAL records.
 
-A complete lifecycle closes the `Tree` and then the `FileSystem`, releasing storage handles for subsequent browser sessions.
+Legacy files are moved into a backup subdirectory such as `_surrealkv_v0_backup/`.
 
-### 9.2 Browser-specific constraints
+An important limitation is that this is not a reversible format switch. The old backup files are not necessarily a complete rollback point, because storage components such as the value log may be shared or subsequently reclaimed.
 
-| Area                   | SurrealKV 1.0 browser behavior                                                                |
-| ---------------------- | --------------------------------------------------------------------------------------------- |
-| Browser validation     | Chrome tested; Firefox and Safari not established                                             |
-| Worker model           | Dedicated Web Worker only for OPFS                                                            |
-| Concurrency            | One active mount of a database; another tab/worker encounters a database-lock error           |
-| Durability             | `Immediate` requests browser flush, but does not establish native OS power-failure guarantees |
-| Storage format         | OPFS-backed file pool, not a native SurrealKV directory                                       |
-| Memory                 | Limited by browser/WASM address space; large inline values can be significant                 |
-| Background work        | Long flushes or compactions can block worker message handling                                 |
-| Quota                  | Writes may fail with `StorageFull`; browser eviction remains possible                         |
-| Encryption             | Unavailable                                                                                   |
-| Checkpoint/restore     | Unavailable                                                                                   |
-| Native migration tools | RocksDB and SurrealKV 0.x migrators unavailable                                               |
+A separate copy of the full database directory is required if rollback to an earlier engine is important.
 
-The browser's `navigator.storage.persist()` mechanism can reduce eviction risk where permission is granted, but it is not equivalent to a durable storage guarantee.
+### 11.2 RocksDB migration
 
-The OPFS implementation also has a fixed file-pool limit. Repeated sessions that write small amounts of data without orderly closure can eventually exhaust that limit, even when the logical key/value dataset remains modest.
+The companion `surrealkv-compat-rocksdb` crate implements a Rust-based reader for RocksDB databases created by SurrealDB.
 
-### 9.3 IndexedDB migration
+The documented migration supports RocksDB versions 8–11, including relevant WAL and blob-file structures.
 
-The `surrealkv-compat-indxdb` companion supplies `migrate_from_indexeddb`, permitting legacy IndexedDB key/value data to be copied into an OPFS-backed SurrealKV database.
+For SurrealDB databases that used versioned storage, the conversion can preserve historical records and translate their hybrid logical clock timestamps to the new timestamp representation. For unversioned databases, it retains the latest key state.
 
-The migration must run before opening the new database, as part of startup coordination. It uses explicit completion markers and reports whether data was imported, whether the destination already exists, or whether no source could be found.
+The compatibility reader does not turn SurrealKV into a general-purpose RocksDB API replacement. Its migration support is targeted at the storage formats produced by SurrealDB.
 
-The distinction matters because `IndexedDbMigration::NoSource` can indicate either a genuinely absent database or an environment where IndexedDB is inaccessible. Opening an empty SurrealKV destination too early can prevent a subsequent migration, because later calls detect an existing destination and do not overwrite it.
+RocksDB must not have the source database open while migration is performed.
 
-The source IndexedDB data is not deleted automatically. The separate `delete_indexeddb` operation is destructive and is appropriate only after verifying the migrated data and handling any skipped records.
+### 11.3 Browser IndexedDB migration
 
-There is currently no direct export path that makes an OPFS file pool usable as a native SurrealKV database directory.
+The separate `surrealkv-compat-indxdb` integration supports migration of the legacy SurrealDB IndexedDB storage format into browser OPFS.
 
-Source: `https://github.com/surrealdb/surrealkv`, WebAssembly & OPFS and Moving data from IndexedDB sections.&#x20;
+The browser API `migrate_from_indexeddb` reads legacy records and writes them into a new SurrealKV store.
 
-[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+The migration has several noteworthy behaviors:
 
-GitHub
+- It processes data in bounded chunks rather than requiring the complete IndexedDB contents in memory.
+- It checks the copied database before reporting success.
+- Interrupted imports are detected using a marker and can be restarted.
+- IndexedDB is left unchanged unless the application separately invokes `delete_indexeddb`.
+- Records with empty keys are skipped and counted, because SurrealKV rejects empty keys.
+- A destination database that already exists is not silently overwritten.
 
-+3
+This is a specialized compatibility mechanism, not a general-purpose bridge between arbitrary IndexedDB object stores and SurrealKV.
 
+### 11.4 Migration-related crates
 
+| Package                    | Scope                                                  |
+| -------------------------- | ------------------------------------------------------ |
+| `surrealkv-compat-v1`      | Reader for legacy SurrealKV storage                    |
+| `surrealkv-compat-rocksdb` | Reader for SurrealDB's older RocksDB databases         |
+| `surrealkv-compat-indxdb`  | Reader and migration support for legacy IndexedDB data |
+| `surrealkv-cli`            | Explicit migration commands and diagnostics            |
 
-## 10. Migration, companion crates, and SurrealDB integration
+The latest release bundles these compatibility components at version 0.2.3.
 
-### 10.1 Native migration capabilities
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/README.md`
 
-SurrealKV 1.0 provides more than an on-disk format compatible only with databases it created itself. It includes migration paths for legacy SurrealKV and SurrealDB storage.
+Release: `https://github.com/surrealdb/surrealkv/releases/tag/v1.3.0`
 
-| Source format                                      | Migration path                                | Relevant semantics                                                                     |
-| -------------------------------------------------- | --------------------------------------------- | -------------------------------------------------------------------------------------- |
-| SurrealKV 0.20–0.21                                | Automatic conversion when opened              | Retained versions, sequence numbers, timestamps, and WAL contents are migrated         |
-| SurrealDB-created RocksDB databases (RocksDB 8–11) | Automatic conversion or offline `skv migrate` | Pure-Rust reader; supports WAL and blob data, with historical versions where available |
-| Legacy IndexedDB (`indxdb://`)                     | Companion library or browser migration API    | Copies key/value records into SurrealKV storage                                        |
-| Arbitrary external RocksDB databases               | Not a general compatibility guarantee         | The implemented reader targets databases produced by SurrealDB                         |
+## 12. Deployment targets and filesystem abstraction
 
-For SurrealDB's versioned RocksDB databases, the migration logic converts stored hybrid logical clock timestamps into the temporal representation expected by SurrealKV.
+### 12.1 Native deployments
 
-Whether historical versions survive as queryable history also depends on opening the target with versioning enabled and the chosen retention policy.
+SurrealKV is an embedded library. It operates within the application's process and uses a local persistent storage directory, rather than requiring a separate database daemon.
 
-### 10.2 Migration is a one-way format transition
+The current upstream support matrix is:
 
-The migration support is useful, but it should not be mistaken for bidirectional interoperability.
+| Platform                             | Status                                        |
+| ------------------------------------ | --------------------------------------------- |
+| Linux x86-64                         | Tier 1, built and tested in CI                |
+| macOS ARM64                          | Tier 1, built and tested in CI                |
+| Linux ARM64                          | Tier 2                                        |
+| macOS x86-64                         | Tier 2                                        |
+| Windows x86-64                       | Tier 2                                        |
+| WebAssembly `wasm32-unknown-unknown` | Tier 2, with dedicated Chrome browser testing |
 
-The first open of a legacy database can convert its storage automatically. Older database files are retained under directories such as `_surrealkv_v0_backup/` or `_rocksdb_backup/`.
+The published Rust minimum supported version for SurrealKV 1.3.0 is Rust 1.86, according to its crate manifest.
 
-However, the upstream documentation explicitly warns that these internal backup directories are not reliable rollback points. Some storage components, particularly value-log data and its reclamation, are shared with the converted database.
+The library depends on Tokio for parts of its runtime, but it is not a uniformly asynchronous key-value interface. Synchronous reads, scans, compaction, and checkpoint operations can perform blocking work.
 
-A database already opened by SurrealKV 1.0 cannot simply be reopened by an older release.
+Consequently, a Rust application's execution architecture still matters. The library does not automatically turn all filesystem work into nonblocking tasks.
 
-The important general distinction is between a migration's preservation of source-format files and a separately verified, independently restorable backup. They are not equivalent.
+### 12.2 Provided filesystem implementations
 
-### 10.3 Companion libraries and their responsibilities
+The public `FileSystem` abstraction supports:
 
-The upstream workspace contains several components with distinct roles.
+| Backend                        | Primary use                                                  |
+| ------------------------------ | ------------------------------------------------------------ |
+| `FileSystem::std()`            | Native filesystem persistence                                |
+| `FileSystem::memory()`         | In-memory database storage and testing                       |
+| `FileSystem::opfs(name).await` | Persistent storage in a browser's Origin Private File System |
 
-| Crate                      | Responsibility                                                 |
-| -------------------------- | -------------------------------------------------------------- |
-| `surrealkv`                | Core transactional LSM storage engine                          |
-| `surrealkv-cli`            | `skv` inspection, diagnostics, integrity checks, and migration |
-| `surrealkv-compat-rocksdb` | Pure-Rust reader for supported SurrealDB RocksDB storage       |
-| `surrealkv-compat-v1`      | Reader for older SurrealKV LSMV1 storage                       |
-| `surrealkv-compat-indxdb`  | Legacy IndexedDB compatibility and migration                   |
-| `surrealkv-sim`            | Simulation and differential-testing infrastructure             |
+These are provided implementations. Although SurrealKV contains a substantial internal filesystem abstraction, its underlying `Fs` trait is not exposed as a stable general-purpose external plug-in interface.
 
-The compatibility crates are principally integration and migration mechanisms. They do not transform SurrealKV into a general multi-engine federation layer.
+Thus its current public API should not be interpreted as supporting arbitrary third-party object stores, distributed filesystems, S3 storage, or custom Rust filesystem adapters merely by implementing a public trait.
 
-Source: `https://github.com/surrealdb/surrealkv/tree/v1.0.0/crates`&#x20;
+### 12.3 WebAssembly and OPFS
 
-[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+Browser support is an important newer capability.
 
-GitHub
+A SurrealKV database can run in a dedicated Web Worker using OPFS as its storage backend. It retains the same broad LSM architecture: WAL, SSTables, manifest, compaction, and optional value-log separation.
 
-+1
+A typical initialization sequence uses:
 
+```
+use surrealkv::{FileSystem, TreeBuilder};
 
+async fn open_browser_tree() -> Result<(), Box<dyn std::error::Error>> {
+    let fs = FileSystem::opfs("example").await?;
 
-### 10.4 SurrealKV versus SurrealDB
+    let tree = TreeBuilder::new()
+        .with_file_system(fs.clone())
+        .with_path("db".into())
+        .build_async()
+        .await?;
 
-SurrealKV is intended to serve as the persistent storage layer beneath SurrealDB, but the two products expose different abstractions.
+    // Perform transactional operations here.
 
-| Capability                             | SurrealKV                 | SurrealDB                                                           |
-| -------------------------------------- | ------------------------- | ------------------------------------------------------------------- |
-| Durable binary key/value operations    | Native                    | Via storage backend                                                 |
-| Snapshot-isolated storage transactions | Native                    | Builds database transaction semantics on storage                    |
-| Temporal key history                   | Native when enabled       | Higher-level temporal functionality depends on database integration |
-| SurrealQL query processing             | No                        | Yes                                                                 |
-| Schema and record model                | Caller-defined bytes      | Database-level records and schema                                   |
-| Secondary indexes and query planning   | Caller-defined structures | Database functionality                                              |
-| Graph relations and traversal          | Caller-defined encoding   | Database functionality                                              |
-| Authorization and user management      | No                        | Database functionality                                              |
-| Distributed database coordination      | No                        | Belongs to SurrealDB deployment architecture                        |
+    tree.close().await?;
+    fs.close().await?;
+    Ok(())
+}
+```
 
-As of the October 13, 2026 announcement, SurrealDB described SurrealKV as the intended sole persistent storage engine for SurrealDB 4. That is a statement about the upcoming SurrealDB release, not evidence that every existing SurrealDB deployment already uses it.
+Illustrative 1.3 API usage, not an executed example. Must run in a supported dedicated-worker environment.
 
-The boundary is consequential: a system can benefit from SurrealKV's transaction and storage machinery without implementing its own WAL, LSM tree, or MVCC engine. But native SurrealKV does not remove the need for query, indexing, domain, or distributed semantics when those are required.
+This makes it possible to embed a transactional Rust storage engine directly into certain browser applications without routing every storage operation through IndexedDB.
 
-Source: `https://surrealdb.com/blog/we-are-replacing-rocksdb-with-surrealkv-1-0`&#x20;
+However, browser support has substantial constraints:
+
+Single-threaded execution. OPFS requires a dedicated worker. The library's browser execution is single-threaded, and synchronous maintenance operations can block that worker.
+
+Exclusive ownership. A database can only be mounted by one worker or tab at a time. The `opfs_with_lock_wait` API provides control over waiting for the previous owner to release its lock.
+
+Limited browser verification. Chrome is the tested browser. Firefox and Safari are not currently covered by the same upstream guarantees.
+
+Durability differences. `Durability::Immediate` asks the browser to flush its storage handles, but the browser specification does not establish the same power-loss guarantee as an ordinary native filesystem with reliable synchronization.
+
+Restricted functionality. Encryption, native checkpoint/restore, path-based inspection tools, and legacy RocksDB/SurrealKV migration are unavailable through OPFS.
+
+Different physical format. The OPFS filesystem implementation uses a file-pool representation. Its files cannot currently be opened as an ordinary native SurrealKV database directory, and no general export mechanism is provided.
+
+Storage limits and lifecycle. Browser quotas, origin eviction, fixed file-pool capacity, and worker shutdown behavior can all affect database availability. Applications should coordinate graceful `Tree` and `FileSystem` closure rather than depending on page-unload callbacks.
+
+The source explicitly distinguishes tested worker termination from operating-system or power failure. Successful worker-restart tests do not prove power-loss durability in a browser.
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/vfs/mod.rs`
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/README.md`
+
+## 13. Performance characteristics and evidence
+
+The most useful performance evidence is the upstream comparison published with SurrealKV 1.0. It measured several embedded storage engines using a common CRUD benchmark harness.
+
+The hardware was an AMD Ryzen Threadripper 9970X, 128 GB RAM, and a 4 TB NVMe SSD, with 500,000 keys, 48 worker threads, and 128 clients. The SurrealKV test enabled value separation and used a larger-than-default memtable. Each reported figure was one run.&#x20;
 
 [image](https://www.google.com/s2/favicons?domain=https://surrealdb.com\&sz=32)
 
@@ -770,186 +1000,1157 @@ SurrealDB
 
 
 
-## 11. Performance characteristics and evidence
+### 13.1 Synchronous-durability comparison
 
-SurrealKV's stated performance advantages are associated with identifiable mechanisms rather than a universal claim of superiority.
+Operations per second, as published by SurrealDB; measurements of 1.0, not a fresh 1.3 benchmark
 
-Its main performance hypothesis is that concurrent commit admission and validation, followed by a single grouped WAL append, substantially reduces the synchronization cost of many small durable writes. Its radix-tree memtable and partitioned SSTable structures are intended to make point reads and in-memory operations efficient.
+| Operation   | SurrealKV | RocksDB | Relative performance |
+| ----------- | --------- | ------- | -------------------- |
+| Point reads | 6,804,864 | 855,851 | 7.95×                |
+| Creates     | 229,376   | 8,568   | 26.8×                |
+| Updates     | 221,341   | 36,263  | 6.10×                |
+| Deletes     | 264,089   | 32,043  | 8.24×                |
+| Range scans | 905,132   | 852,661 | 1.06×                |
 
-### 11.1 Published comparison
+Point-read throughput, synchronous durability
 
-The official benchmark uses an AMD Ryzen Threadripper 9970X, 128 GiB of RAM, a PCIe 4.0 NVMe SSD, 500,000 keys, 48 worker threads, and 128 clients.
+Published October 2026 benchmark, millions of operations per second
 
-Operations per second, with synchronous durability
+02468SurrealKVRocksDBSlateDB
 
-| Operation               | SurrealKV | RocksDB | Relative result |
-| ----------------------- | --------- | ------- | --------------- |
-| Point reads             | 6,804,864 | 855,851 | 7.95×           |
-| Creates                 | 229,376   | 8,568   | 26.8×           |
-| Updates                 | 221,341   | 36,263  | 6.10×           |
-| Deletes                 | 264,089   | 32,043  | 8.24×           |
-| Range scans (limit 100) | 905,132   | 852,661 | 1.06×           |
+The comparison shows that the performance advantage varies greatly by operation. In particular, the nearly eightfold point-read difference does not imply an eightfold benefit for every sequential scan or higher-level database query.
 
-Operations per second, without synchronous durability
+The upstream authors also explicitly reported that RocksDB's create results with synchronous durability were unusually low and not fully explained. That is an important qualification to the largest ratio.
 
-| Operation | SurrealKV | RocksDB | Relative result |
-| --------- | --------- | ------- | --------------- |
-| Creates   | 321,715   | 603,452 | 0.53×           |
-| Updates   | 274,172   | 608,494 | 0.45×           |
-| Deletes   | 307,034   | 739,357 | 0.42×           |
+### 13.2 Results without synchronous durability
 
-Published write throughput: SurrealKV versus RocksDB
+When the benchmark did not require an `fsync` before acknowledgment, RocksDB was faster on writes:
 
-Operations per second from upstream single-run benchmarks, shown separately for immediate and non-synchronous durability.
+| Operation | SurrealKV | RocksDB |
+| --------- | --------- | ------- |
+| Creates   | 321,715   | 603,452 |
+| Updates   | 274,172   | 608,494 |
+| Deletes   | 307,034   | 739,357 |
 
-SurrealKV
+Point reads remained faster in the published SurrealKV benchmark, while LMDB led some sequential scan and full-count measurements.
 
-RocksDB
+The implication is that performance rankings depend materially on durability policy and workload shape.
 
-0200K400K600K800KSync createSync updateSync deleteNo-sync createNo-sync updateNo-sync delete
+### 13.3 Memory profile
 
-The comparison strongly favors SurrealKV for the benchmark's concurrent, synchronously durable workload. It favors RocksDB for writes that do not wait for synchronous durability.
+In the publisher's non-synchronous benchmark, SurrealKV used approximately 221 MiB of resting memory and reached a peak of 1.79 GiB.
 
-Other engine comparisons show that SurrealKV is not the fastest in all scan categories. LMDB leads several scan workloads, while libmdbx leads some skip and count workloads in the published results.
+RocksDB used approximately 590 MiB resting and 1.02 GiB peak.
 
-### 11.2 What the measurements do and do not establish
+Thus SurrealKV had a smaller resting footprint but a larger observed peak under that workload.
 
-The whitepaper discloses important qualifications:
+This reinforces the need to distinguish per-component storage configuration from actual whole-process memory use under high concurrency.
 
-- Each reported number is from a single run, without measured run-to-run variance.
-- SurrealKV was configured with a 256 MiB memtable, a cache sized for the test machine, and value-log separation enabled. These are not the engine's ordinary defaults.
-- Versioning was disabled, so the numbers do not measure historical reads, version retention, or versioned compaction.
-- The dataset was small relative to available RAM. The results say comparatively little about large datasets whose point reads routinely require physical I/O.
-- The benchmark does not isolate the performance contribution of the commit ring, memtable, or value separation individually.
-- Tail-latency distributions, sustained compaction pressure, long-running transactions, and broad mixed-workload conditions remain unmeasured in that report.
+### 13.4 Architectural explanation
 
-Memory results also require care. The upstream no-sync run reports 221 MiB resting and 1.79 GiB peak memory for SurrealKV, versus 590 MiB resting and 1.02 GiB peak for RocksDB. The engine can therefore have a relatively small idle footprint but higher transient memory consumption under load.
+Several performance mechanisms can account for advantages in appropriate workloads:
 
-These are published upstream measurements, not independently reproduced results in this overview.
+Commit grouping. Concurrent commits amortize WAL append and synchronization overhead.
 
-Sources: `https://surrealdb.com/static/whitepapers/surrealkv.pdf`, §§14–16; `https://github.com/surrealdb/surrealkv`.&#x20;
+Radix-tree memtables. Ordered key storage and arena allocation can reduce pointer chasing and allocation costs.
+
+MVCC reads. Readers can capture a sequence-based snapshot without blocking writers.
+
+Batch point reads. Version 1.3 avoids repeated tree-state capture for multiple related lookups.
+
+Value separation. Large values need not be rewritten during every compaction.
+
+Partitioned indexes and filters. Negative lookups can avoid unnecessary SSTable block reads.
+
+The expected benefits depend on what dominates a workload: synchronization, memory access, compression, random I/O, compaction, or data movement.
+
+These are architectural explanations, not guarantees of application-level speedup.
+
+Benchmark methodology and results: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/README.md`
+
+Engineering analysis: `https://surrealdb.com/blog/we-are-replacing-rocksdb-with-surrealkv-1-0`
+
+## 14. Architectural roles and integration boundaries
+
+### 14.1 Direct embedded storage
+
+SurrealKV can act as the primary persistent state layer of a Rust application when the application needs durable byte records, transactional updates, ordered access, and concurrent reads.
+
+It can be especially valuable for state machines, local persistent caches, durable indexes, workflow state, or storage-backed metadata.
+
+Its multi-key transactions can eliminate a separate custom write-ahead log, an application-side atomic batch protocol, and some snapshot-management machinery.
+
+Its range tombstones, savepoints, and historical reads can further reduce application code.
+
+However, the caller remains responsible for the semantic model of its records and keyspaces.
+
+### 14.2 Underlying engine for SurrealDB
+
+SurrealDB 4 uses SurrealKV as its persistent file-backed engine. The documented endpoint scheme is `surrealkv://`.
+
+The older `rocksdb://` spelling remains accepted as a deprecated alias, with the database opened through SurrealKV and legacy data converted as necessary.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://surrealdb.com\&sz=32)
+
+Database
+
+
+
+The boundary between the two is critical:
+
+| Capability                              | SurrealKV directly                  | SurrealDB layer                               |
+| --------------------------------------- | ----------------------------------- | --------------------------------------------- |
+| Durable byte records                    | Yes                                 | Uses underlying storage                       |
+| Ordered key ranges                      | Yes                                 | Builds higher-level access paths              |
+| Multi-key atomic transactions           | Yes                                 | Adds database-level semantics                 |
+| Historical key versions                 | Optional native capability          | May expose higher-level temporal models       |
+| Document schemas and validation         | No native schema engine             | Yes                                           |
+| SurrealQL                               | No                                  | Yes                                           |
+| Graph relationships and graph traversal | No native query engine              | Yes                                           |
+| Secondary and composite indexes         | No native declarative index DDL     | Yes                                           |
+| Full-text and vector search             | No native query indexes             | Yes                                           |
+| Authentication and permissions          | No database user/role system        | Yes                                           |
+| Network database protocol               | No                                  | Yes                                           |
+| Distributed multi-node coordination     | Not a standalone distributed engine | Provided by appropriate SurrealDB deployments |
+
+SurrealKV's sorted SSTable indexes and membership filters are internal storage indexes. They are not substitutes for SurrealDB's declarative secondary indexes or its full-text and vector indexing facilities.
+
+Similarly, SurrealKV's historical versioning does not automatically provide SurrealDB record history, event sourcing, audit semantics, or a complete temporal query language.
+
+The storage engine provides primitives from which some of those facilities can be built.
+
+### 14.3 Possible native capability combinations
+
+Several combinations are particularly interesting at the architectural level.
+
+Transactional state with history. MVCC, explicit historical timestamps, and atomic multi-key writes can support records with an auditable sequence of prior states, provided retention and deletion policies are selected to preserve the required information.
+
+Range-oriented lifecycle management. Ordered composite keys, prefix scans, and range tombstones can simplify partition cleanup, namespace expiration, and other bulk state transitions.
+
+Read-dependent state updates. `get_for_update`, ordinary writes, savepoints, and conflict retries can support conditional updates without requiring an external transaction coordinator, provided the application's invariants fit the engine's snapshot-validation model.
+
+Large-value storage. Value separation, compression, and caching can support stores where metadata keys are frequently scanned but larger payloads are read selectively.
+
+Consistent local recovery. WAL replay, checkpoint creation, restore coordination, and diagnostics can reduce the amount of custom infrastructure needed to make a local embedded state store recoverable.
+
+These compositions offer useful options, but none changes the fundamental single-engine scope. Replication, cross-process transaction coordination, sophisticated query planning, and distributed consensus are not supplied by combining low-level storage APIs.
+
+### 14.4 Important constraints
+
+SurrealKV is less suitable as a direct solution when the dominant requirement is:
+
+- Serializable execution across arbitrary read predicates rather than snapshot isolation.
+- Concurrent writes from multiple independent processes into the same storage directory.
+- Native distributed transactions or network replication.
+- Declarative relational, graph, full-text, or vector queries without an additional data-management layer.
+- Browser persistence with native-equivalent power-loss guarantees.
+- Arbitrary filesystem-provider extensibility through a stable public Rust trait.
+- Stable, independently portable on-disk formats across all environments and versions.
+
+These limitations reflect the library's intended scope, rather than missing conveniences that can be assumed to exist somewhere in its internal modules.
+
+## 15. Version history and current maturity
+
+| Release       | Date                | Significant development                                                                                                                     |
+| ------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.21.x        | Before October 2026 | Earlier storage-engine architecture, including mechanisms no longer representative of 1.x                                                   |
+| 1.0.0         | October 13, 2026    | New LSM engine, commit ring, snapshot isolation, temporal storage, encryption, migration                                                    |
+| 1.1.0 / 1.1.1 | October 26, 2026    | Intermediate 1.x maintenance releases                                                                                                       |
+| 1.2.0         | November 2, 2026    | Recovery and write-stall hardening, value-aware memtable bounds, cache cleanup, commit-validation optimizations, optional WAL preallocation |
+| 1.3.0         | November 6, 2026    | Batched point reads and fixes to pooled-filesystem durability behavior                                                                      |
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub+2
+
+A substantial documentation issue remains: older Context7 and indexed Rustdoc material describes the 0.21 architecture, including historical-version mechanisms that should not be carried forward uncritically into 1.3.
+
+For current work, use the tagged 1.3 source and release notes wherever they disagree with material written for 0.21.
+
+There are also meaningful maturity distinctions within 1.3 itself:
+
+- Native transactional storage, WAL recovery, compaction, and historical reads are released capabilities.
+- Browser OPFS storage is implemented and tested in Chrome, but remains subject to the stated platform restrictions.
+- Encryption exists as released functionality, but related APIs and on-disk formats carry explicit stability cautions.
+- Offline scrubbing is implemented; continuous background scrubbing is not.
+- Some public modules expose instrumentation or internal mechanisms without implying a complete externally supported management interface.
+- The project reports extensive deterministic simulation testing, while the published performance benchmarks remain upstream, workload-specific measurements.
+
+The on-disk encryption documentation explicitly warns that formats are not fully frozen. That caution is more important than treating the 1.x version number as a universal compatibility guarantee.
+
+## 16. Practical Rust API illustration
+
+The following concise example demonstrates ordinary writes, a transaction with immediate durability, ordered scanning, and historical access. It is illustrative and has not been compiled or executed here.
+
+```
+
+use surrealkv::{
+    Durability, HistoryOptions, LSMIterator,
+    Mode, TreeBuilder,
+};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let tree = TreeBuilder::new()
+        .with_path("./surrealkv_data".into())
+        .with_versioning(true, 0)
+        .build()?;
+
+    // Atomic write with immediate durability
+    let mut write = tree.begin()?;
+    write.set_durability(Durability::Immediate);
+    write.set_at(b"observation:001", b"first", 1_000)?;
+    write.set_at(b"observation:002", b"second", 2_000)?;
+    write.commit().await?;
+
+    // Consistent read-only snapshot
+    let read = tree.begin_with_mode(Mode::ReadOnly)?;
+
+    // Batched point reads (introduced in 1.3)
+    let keys = [
+        b"observation:001".as_slice(),
+        b"observation:002".as_slice(),
+    ];
+    let values = read.get_many(&keys)?;
+    assert_eq!(values.len(), 2);
+
+    // Ordered range scan
+    let mut cursor = read.range(
+        b"observation:000",
+        b"observation:999",
+    )?;
+
+    cursor.seek_first()?;
+    while cursor.valid() {
+        let key = cursor.key().user_key().to_vec();
+        let value = cursor.value()?;
+        println!("{key:?} = {value:?}");
+        cursor.next()?;
+    }
+
+    // Retrieve historical versions
+    let options = HistoryOptions::new()
+        .with_tombstones(true)
+        .with_ts_range(0, 3_000)
+        .with_limit(100);
+
+    let mut history = read.history_with_options(
+        b"observation:000",
+        b"observation:999",
+        &options,
+    )?;
+
+    history.seek_first()?;
+    while history.valid() {
+        println!(
+            "timestamp = {}",
+            history.key().timestamp()
+        );
+        history.next()?;
+    }
+
+    drop(history);
+    drop(cursor);
+    drop(read);
+
+    tree.close().await?;
+    Ok(())
+}
+
+```
+
+This example intentionally leaves out application-level key encoding, serialization, retries, backup management, and operational instrumentation. Those are separate responsibilities rather than intrinsic requirements of using the basic API.
+
+## 17. Primary source reference map
+
+The following references are especially useful for further technical investigation.
+
+| Area                                           | Primary source                                                            |
+| ---------------------------------------------- | ------------------------------------------------------------------------- |
+| Repository, features, benchmarks               | `https://github.com/surrealdb/surrealkv/blob/v1.3.0/README.md`            |
+| Current releases                               | `https://github.com/surrealdb/surrealkv/releases`                         |
+| Crate registration                             | `https://crates.io/crates/surrealkv`                                      |
+| Rust public exports and configuration          | `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/lib.rs`           |
+| Transactions, reads, history, savepoints       | `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/transaction.rs`   |
+| Tree lifecycle, compaction, checkpoints        | `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/lsm.rs`           |
+| Commit pipeline                                | `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/ring/pipeline.rs` |
+| Memtable architecture                          | `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/memtable/mod.rs`  |
+| Storage inspection                             | `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/inspect.rs`       |
+| Encryption key management                      | `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/tde/keys.rs`      |
+| Filesystem and browser integration             | `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/vfs/mod.rs`       |
+| Error semantics                                | `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/error.rs`         |
+| Official architecture and benchmark discussion | `https://surrealdb.com/blog/we-are-replacing-rocksdb-with-surrealkv-1-0`  |
+| SurrealDB persistent-storage integration       | `https://surrealdb.com/docs/running/file-backed`                          |
+
+## Overall assessment
+
+SurrealKV 1.3.0 is materially more capable than a simple embedded key-value map with disk persistence.
+
+Its most significant strengths are the combination of snapshot-isolated multi-key transactions, asynchronous group commit, optional persistent time-travel history, efficient ordered iteration, range deletion, value separation, configurable durability, and native checkpoint/recovery mechanisms.
+
+These provide a substantial set of infrastructure primitives for building persistent stateful Rust systems without implementing a transaction manager, WAL, storage compactor, historical-version index, or crash-recovery protocol independently.
+
+Its principal architectural tradeoff is that the storage engine remains deliberately low-level. It provides strong mechanisms for representing and updating state, but does not supply the semantic data model, distributed execution, query planner, or higher-level indexing functionality of a complete database.
+
+The transition from 0.21 to 1.0, followed rapidly by the 1.2 and 1.3 durability and concurrency improvements, also means that version-pinned source verification is unusually important. Current 1.x behavior should not be inferred from older SurrealKV documentation, and storage-format compatibility deserves particular attention.
+
+For workloads that primarily need local transactional persistence, ordered keyspace operations, and controllable history, SurrealKV provides a rich native foundation. For workloads whose complexity lies primarily in data relationships, queries, secondary indexing, or distributed coordination, its greatest value is as an underlying engine rather than as a replacement for those higher-level facilities.
+
+# SurrealKV 1.3.0 — Technical Addendum
+
+Research date: November 10, 2026 | Target: SurrealKV 1.3.0 | Companion to the comprehensive library overview
+
+This addendum documents advanced SurrealKV functionality, implementation details, and semantic distinctions identified in the subsequent gap analysis. It also corrects several points in the original reference that could lead to incorrect API usage or architectural assumptions.
+
+The scope is the released SurrealKV 1.3.0 implementation, confirmed as the latest published release on November 10, 2026. The upstream source tagged `v1.3.0`, its tests, and release notes take precedence over older Context7 material describing the 0.21 storage engine.&#x20;
 
 [image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
 
 GitHub
 
-+2
 
 
+## 1. Transaction execution beyond ordinary memtable writes
 
-## 12. Consequential design boundaries
+### 1.1 Direct-to-L0 writes for oversized transactions
 
-The library's major limitations are best understood in terms of the guarantees it does not supply or the costs that its architecture cannot eliminate.
+SurrealKV has a specialized write path for transactions whose encoded batch is too large to fit into a memtable.
 
-| Boundary                                  | Implication                                                                                         |
-| ----------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Snapshot isolation, not serializability   | Write skew and predicate anomalies require additional application mechanisms                        |
-| Single commit flusher                     | Grouped commits reduce coordination cost, but memtable application is serialized                    |
-| Single compaction task                    | Storage maintenance can become a throughput bottleneck under sustained ingestion                    |
-| Synchronous point reads and iteration     | Native I/O can block the calling thread; `get_async` is a separate point-read option                |
-| Temporal reads inspect retained versions  | Historical lookups can become expensive for version-heavy keys                                      |
-| Prefix-only value-log reclamation         | Long-lived values can pin substantial amounts of obsolete disk space                                |
-| Long-open mutating transactions           | Commit-ring retention can grow without a defined bound                                              |
-| Storage-level transactions only           | No built-in query planner, schema engine, or generalized index maintenance                          |
-| No native distributed coordination        | Replication, leader election, consensus, and distributed transactions are external responsibilities |
-| Recovery may explicitly refuse corruption | Data-preserving failure can require human intervention rather than silent repair                    |
-| Restore is non-atomic                     | Interruption detection exists, but the restore operation is not itself atomic                       |
-| Browser support has distinct guarantees   | OPFS format, durability, storage quotas, and feature availability differ from native deployments    |
+The normal commit path accumulates mutations in the transaction write set, validates them, records the transaction in the WAL, and applies the accepted batch to a mutable memtable. Once a memtable fills, it is rotated and subsequently flushed to an SSTable.
 
-Two additional points deserve emphasis.
+An oversized batch creates a different problem: if the batch cannot fit in an empty memtable, rotating memtables cannot resolve the condition.
 
-First, a failed commit is not necessarily a proven non-commit. The whitepaper documents that, after certain WAL synchronization failures, a commit that returned an error can still take effect on the next open. That creates an important uncertainty boundary for non-idempotent operations: callers cannot universally interpret every commit error as proof that the operation had no effect.
+SurrealKV handles this by allowing the commit pipeline to write the batch directly into a Level 0 SSTable.
 
-Second, the 1.0 version number does not imply a frozen storage format. The upstream documentation explicitly warns that its on-disk formats are not yet frozen. This is significant when assessing upgrade compatibility, long-term archive readability, and independently recoverable backups.
+Relevant internal mechanisms include:
 
-Source: `https://surrealdb.com/static/whitepapers/surrealkv.pdf`, §§12 and 16; `https://github.com/surrealdb/surrealkv`, Transparent Data Encryption.&#x20;
+- `CommitPipeline::write_direct_to_l0`
+- `CoreInner::write_batch_direct_to_l0_sst`
+- `ApplyStop::Oversized`
+- `ApplyStop::ArenaFull { empty: true }`
 
-[image](https://www.google.com/s2/favicons?domain=https://surrealdb.com\&sz=32)
+The commit pipeline distinguishes a memtable that merely lacks remaining capacity from a batch that would not fit even after rotation.
 
-surrealdb.com
+In the former case, it rotates the memtable and retries insertion. In the latter, it takes the direct-to-L0 path.
 
-+2
+This is more than a large-value optimization. It allows the engine to accommodate certain large atomic write batches without imposing the configured memtable size as a hard maximum transaction size.
 
+The path remains part of the coordinated commit and recovery machinery. It does not bypass the engine's transaction semantics simply because the batch is written directly into persistent table storage.
 
+There are several important limits:
 
-## 13. Rust packaging and minimal API example
+WAL representation remains bounded. `Error::BatchTooLarge` is returned when an encoded transaction batch exceeds the WAL record representation's `u32::MAX` size limit. Memtable bypass does not remove that limit.
 
-The 1.0 crate specifies Rust 1.86 as its minimum supported Rust version and uses the Rust 2021 edition. The default Cargo feature set includes encryption.
+Direct insertion has different write costs. Constructing an SSTable requires sorted table generation, filesystem operations, and manifest changes. This avoids holding an oversized batch in a memtable but is not necessarily faster than ordinary buffered writes.
 
-A minimal native integration uses the `TreeBuilder` and transactional API directly:
+The path changes compaction pressure. Direct insertion adds L0 storage, potentially increasing overlap and triggering subsequent compaction.
+
+Memory requirements are not eliminated. The transaction write set, encoded batch, and table-construction machinery can still consume substantial memory.
+
+The capability is particularly useful for understanding why SurrealKV can accept batches larger than its nominal memtable capacity, and why write performance may change discontinuously for unusually large transactions.
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/ring/pipeline.rs`
+
+### 1.2 Commit-group sizing and write amplification
+
+SurrealKV also limits how many accepted transactions its flusher gathers into one commit group.
+
+The internal `MAX_GROUP_BYTES` constant is 4 MiB in version 1.3. This is a commit-group aggregation target, not a maximum individual transaction size. An individual large batch can be handled separately.
+
+The flusher additionally accounts for estimated memtable consumption through `group_est_budget(max_memtable_size)`.
+
+This budget has a consequential recovery and write-amplification purpose.
+
+When a commit group spans several memtable rotations, its transactions may need to be reconciled with WAL segment changes. Without bounding the group's estimated memory requirements, repeated rotation and re-logging of outstanding batches can cause unexpectedly high WAL write amplification.
+
+The implementation's comments describe an earlier pathological case where accumulated small commits resulted in repeated rotations and approximately 40-fold WAL rewriting.
+
+The group budget helps constrain the number of rotations and the amount of re-logging that can arise from one group.
+
+Thus the commit pipeline manages several different resource quantities:
+
+| Quantity                         | What it controls                                               |
+| -------------------------------- | -------------------------------------------------------------- |
+| Encoded WAL batch size           | Whether an individual transaction can be represented           |
+| Commit-group byte budget         | How many transactions can be aggregated                        |
+| Memtable size estimate           | Whether batches can fit into mutable storage                   |
+| Direct-to-L0 path                | How to handle batches exceeding memtable capacity              |
+| WAL segment availability         | Whether accepted operations can be safely logged and recovered |
+| L0 and immutable-memtable counts | Whether writers must be paced or stalled                       |
+
+This is a useful distinction when analyzing high-concurrency write performance. A single configuration such as `max_memtable_size` does not govern all ingestion limits or buffering decisions.
+
+### 1.3 Proactive pacing and hard write stalls
+
+The original overview described write stalls as backpressure that occurs when the number of immutable memtables or L0 SSTables reaches a threshold.
+
+The implementation also includes proactive write pacing before certain hard thresholds are reached.
+
+`WriteStallController` maintains separate soft and hard thresholds for immutable memtables and L0 files.
+
+When the storage system approaches a hard threshold, it can introduce short asynchronous delays proportional to the excess above the soft threshold.
+
+At the hard threshold, the writer waits for flushing or compaction to reduce pressure.
+
+This creates a two-stage mechanism:
+
+1. Gradually moderate write throughput while storage pressure is increasing.
+2. Stop admitting further writes at the relevant hard limit until maintenance makes progress.
+
+The actual soft thresholds depend on configured hard limits. With the default memtable stall limit of two, there is effectively no separate pre-stall interval for immutable memtables; the L0 threshold provides a more meaningful pacing interval.
+
+The controller also requests relevant background work when entering a hard stall. This avoids relying solely on a previously issued flush or compaction notification.
+
+The result is a coordinated feedback mechanism rather than a simple global writer lock.
+
+The engine exposes `WriteStallInfo`, including the reason, triggering count, threshold, and duration. The controller also defines `WriteStallCounts`-related structures and interfaces internally, although these should not be confused with a fully exposed runtime policy plug-in.
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/stall.rs`
+
+## 2. Temporal storage and history semantics
+
+### 2.1 Range tombstones establish history-erasing boundaries
+
+An especially important property of `Transaction::delete_range(start, end)` is that it does more than hide currently visible values.
+
+In a versioned database, a committed range deletion logically erases the prior history of keys within the half-open interval `[start, end)`.
+
+This is consistent with the semantics of an individual hard delete, rather than a collection of soft deletes.
+
+Consider these committed versions:
+
+| Key | Timestamp | Value |
+| --- | --------- | ----- |
+| `a` | 100       | `a1`  |
+| `b` | 100       | `b1`  |
+| `b` | 200       | `b2`  |
+| `c` | 100       | `c1`  |
+| `d` | 100       | `d1`  |
+
+Suppose a transaction commits:
 
 ```
-use surrealkv::{Durability, TreeBuilder};
+tx.delete_range(b"b", b"d")?;
+tx.commit().await?;
+```
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let tree = TreeBuilder::new()
-        .with_path("data/store".into())
-        .build()?;
+Afterwards, `get_at(b"b", 150)` and `get_at(b"b", 250)` both return `None`, even with unlimited historical retention.
 
-    {
-        let mut tx = tree.begin()?;
-        tx.set(b"item:001", b"payload")?;
-        tx.set_durability(Durability::Immediate);
-        tx.commit().await?;
-    }
+The history of `c` is similarly erased, while `a` and `d` remain unaffected.
 
-    {
-        let tx = tree.begin()?;
-        let value = tx.get(b"item:001")?;
-        assert_eq!(value.as_deref(), Some(b"payload".as_slice()));
-    }
+A subsequent write to `c` establishes a new readable version, without reinstating the earlier history.
 
-    tree.close().await?;
-    Ok(())
+The upstream tests verify this behavior across unflushed memtables, SSTables, and compaction.
+
+This gives SurrealKV two distinct temporal-deletion models:
+
+- Soft delete: Creates a timestamped state transition while retaining eligible earlier versions.
+- Hard delete or range delete: Invalidates previous history for the affected key or interval.
+
+For workloads requiring historical reconstruction, this distinction is fundamental. A range tombstone should not be treated as equivalent to individually issuing soft deletes for every key.
+
+The operation remains O(1) at the logical insertion stage, but preserving correct visibility and eventually reclaiming underlying storage requires additional work during reads and compaction.
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/test/versioning_tests.rs`
+
+### 2.2 Point-in-time lookup is not point-in-time range scanning
+
+The historical API is asymmetric.
+
+`get_at(key, timestamp)` retrieves the applicable value for one key at a requested time. `get_many_at(keys, timestamp)` extends that operation to a known collection of keys.
+
+`history(start, end)` and `history_with_options` instead enumerate historical versions in key order, including potentially multiple versions of each key.
+
+There is no separate public `scan_at` or `range_at` method in version 1.3 that directly returns one historically applicable value per key over an arbitrary range.
+
+This matters because two tasks that might appear identical at the query level require different operations:
+
+Historical point lookup: The engine selects the applicable version internally.
+
+Historical range reconstruction: The caller must inspect historical versions and select the applicable state for each key.
+
+A history iterator with timestamp filtering is not automatically equivalent to a snapshot at the end of that interval.
+
+For example, requesting only versions with timestamps between 200 and 300 can omit a value written at 100 that remained valid throughout that period.
+
+To reconstruct state at time 300, the relevant earlier version may be necessary even though its timestamp lies outside the requested interval.
+
+Likewise, soft-deletion tombstones must be considered when determining whether a key exists at the selected time.
+
+The historical-iteration interface supports these operations at the storage level, but does not provide a declarative temporal range-query planner.
+
+### 2.3 Historical ordering, commit order, and equal timestamps
+
+SurrealKV's temporal model distinguishes internal sequence numbers from application-visible timestamps.
+
+Internal sequence numbers determine transaction snapshot visibility and the ordering of committed changes.
+
+Historical timestamps determine which version applies to a requested time.
+
+These orderings may differ because `set_at` permits an explicitly supplied timestamp, including one earlier than previously committed versions.
+
+Within the history iterator, keys are ordered by key, and versions for a key are ordered by descending timestamp. Where multiple writes have the same timestamp, newer writes take precedence.
+
+The implementation also handles uncommitted writes that have not yet received their commit timestamp. These are represented at `u64::MAX` during history iteration until committed.
+
+An explicit timestamp of zero is a sentinel requesting the commit timestamp; it is not interpreted as a literal historical event at Unix time zero.
+
+These details affect whether history can be interpreted as a business-event chronology, a transaction chronology, or a correction history. SurrealKV supplies the versioning machinery, but it does not enforce a particular interpretation of application-supplied times.
+
+### 2.4 Logical-clock implementation
+
+The internal `DefaultLogicalClock` is designed to produce monotonically increasing `u64` timestamps while limiting the cost of obtaining the current time.
+
+On native platforms, it combines an estimated Unix timestamp with a monotonic elapsed-time source, periodically resynchronizing the reference to system time.
+
+An atomic compare-and-swap loop ensures that a timestamp returned by the clock is greater than its previously issued value, even when the current wall-clock estimate has not advanced sufficiently.
+
+Browser builds use a different path because they cannot rely on the same background clock thread.
+
+The relevant distinction is monotonicity within the clock implementation, not a documented globally synchronized timestamp oracle across independent databases or machines.
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/clock.rs`
+
+## 3. Concurrency, commit failure, and transaction lifecycle
+
+### 3.1 Snapshot validation is not predicate locking
+
+SurrealKV's optimistic concurrency control primarily validates conflicts involving concrete keys.
+
+`Transaction::get_for_update` adds a key to the commit-time validation set. A concurrent transaction that commits a write to that key after the reader's snapshot can cause the reader's commit to fail with `TransactionWriteConflict`.
+
+However, this mechanism does not establish exclusive ownership of the key. Two transactions can both call `get_for_update` on the same key without conflicting merely because they read it.
+
+Furthermore, key-based validation is not equivalent to predicate locking.
+
+Consider two transactions enforcing a condition over every key within a range. They might independently read the same snapshot, then write different keys. Without a shared written record or equivalent conflict dependency, they can both succeed while violating a cross-key invariant.
+
+The same caution applies to assumptions about concurrent range deletions and writes. The existence of range tombstones does not establish a general serializable range-locking facility.
+
+The important architectural boundary is that SurrealKV provides snapshot isolation plus explicit key-level validation. It does not expose a generalized serializable predicate transaction mode.
+
+### 3.2 A commit attempt is terminal
+
+`Transaction::commit()` permanently closes the transaction when an attempt begins, before awaiting the commit pipeline.
+
+The implementation does this deliberately so that a cancelled commit future cannot simply be resumed or submitted again with the same transaction state.
+
+After a successful or failed commit attempt, subsequent operations on that transaction return `TransactionClosed`.
+
+This creates a distinction between retrying an operation and retrying the same transaction object.
+
+A write conflict generally requires starting a new transaction, rereading relevant state, reconstructing changes, and attempting another commit.
+
+A commit whose outcome is indeterminate requires a different response: the caller cannot necessarily assume that the transaction had no effect.
+
+### 3.3 Commit failure categories
+
+SurrealKV's error types distinguish several materially different conditions.
+
+| Error                      | Meaning                                                                                    | Consequence                                                              |
+| -------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `TransactionWriteConflict` | Conflicting write detected during optimistic validation                                    | A new transaction can attempt the logical operation again                |
+| `TransactionRetry`         | Conflict history is insufficient to validate an older transaction                          | Reconstruct the operation using a fresh snapshot                         |
+| `PipelineStall`            | The commit pipeline cannot currently proceed                                               | Does not by itself establish that an interrupted operation had no effect |
+| `DatabaseStopped`          | A serious failure stopped the database, potentially after partial commit-group application | Affected commit outcomes may require reopening and recovery to establish |
+| `DatabasePoisoned`         | The engine has already been stopped by an earlier failure                                  | The new operation was not started                                        |
+| `ManifestWriteUncertain`   | Manifest replacement reached a stage where the durable outcome is uncertain                | Storage state cannot be inferred solely from the returned error          |
+| `RestoreInterrupted`       | A restore began modifying the database but did not complete                                | The directory may contain an incomplete replacement state                |
+
+These distinctions matter when a storage transaction has consequences outside SurrealKV.
+
+For example, an application may issue a transaction that records completion of an external action. If the commit returns an indeterminate error, blindly repeating that external action can create duplicates.
+
+SurrealKV supplies detailed storage-state errors, but it cannot resolve the correctness of external side effects. Applications may need operation identifiers, idempotency, or reconciliation when an effect can outlive the task that initiated it.
+
+### 3.4 Commit-ring retirement and conflict-history garbage collection
+
+An advanced part of the commit pipeline is its conflict-history retirement mechanism.
+
+Each writable transaction registers an active-transaction guard and captures a commit window. The commit ring retains information needed to determine whether intervening transactions wrote overlapping keys.
+
+The pipeline can eventually retire completed entries that no longer need to be examined by active transactions.
+
+This involves several internal mechanisms, including active-transaction tracking, ring sequence numbers, retirement watermarks, overflow entries, and incremental reclamation of retired entries.
+
+The design balances two requirements:
+
+Correctness: A transaction must not lose access to the conflict information required to validate its snapshot.
+
+Bounded resource use: The engine should not retain every completed transaction's conflict metadata indefinitely.
+
+If a transaction becomes too old relative to the available validation history, SurrealKV can return `TransactionRetry` rather than guessing that the transaction is conflict-free.
+
+This is distinct from MVCC's retention of historical key values. The commit ring retains information for conflict detection, while the LSM retains data needed by readers and historical queries.
+
+The two mechanisms have different reclamation conditions.
+
+### 3.5 WAL recovery can decide the outcome of failed commits
+
+The commit pipeline takes care not to publish a partially applied commit group as successfully visible.
+
+When a group fails after some data has been applied, SurrealKV can stop further commits and preserve the WAL records needed for recovery.
+
+On reopening, recovery determines which committed records are restored and which incomplete operations are discarded.
+
+In certain failure scenarios, a commit that returned an error may nevertheless become effective following recovery if its records reached the WAL. Conversely, a failure before a batch was accepted may have no durable effects.
+
+This distinction is why the engine cannot promise that every failed commit is equivalent to a rollback.
+
+The WAL recovery and commit-group healing code also coordinates segment replacement, preservation of segments needed by outstanding batches, and cleanup of unapplied groups.
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/ring/pipeline.rs`
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/error.rs`
+
+## 4. Read-path and iterator API distinctions
+
+### 4.1 Asynchronous point reads are an execution option, not a different consistency model
+
+`Transaction::get_async` provides a point-read operation whose result follows the same transaction visibility rules as `get`.
+
+It checks the transaction's pending writes and range deletions before consulting the stored snapshot.
+
+The primary distinction is how blocking storage work can be scheduled.
+
+SurrealKV uses `affinitypool` for selected I/O operations when a suitable worker pool has been installed by the hosting application.
+
+Without that integration, the relevant work may execute inline.
+
+The library does not use Linux `io_uring` for this path.
+
+Consequently, `get_async` should not automatically be assumed to provide nonblocking operating-system I/O or lower latency than `get`.
+
+It can instead be valuable for isolating blocking point reads from an application's asynchronous task execution.
+
+This also differs from `get_many`: batched reads reduce repeated capture of tree state, whereas `get_async` principally changes the execution context for individual reads.
+
+No general-purpose asynchronous range iterator is exposed by the version 1.3 public API.
+
+### 4.2 Correction: transaction-level `seek` accepts raw user keys
+
+The previous overview incorrectly generalized the generic `LSMIterator` trait's encoded-key requirement to transaction iterators.
+
+At the generic trait level, `seek` is documented in terms of encoded internal keys.
+
+However, `TransactionRangeIterator::seek` and `TransactionHistoryIterator::seek` accept raw user-key bytes and construct the required internal seek representation themselves.
+
+For example:
+
+```
+use surrealkv::LSMIterator;
+
+let mut iter = tx.range(b"a", b"z")?;
+
+iter.seek(b"m")?;
+
+while iter.valid() {
+    let key = iter.key().user_key();
+    let value = iter.value()?;
+
+    // Process key and value.
+
+    iter.next()?;
 }
 ```
 
-This small example captures several design characteristics: the tree is the independently managed storage instance, writes are buffered in transactions, commit is asynchronous, read operations use a transaction snapshot, and durability can be chosen for the transaction.
+The transaction iterator handles the internal sequence-number trailer required for positioning.
 
-Source: `https://github.com/surrealdb/surrealkv/blob/v1.0.0/Cargo.toml` and `https://github.com/surrealdb/surrealkv`.
+The distinction is between a generic low-level iterator contract and the behavior of the particular public iterator implementation returned by transaction operations.
 
-## 14. Primary-source research map
+This correction should replace the earlier guidance suggesting that callers must encode user keys before seeking these transaction iterators.
 
-The following are direct URLs, with their principal contents, suitable for use independently of this overview.
+### 4.3 Encoded values versus resolved values
 
-| Source                                                                   | Coverage                                                                                       |
-| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| Versioned 1.0 whitepaper                                                 | Architecture, commit ring, MVCC, SSTables, retention, compaction, recovery, limits, benchmarks |
-| `https://surrealdb.com/static/whitepapers/surrealkv.pdf`                 |                                                                                                |
-| Upstream repository and README                                           | Public feature summary, examples, encryption, CLI, migration, browser support                  |
-| `https://github.com/surrealdb/surrealkv`                                 |                                                                                                |
-| Tagged 1.0.0 source                                                      | Version-specific implementation for verifying APIs and behavior                                |
-| `https://github.com/surrealdb/surrealkv/tree/v1.0.0`                     |                                                                                                |
-| Rust API reference                                                       | `Tree`, `Transaction`, `TreeBuilder`, options, iterators, public traits and error types        |
-| `https://docs.rs/surrealkv/1.0.0/surrealkv/`                             |                                                                                                |
-| Tagged crate root                                                        | Public exports, core options, extension traits, configuration defaults                         |
-| `https://github.com/surrealdb/surrealkv/blob/v1.0.0/src/lib.rs`          |                                                                                                |
-| Core transaction implementation                                          | Snapshot reads, conflict handling, savepoints and write semantics                              |
-| `https://github.com/surrealdb/surrealkv/blob/v1.0.0/src/transaction.rs`  |                                                                                                |
-| Storage engine implementation                                            | Tree lifecycle, persistence and background operations                                          |
-| `https://github.com/surrealdb/surrealkv/blob/v1.0.0/src/lsm.rs`          |                                                                                                |
-| Release announcement                                                     | Design rationale, performance positioning, planned SurrealDB integration                       |
-| `https://surrealdb.com/blog/we-are-replacing-rocksdb-with-surrealkv-1-0` |                                                                                                |
-| Published crate                                                          | Dependency metadata, releases and feature flags                                                |
-| `https://crates.io/crates/surrealkv`                                     |                                                                                                |
+The `LSMIterator` interface exposes several ways to access a value, but they are not semantically identical.
 
-Version-research caution: The repository contains older architectural documentation that describes skiplist memtables, different commit arrangements, older WAL recovery behavior, and VLog mechanisms that do not accurately describe the 1.0 implementation. The tagged 1.0 source and October 2026 whitepaper are preferable where they conflict with those earlier documents. Similarly, search-engine caches of `docs.rs/latest` may still expose 0.21.x documentation; verify the displayed crate version before relying on an API description.
+| Method                     | Behavior                                                                         |
+| -------------------------- | -------------------------------------------------------------------------------- |
+| `value_encoded()`          | Retrieves raw stored bytes, which can contain a value-log pointer representation |
+| `value_ref()`              | Resolves the logical value and returns `Cow<[u8]>`                               |
+| `value_into(&mut Vec<u8>)` | Copies the resolved value into a caller-supplied reusable buffer                 |
+| `value()`                  | Returns an owned logical value                                                   |
 
-## 15. Architectural synthesis
+`value_ref()` can return borrowed bytes for inline values or values already held in the transaction's write set.
 
-SurrealKV's fundamental value comes from combining mechanisms that are often implemented separately in storage-backed applications.
+When a value must be retrieved from the value log, it may return owned bytes instead.
 
-Its native transaction model, WAL, ordered LSM storage, snapshot tracking, and historical version retention can support an application-defined persistent data model without requiring the caller to build those foundational mechanisms. The same ordered keyspace can hold primary records, secondary-index entries, transactional metadata, and historical records, with consistency across those structures managed by storage transactions.
+This distinction is particularly important when optimizing scans involving many values.
 
-The distinction from conventional embedded key/value libraries is especially visible in three combinations:
+A borrowed encoded value is not necessarily equivalent to the application's actual value. Code operating on `value_encoded()` must understand whether the storage representation includes metadata or an external value reference.
 
-Concurrent durable writes: Optimistic transactions plus the commit ring plus group synchronization provide atomic multi-key writes while amortizing durability costs across concurrent writers.
+`value_into()` provides an alternative when the caller needs owned data but wants to reuse allocation capacity across iterator steps.
 
-Temporal persistent state: MVCC sequence ordering plus value timestamps plus retention-aware compaction permit historical reads without a separate history index or mandatory event-log subsystem.
+Thus SurrealKV exposes several opportunities to control copying without forcing all scans through the same owned-buffer interface.
 
-Adaptable storage efficiency: Leveled compaction plus configurable caching and compression plus optional value separation allow workloads to trade memory, CPU, disk bandwidth, latency, and persistent space against one another.
+### 4.4 Iterator direction changes and re-anchoring
 
-These benefits are conditional. Snapshot isolation is insufficient for some invariants, temporal lookups become increasingly expensive with large histories, and value separation may have unfavorable garbage-collection behavior. The engine's intentionally constrained background and commit pipelines also define scaling limits that more configuration alone cannot remove.
+The lower-level iterator trait includes two unusual methods:
 
-SurrealKV 1.0 is therefore best understood as a capable, transactionally consistent Rust storage kernel with distinctive strengths in concurrent durable writes and temporal key/value data—not as a general substitute for SurrealDB, a relational engine, or a distributed database.
+`reanchor_first()` and `reanchor_last()`
+
+These exist because a merged iterator can contain multiple child iterators, and changing traversal direction may require repositioning a child that is no longer valid.
+
+A normal `seek_first` or `seek_last` expresses a new traversal. By contrast, re-anchoring expresses continuation of the traversal already in progress.
+
+This distinction is consequential when the iterator maintains state beyond its current position.
+
+For example, a history iterator with a result limit must preserve the number of entries it has already returned when an internal direction change requires repositioning.
+
+If repositioning incorrectly resets that limit, the traversal could return more entries than allowed.
+
+SurrealKV's `HistoryIterator` overrides re-anchoring behavior to preserve its result budget.
+
+This is primarily an internal correctness mechanism rather than an application feature, but it explains why the iterator abstraction is more sophisticated than an ordinary bidirectional cursor.
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/lib.rs`
+
+### 4.5 `get_with_options` currently ignores `ReadOptions`
+
+SurrealKV exposes:
+
+```
+tx.get_with_options(key, &options)
+```
+
+In version 1.3, the parameter is named `_options` in the implementation and is not used.
+
+The method behaves as an ordinary point read; supplying lower and upper iteration bounds does not change the lookup.
+
+Those bounds are meaningful in `range_with_options` and related range-iteration operations.
+
+This is an example of an API whose signature suggests greater functionality than its current implementation provides.
+
+The documentation should not imply that `get_with_options` currently supports configurable point-read policies, caching modes, timestamp selection, or other read behavior.
+
+### 4.6 Genuine prefix scans require bounded key intervals
+
+A range expression such as:
+
+```
+tx.scan(b"order:"..)?
+```
+
+starts at `order:` but continues through every subsequent key in the comparator's order.
+
+It is not automatically constrained to keys beginning with `order:`.
+
+For a true bytewise prefix scan, an exclusive upper bound can be constructed by incrementing the last non-`0xFF` byte of the prefix and removing the following bytes.
+
+For example, the bytewise prefix `order:` has an exclusive upper boundary of `order;`.
+
+The scan can then operate over the half-open range `[b"order:", b"order;")`.
+
+When the prefix consists entirely of `0xFF` bytes, no finite higher bytewise-prefix boundary exists, and the scan must use an unbounded upper range or another termination condition.
+
+Custom comparators can change the relationship between byte prefixes and key order. Any prefix-boundary algorithm must therefore be consistent with the configured comparator.
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/transaction.rs`
+
+## 5. SSTable encoding and extensibility
+
+### 5.1 Prefix compression within SSTable blocks
+
+In addition to optional Snappy or Zstandard block compression, SurrealKV uses key-prefix encoding within SSTable data blocks.
+
+An entry stores the number of key bytes shared with the preceding entry, its remaining key suffix, and its value.
+
+This reduces repeated storage of common key prefixes.
+
+For example, consecutive keys such as `customer:000001`, `customer:000002`, and `customer:000003` share most of their bytes.
+
+Instead of storing the complete key every time, the block can encode the shared prefix length and only the changing suffix.
+
+The relevant entry representation is conceptually:
+
+```
+shared_prefix_length
+unshared_suffix_length
+value_length
+key_suffix
+value
+```
+
+However, prefix encoding introduces a problem for random seeks: decoding a key can depend on the preceding key.
+
+SurrealKV addresses this with restart points.
+
+At a restart point, the complete key is stored without reference to the preceding entry. A restart-point index allows an iterator to locate a nearby starting position and reconstruct only a limited sequence of keys.
+
+The public configuration option is:
+
+`Options::with_block_restart_interval(interval)`
+
+The default is 16 entries between restarts.
+
+Smaller intervals increase the frequency of complete keys, which can increase block size but reduce reconstruction work.
+
+Larger intervals increase opportunities for prefix compression while potentially requiring more sequential decoding within a block.
+
+This mechanism is particularly relevant when the workload uses long structured keys with repeated prefixes.
+
+It operates independently of general-purpose block compression; both mechanisms can reduce stored bytes, but through different techniques.
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/sstable/block.rs`
+
+### 5.2 The full custom comparator contract
+
+The `Comparator` trait exposes four operations:
+
+| Method                | Responsibility                                     |
+| --------------------- | -------------------------------------------------- |
+| `compare(a, b)`       | Define ordering of user keys                       |
+| `separator(from, to)` | Construct a valid separator between key boundaries |
+| `successor(key)`      | Construct a key greater than the supplied key      |
+| `name()`              | Identify the comparator implementation             |
+
+A custom comparator can make a keyspace follow an ordering other than the default bytewise order.
+
+The advanced requirement is that separator and successor operations must remain consistent with the comparator's ordering.
+
+For example, a separator must not cause an SSTable index to omit keys that would otherwise fall within a lookup interval.
+
+Similarly, changing the comparator used to interpret an existing on-disk database can invalidate assumptions embedded in SSTable ordering and index boundaries.
+
+A comparator should therefore be treated as part of the persistent keyspace design, not a casually interchangeable runtime policy.
+
+The implementation's `name()` identifies the comparator, but the presence of that method should not be treated as proof that every comparator change is detected or automatically migrated.
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/comparator.rs`
+
+### 5.3 Hash-based membership-filter construction
+
+The `FilterPolicy` extension interface supports more than building a filter from complete keys.
+
+It provides `key_hash` and `create_filter_from_hashes`, allowing an SSTable builder to retain compact hash values instead of keeping complete raw keys for the entire filter partition.
+
+This can reduce temporary memory consumption during filter construction, particularly when keys are large.
+
+The contract is strict: creating a filter from the hash of each key must produce the same encoded filter as creating it directly from those keys.
+
+The `filter_keys_per_partition` method additionally estimates how many keys can fit within a target filter-partition size.
+
+That helps the table builder partition membership filters without using one constant memory allocation strategy for every possible filter implementation.
+
+A custom policy must also preserve the usual membership-filter guarantee: false positives are permitted, but false negatives are not.
+
+A false negative can cause the storage engine to skip an SSTable containing the requested key, potentially returning an incorrect result.
+
+Finally, SurrealKV's `RibbonFilter` implementation uses cache-line-blocked membership probes. Despite its name, it should not be assumed to implement the precise same algorithm or representation as RocksDB's Ribbon filter.
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/sstable/ribbon.rs`
+
+### 5.4 Compression operates at multiple storage layers
+
+The original overview discussed level-specific SSTable compression. A further distinction concerns compression of other persistent structures.
+
+SurrealKV's public SSTable `CompressionType` exposes `None`, `SnappyCompression`, and `ZstdCompression`.
+
+The WAL subsystem has its own compression representation and contains LZ4 support.
+
+These are different storage components with different formats and configuration surfaces.
+
+In particular, the WAL's internal LZ4 compression support should not be interpreted as a public `Options` method that enables LZ4 compression throughout the database.
+
+For SSTables, `with_compression_per_level` also has an important inheritance rule: if the supplied vector contains fewer entries than the number of LSM levels, the final specified compression type is used for subsequent levels.
+
+This permits concise policies such as uncompressed L0 storage with Snappy compression at every deeper level.
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/wal/mod.rs`
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/lib.rs`
+
+## 6. Compaction scheduling and value-log reclamation
+
+### 6.1 Background compaction scoring
+
+SurrealKV's automatic leveled compaction strategy assigns scores to storage levels.
+
+For L0, the score considers both the number of files relative to the compaction trigger and the total bytes relative to the base-level size.
+
+For deeper levels, it considers the level's total bytes relative to its configured target size.
+
+The engine then selects a level requiring compaction based on these scores.
+
+There is an important exception: when L0 reaches its hard write-stall threshold, its compaction score is elevated to ensure that L0 compaction takes precedence over ordinary lower-level maintenance.
+
+This prevents the compactor from repeatedly choosing a different overfull level while writers remain stalled waiting for L0 space.
+
+The internal compaction strategy also supports several file-selection priorities:
+
+`OldestSmallestSeqFirst`, `OldestLargestSeqFirst`, and `ByCompensatedSize`.
+
+The default is `ByCompensatedSize`.
+
+That strategy considers file size adjusted for the number of deletion records, prioritizing files where compaction may reclaim obsolete data.
+
+However, a significant distinction must be preserved: although `CompactionPriority` is exported, the constructor for selecting a custom priority is internal and test-only in version 1.3.
+
+There is no corresponding public builder option for arbitrary background compaction-priority selection.
+
+Thus these variants describe implemented strategies, not three generally available application-level tuning modes.
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/compaction/leveled.rs`
+
+### 6.2 Reference floors protect value-log files
+
+Value-log garbage collection must coordinate with the LSM's changing set of references.
+
+SurrealKV tracks the oldest value-log file still referenced by persistent tables, active memtables, and immutable memtables awaiting flush.
+
+It also accounts for in-flight commit groups whose values have been written to the value log but have not yet been registered in a memtable or SSTable.
+
+This last detail is particularly important.
+
+Without a protection mechanism for those unregistered values, a concurrent cleanup could remove a value-log segment while a commit was still in the process of publishing references to it.
+
+SurrealKV maintains a separate unregistered reference floor associated with in-flight groups and combines it with the floor derived from registered storage structures.
+
+A value-log file is eligible for reclamation only when the relevant references and pins no longer require it.
+
+This is a useful example of native mechanisms that eliminate the need for applications to coordinate ordinary value-log segment lifetimes themselves.
+
+It does not guarantee immediate reclamation when a large value is deleted. Obsolete values can remain until compaction and value-log cleanup establish that their containing files are no longer referenced.
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/lsm.rs`
+
+## 7. Encryption key lifecycle
+
+### 7.1 `Tree::prepare_keys()` and external key providers
+
+The original overview covered the `KeyManager` abstraction but did not explain the engine-level method:
+
+`Tree::prepare_keys()`
+
+The method requests preparation of the active root key and other root keys needed by the database.
+
+This matters when using an external key-management service or hardware-backed key provider.
+
+The `KeyManager` contract separates potentially slow key preparation from critical-path key lookup.
+
+`prepare()` can retrieve and cache the required root keys, while `root_key()`, `active_key_id()`, and `key_state()` are expected to respond without waiting for network or disk operations.
+
+When the active key changes, `Tree::prepare_keys()` allows the database to prepare the new root before a subsequent storage operation needs it.
+
+The same mechanism can help after a transient key-provider availability failure.
+
+For example, a provider-backed manager might change its active key ID, retrieve the associated root from a remote KMS, cache it, and then permit the engine to create new encrypted storage files using that root.
+
+This is different from requiring each storage-file creation to synchronously contact the external key service.
+
+The method is implemented in 1.3 but marked `#[doc(hidden)]`, with upstream documentation explicitly indicating that its interface has not yet been finalized.
+
+It is therefore a real capability but not one that should be presented as a fully stable, long-term public API.
+
+### 7.2 Key rotation is not immediate database-wide re-encryption
+
+A related distinction is that changing the active encryption key affects newly written files.
+
+Existing SSTables, WAL segments, value-log files, and checkpoints remain dependent on the root keys under which they were created until their contents are rewritten or those files are removed.
+
+This is why the `KeyState::DecryptOnly` state exists.
+
+An old key cannot safely be retired merely because a newer key has become active.
+
+`Tree::encryption_status()` and `inspect::encryption_report()` provide information about file coverage by key ID, supporting assessment of which historical keys are still required.
+
+The `Tree` method and related types are also marked as not having fully settled public shapes.
+
+This makes SurrealKV's encryption model more advanced than a single immutable encryption key, while retaining important key-lifecycle responsibilities outside the storage engine.
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/tde/keys.rs`
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/lsm.rs`
+
+## 8. Memory, configuration, and observability boundaries
+
+### 8.1 Hardware auto-tuning is an explicit heuristic
+
+`autotune::auto_tune_options` and `HardwareProfile::tune_options` provide helpers for calculating initial memory-related configuration.
+
+On native platforms, `HardwareProfile::detect` uses available CPU parallelism and estimates memory as approximately 1 GiB per detected core, with a 4 GiB minimum.
+
+It does not discover the machine's actual installed or currently available physical RAM.
+
+The resulting memory estimate is used to derive a proposed memtable size and block-cache capacity.
+
+The tuning function is explicitly invoked with an `Options` value. It is not a continuously running adaptive storage controller.
+
+This matters when the runtime environment has memory limits that differ substantially from the inferred core-based capacity, such as containers with constrained RAM allocations.
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/autotune.rs`
+
+### 8.2 `MemoryController` does not imply strict global memory enforcement
+
+SurrealKV exposes a `MemoryController` with atomic counters for several memory categories, including active memtables, immutable memtables, the block cache, and commit-ring buffers.
+
+It also provides `dynamic_cache_target`, which calculates a block-cache target based on remaining accounting budget.
+
+However, inspection of the tagged 1.3 implementation did not identify calls to `dynamic_cache_target` outside its module.
+
+The method's existence therefore does not establish that SurrealKV continuously resizes the live block cache whenever its write buffers grow.
+
+Likewise, `MemoryController::total_used()` is a sum of tracked categories. It is not necessarily equivalent to the process's total resident memory.
+
+The implementation's comments describe stronger memory-budget goals than should be inferred from the verified integration.
+
+It is more accurate to describe SurrealKV as having memory-accounting machinery, configurable memtable and cache budgets, and storage backpressure—not a universally enforced, adaptive process-memory cap.
+
+### 8.3 Telemetry primitives versus automatically populated metrics
+
+`telemetry::FlightRecorder` and `LatencyHistogram` are publicly accessible types.
+
+They provide atomic counters and exponential latency buckets intended for low-overhead instrumentation.
+
+However, the tagged source does not show `FlightRecorder` being constructed and populated as a universally integrated component of the running engine.
+
+The types are implemented, but that does not establish the existence of a fully populated engine metrics registry, automatic latency collection, or a native metrics-export service.
+
+The more reliable distinction is between:
+
+| Mechanism                                                          | Availability in 1.3                      |
+| ------------------------------------------------------------------ | ---------------------------------------- |
+| `tracing` instrumentation in storage paths                         | Implemented                              |
+| Public atomic telemetry structures                                 | Implemented                              |
+| Engine background-error reporting                                  | Implemented                              |
+| Programmatic storage inspection                                    | Implemented                              |
+| Automatically populated `FlightRecorder` exposed from every `Tree` | Not established by the inspected source  |
+| Native Prometheus or OpenTelemetry exporter                        | Not part of the documented SurrealKV API |
+
+This distinction avoids mistaking available instrumentation building blocks for an end-to-end observability integration.
+
+Sources:
+
+`https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/memory.rs`
+
+`https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/telemetry.rs`
+
+### 8.4 Configuration validation and default-value documentation
+
+`Options::validate()` checks several configuration invariants before the engine opens storage.
+
+It rejects a zero LSM level count, an immutable-memtable stall threshold below two, and an L0 stall threshold smaller than the configured L0 compaction trigger.
+
+It also checks address-space limitations on memtable arena allocation, notably for 32-bit targets.
+
+The public options provide flexibility, but not every numeric setting represents a valid or safely allocatable configuration.
+
+One documentation inconsistency is worth noting.
+
+The comment associated with `with_flush_on_close` describes a default of `false`, while the actual `Options::default()` implementation sets `flush_on_close: true`.
+
+For version 1.3, the default implementation is the authoritative behavior.
+
+The `TreeBuilder::build_with_options` and `build_with_options_async` variants can also return the supplied configuration alongside the opened tree.
+
+For encrypted databases, the builder documentation clarifies that these are the caller's supplied options rather than necessarily the internal resolved encryption context associated with the opened database.
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/lib.rs`
+
+## 9. Crash simulation, filesystem durability, and restoration
+
+### 9.1 In-memory crash simulation
+
+The in-memory filesystem is particularly interesting because it reuses the pooled-filesystem design employed by browser storage.
+
+Rather than being merely a volatile map of files, the testing implementation distinguishes written data from synchronized data.
+
+`FileSystem::simulate_crash(mode)` can construct a new in-memory filesystem representing the state that would remain after a simulated crash.
+
+This enables deterministic tests of storage recovery without repeatedly terminating processes or manipulating actual disk files.
+
+The implementation also includes hidden testing methods for truncating files, appending data, inspecting file names, and obtaining pool-mount reports.
+
+These allow tests to construct specific failure conditions, including incomplete records and partially persisted filesystem metadata.
+
+The distinction between test support and public product functionality is important: `simulate_crash` and several associated types are marked `#[doc(hidden)]`.
+
+They are implemented in version 1.3 but should not be treated as guaranteed stable APIs for application use.
+
+### 9.2 Pooled-filesystem durability fixes in version 1.3
+
+The 1.3 release fixed two problems in its pooled filesystem.
+
+The first concerned a rename operation whose metadata-header write failed. Before the fix, a later synchronization could make the attempted new name durable despite the earlier operation having failed.
+
+The second concerned a superseded file slot. Its free-header state was not always flushed when the slot was released, allowing an obsolete file to reappear after a crash as though it were the replacement's valid content.
+
+Both are examples of why durability involves more than flushing the bytes of an individual value.
+
+File identity, renaming, allocation metadata, and the ordering of persistent updates also determine whether recovery reconstructs the intended database state.
+
+These changes are especially relevant to the OPFS and in-memory pooled-filesystem implementations. They should not be generalized into claims about unrelated native filesystem behavior.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://github.com\&sz=32)
+
+GitHub
+
+
+
+### 9.3 Interrupted checkpoint restoration
+
+Checkpoint restoration is a multi-stage state replacement.
+
+The restore path coordinates with ongoing commits, memtable flushes, compaction, WAL rotation, and value-log state.
+
+If restoration fails after beginning to replace database files, the directory may no longer represent either the original database or the complete checkpoint.
+
+The `RestoreInterrupted` error makes this condition explicit.
+
+An important consequence is that a restore cannot always be treated as an atomic file-pointer swap whose failure leaves the previous state untouched.
+
+The library includes recovery markers and validation intended to prevent an incomplete restore from being silently interpreted as an ordinary, healthy database.
+
+This is a separate failure category from a normal transaction conflict or an unsuccessful read.
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/checkpoint.rs`
+
+Source: `https://github.com/surrealdb/surrealkv/blob/v1.3.0/src/vfs/mod.rs`
+
+## 10. Security advisory: internal-key decoding
+
+A relevant security advisory was issued on November 6, 2026:
+
+RUSTSEC-2026-0452 — Out-of-bounds read when decoding internal keys shorter than the required encoded representation.
+
+The advisory describes a memory-safety vulnerability involving `InternalKeyRef::from_encoded`.
+
+Earlier versions exposed a safe constructor whose accessors assumed that the supplied encoded key had sufficient length.
+
+For malformed short input, unchecked length arithmetic could produce invalid offsets and out-of-bounds memory reads in release builds.
+
+The issue could also be reached through malformed or corrupted SSTable data reaching the decoding path.
+
+Affected package: `surrealkv`
+
+Fixed in 1.2.0+
+
+RustSec severity: High, CVSS 7.9. The fix validates encoded-key lengths and bounds-checks relevant accessors.
+
+SurrealKV 1.3.0 includes this fix. The advisory is not evidence of an unresolved vulnerability in the audited release.
+
+The architectural lesson is that on-disk checksums and storage-format validation are related but separate concerns. Integrity checks can identify corrupted blocks, while safe decoding must remain robust even when unexpected or malformed bytes reach an internal parser.&#x20;
+
+[image](https://www.google.com/s2/favicons?domain=https://rustsec.org\&sz=32)
+
+rustsec.org
+
+
+
+Advisory: `https://rustsec.org/advisories/RUSTSEC-2026-0452`
+
+Upstream fix: `https://github.com/surrealdb/surrealkv/commit/ac642f945d63c9c9f7ad35f480995fd516f83fb6`
+
+## 11. Synthesis: what these additions change
+
+The most consequential additions refine three aspects of SurrealKV's capability model.
+
+First, the write path is more adaptive than a conventional buffered LSM description suggests. SurrealKV coordinates commit grouping, memtable capacity estimation, large-batch direct-to-L0 insertion, proactive pacing, WAL segment management, and recovery protection. These mechanisms collectively address workloads with highly variable transaction sizes and concurrent write pressure. They do not remove resource limits, but they significantly expand the engine's behavior beyond a fixed memtable-to-SSTable pipeline.
+
+Second, the temporal and concurrency models require precise interpretation. Historical point lookup, version enumeration, snapshot isolation, commit validation, range tombstones, and retention are separate facilities. Their interactions determine whether previous states remain reconstructible and whether concurrent operations can preserve application invariants. In particular, range deletion's history-erasing behavior and the absence of a dedicated historical range-snapshot API are important distinctions.
+
+Third, SurrealKV exposes advanced integration mechanisms at different stability levels. Custom comparators, membership-filter policies, encryption key management, inspection utilities, and manual compaction provide genuine extension and operational capabilities. Other mechanisms—such as simulated crashes, certain encryption-status methods, compaction-priority variants, memory-control helpers, and telemetry structures—are implemented without necessarily being fully integrated or supported as stable public configuration surfaces.
+
+Taken together, these findings strengthen the original overview in two ways: they identify additional native mechanisms that can replace application-specific storage infrastructure, and they establish clearer boundaries around what SurrealKV guarantees versus what a caller must implement or verify.
+
+The original guide's principal capability map remains valid. With these additions and corrections incorporated, it offers a substantially more complete reference to SurrealKV 1.3's advanced Rust functionality without needing to enumerate every internal API.
