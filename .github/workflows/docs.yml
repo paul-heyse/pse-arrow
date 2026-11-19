@@ -53,7 +53,7 @@ jobs:
         id: docs-tools
         run: echo "tools=$(scripts/cargo-bin/cargo-pse-correctness run -p xtask --bin xtask --no-default-features --locked -- docs tool-specs)" >> "$GITHUB_OUTPUT"
       - name: Install documentation tools
-        uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
+        uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: ${{ steps.docs-tools.outputs.tools }}
       - name: ADR index is current
